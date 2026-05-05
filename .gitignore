@@ -4,5 +4,7 @@ dist/
 .npm-cache/
 .tmp/
 coverage/
+playwright-report/
+test-results/
 vite*.log
 *.local
