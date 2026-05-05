@@ -66,6 +66,32 @@ describe("read console pages", () => {
     expect(await screen.findByText("Synthesis Body.")).toBeInTheDocument();
   });
 
+  it("refreshes the selected wiki page body from the header action", async () => {
+    const client = createMockClient();
+    let bodyReads = 0;
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/wiki/pages") {
+        return Promise.resolve(wikiPagesFixture);
+      }
+      if (path.startsWith("/v1/wiki/pages/")) {
+        bodyReads += 1;
+        const selectedPath = decodeURIComponent(path.replace("/v1/wiki/pages/", ""));
+        return Promise.resolve({
+          ...wikiPageBodiesFixture[selectedPath],
+          body: bodyReads === 1 ? "Original Body." : "Updated Body."
+        });
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    expect(await screen.findByText("Original Body.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "刷新 Wiki 列表" }));
+
+    expect(await screen.findByText("Updated Body.")).toBeInTheDocument();
+  });
+
   it("loads wisdom items and refetches when filters change", async () => {
     const client = createMockClient();
     client.get.mockResolvedValue(wisdomItemsFixture);
@@ -130,6 +156,37 @@ describe("read console pages", () => {
     const finalDetails = screen.getByText("Raw final event").closest("details");
     expect(finalDetails).not.toHaveAttribute("open");
     expect(within(screen.getByText("Event tape").closest("section") as HTMLElement).getByText("#4")).toBeInTheDocument();
+  });
+
+  it("refreshes the open task event tape from the header action", async () => {
+    const client = createMockClient();
+    const refreshedEvents: TaskEvent[] = [
+      ...taskEventsFixture.slice(0, -1),
+      {
+        type: "log",
+        seq: 4,
+        ts: "2026-05-05T09:37:26Z",
+        level: "INFO",
+        message: "events refreshed"
+      },
+      { ...taskEventsFixture[taskEventsFixture.length - 1], seq: 5 }
+    ];
+    client.get.mockResolvedValue(taskRowsFixture);
+    client.streamTaskEvents
+      .mockImplementationOnce(() => createAsyncEvents(taskEventsFixture))
+      .mockImplementationOnce(() => createAsyncEvents(refreshedEvents));
+
+    render(<TasksPage client={client} />);
+    await screen.findByRole("heading", { name: "eval" });
+
+    await userEvent.click(screen.getByRole("button", { name: /Load events/ }));
+    expect(await screen.findByText("4 events")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "刷新任务" }));
+
+    expect(await screen.findByText(/events refreshed/)).toBeInTheDocument();
+    expect(screen.getByText("5 events")).toBeInTheDocument();
+    expect(client.streamTaskEvents).toHaveBeenCalledTimes(2);
   });
 
   it("renders scan progress with an unknown total as an indeterminate count", async () => {

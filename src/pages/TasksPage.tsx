@@ -24,6 +24,7 @@ export function TasksPage({ client }: TasksPageProps) {
   const [eventsError, setEventsError] = useState<unknown>(null);
   const [following, setFollowing] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
+  const eventTapeTaskIdRef = useRef<string | null>(null);
 
   const load = useCallback(
     (signal: AbortSignal) =>
@@ -58,6 +59,7 @@ export function TasksPage({ client }: TasksPageProps) {
     cancelFollow();
     const controller = new AbortController();
     controllerRef.current = controller;
+    eventTapeTaskIdRef.current = row.task_id;
     setSelectedId(row.task_id);
     setEvents([]);
     setEventsError(null);
@@ -88,6 +90,13 @@ export function TasksPage({ client }: TasksPageProps) {
     cancelFollow();
   }
 
+  function refreshTasks() {
+    tasks.reload();
+    if (selected && isTerminalTask(selected.status) && eventTapeTaskIdRef.current === selected.task_id) {
+      void follow(selected);
+    }
+  }
+
   return (
     <div className="page-stack">
       <header className="page-header">
@@ -95,7 +104,7 @@ export function TasksPage({ client }: TasksPageProps) {
           <p className="eyebrow">Tasks</p>
           <h1>任务查看</h1>
         </div>
-        <button className="icon-button" type="button" onClick={tasks.reload} aria-label="刷新任务">
+        <button className="icon-button" type="button" onClick={refreshTasks} aria-label="刷新任务">
           <RefreshCw size={18} />
         </button>
       </header>
@@ -130,6 +139,7 @@ export function TasksPage({ client }: TasksPageProps) {
                   type="button"
                   onClick={() => {
                     cancelFollow();
+                    eventTapeTaskIdRef.current = null;
                     setSelectedId(task.task_id);
                     setEvents([]);
                     setEventsError(null);

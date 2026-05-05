@@ -19,6 +19,7 @@ export function WikiPage({ client }: WikiPageProps) {
   const [page, setPage] = useState<WikiPageResponse | null>(null);
   const [pageError, setPageError] = useState<unknown>(null);
   const [pageLoading, setPageLoading] = useState(false);
+  const [pageReloadId, setPageReloadId] = useState(0);
 
   const loadPages = useCallback(
     (signal: AbortSignal) => client.get<DocumentRecord[]>("/v1/wiki/pages", { signal, params: { active: true } }),
@@ -71,7 +72,14 @@ export function WikiPage({ client }: WikiPageProps) {
         }
       });
     return () => controller.abort();
-  }, [client, selectedPath]);
+  }, [client, pageReloadId, selectedPath]);
+
+  function refreshWiki() {
+    pages.reload();
+    if (selectedPath) {
+      setPageReloadId((value) => value + 1);
+    }
+  }
 
   function openWikiLink(target: string) {
     const normalized = target.replace(/\\/g, "/").replace(/^wiki\//, "");
@@ -94,7 +102,7 @@ export function WikiPage({ client }: WikiPageProps) {
           <p className="eyebrow">Wiki</p>
           <h1>知识库</h1>
         </div>
-        <button className="icon-button" type="button" onClick={pages.reload} aria-label="刷新 Wiki 列表">
+        <button className="icon-button" type="button" onClick={refreshWiki} aria-label="刷新 Wiki 列表">
           <RefreshCw size={18} />
         </button>
       </header>
