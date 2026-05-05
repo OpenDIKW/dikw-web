@@ -46,8 +46,16 @@ export function TasksPage({ client }: TasksPageProps) {
     }
   }, [selectedId, tasks.data]);
 
-  async function follow(row: TaskRow) {
+  useEffect(() => () => controllerRef.current?.abort(), []);
+
+  function cancelFollow() {
     controllerRef.current?.abort();
+    controllerRef.current = null;
+    setFollowing(false);
+  }
+
+  async function follow(row: TaskRow) {
+    cancelFollow();
     const controller = new AbortController();
     controllerRef.current = controller;
     setSelectedId(row.task_id);
@@ -56,22 +64,28 @@ export function TasksPage({ client }: TasksPageProps) {
     setFollowing(true);
     try {
       for await (const event of client.streamTaskEvents(row.task_id, undefined, controller.signal)) {
+        if (controllerRef.current !== controller) {
+          break;
+        }
         setEvents((value) => [...value, event]);
         if (event.type === "final") {
           break;
         }
       }
     } catch (nextError) {
-      if (!controller.signal.aborted) {
+      if (!controller.signal.aborted && controllerRef.current === controller) {
         setEventsError(nextError);
       }
     } finally {
-      setFollowing(false);
+      if (controllerRef.current === controller) {
+        controllerRef.current = null;
+        setFollowing(false);
+      }
     }
   }
 
   function stopFollow() {
-    controllerRef.current?.abort();
+    cancelFollow();
   }
 
   return (
@@ -115,6 +129,7 @@ export function TasksPage({ client }: TasksPageProps) {
                   key={task.task_id}
                   type="button"
                   onClick={() => {
+                    cancelFollow();
                     setSelectedId(task.task_id);
                     setEvents([]);
                     setEventsError(null);

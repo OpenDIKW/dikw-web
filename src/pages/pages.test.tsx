@@ -21,7 +21,7 @@ import {
   wisdomItemsFixture
 } from "../test/fixtures";
 import { createMockClient } from "../test/mockClient";
-import type { TaskEvent } from "../types";
+import type { TaskEvent, TaskRow } from "../types";
 
 describe("read console pages", () => {
   it("loads overview status from the client", async () => {
@@ -164,4 +164,85 @@ describe("read console pages", () => {
     expect(await screen.findByText("已扫描 42 · 总量未知")).toBeInTheDocument();
     expect(screen.queryByText("42/0")).not.toBeInTheDocument();
   });
+
+  it("keeps completed task event loading available while another task is being followed", async () => {
+    const client = createMockClient();
+    const mixedRows: TaskRow[] = [
+      {
+        task_id: "synth-running-1",
+        op: "synth",
+        status: "running",
+        created_at: "2026-05-05T10:00:00Z",
+        started_at: "2026-05-05T10:00:01Z",
+        finished_at: null,
+        params_digest: "running",
+        result: null,
+        error: null
+      },
+      {
+        task_id: "ingest-done-1",
+        op: "ingest",
+        status: "succeeded",
+        created_at: "2026-05-05T09:00:00Z",
+        started_at: "2026-05-05T09:00:01Z",
+        finished_at: "2026-05-05T09:00:03Z",
+        params_digest: "done",
+        result: { scanned: 1, added: 1 },
+        error: null
+      }
+    ];
+    const runningEvents: TaskEvent[] = [
+      {
+        type: "progress",
+        seq: 1,
+        ts: "2026-05-05T10:00:02Z",
+        phase: "synth",
+        current: 1,
+        total: 3
+      }
+    ];
+    const doneEvents: TaskEvent[] = [
+      {
+        type: "task_started",
+        seq: 1,
+        ts: "2026-05-05T09:00:01Z",
+        task_id: "ingest-done-1",
+        op: "ingest"
+      },
+      {
+        type: "final",
+        seq: 2,
+        ts: "2026-05-05T09:00:03Z",
+        status: "succeeded",
+        result: { scanned: 1, added: 1 },
+        error: null
+      }
+    ];
+    client.get.mockResolvedValue(mixedRows);
+    client.streamTaskEvents.mockImplementation((taskId: string) =>
+      taskId === "synth-running-1" ? createPendingEvents(runningEvents) : createAsyncEvents(doneEvents)
+    );
+
+    render(<TasksPage client={client} />);
+    expect(await screen.findByRole("heading", { name: "synth" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Follow/ }));
+    expect(await screen.findByText("1 events")).toBeInTheDocument();
+    await userEvent.click(screen.getByText("ingest-done-1").closest("button") as HTMLElement);
+
+    const loadEvents = screen.getByRole("button", { name: /Load events/ });
+    expect(loadEvents).toBeEnabled();
+    await userEvent.click(loadEvents);
+
+    expect(await screen.findByText("2 events")).toBeInTheDocument();
+    expect(client.streamTaskEvents).toHaveBeenLastCalledWith("ingest-done-1", undefined, expect.any(AbortSignal));
+  });
 });
+
+async function* createPendingEvents<T>(events: T[]): AsyncGenerator<T> {
+  for (const event of events) {
+    await Promise.resolve();
+    yield event;
+  }
+  await new Promise(() => undefined);
+}
