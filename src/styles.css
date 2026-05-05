@@ -1208,10 +1208,12 @@ textarea:focus {
   background: color-mix(in srgb, var(--accent) 72%, white);
 }
 
+.progress-bar--scan {
+  background: linear-gradient(90deg, var(--accent) 0%, #dfe6e8 100%);
+}
+
 .progress-bar--scan span {
-  width: 34%;
-  background: linear-gradient(90deg, #163f37 0%, #5f7a73 56%, #c6cccf 100%);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  display: none;
 }
 
 .event-progress-heading {
