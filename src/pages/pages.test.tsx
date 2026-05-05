@@ -46,6 +46,44 @@ describe("read console pages", () => {
     expect(screen.getByText((_, element) => element?.textContent === "anthropic_compat · MiniMax-M2.7")).toBeInTheDocument();
   });
 
+  it("refreshes overview status from the header action", async () => {
+    const client = createMockClient();
+    let infoReads = 0;
+    let statusReads = 0;
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/info") {
+        infoReads += 1;
+        return Promise.resolve({
+          ...infoFixture,
+          engine_version: infoReads === 1 ? "0.0.1" : "0.0.2"
+        });
+      }
+      if (path === "/v1/readyz") {
+        return Promise.resolve(readyFixture);
+      }
+      if (path === "/v1/status") {
+        statusReads += 1;
+        return Promise.resolve({
+          ...statusFixture,
+          documents_by_layer: {
+            ...statusFixture.documents_by_layer,
+            source: statusReads === 1 ? 2 : 42
+          }
+        });
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<OverviewPage client={client} />);
+
+    expect(await screen.findByText("dikw-core 0.0.1")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "刷新概览" }));
+
+    expect(await screen.findByText("dikw-core 0.0.2")).toBeInTheDocument();
+    expect(screen.getByText("42")).toBeInTheDocument();
+    expect(client.get).toHaveBeenCalledTimes(6);
+  });
+
   it("loads wiki pages, renders markdown, and follows wikilinks", async () => {
     const client = createMockClient();
     client.get.mockImplementation((path: string) => {
