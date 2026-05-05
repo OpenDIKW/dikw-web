@@ -12,6 +12,8 @@ interface TasksPageProps {
   client: DikwClient;
 }
 
+type ProgressEvent = Extract<TaskEvent, { type: "progress" }>;
+
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
 
 export function TasksPage({ client }: TasksPageProps) {
@@ -218,18 +220,21 @@ function EventTape({ events, following, selected }: { events: TaskEvent[]; follo
 
 function EventBody({ event, op }: { event: TaskEvent; op: string }) {
   if (event.type === "progress") {
+    const detail = event.detail ? compactDetail(event.detail) : "";
+    const percentage = progressPercentage(event);
+    const progressLabel = formatProgressLabel(event);
+    const progressBarClass = `progress-bar ${percentage === null ? "progress-bar--indeterminate" : ""}`;
+
     return (
       <div>
         <div className="event-progress-heading">
           <strong>{event.phase}</strong>
-          {event.detail ? <span>{compactDetail(event.detail)}</span> : null}
+          {detail ? <span>{detail}</span> : null}
         </div>
-        <div className="progress-bar" aria-label={`${event.current}/${event.total}`}>
-          <span style={{ width: `${event.total ? Math.min(100, (event.current / event.total) * 100) : 0}%` }} />
+        <div className={progressBarClass} aria-label={progressLabel}>
+          <span style={percentage === null ? undefined : { width: `${percentage}%` }} />
         </div>
-        <small>
-          {event.current}/{event.total}
-        </small>
+        <small>{progressLabel}</small>
       </div>
     );
   }
@@ -253,6 +258,24 @@ function EventBody({ event, op }: { event: TaskEvent; op: string }) {
     return <p>{event.code}: {event.message}</p>;
   }
   return <p>{event.op}</p>;
+}
+
+function progressPercentage(event: ProgressEvent): number | null {
+  if (event.total <= 0) {
+    return null;
+  }
+  return Math.min(100, Math.max(0, (event.current / event.total) * 100));
+}
+
+function formatProgressLabel(event: ProgressEvent): string {
+  if (event.total > 0) {
+    return `${formatNumber(event.current)}/${formatNumber(event.total)}`;
+  }
+  if (event.current <= 0) {
+    return "等待统计 · 总量未知";
+  }
+  const verb = event.phase === "scan" ? "已扫描" : "已处理";
+  return `${verb} ${formatNumber(event.current)} · 总量未知`;
 }
 
 function TaskResultSummary({ op, result, compact = false }: { op: string; result: Record<string, unknown>; compact?: boolean }) {

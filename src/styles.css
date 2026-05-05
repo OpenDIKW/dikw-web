@@ -1202,6 +1202,23 @@ textarea:focus {
   background: var(--accent);
 }
 
+.progress-bar--indeterminate span {
+  width: 36%;
+  min-width: 42px;
+  animation: indeterminate-progress 1.4s ease-in-out infinite;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+
+@keyframes indeterminate-progress {
+  0% {
+    transform: translateX(-110%);
+  }
+
+  100% {
+    transform: translateX(290%);
+  }
+}
+
 .event-progress-heading {
   display: flex;
   align-items: baseline;
@@ -1215,6 +1232,13 @@ textarea:focus {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar--indeterminate span {
+    animation: none;
+    transform: none;
+  }
 }
 
 .final-event {

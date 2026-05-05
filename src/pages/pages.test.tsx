@@ -21,6 +21,7 @@ import {
   wisdomItemsFixture
 } from "../test/fixtures";
 import { createMockClient } from "../test/mockClient";
+import type { TaskEvent } from "../types";
 
 describe("read console pages", () => {
   it("loads overview status from the client", async () => {
@@ -129,5 +130,38 @@ describe("read console pages", () => {
     const finalDetails = screen.getByText("Raw final event").closest("details");
     expect(finalDetails).not.toHaveAttribute("open");
     expect(within(screen.getByText("Event tape").closest("section") as HTMLElement).getByText("#4")).toBeInTheDocument();
+  });
+
+  it("renders scan progress with an unknown total as an indeterminate count", async () => {
+    const client = createMockClient();
+    const zeroTotalScanEvents: TaskEvent[] = [
+      {
+        type: "progress",
+        seq: 1,
+        ts: "2026-05-05T09:37:12Z",
+        phase: "scan",
+        current: 0,
+        total: 0
+      },
+      {
+        type: "progress",
+        seq: 2,
+        ts: "2026-05-05T09:37:15Z",
+        phase: "scan",
+        current: 42,
+        total: 0,
+        detail: { path: "sources/architecture.md" }
+      }
+    ];
+    client.get.mockResolvedValue(taskRowsFixture);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents(zeroTotalScanEvents));
+
+    render(<TasksPage client={client} />);
+    await screen.findByRole("heading", { name: "eval" });
+
+    await userEvent.click(screen.getByRole("button", { name: /Load events/ }));
+
+    expect(await screen.findByText("已扫描 42 · 总量未知")).toBeInTheDocument();
+    expect(screen.queryByText("42/0")).not.toBeInTheDocument();
   });
 });
