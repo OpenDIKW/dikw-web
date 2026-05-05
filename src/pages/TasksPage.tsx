@@ -223,7 +223,13 @@ function EventBody({ event, op }: { event: TaskEvent; op: string }) {
     const detail = event.detail ? compactDetail(event.detail) : "";
     const percentage = progressPercentage(event);
     const progressLabel = formatProgressLabel(event);
-    const progressBarClass = `progress-bar ${percentage === null ? "progress-bar--indeterminate" : ""}`;
+    const progressBarClass = [
+      "progress-bar",
+      percentage === null ? "progress-bar--indeterminate" : "",
+      percentage === null && event.phase === "scan" ? "progress-bar--scan" : ""
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     return (
       <div>
