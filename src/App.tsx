@@ -22,13 +22,13 @@ const serverKey = "dikw-web.serverUrl";
 const tokenKey = "dikw-web.token";
 
 const navItems = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "query", label: "Query", icon: MessageSquareText },
-  { id: "retrieve", label: "Retrieve", icon: Search },
-  { id: "wiki", label: "Wiki", icon: BookOpen },
-  { id: "wisdom", label: "Wisdom", icon: Gem },
-  { id: "tasks", label: "Tasks", icon: ListChecks }
-] satisfies Array<{ id: ViewId; label: string; icon: typeof LayoutDashboard }>;
+  { id: "overview", labelZh: "概览", labelEn: "Overview", icon: LayoutDashboard },
+  { id: "query", labelZh: "查询", labelEn: "Query", icon: MessageSquareText },
+  { id: "retrieve", labelZh: "检索", labelEn: "Retrieve", icon: Search },
+  { id: "wiki", labelZh: "知识库", labelEn: "Wiki", icon: BookOpen },
+  { id: "wisdom", labelZh: "智慧", labelEn: "Wisdom", icon: Gem },
+  { id: "tasks", labelZh: "任务", labelEn: "Tasks", icon: ListChecks }
+] satisfies Array<{ id: ViewId; labelZh: string; labelEn: string; icon: typeof LayoutDashboard }>;
 
 export function App() {
   const [activeView, setActiveView] = useState<ViewId>(() => viewFromHash());
@@ -89,7 +89,10 @@ export function App() {
                 onClick={() => openView(item.id)}
               >
                 <Icon size={18} aria-hidden="true" />
-                {item.label}
+                <span className="nav-item__label">
+                  <strong>{item.labelZh}</strong>
+                  <span>{item.labelEn}</span>
+                </span>
               </button>
             );
           })}

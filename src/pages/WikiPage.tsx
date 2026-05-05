@@ -92,7 +92,7 @@ export function WikiPage({ client }: WikiPageProps) {
       <header className="page-header">
         <div>
           <p className="eyebrow">Wiki</p>
-          <h1>知识页阅读</h1>
+          <h1>知识库</h1>
         </div>
         <button className="icon-button" type="button" onClick={pages.reload} aria-label="刷新 Wiki 列表">
           <RefreshCw size={18} />

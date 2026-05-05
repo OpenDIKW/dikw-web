@@ -36,17 +36,17 @@ export function WisdomPage({ client }: WisdomPageProps) {
     <div className="page-stack">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Wisdom</p>
-          <h1>Wisdom 查看</h1>
+          <p className="eyebrow">Wisdom Layer</p>
+          <h1>智慧沉淀</h1>
         </div>
-        <button className="icon-button" type="button" onClick={wisdom.reload} aria-label="刷新 Wisdom">
+        <button className="icon-button" type="button" onClick={wisdom.reload} aria-label="刷新智慧条目">
           <RefreshCw size={18} />
         </button>
       </header>
 
       <section className="panel filter-bar">
         <label className="field">
-          <span>Status</span>
+          <span>状态</span>
           <select value={status} onChange={(event) => setStatus(event.target.value as "" | WisdomStatus)}>
             {statuses.map((value) => (
               <option value={value} key={value || "all"}>
@@ -56,7 +56,7 @@ export function WisdomPage({ client }: WisdomPageProps) {
           </select>
         </label>
         <label className="field">
-          <span>Kind</span>
+          <span>类型</span>
           <select value={kind} onChange={(event) => setKind(event.target.value as "" | WisdomKind)}>
             {kinds.map((value) => (
               <option value={value} key={value || "all"}>
@@ -67,7 +67,7 @@ export function WisdomPage({ client }: WisdomPageProps) {
         </label>
       </section>
 
-      {wisdom.error ? <Notice title="无法读取 Wisdom" error={wisdom.error} /> : null}
+      {wisdom.error ? <Notice title="无法读取智慧条目" error={wisdom.error} /> : null}
 
       <section className="wisdom-grid">
         {(wisdom.data ?? []).map((item) => (
@@ -94,7 +94,7 @@ export function WisdomPage({ client }: WisdomPageProps) {
             </dl>
           </article>
         ))}
-        {!wisdom.loading && !(wisdom.data ?? []).length ? <EmptyState title="没有 Wisdom 项" /> : null}
+        {!wisdom.loading && !(wisdom.data ?? []).length ? <EmptyState title="暂无智慧条目" /> : null}
       </section>
     </div>
   );
