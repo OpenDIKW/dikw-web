@@ -9,10 +9,12 @@ import { WikiPage } from "./WikiPage";
 import { WisdomPage } from "./WisdomPage";
 import {
   createAsyncEvents,
+  healthFixture,
   infoFixture,
+  ingestFileErrorEventsFixture,
   queryEventsFixture,
-  readyFixture,
   retrieveEventsFixture,
+  sourcePagesFixture,
   statusFixture,
   taskEventsFixture,
   taskRowsFixture,
@@ -27,11 +29,11 @@ describe("read console pages", () => {
   it("loads overview status from the client", async () => {
     const client = createMockClient();
     client.get.mockImplementation((path: string) => {
+      if (path === "/v1/health") {
+        return Promise.resolve(healthFixture);
+      }
       if (path === "/v1/info") {
         return Promise.resolve(infoFixture);
-      }
-      if (path === "/v1/readyz") {
-        return Promise.resolve(readyFixture);
       }
       if (path === "/v1/status") {
         return Promise.resolve(statusFixture);
@@ -41,25 +43,30 @@ describe("read console pages", () => {
 
     render(<OverviewPage client={client} />);
 
-    expect(await screen.findByText("dikw-core 0.0.1")).toBeInTheDocument();
-    expect(screen.getByText("C:\\demo\\wiki")).toBeInTheDocument();
+    expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();
+    expect(screen.getByText("C:\\demo\\base")).toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.textContent === "anthropic_compat · MiniMax-M2.7")).toBeInTheDocument();
+    expect(within(screen.getByText("Wisdom").closest("section") as HTMLElement).getByText("4")).toBeInTheDocument();
   });
 
   it("refreshes overview status from the header action", async () => {
     const client = createMockClient();
-    let infoReads = 0;
+    let healthReads = 0;
     let statusReads = 0;
     client.get.mockImplementation((path: string) => {
-      if (path === "/v1/info") {
-        infoReads += 1;
+      if (path === "/v1/health") {
+        healthReads += 1;
         return Promise.resolve({
-          ...infoFixture,
-          engine_version: infoReads === 1 ? "0.0.1" : "0.0.2"
+          ...healthFixture,
+          version: healthReads === 1 ? "0.2.0" : "0.2.1",
+          layer_counts: {
+            ...healthFixture.layer_counts,
+            sources: healthReads === 1 ? 2 : 42
+          }
         });
       }
-      if (path === "/v1/readyz") {
-        return Promise.resolve(readyFixture);
+      if (path === "/v1/info") {
+        return Promise.resolve(infoFixture);
       }
       if (path === "/v1/status") {
         statusReads += 1;
@@ -76,22 +83,23 @@ describe("read console pages", () => {
 
     render(<OverviewPage client={client} />);
 
-    expect(await screen.findByText("dikw-core 0.0.1")).toBeInTheDocument();
+    expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "刷新概览" }));
 
-    expect(await screen.findByText("dikw-core 0.0.2")).toBeInTheDocument();
+    expect(await screen.findByText("dikw-core 0.2.1")).toBeInTheDocument();
     expect(screen.getByText("42")).toBeInTheDocument();
     expect(client.get).toHaveBeenCalledTimes(6);
   });
 
   it("loads wiki pages, renders markdown, and follows wikilinks", async () => {
     const client = createMockClient();
-    client.get.mockImplementation((path: string) => {
-      if (path === "/v1/wiki/pages") {
+    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
+      if (path === "/v1/base/pages") {
+        expect(options?.params).toEqual(expect.objectContaining({ active: true, layer: "wiki" }));
         return Promise.resolve(wikiPagesFixture);
       }
-      if (path.startsWith("/v1/wiki/pages/")) {
-        const selectedPath = decodeURIComponent(path.replace("/v1/wiki/pages/", ""));
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
         return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -100,20 +108,48 @@ describe("read console pages", () => {
     render(<WikiPage client={client} />);
 
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    expect(screen.getByText("wiki · 1 anchor")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Synthesis" }));
     expect(await screen.findByText("Synthesis Body.")).toBeInTheDocument();
+  });
+
+  it("browses source pages through the base pages layer filter", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve(options?.params?.layer === "source" ? sourcePagesFixture : wikiPagesFixture);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    await userEvent.selectOptions(screen.getByLabelText("Layer"), "source");
+
+    expect(await screen.findByText("Original source body.")).toBeInTheDocument();
+    expect(client.get).toHaveBeenCalledWith(
+      "/v1/base/pages",
+      expect.objectContaining({
+        params: expect.objectContaining({ active: true, layer: "source" })
+      })
+    );
   });
 
   it("refreshes the selected wiki page body from the header action", async () => {
     const client = createMockClient();
     let bodyReads = 0;
     client.get.mockImplementation((path: string) => {
-      if (path === "/v1/wiki/pages") {
+      if (path === "/v1/base/pages") {
         return Promise.resolve(wikiPagesFixture);
       }
-      if (path.startsWith("/v1/wiki/pages/")) {
+      if (path.startsWith("/v1/base/pages/")) {
         bodyReads += 1;
-        const selectedPath = decodeURIComponent(path.replace("/v1/wiki/pages/", ""));
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
         return Promise.resolve({
           ...wikiPageBodiesFixture[selectedPath],
           body: bodyReads === 1 ? "Original Body." : "Updated Body."
@@ -125,7 +161,7 @@ describe("read console pages", () => {
     render(<WikiPage client={client} />);
 
     expect(await screen.findByText("Original Body.")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "刷新 Wiki 列表" }));
+    await userEvent.click(screen.getByRole("button", { name: "刷新知识库" }));
 
     expect(await screen.findByText("Updated Body.")).toBeInTheDocument();
   });
@@ -194,6 +230,40 @@ describe("read console pages", () => {
     const finalDetails = screen.getByText("Raw final event").closest("details");
     expect(finalDetails).not.toHaveAttribute("open");
     expect(within(screen.getByText("Event tape").closest("section") as HTMLElement).getByText("#4")).toBeInTheDocument();
+  });
+
+  it("summarizes ingest file errors from partial events and final results", async () => {
+    const client = createMockClient();
+    const finalEvent = ingestFileErrorEventsFixture.find(
+      (event): event is Extract<TaskEvent, { type: "final" }> => event.type === "final"
+    );
+    const ingestRows: TaskRow[] = [
+      {
+        task_id: "ingest-task-1",
+        op: "ingest",
+        status: "succeeded",
+        created_at: "2026-05-05T09:37:11Z",
+        started_at: "2026-05-05T09:37:11Z",
+        finished_at: "2026-05-05T09:37:25Z",
+        params_digest: "ingest",
+        result: finalEvent?.result ?? null,
+        error: null
+      }
+    ];
+    client.get.mockResolvedValue(ingestRows);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents(ingestFileErrorEventsFixture));
+
+    render(<TasksPage client={client} />);
+
+    expect(await screen.findByRole("heading", { name: "ingest" })).toBeInTheDocument();
+    expect(screen.getByText("1 file error")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Load events/ }));
+
+    expect((await screen.findAllByText("File error")).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("parse_error").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("sources/broken.md").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("invalid YAML front matter").length).toBeGreaterThan(0);
   });
 
   it("refreshes the open task event tape from the header action", async () => {

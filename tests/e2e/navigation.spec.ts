@@ -9,7 +9,7 @@ test("loads overview and navigates with bilingual sidebar labels", async ({ page
   await page.goto("/#overview");
 
   await expect(page.getByRole("heading", { name: "工作台概览" })).toBeVisible();
-  await expect(page.getByText("dikw-core 0.0.1")).toBeVisible();
+  await expect(page.getByText("dikw-core 0.2.0")).toBeVisible();
   await expect(page.getByRole("button", { name: /概览\s+Overview/ })).toBeVisible();
 
   await page.getByRole("button", { name: /知识库\s+Wiki/ }).click();

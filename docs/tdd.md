@@ -9,6 +9,22 @@ This project uses a pragmatic red-green-refactor loop. Tests should describe use
 3. Refactor only while all tests are green.
 4. Run the smallest useful command while iterating, then `npm run verify` before committing.
 
+## Core Contract Changes
+
+When `dikw-core` changes its HTTP contract, adapt `dikw-web` as vertical
+behavior slices instead of one broad rewrite:
+
+1. Add or update one page-level test that describes the new user-visible
+   behavior through `DikwClient` calls and rendered UI.
+2. Update fixtures to the new wire shape used by that test.
+3. Change the smallest page/type/client code needed for that behavior.
+4. Run the target test, then repeat for the next endpoint or event shape.
+
+Prefer testing the rendered page contract over asserting internal helper
+names. Endpoint paths, request params, visible summaries, and error
+states are stable enough to test because they are the web app's public
+boundary with `dikw-core`.
+
 ## Commands
 
 - `npm run test:watch`: local red-green loop.

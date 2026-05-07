@@ -3,8 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
+  healthFixture,
   infoFixture,
-  readyFixture,
   statusFixture,
   wikiPageBodiesFixture,
   wikiPagesFixture,
@@ -28,17 +28,17 @@ function stubApi() {
       if (url.pathname === "/v1/info") {
         return jsonResponse(infoFixture);
       }
-      if (url.pathname === "/v1/readyz") {
-        return jsonResponse(readyFixture);
+      if (url.pathname === "/v1/health") {
+        return jsonResponse(healthFixture);
       }
       if (url.pathname === "/v1/status") {
         return jsonResponse(statusFixture);
       }
-      if (url.pathname === "/v1/wiki/pages") {
+      if (url.pathname === "/v1/base/pages") {
         return jsonResponse(wikiPagesFixture);
       }
-      if (url.pathname.startsWith("/v1/wiki/pages/")) {
-        const selectedPath = decodeURIComponent(url.pathname.replace("/v1/wiki/pages/", ""));
+      if (url.pathname.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(url.pathname.replace("/v1/base/pages/", ""));
         return jsonResponse(wikiPageBodiesFixture[selectedPath]);
       }
       if (url.pathname === "/v1/wisdom") {
@@ -61,7 +61,7 @@ describe("App shell", () => {
 
     expect(screen.getByText("概览")).toBeInTheDocument();
     expect(screen.getAllByText("Overview").length).toBeGreaterThan(0);
-    expect(await screen.findByText("dikw-core 0.0.1")).toBeInTheDocument();
+    expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /知识库Wiki/ }));
     expect(await screen.findByRole("heading", { name: "知识库" })).toBeInTheDocument();

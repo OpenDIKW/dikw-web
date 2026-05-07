@@ -5,7 +5,7 @@ import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
-import type { DocumentRecord, WikiPageResponse } from "../types";
+import type { DocumentRecord, Layer, PageReadResult } from "../types";
 import { getMarkdownTitle } from "../utils/markdown";
 import { formatUnixSeconds, truncateMiddle } from "../utils/format";
 
@@ -14,18 +14,19 @@ interface WikiPageProps {
 }
 
 export function WikiPage({ client }: WikiPageProps) {
+  const [layer, setLayer] = useState<"" | Extract<Layer, "source" | "wiki">>("wiki");
   const [filter, setFilter] = useState("");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
-  const [page, setPage] = useState<WikiPageResponse | null>(null);
+  const [page, setPage] = useState<PageReadResult | null>(null);
   const [pageError, setPageError] = useState<unknown>(null);
   const [pageLoading, setPageLoading] = useState(false);
   const [pageReloadId, setPageReloadId] = useState(0);
 
   const loadPages = useCallback(
-    (signal: AbortSignal) => client.get<DocumentRecord[]>("/v1/wiki/pages", { signal, params: { active: true } }),
-    [client]
+    (signal: AbortSignal) => client.get<DocumentRecord[]>("/v1/base/pages", { signal, params: { active: true, layer: layer || undefined } }),
+    [client, layer]
   );
-  const pages = useAsyncResource(loadPages, [client]);
+  const pages = useAsyncResource(loadPages, [client, layer]);
 
   const visiblePages = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -40,7 +41,11 @@ export function WikiPage({ client }: WikiPageProps) {
   }, [filter, pages.data]);
 
   useEffect(() => {
-    if (!selectedPath && visiblePages.length) {
+    if (!visiblePages.length) {
+      setSelectedPath(null);
+      return;
+    }
+    if (!selectedPath || !visiblePages.some((doc) => doc.path === selectedPath)) {
       setSelectedPath(visiblePages[0].path);
     }
   }, [selectedPath, visiblePages]);
@@ -54,7 +59,7 @@ export function WikiPage({ client }: WikiPageProps) {
     setPageLoading(true);
     setPageError(null);
     client
-      .get<WikiPageResponse>(`/v1/wiki/pages/${encodePath(selectedPath)}`, { signal: controller.signal })
+      .get<PageReadResult>(`/v1/base/pages/${encodePath(selectedPath)}`, { signal: controller.signal })
       .then((nextPage) => {
         if (!controller.signal.aborted) {
           setPage(nextPage);
@@ -102,7 +107,7 @@ export function WikiPage({ client }: WikiPageProps) {
           <p className="eyebrow">Wiki</p>
           <h1>知识库</h1>
         </div>
-        <button className="icon-button" type="button" onClick={refreshWiki} aria-label="刷新 Wiki 列表">
+        <button className="icon-button" type="button" onClick={refreshWiki} aria-label="刷新知识库">
           <RefreshCw size={18} />
         </button>
       </header>
@@ -111,6 +116,14 @@ export function WikiPage({ client }: WikiPageProps) {
 
       <section className="wiki-layout">
         <aside className="wiki-sidebar">
+          <label className="field">
+            <span>Layer</span>
+            <select value={layer} onChange={(event) => setLayer(event.target.value as "" | Extract<Layer, "source" | "wiki">)}>
+              <option value="wiki">wiki</option>
+              <option value="source">source</option>
+              <option value="">all</option>
+            </select>
+          </label>
           <label className="field">
             <span>Filter</span>
             <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="path 或 title" />
@@ -142,11 +155,14 @@ export function WikiPage({ client }: WikiPageProps) {
               <div className="reader-header">
                 <div>
                   <div className="reader-header__path">{page.path}</div>
-                  <h2>{getMarkdownTitle(page.body) || basename(page.path)}</h2>
+                  <h2>{page.title || getMarkdownTitle(page.body) || basename(page.path)}</h2>
                 </div>
-                <span className="soft-label">
-                  {formatUnixSeconds(pages.data?.find((doc) => doc.path === page.path)?.mtime)}
-                </span>
+                <div className="reader-header__meta">
+                  <span className="soft-label">{page.layer} · {formatAnchorCount(page.anchors.length)}</span>
+                  <span className="soft-label">
+                    {formatUnixSeconds(pages.data?.find((doc) => doc.path === page.path)?.mtime)}
+                  </span>
+                </div>
               </div>
               <MarkdownView body={page.body} onWikiLink={openWikiLink} />
             </>
@@ -165,4 +181,8 @@ function encodePath(path: string): string {
 
 function basename(path: string): string {
   return path.split("/").filter(Boolean).at(-1) ?? path;
+}
+
+function formatAnchorCount(count: number): string {
+  return `${count} ${count === 1 ? "anchor" : "anchors"}`;
 }

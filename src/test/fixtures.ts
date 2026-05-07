@@ -1,14 +1,14 @@
 import type {
   DocumentRecord,
+  HealthReport,
   Hit,
   InfoResponse,
+  PageReadResult,
   QueryStreamEvent,
-  ReadyResponse,
   RetrieveStreamEvent,
   StorageCounts,
   TaskEvent,
   TaskRow,
-  WikiPageResponse,
   WisdomItem
 } from "../types";
 
@@ -25,9 +25,45 @@ export const infoFixture: InfoResponse = {
   auth_required: false
 };
 
-export const readyFixture: ReadyResponse = {
-  status: "ready",
-  wiki_root: "C:\\demo\\wiki"
+export const healthFixture: HealthReport = {
+  status: "ok",
+  version: "0.2.0",
+  base_root: "C:\\demo\\base",
+  storage_engine: "sqlite",
+  layer_counts: {
+    sources: 2,
+    wiki_pages: 2,
+    wisdom_items: 4,
+    chunks: 31
+  },
+  providers: {
+    llm: {
+      provider: "anthropic_compat",
+      model: "MiniMax-M2.7",
+      base_url: "https://api.example.test/v1",
+      max_retries: 2,
+      max_tokens_query: 1024,
+      max_tokens_synth: 2048,
+      max_tokens_distill: 2048,
+      timeout_seconds: 60,
+      api_key_present: true
+    },
+    embedding: {
+      provider: "openai_compat",
+      model: "Qwen3-Embedding-0.6B",
+      base_url: "https://embeddings.example.test/v1",
+      dim: 1024,
+      revision: "",
+      normalize: true,
+      distance: "cosine",
+      batch_size: 96,
+      max_retries: 2,
+      timeout_seconds: 60,
+      provider_label: "gitee",
+      api_key_present: true,
+      multimodal: null
+    }
+  }
 };
 
 export const statusFixture: StorageCounts = {
@@ -64,14 +100,43 @@ export const wikiPagesFixture: DocumentRecord[] = [
   }
 ];
 
-export const wikiPageBodiesFixture: Record<string, WikiPageResponse> = {
+export const sourcePagesFixture: DocumentRecord[] = [
+  {
+    doc_id: "source-architecture",
+    path: "sources/architecture.md",
+    path_key: "sources/architecture.md",
+    title: "Architecture source",
+    hash: "hash-src-a",
+    mtime: 1777819100,
+    layer: "source",
+    active: true
+  }
+];
+
+export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
   "wiki/architecture.md": {
+    doc_id: "wiki-architecture",
     path: "wiki/architecture.md",
-    body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\n---\n\n# Architecture\n\nLayered DIKW notes.\n\nSee [[Synthesis]]."
+    layer: "wiki",
+    title: "Architecture",
+    body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\n---\n\n# Architecture\n\nLayered DIKW notes.\n\nSee [[Synthesis]].",
+    anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }]
   },
   "wiki/synthesis.md": {
+    doc_id: "wiki-synthesis",
     path: "wiki/synthesis.md",
-    body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body."
+    layer: "wiki",
+    title: "Synthesis",
+    body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body.",
+    anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }]
+  },
+  "sources/architecture.md": {
+    doc_id: "source-architecture",
+    path: "sources/architecture.md",
+    layer: "source",
+    title: "Architecture source",
+    body: "# Architecture source\n\nOriginal source body.",
+    anchors: [{ chunk_id: 201, seq: 1, start: 0, end: 38 }]
   }
 };
 
@@ -235,6 +300,49 @@ export const taskEventsFixture: TaskEvent[] = [
     ts: "2026-05-05T09:37:25Z",
     status: "succeeded",
     result: evalResultFixture,
+    error: null
+  }
+];
+
+export const ingestFileErrorEventsFixture: TaskEvent[] = [
+  {
+    type: "task_started",
+    seq: 1,
+    ts: "2026-05-05T09:37:11Z",
+    task_id: "ingest-task-1",
+    op: "ingest"
+  },
+  {
+    type: "partial",
+    seq: 2,
+    ts: "2026-05-05T09:37:12Z",
+    kind: "file_error",
+    payload: {
+      path: "sources/broken.md",
+      kind: "parse_error",
+      message: "invalid YAML front matter"
+    }
+  },
+  {
+    type: "final",
+    seq: 3,
+    ts: "2026-05-05T09:37:25Z",
+    status: "succeeded",
+    result: {
+      scanned: 2,
+      added: 1,
+      updated: 0,
+      unchanged: 0,
+      chunks: 1,
+      embedded: 0,
+      errors: [
+        {
+          path: "sources/broken.md",
+          kind: "parse_error",
+          message: "invalid YAML front matter"
+        }
+      ]
+    },
     error: null
   }
 ];

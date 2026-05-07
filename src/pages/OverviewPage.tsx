@@ -5,7 +5,7 @@ import { MetricCard } from "../components/MetricCard";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
 import { useAsyncResource } from "../hooks/useAsyncResource";
-import type { InfoResponse, ReadyResponse, StorageCounts } from "../types";
+import type { HealthReport, InfoResponse, StorageCounts } from "../types";
 import { formatNumber, formatUnixSeconds } from "../utils/format";
 
 interface OverviewPageProps {
@@ -13,20 +13,20 @@ interface OverviewPageProps {
 }
 
 interface OverviewData {
+  health: HealthReport;
   info: InfoResponse;
-  ready: ReadyResponse;
   status: StorageCounts;
 }
 
 export function OverviewPage({ client }: OverviewPageProps) {
   const load = useCallback(
     async (signal: AbortSignal): Promise<OverviewData> => {
-      const [info, ready, status] = await Promise.all([
+      const [health, info, status] = await Promise.all([
+        client.get<HealthReport>("/v1/health", { signal }),
         client.get<InfoResponse>("/v1/info", { signal }),
-        client.get<ReadyResponse>("/v1/readyz", { signal }),
         client.get<StorageCounts>("/v1/status", { signal })
       ]);
-      return { info, ready, status };
+      return { health, info, status };
     },
     [client]
   );
@@ -50,15 +50,15 @@ export function OverviewPage({ client }: OverviewPageProps) {
       <section className="overview-grid">
         <MetricCard
           label="Server"
-          value={data ? <StatusPill status={data.ready.status} /> : resource.loading ? "Loading" : "-"}
-          detail={data?.info.engine_version ? `dikw-core ${data.info.engine_version}` : undefined}
+          value={data ? <StatusPill status={data.health.status} /> : resource.loading ? "Loading" : "-"}
+          detail={data?.health.version ? `dikw-core ${data.health.version}` : undefined}
         />
-        <MetricCard label="Data" value={formatNumber(data?.status.documents_by_layer.source)} detail="source documents" />
-        <MetricCard label="Information" value={formatNumber(data?.status.chunks)} detail={`${formatNumber(data?.status.embeddings)} embeddings`} />
-        <MetricCard label="Knowledge" value={formatNumber(data?.status.documents_by_layer.wiki)} detail={`${formatNumber(data?.status.links)} links`} />
+        <MetricCard label="Data" value={formatNumber(data?.health.layer_counts.sources)} detail="source documents" />
+        <MetricCard label="Information" value={formatNumber(data?.health.layer_counts.chunks)} detail={`${formatNumber(data?.status.embeddings)} embeddings`} />
+        <MetricCard label="Knowledge" value={formatNumber(data?.health.layer_counts.wiki_pages)} detail={`${formatNumber(data?.status.links)} links`} />
         <MetricCard
           label="Wisdom"
-          value={formatNumber(data?.status.documents_by_layer.wisdom)}
+          value={formatNumber(data?.health.layer_counts.wisdom_items)}
           detail={`${formatNumber(data?.status.wisdom_by_status.candidate)} candidates`}
         />
         <MetricCard label="Assets" value={formatNumber(data?.status.assets)} detail={`${formatNumber(data?.status.asset_embeddings)} asset embeddings`} />
@@ -73,12 +73,12 @@ export function OverviewPage({ client }: OverviewPageProps) {
             </div>
             <dl className="detail-list">
               <div>
-                <dt>wiki root</dt>
-                <dd>{data.info.wiki_root}</dd>
+                <dt>base root</dt>
+                <dd>{data.health.base_root}</dd>
               </div>
               <div>
                 <dt>storage</dt>
-                <dd>{data.info.storage_backend}</dd>
+                <dd>{data.health.storage_engine}</dd>
               </div>
               <div>
                 <dt>last log</dt>
@@ -95,11 +95,11 @@ export function OverviewPage({ client }: OverviewPageProps) {
             <dl className="detail-list">
               <div>
                 <dt>LLM</dt>
-                <dd>{data.info.providers.llm} · {data.info.providers.llm_model}</dd>
+                <dd>{data.health.providers.llm.provider} · {data.health.providers.llm.model}</dd>
               </div>
               <div>
                 <dt>Embedding</dt>
-                <dd>{data.info.providers.embedding} · {data.info.providers.embedding_model}</dd>
+                <dd>{data.health.providers.embedding.provider} · {data.health.providers.embedding.model}</dd>
               </div>
               <div>
                 <dt>Auth</dt>

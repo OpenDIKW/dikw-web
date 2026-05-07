@@ -5,7 +5,7 @@ import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
 import { useAsyncResource } from "../hooks/useAsyncResource";
-import type { TaskEvent, TaskRow, TaskStatus } from "../types";
+import type { IngestError, TaskEvent, TaskRow, TaskStatus } from "../types";
 import { formatDuration, formatIso, formatNumber, formatScore, isTerminalTask } from "../utils/format";
 
 interface TasksPageProps {
@@ -273,6 +273,9 @@ function EventBody({ event, op }: { event: TaskEvent; op: string }) {
     return <p>{event.level}: {event.message}</p>;
   }
   if (event.type === "partial") {
+    if (event.kind === "file_error") {
+      return <FileErrorCard error={normalizeIngestError(event.payload)} />;
+    }
     return <JsonDetails summary={`partial · ${event.kind}`} value={event.payload} />;
   }
   if (event.type === "final") {
@@ -315,12 +318,19 @@ function TaskResultSummary({ op, result, compact = false }: { op: string; result
   }
 
   const entries = Object.entries(result).filter(([, value]) => typeof value !== "object" || value === null);
+  const ingestErrors = op === "ingest" ? getIngestErrors(result.errors) : [];
   return (
     <section className={`result-summary ${compact ? "result-summary--compact" : ""}`}>
       <div className="section-title">
         <span>Result</span>
       </div>
       <div className="summary-metrics">
+        {ingestErrors.length ? (
+          <div className="summary-metric summary-metric--warn">
+            <dt>file errors</dt>
+            <dd>{formatFileErrorCount(ingestErrors.length)}</dd>
+          </div>
+        ) : null}
         {entries.map(([key, value]) => (
           <div className="summary-metric" key={key}>
             <dt>{key}</dt>
@@ -328,6 +338,7 @@ function TaskResultSummary({ op, result, compact = false }: { op: string; result
           </div>
         ))}
       </div>
+      {ingestErrors.length ? <FileErrorList errors={ingestErrors} compact={compact} /> : null}
       <JsonDetails summary="Raw result JSON" value={result} />
     </section>
   );
@@ -411,6 +422,52 @@ function JsonDetails({ summary, value }: { summary: string; value: unknown }) {
       <pre>{JSON.stringify(value, null, 2)}</pre>
     </details>
   );
+}
+
+function FileErrorList({ errors, compact }: { errors: IngestError[]; compact?: boolean }) {
+  return (
+    <div className={`file-error-list ${compact ? "file-error-list--compact" : ""}`}>
+      {errors.slice(0, compact ? 2 : 8).map((error) => (
+        <FileErrorCard error={error} key={`${error.kind}-${error.path}-${error.message}`} />
+      ))}
+    </div>
+  );
+}
+
+function FileErrorCard({ error }: { error: IngestError }) {
+  return (
+    <div className="file-error-card">
+      <div className="file-error-card__title">
+        <strong>File error</strong>
+        <span>{error.kind}</span>
+      </div>
+      <div className="file-error-card__path">{error.path}</div>
+      <p>{error.message}</p>
+    </div>
+  );
+}
+
+function getIngestErrors(value: unknown): IngestError[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.map(normalizeIngestError).filter((error) => error.path || error.message);
+}
+
+function normalizeIngestError(value: unknown): IngestError {
+  if (!isRecord(value)) {
+    return { path: "-", kind: "parse_error", message: "Unknown file error" };
+  }
+  const kind = value.kind;
+  return {
+    path: String(value.path ?? "-"),
+    kind: kind === "read_error" || kind === "storage_error" || kind === "parse_error" ? kind : "parse_error",
+    message: String(value.message ?? "Unknown file error")
+  };
+}
+
+function formatFileErrorCount(count: number): string {
+  return `${formatNumber(count)} file ${count === 1 ? "error" : "errors"}`;
 }
 
 function compactDetail(detail: Record<string, unknown>): string {

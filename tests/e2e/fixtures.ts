@@ -11,7 +11,46 @@ export const infoFixture = {
   auth_required: false
 };
 
-export const readyFixture = { status: "ready", wiki_root: "C:\\demo\\wiki" };
+export const healthFixture = {
+  status: "ok",
+  version: "0.2.0",
+  base_root: "C:\\demo\\base",
+  storage_engine: "sqlite",
+  layer_counts: {
+    sources: 2,
+    wiki_pages: 2,
+    wisdom_items: 4,
+    chunks: 31
+  },
+  providers: {
+    llm: {
+      provider: "anthropic_compat",
+      model: "MiniMax-M2.7",
+      base_url: "https://api.example.test/v1",
+      max_retries: 2,
+      max_tokens_query: 1024,
+      max_tokens_synth: 2048,
+      max_tokens_distill: 2048,
+      timeout_seconds: 60,
+      api_key_present: true
+    },
+    embedding: {
+      provider: "openai_compat",
+      model: "Qwen3-Embedding-0.6B",
+      base_url: "https://embeddings.example.test/v1",
+      dim: 1024,
+      revision: "",
+      normalize: true,
+      distance: "cosine",
+      batch_size: 96,
+      max_retries: 2,
+      timeout_seconds: 60,
+      provider_label: "gitee",
+      api_key_present: true,
+      multimodal: null
+    }
+  }
+};
 
 export const statusFixture = {
   documents_by_layer: { source: 2, wiki: 2, wisdom: 1 },
@@ -47,14 +86,22 @@ export const wikiPagesFixture = [
   }
 ];
 
-export const wikiPageBodiesFixture: Record<string, { path: string; body: string }> = {
+export const wikiPageBodiesFixture = {
   "wiki/architecture.md": {
+    doc_id: "wiki-architecture",
     path: "wiki/architecture.md",
-    body: "---\ntitle: Architecture\ntags:\n- DIKW\n---\n\n# Architecture\n\nLayered DIKW notes.\n\nSee [[Synthesis]]."
+    layer: "wiki",
+    title: "Architecture",
+    body: "---\ntitle: Architecture\ntags:\n- DIKW\n---\n\n# Architecture\n\nLayered DIKW notes.\n\nSee [[Synthesis]].",
+    anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }]
   },
   "wiki/synthesis.md": {
+    doc_id: "wiki-synthesis",
     path: "wiki/synthesis.md",
-    body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body."
+    layer: "wiki",
+    title: "Synthesis",
+    body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body.",
+    anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }]
   }
 };
 

@@ -24,9 +24,64 @@ export interface InfoResponse {
   auth_required: boolean;
 }
 
-export interface ReadyResponse {
-  status: string;
-  wiki_root: string;
+export interface HealthReport {
+  status: "ok";
+  version: string;
+  base_root: string;
+  storage_engine: "sqlite" | "postgres";
+  layer_counts: LayerCounts;
+  providers: ProvidersInfo;
+}
+
+export interface LayerCounts {
+  sources: number;
+  wiki_pages: number;
+  wisdom_items: number;
+  chunks: number;
+}
+
+export interface ProvidersInfo {
+  llm: LlmInfo;
+  embedding: EmbeddingInfo;
+}
+
+export interface LlmInfo {
+  provider: "anthropic_compat" | "openai_compat" | "openai_codex";
+  model: string;
+  base_url: string | null;
+  max_retries: number;
+  max_tokens_query: number;
+  max_tokens_synth: number;
+  max_tokens_distill: number;
+  timeout_seconds: number;
+  api_key_present: boolean;
+}
+
+export interface EmbeddingInfo {
+  provider: "openai_compat";
+  model: string;
+  base_url: string | null;
+  dim: number;
+  revision: string;
+  normalize: boolean;
+  distance: "cosine" | "l2" | "dot";
+  batch_size: number;
+  max_retries: number;
+  timeout_seconds: number;
+  provider_label: string | null;
+  api_key_present: boolean;
+  multimodal: MultimodalInfo | null;
+}
+
+export interface MultimodalInfo {
+  provider: string;
+  model: string;
+  revision: string;
+  dim: number;
+  normalize: boolean;
+  distance: "cosine" | "l2" | "dot";
+  batch_size: number;
+  base_url: string | null;
 }
 
 export interface StorageCounts {
@@ -51,9 +106,20 @@ export interface DocumentRecord {
   active: boolean;
 }
 
-export interface WikiPageResponse {
+export interface PageAnchor {
+  chunk_id: number;
+  seq: number;
+  start: number;
+  end: number;
+}
+
+export interface PageReadResult {
+  doc_id: string;
   path: string;
+  layer: Layer;
+  title: string | null;
   body: string;
+  anchors: PageAnchor[];
 }
 
 export interface ChunkRecord {
@@ -125,6 +191,12 @@ export interface WisdomItem {
   confidence: number;
   created_ts: number;
   approved_ts: number | null;
+}
+
+export interface IngestError {
+  path: string;
+  kind: "parse_error" | "read_error" | "storage_error";
+  message: string;
 }
 
 export interface TaskRow {

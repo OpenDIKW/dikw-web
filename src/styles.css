@@ -768,6 +768,14 @@ textarea:focus {
   overflow-wrap: anywhere;
 }
 
+.reader-header__meta {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  gap: 6px;
+  min-width: max-content;
+}
+
 .markdown-view {
   max-width: 880px;
   color: #202b30;
@@ -1131,6 +1139,58 @@ textarea:focus {
 
 .summary-metric dd {
   font-size: 18px;
+}
+
+.summary-metric--warn {
+  border-color: #e7c06a;
+  background: #fffaf0;
+}
+
+.file-error-list {
+  display: grid;
+  gap: 8px;
+}
+
+.file-error-list--compact {
+  gap: 6px;
+}
+
+.file-error-card {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid #e7c06a;
+  border-radius: 8px;
+  background: #fffaf0;
+}
+
+.file-error-card__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #4c3a12;
+  font-size: 13px;
+}
+
+.file-error-card__title span {
+  color: #7b5b12;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.file-error-card__path {
+  color: #26343b;
+  font-size: 13px;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.file-error-card p {
+  margin: 0;
+  color: #654a12;
+  font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .metrics-table {

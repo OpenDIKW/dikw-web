@@ -1,7 +1,7 @@
 import type { Page } from "@playwright/test";
 import {
+  healthFixture,
   infoFixture,
-  readyFixture,
   statusFixture,
   taskEventsFixture,
   taskRowsFixture,
@@ -19,20 +19,20 @@ export async function mockDikwApi(page: Page) {
       await route.fulfill({ json: infoFixture });
       return;
     }
-    if (path === "/v1/readyz") {
-      await route.fulfill({ json: readyFixture });
+    if (path === "/v1/health") {
+      await route.fulfill({ json: healthFixture });
       return;
     }
     if (path === "/v1/status") {
       await route.fulfill({ json: statusFixture });
       return;
     }
-    if (path === "/v1/wiki/pages") {
+    if (path === "/v1/base/pages") {
       await route.fulfill({ json: wikiPagesFixture });
       return;
     }
-    if (path.startsWith("/v1/wiki/pages/")) {
-      const selectedPath = decodeURIComponent(path.replace("/v1/wiki/pages/", ""));
+    if (path.startsWith("/v1/base/pages/")) {
+      const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
       await route.fulfill({ json: wikiPageBodiesFixture[selectedPath] });
       return;
     }
