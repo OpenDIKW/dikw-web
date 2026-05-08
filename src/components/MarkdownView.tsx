@@ -5,6 +5,7 @@ import { parseMarkdownDocument, type FrontmatterMeta } from "../utils/markdown";
 
 interface MarkdownViewProps {
   body: string;
+  fallbackTitle?: string | null;
   onWikiLink?: (target: string) => void;
 }
 
@@ -17,14 +18,15 @@ const markdown = new MarkdownIt({
 installWikiLinks(markdown);
 installRendererRules(markdown);
 
-export function MarkdownView({ body, onWikiLink }: MarkdownViewProps) {
-  const { html, meta } = useMemo(() => {
-    const parsed = parseMarkdownDocument(body);
+export function MarkdownView({ body, fallbackTitle, onWikiLink }: MarkdownViewProps) {
+  const { html, meta, needsFallbackTitle } = useMemo(() => {
+    const parsed = parseMarkdownDocument(body, { stripDuplicateTitle: false });
     return {
       html: markdown.render(parsed.body),
-      meta: parsed.meta
+      meta: parsed.meta,
+      needsFallbackTitle: Boolean(fallbackTitle && !hasTopHeading(parsed.body))
     };
-  }, [body]);
+  }, [body, fallbackTitle]);
 
   function handleClick(event: React.MouseEvent<HTMLElement>) {
     const element = (event.target as HTMLElement).closest<HTMLElement>("[data-wiki-link]");
@@ -39,9 +41,14 @@ export function MarkdownView({ body, onWikiLink }: MarkdownViewProps) {
   return (
     <article className="markdown-view" onClick={handleClick}>
       <FrontmatterSummary meta={meta} />
+      {needsFallbackTitle ? <h1 className="markdown-fallback-title">{fallbackTitle}</h1> : null}
       <div className="markdown-body" dangerouslySetInnerHTML={{ __html: html }} />
     </article>
   );
+}
+
+function hasTopHeading(body: string): boolean {
+  return /^#\s+.+$/m.test(body);
 }
 
 function FrontmatterSummary({ meta }: { meta: FrontmatterMeta }) {

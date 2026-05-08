@@ -16,7 +16,11 @@ export interface ParsedMarkdownDocument {
   meta: FrontmatterMeta;
 }
 
-export function parseMarkdownDocument(source: string): ParsedMarkdownDocument {
+interface ParseMarkdownOptions {
+  stripDuplicateTitle?: string | false;
+}
+
+export function parseMarkdownDocument(source: string, options: ParseMarkdownOptions = {}): ParsedMarkdownDocument {
   const normalized = source.replace(/\r\n/g, "\n");
   const frontmatter = extractFrontmatter(normalized);
   if (!frontmatter) {
@@ -24,7 +28,9 @@ export function parseMarkdownDocument(source: string): ParsedMarkdownDocument {
   }
 
   const meta = parseYamlSubset(frontmatter.raw);
-  const body = stripDuplicateTopHeading(frontmatter.body.trimStart(), meta.title);
+  const duplicateTitle =
+    options.stripDuplicateTitle === false ? undefined : options.stripDuplicateTitle ?? meta.title;
+  const body = duplicateTitle ? stripDuplicateTopHeading(frontmatter.body.trimStart(), duplicateTitle) : frontmatter.body.trimStart();
   return { body, meta };
 }
 

@@ -1,17 +1,32 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { FileText, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Link2, RefreshCw, X } from "lucide-react";
 import { DikwClient } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import type { DocumentRecord, Layer, PageReadResult } from "../types";
-import { getMarkdownTitle } from "../utils/markdown";
+import { getMarkdownTitle, parseMarkdownDocument } from "../utils/markdown";
 import { formatUnixSeconds, truncateMiddle } from "../utils/format";
 
 interface WikiPageProps {
   client: DikwClient;
 }
+
+interface WikiTreeNode {
+  id: string;
+  name: string;
+  children: WikiTreeNode[];
+  doc: DocumentRecord | null;
+}
+
+type PreviewState =
+  | { kind: "idle" }
+  | { kind: "loading"; target: string; doc: DocumentRecord }
+  | { kind: "ready"; target: string; doc: DocumentRecord; page: PageReadResult }
+  | { kind: "not-found"; target: string }
+  | { kind: "error"; target: string; error: unknown };
 
 export function WikiPage({ client }: WikiPageProps) {
   const [layer, setLayer] = useState<"" | Extract<Layer, "source" | "wiki">>("wiki");
@@ -21,6 +36,9 @@ export function WikiPage({ client }: WikiPageProps) {
   const [pageError, setPageError] = useState<unknown>(null);
   const [pageLoading, setPageLoading] = useState(false);
   const [pageReloadId, setPageReloadId] = useState(0);
+  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(() => new Set());
+  const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
+  const previewRequestIdRef = useRef(0);
 
   const loadPages = useCallback(
     (signal: AbortSignal) => client.get<DocumentRecord[]>("/v1/base/pages", { signal, params: { active: true, layer: layer || undefined } }),
@@ -39,6 +57,23 @@ export function WikiPage({ client }: WikiPageProps) {
       return haystack.includes(needle);
     });
   }, [filter, pages.data]);
+
+  const tree = useMemo(() => buildWikiTree(visiblePages), [visiblePages]);
+  const expandedTreeIds = useMemo(() => {
+    const next = new Set(expandedDirs);
+    if (filter.trim()) {
+      collectDirectoryIds(tree, next);
+    }
+    if (selectedPath) {
+      collectPathAncestors(selectedPath).forEach((id) => next.add(id));
+    }
+    for (const node of tree) {
+      if (!node.doc) {
+        next.add(node.id);
+      }
+    }
+    return next;
+  }, [expandedDirs, filter, selectedPath, tree]);
 
   useEffect(() => {
     if (!visiblePages.length) {
@@ -86,19 +121,51 @@ export function WikiPage({ client }: WikiPageProps) {
     }
   }
 
-  function openWikiLink(target: string) {
-    const normalized = target.replace(/\\/g, "/").replace(/^wiki\//, "");
-    const docs = pages.data ?? [];
-    const match = docs.find((doc) => {
-      const pathWithoutPrefix = doc.path.replace(/^wiki\//, "");
-      return doc.path === target || pathWithoutPrefix === normalized || doc.title === target || doc.path.endsWith(`/${normalized}`);
+  function toggleDirectory(id: string) {
+    setExpandedDirs((value) => {
+      const next = new Set(value);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
     });
-    if (match) {
-      setSelectedPath(match.path);
-    } else {
-      setFilter(target);
-    }
   }
+
+  function selectPage(path: string) {
+    setSelectedPath(path);
+  }
+
+  function openWikiLink(target: string) {
+    const match = findPageForTarget(target, pages.data ?? []);
+    if (!match) {
+      setPreview({ kind: "not-found", target });
+      return;
+    }
+
+    const requestId = previewRequestIdRef.current + 1;
+    previewRequestIdRef.current = requestId;
+    setPreview({ kind: "loading", target, doc: match });
+    client
+      .get<PageReadResult>(`/v1/base/pages/${encodePath(match.path)}`)
+      .then((nextPage) => {
+        if (previewRequestIdRef.current === requestId) {
+          setPreview({ kind: "ready", target, doc: match, page: nextPage });
+        }
+      })
+      .catch((nextError: unknown) => {
+        if (previewRequestIdRef.current === requestId) {
+          setPreview({ kind: "error", target, error: nextError });
+        }
+      });
+  }
+
+  function filterByPreviewTarget(target: string) {
+    setFilter(target);
+  }
+
+  const selectedDoc = pages.data?.find((doc) => doc.path === page?.path) ?? null;
 
   return (
     <div className="page-stack">
@@ -114,7 +181,7 @@ export function WikiPage({ client }: WikiPageProps) {
 
       {pages.error ? <Notice title="无法读取 wiki pages" error={pages.error} /> : null}
 
-      <section className="wiki-layout">
+      <section className={`wiki-layout ${preview.kind === "idle" ? "wiki-layout--preview-collapsed" : ""}`}>
         <aside className="wiki-sidebar">
           <label className="field">
             <span>Layer</span>
@@ -128,51 +195,332 @@ export function WikiPage({ client }: WikiPageProps) {
             <span>Filter</span>
             <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="path 或 title" />
           </label>
-          <div className="wiki-list">
-            {visiblePages.map((doc) => (
-              <button
-                className={`wiki-list__item ${selectedPath === doc.path ? "is-selected" : ""}`}
-                key={doc.doc_id}
-                type="button"
-                onClick={() => setSelectedPath(doc.path)}
-              >
-                <FileText size={16} aria-hidden="true" />
-                <span>
-                  <strong>{doc.title || basename(doc.path)}</strong>
-                  <small>{truncateMiddle(doc.path, 46)}</small>
-                </span>
-              </button>
-            ))}
-            {!visiblePages.length ? <EmptyState title="没有匹配页面" /> : null}
-          </div>
+          <WikiTree
+            nodes={tree}
+            selectedPath={selectedPath}
+            expandedIds={expandedTreeIds}
+            onToggle={toggleDirectory}
+            onSelect={selectPage}
+          />
+          {!visiblePages.length ? <EmptyState title="没有匹配页面" /> : null}
         </aside>
 
-        <main className="wiki-reader panel">
-          {pageLoading ? <EmptyState title="读取页面中" /> : null}
-          {pageError ? <Notice title="无法读取页面" error={pageError} /> : null}
-          {page ? (
-            <>
-              <div className="reader-header">
-                <div>
-                  <div className="reader-header__path">{page.path}</div>
-                  <h2>{page.title || getMarkdownTitle(page.body) || basename(page.path)}</h2>
-                </div>
-                <div className="reader-header__meta">
-                  <span className="soft-label">{page.layer} · {formatAnchorCount(page.anchors.length)}</span>
-                  <span className="soft-label">
-                    {formatUnixSeconds(pages.data?.find((doc) => doc.path === page.path)?.mtime)}
-                  </span>
-                </div>
-              </div>
-              <MarkdownView body={page.body} onWikiLink={openWikiLink} />
-            </>
-          ) : !pageLoading && !pageError ? (
-            <EmptyState title="选择一篇 wiki 页面" />
-          ) : null}
-        </main>
+        <WikiReader
+          page={page}
+          doc={selectedDoc}
+          loading={pageLoading}
+          error={pageError}
+          onWikiLink={openWikiLink}
+        />
+
+        <WikiLinkPreview
+          preview={preview}
+          onClose={() => setPreview({ kind: "idle" })}
+          onOpen={(path) => setSelectedPath(path)}
+          onFilter={filterByPreviewTarget}
+        />
       </section>
     </div>
   );
+}
+
+function WikiTree({
+  nodes,
+  selectedPath,
+  expandedIds,
+  onToggle,
+  onSelect
+}: {
+  nodes: WikiTreeNode[];
+  selectedPath: string | null;
+  expandedIds: Set<string>;
+  onToggle: (id: string) => void;
+  onSelect: (path: string) => void;
+}) {
+  return (
+    <div className="wiki-tree" role="tree" aria-label="Knowledge directory">
+      {nodes.map((node) => (
+        <WikiTreeNodeView
+          key={node.id}
+          node={node}
+          depth={0}
+          selectedPath={selectedPath}
+          expandedIds={expandedIds}
+          onToggle={onToggle}
+          onSelect={onSelect}
+        />
+      ))}
+    </div>
+  );
+}
+
+function WikiTreeNodeView({
+  node,
+  depth,
+  selectedPath,
+  expandedIds,
+  onToggle,
+  onSelect
+}: {
+  node: WikiTreeNode;
+  depth: number;
+  selectedPath: string | null;
+  expandedIds: Set<string>;
+  onToggle: (id: string) => void;
+  onSelect: (path: string) => void;
+}) {
+  if (node.doc) {
+    return (
+      <div role="treeitem" aria-label={displayFileName(node.doc)} aria-selected={selectedPath === node.doc.path}>
+        <button
+          className={`wiki-tree__item wiki-tree__item--file ${selectedPath === node.doc.path ? "is-selected" : ""}`}
+          type="button"
+          style={{ paddingLeft: `${10 + depth * 16}px` }}
+          onClick={() => onSelect(node.doc?.path ?? "")}
+        >
+          <FileText size={15} aria-hidden="true" />
+          <span>
+            <strong>{node.doc.title || basename(node.doc.path)}</strong>
+            <small>{truncateMiddle(node.doc.path, 48)}</small>
+          </span>
+        </button>
+      </div>
+    );
+  }
+
+  const expanded = expandedIds.has(node.id);
+  const FolderIcon = expanded ? FolderOpen : Folder;
+  return (
+    <div role="treeitem" aria-label={node.name} aria-expanded={expanded}>
+      <button
+        className="wiki-tree__item wiki-tree__item--folder"
+        type="button"
+        style={{ paddingLeft: `${10 + depth * 16}px` }}
+        onClick={() => onToggle(node.id)}
+      >
+        {expanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
+        <FolderIcon size={15} aria-hidden="true" />
+        <strong>{node.name}</strong>
+      </button>
+      {expanded ? (
+        <div role="group">
+          {node.children.map((child) => (
+            <WikiTreeNodeView
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              selectedPath={selectedPath}
+              expandedIds={expandedIds}
+              onToggle={onToggle}
+              onSelect={onSelect}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function WikiReader({
+  page,
+  doc,
+  loading,
+  error,
+  onWikiLink
+}: {
+  page: PageReadResult | null;
+  doc: DocumentRecord | null;
+  loading: boolean;
+  error: unknown;
+  onWikiLink: (target: string) => void;
+}) {
+  return (
+    <main className="wiki-reader panel" aria-label="Wiki reader">
+      {loading ? <EmptyState title="读取页面中" /> : null}
+      {error ? <Notice title="无法读取页面" error={error} /> : null}
+      {page ? (
+        <>
+          <div className="reader-header reader-header--metadata-only">
+            <div className="reader-header__path">{page.path}</div>
+            <div className="reader-header__meta">
+              <span className="soft-label">{page.layer} · {formatAnchorCount(page.anchors.length)}</span>
+              <span className="soft-label">{formatUnixSeconds(doc?.mtime)}</span>
+            </div>
+          </div>
+          <MarkdownView body={page.body} fallbackTitle={page.title || getMarkdownTitle(page.body) || basename(page.path)} onWikiLink={onWikiLink} />
+        </>
+      ) : !loading && !error ? (
+        <EmptyState title="选择一篇 wiki 页面" />
+      ) : null}
+    </main>
+  );
+}
+
+function WikiLinkPreview({
+  preview,
+  onClose,
+  onOpen,
+  onFilter
+}: {
+  preview: PreviewState;
+  onClose: () => void;
+  onOpen: (path: string) => void;
+  onFilter: (target: string) => void;
+}) {
+  const expanded = preview.kind !== "idle";
+  return (
+    <aside className={`wiki-preview panel ${expanded ? "wiki-preview--open" : "wiki-preview--collapsed"}`} role="region" aria-label="Wiki link preview">
+      {preview.kind === "idle" ? (
+        <div className="wiki-preview__rail">
+          <Link2 size={16} aria-hidden="true" />
+          <strong>链接预览</strong>
+          <small>点击正文中的 wikilink</small>
+        </div>
+      ) : null}
+      {preview.kind === "loading" ? (
+        <PreviewFrame title="Link preview" onClose={onClose}>
+          <EmptyState title="读取引用页面中" detail={preview.target} />
+        </PreviewFrame>
+      ) : null}
+      {preview.kind === "ready" ? (
+        <PreviewFrame title="Link preview" onClose={onClose}>
+          <article className="wiki-preview-card">
+            <div className="reader-header__path">{preview.page.path}</div>
+            <h2>{preview.page.title || getMarkdownTitle(preview.page.body) || basename(preview.page.path)}</h2>
+            <div className="wiki-preview-card__meta">
+              <span className="soft-label">{preview.page.layer}</span>
+              <span className="soft-label">{formatAnchorCount(preview.page.anchors.length)}</span>
+            </div>
+            <p>{summarizeMarkdown(preview.page.body)}</p>
+            <button className="secondary-button" type="button" onClick={() => onOpen(preview.page.path)}>
+              打开为主文档
+            </button>
+          </article>
+        </PreviewFrame>
+      ) : null}
+      {preview.kind === "not-found" ? (
+        <PreviewFrame title="Link preview" onClose={onClose}>
+          <div className="wiki-preview-card wiki-preview-card--empty">
+            <h2>未找到引用页面</h2>
+            <p>{preview.target}</p>
+            <button className="secondary-button" type="button" onClick={() => onFilter(preview.target)}>
+              用目标过滤目录
+            </button>
+          </div>
+        </PreviewFrame>
+      ) : null}
+      {preview.kind === "error" ? (
+        <PreviewFrame title="Link preview" onClose={onClose}>
+          <Notice title="无法读取引用页面" error={preview.error} />
+        </PreviewFrame>
+      ) : null}
+    </aside>
+  );
+}
+
+function PreviewFrame({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  return (
+    <>
+      <div className="wiki-preview__header">
+        <span>{title}</span>
+        <button className="icon-button" type="button" onClick={onClose} aria-label="收起链接预览">
+          <X size={16} />
+        </button>
+      </div>
+      {children}
+    </>
+  );
+}
+
+function buildWikiTree(docs: DocumentRecord[]): WikiTreeNode[] {
+  const root: WikiTreeNode = { id: "", name: "", children: [], doc: null };
+  for (const doc of docs) {
+    const parts = doc.path.split("/").filter(Boolean);
+    let current = root;
+    for (let index = 0; index < parts.length; index += 1) {
+      const part = parts[index];
+      const id = parts.slice(0, index + 1).join("/");
+      const isFile = index === parts.length - 1;
+      let child = current.children.find((node) => node.id === id);
+      if (!child) {
+        child = {
+          id,
+          name: isFile ? displayFileName(doc) : part,
+          children: [],
+          doc: isFile ? doc : null
+        };
+        current.children.push(child);
+      }
+      if (isFile) {
+        child.doc = doc;
+        child.name = displayFileName(doc);
+      }
+      current = child;
+    }
+  }
+  sortTree(root);
+  return root.children;
+}
+
+function sortTree(node: WikiTreeNode) {
+  node.children.sort((a, b) => {
+    if (Boolean(a.doc) !== Boolean(b.doc)) {
+      return a.doc ? 1 : -1;
+    }
+    return a.name.localeCompare(b.name);
+  });
+  node.children.forEach(sortTree);
+}
+
+function collectDirectoryIds(nodes: WikiTreeNode[], target: Set<string>) {
+  for (const node of nodes) {
+    if (!node.doc) {
+      target.add(node.id);
+      collectDirectoryIds(node.children, target);
+    }
+  }
+}
+
+function collectPathAncestors(path: string): string[] {
+  const parts = path.split("/").filter(Boolean);
+  return parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join("/"));
+}
+
+function findPageForTarget(target: string, docs: DocumentRecord[]): DocumentRecord | null {
+  const normalizedTarget = normalizeTarget(target);
+  return (
+    docs.find((doc) => {
+      const pathWithoutWiki = doc.path.replace(/^wiki\//, "");
+      const candidates = [
+        doc.path,
+        pathWithoutWiki,
+        doc.title ?? "",
+        basename(doc.path),
+        basename(doc.path).replace(/\.md$/i, "")
+      ].map(normalizeTarget);
+      return candidates.includes(normalizedTarget) || normalizeTarget(doc.path).endsWith(`/${normalizedTarget}`);
+    }) ?? null
+  );
+}
+
+function summarizeMarkdown(body: string): string {
+  const parsed = parseMarkdownDocument(body, { stripDuplicateTitle: false });
+  const text = parsed.body
+    .replace(/^# .+$/m, "")
+    .replace(/\[\[([^\]|]+)\|?([^\]]+)?\]\]/g, (_match, target: string, label?: string) => label ?? target)
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/[#*_>[\]()-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text ? truncateMiddle(text, 220) : "没有可预览的正文。";
+}
+
+function normalizeTarget(value: string): string {
+  return value.replace(/\\/g, "/").replace(/^wiki\//, "").trim().toLowerCase();
+}
+
+function displayFileName(doc: DocumentRecord): string {
+  return doc.title || basename(doc.path).replace(/\.md$/i, "");
 }
 
 function encodePath(path: string): string {

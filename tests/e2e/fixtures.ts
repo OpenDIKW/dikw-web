@@ -66,8 +66,8 @@ export const statusFixture = {
 export const wikiPagesFixture = [
   {
     doc_id: "wiki-architecture",
-    path: "wiki/architecture.md",
-    path_key: "wiki/architecture.md",
+    path: "wiki/concepts/architecture.md",
+    path_key: "wiki/concepts/architecture.md",
     title: "Architecture",
     hash: "hash-a",
     mtime: 1777819200,
@@ -76,8 +76,8 @@ export const wikiPagesFixture = [
   },
   {
     doc_id: "wiki-synthesis",
-    path: "wiki/synthesis.md",
-    path_key: "wiki/synthesis.md",
+    path: "wiki/concepts/synthesis.md",
+    path_key: "wiki/concepts/synthesis.md",
     title: "Synthesis",
     hash: "hash-s",
     mtime: 1777819300,
@@ -87,17 +87,17 @@ export const wikiPagesFixture = [
 ];
 
 export const wikiPageBodiesFixture = {
-  "wiki/architecture.md": {
+  "wiki/concepts/architecture.md": {
     doc_id: "wiki-architecture",
-    path: "wiki/architecture.md",
+    path: "wiki/concepts/architecture.md",
     layer: "wiki",
     title: "Architecture",
     body: "---\ntitle: Architecture\ntags:\n- DIKW\n---\n\n# Architecture\n\nLayered DIKW notes.\n\nSee [[Synthesis]].",
     anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }]
   },
-  "wiki/synthesis.md": {
+  "wiki/concepts/synthesis.md": {
     doc_id: "wiki-synthesis",
-    path: "wiki/synthesis.md",
+    path: "wiki/concepts/synthesis.md",
     layer: "wiki",
     title: "Synthesis",
     body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body.",
