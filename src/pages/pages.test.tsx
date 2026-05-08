@@ -172,7 +172,7 @@ describe("read console pages", () => {
 
     render(<WisdomPage client={client} />);
 
-    expect(await screen.findByText("Prefer evidence")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Prefer evidence" })).toBeInTheDocument();
     await userEvent.selectOptions(screen.getByLabelText("状态"), "approved");
 
     await waitFor(() => {
@@ -183,6 +183,35 @@ describe("read console pages", () => {
         })
       );
     });
+  });
+
+  it("presents wisdom as a selectable library with a detail reader", async () => {
+    const client = createMockClient();
+    client.get.mockResolvedValue([
+      wisdomItemsFixture[0],
+      {
+        ...wisdomItemsFixture[0],
+        item_id: "wisdom-2",
+        kind: "lesson",
+        status: "approved",
+        title: "Trace sources",
+        body: "Link each claim to its source path.",
+        confidence: 0.91
+      }
+    ]);
+
+    render(<WisdomPage client={client} />);
+
+    const library = await screen.findByRole("list", { name: "Wisdom library" });
+    expect(within(library).getByRole("button", { name: /Prefer evidence/ })).toBeInTheDocument();
+    const detail = screen.getByRole("region", { name: "Wisdom detail" });
+    expect(within(detail).getByRole("heading", { name: "Prefer evidence" })).toBeInTheDocument();
+
+    await userEvent.click(within(library).getByRole("button", { name: /Trace sources/ }));
+
+    expect(within(detail).getByRole("heading", { name: "Trace sources" })).toBeInTheDocument();
+    expect(within(detail).getByText("Link each claim to its source path.")).toBeInTheDocument();
+    expect(within(detail).getByText("approved", { selector: ".status-pill" })).toBeInTheDocument();
   });
 
   it("runs query streams into answer, hits, citations, and wisdom", async () => {

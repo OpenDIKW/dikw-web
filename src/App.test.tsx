@@ -59,6 +59,8 @@ describe("App shell", () => {
 
     render(<App />);
 
+    const mark = screen.getByRole("img", { name: "OpenDIKW" });
+    expect(mark).toHaveAttribute("src", "/opendikw-avatar.png");
     expect(screen.getByText("概览")).toBeInTheDocument();
     expect(screen.getAllByText("Overview").length).toBeGreaterThan(0);
     expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();

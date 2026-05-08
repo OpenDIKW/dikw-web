@@ -70,11 +70,11 @@ export function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand__mark">
-            <img className="brand__logo" src="/opendikw-mark.svg" alt="" aria-hidden="true" />
+            <img className="brand__logo" src="/opendikw-avatar.png" alt="OpenDIKW" />
           </div>
           <div>
             <strong>OpenDIKW</strong>
-            <span>dikw-web console</span>
+            <span>read console</span>
           </div>
         </div>
 

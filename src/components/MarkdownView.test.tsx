@@ -13,6 +13,7 @@ describe("MarkdownView", () => {
       />
     );
 
+    expect(screen.getByLabelText("Document metadata")).toBeInTheDocument();
     expect(screen.getByText("#DIKW")).toBeInTheDocument();
     expect(screen.getByText("source/a.md")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Architecture", level: 1 })).not.toBeInTheDocument();

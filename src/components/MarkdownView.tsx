@@ -59,7 +59,7 @@ function FrontmatterSummary({ meta }: { meta: FrontmatterMeta }) {
   }
 
   return (
-    <section className="frontmatter-summary" aria-label="Page metadata">
+    <section className="frontmatter-summary" aria-label="Document metadata">
       {rows.map(([label, value]) => (
         <span className="frontmatter-chip" key={label}>
           <strong>{label}</strong>
