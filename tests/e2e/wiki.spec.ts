@@ -9,7 +9,7 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
   await page.goto("/#wiki");
 
   await expect(page.getByRole("heading", { name: "知识库" })).toBeVisible();
-  await expect(page.getByRole("tree", { name: "Knowledge directory" })).toBeVisible();
+  await expect(page.getByRole("tree", { name: "Base directory" })).toBeVisible();
   await expect(page.getByRole("treeitem", { name: "concepts" })).toBeVisible();
   await expect(page.getByText("Layered DIKW notes.")).toBeVisible();
 

@@ -770,13 +770,13 @@ textarea:focus {
 
 .wiki-layout {
   display: grid;
-  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr) minmax(280px, 340px);
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(280px, 340px);
   gap: 14px;
   align-items: start;
 }
 
 .wiki-layout--preview-collapsed {
-  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr) 58px;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) 92px;
 }
 
 .wiki-sidebar,
@@ -790,29 +790,101 @@ textarea:focus {
 
 .wiki-sidebar {
   display: grid;
-  gap: 12px;
-  padding: 12px;
+  align-content: start;
+  gap: 10px;
+  padding: 14px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdfc 100%);
+  box-shadow: 0 8px 24px rgba(22, 45, 38, 0.05);
+}
+
+.wiki-explorer__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 2px 2px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wiki-explorer__header h2 {
+  margin: 2px 0 0;
+  color: #14201d;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.wiki-search {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 8px;
+  border: 1px solid #d7e4df;
+  border-radius: 8px;
   background: white;
-  box-shadow: var(--shadow);
+  color: var(--muted);
+}
+
+.wiki-search:focus-within {
+  border-color: #8cc9bd;
+  box-shadow: 0 0 0 3px rgba(0, 106, 88, 0.08);
+}
+
+.wiki-search input {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.wiki-search input::placeholder {
+  color: #8b9995;
+}
+
+.wiki-search__clear {
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.wiki-search__clear:hover {
+  background: #edf5f3;
+  color: var(--accent-strong);
 }
 
 .wiki-tree {
   display: grid;
-  gap: 2px;
+  gap: 3px;
+  padding-top: 2px;
+}
+
+.wiki-tree [role="group"] {
+  margin-left: 12px;
+  padding-left: 7px;
+  border-left: 1px solid #dfe9e6;
 }
 
 .wiki-tree__item {
   display: grid;
   align-items: center;
   width: 100%;
-  min-height: 30px;
+  min-height: 32px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
   color: var(--text);
   text-align: left;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
 }
 
 .wiki-tree__item--folder {
@@ -823,16 +895,34 @@ textarea:focus {
   font-weight: 800;
 }
 
+.wiki-tree__item--folder svg:last-of-type {
+  color: #2f8980;
+}
+
 .wiki-tree__item--file {
   grid-template-columns: 16px minmax(0, 1fr);
   gap: 8px;
   color: var(--text);
 }
 
+.wiki-tree__item--file svg {
+  color: #61726d;
+}
+
 .wiki-tree__item:hover,
 .wiki-tree__item.is-selected {
   border-color: #bdd8d2;
   background: var(--accent-soft);
+}
+
+.wiki-tree__item.is-selected {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.wiki-tree__item--root {
+  border-color: #d8ebe6;
+  background: #f4faf8;
+  color: var(--accent-strong);
 }
 
 .wiki-tree__item strong,
@@ -1146,12 +1236,13 @@ textarea:focus {
 
 .wiki-preview--collapsed {
   display: grid;
-  place-items: start center;
-  padding: 10px 8px;
+  place-items: center;
+  padding: 10px;
 }
 
 .wiki-preview--open {
   display: grid;
+  align-content: start;
   gap: 12px;
   padding: 12px;
 }
@@ -1159,10 +1250,16 @@ textarea:focus {
 .wiki-preview__rail {
   display: grid;
   justify-items: center;
-  gap: 8px;
+  align-content: center;
+  gap: 6px;
+  min-height: 170px;
+  width: 100%;
+  padding: 12px 8px;
+  border: 1px dashed #d7e4df;
+  border-radius: 8px;
+  background: #fbfdfc;
   color: var(--muted);
   text-align: center;
-  writing-mode: vertical-rl;
 }
 
 .wiki-preview__rail strong {
@@ -1172,7 +1269,7 @@ textarea:focus {
 }
 
 .wiki-preview__rail small {
-  max-height: 150px;
+  max-width: 64px;
   font-size: 11px;
   line-height: 1.35;
 }

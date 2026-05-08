@@ -95,7 +95,7 @@ describe("read console pages", () => {
     const client = createMockClient();
     client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
       if (path === "/v1/base/pages") {
-        expect(options?.params).toEqual(expect.objectContaining({ active: true, layer: "wiki" }));
+        expect(options?.params).toEqual({ active: true });
         return Promise.resolve(wikiPagesFixture);
       }
       if (path.startsWith("/v1/base/pages/")) {
@@ -113,6 +113,30 @@ describe("read console pages", () => {
     expect(await screen.findByText("Synthesis Body.")).toBeInTheDocument();
   });
 
+  it("loads base pages without a layer selector and shows the base directory tree", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
+      if (path === "/v1/base/pages") {
+        expect(options?.params).toEqual({ active: true });
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    expect(screen.queryByLabelText("Layer")).not.toBeInTheDocument();
+    const directory = await screen.findByRole("tree", { name: "Base directory" });
+    expect(within(directory).getByRole("treeitem", { name: "base" })).toBeInTheDocument();
+    expect(within(directory).getByRole("treeitem", { name: "wiki" })).toBeInTheDocument();
+    expect(within(directory).getByRole("treeitem", { name: "sources" })).toBeInTheDocument();
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+  });
+
   it("renders wiki pages as a directory tree and opens wikilinks in the preview rail", async () => {
     const client = createMockClient();
     const treePages: DocumentRecord[] = [
@@ -128,9 +152,9 @@ describe("read console pages", () => {
       },
       {
         doc_id: "wiki-dikw-pyramid",
-        path: "wiki/concepts/dikw-pyramid.md",
-        path_key: "wiki/concepts/dikw-pyramid.md",
-        title: "DIKW pyramid",
+        path: "wiki/concepts/pyramid-diagram.md",
+        path_key: "wiki/concepts/pyramid-diagram.md",
+        title: "DIKW 金字塔",
         hash: "hash-pyramid",
         mtime: 1777820100,
         layer: "wiki",
@@ -146,12 +170,12 @@ describe("read console pages", () => {
         body: "# dikw-core\n\nRead about [[DIKW pyramid]].",
         anchors: [{ chunk_id: 301, seq: 1, start: 0, end: 22 }]
       },
-      "wiki/concepts/dikw-pyramid.md": {
+      "wiki/concepts/pyramid-diagram.md": {
         doc_id: "wiki-dikw-pyramid",
-        path: "wiki/concepts/dikw-pyramid.md",
+        path: "wiki/concepts/pyramid-diagram.md",
         layer: "wiki",
-        title: "DIKW pyramid",
-        body: "# DIKW pyramid\n\nPreview body for the pyramid concept.",
+        title: "DIKW 金字塔",
+        body: "# DIKW 金字塔\n\nPreview body for the pyramid concept.",
         anchors: [{ chunk_id: 302, seq: 1, start: 0, end: 34 }]
       }
     };
@@ -168,25 +192,26 @@ describe("read console pages", () => {
 
     render(<WikiPage client={client} />);
 
-    const directory = await screen.findByRole("tree", { name: "Knowledge directory" });
+    const directory = await screen.findByRole("tree", { name: "Base directory" });
+    expect(within(directory).getByRole("treeitem", { name: "base" })).toBeInTheDocument();
     expect(within(directory).getByRole("treeitem", { name: /wiki/ })).toBeInTheDocument();
     expect(within(directory).getByRole("treeitem", { name: /entities/ })).toBeInTheDocument();
     expect(await within(directory).findByRole("button", { name: /dikw-core/ })).toBeInTheDocument();
     await screen.findByRole("heading", { name: "dikw-core", level: 1 });
     expect(screen.getAllByRole("heading", { name: "dikw-core", level: 1 })).toHaveLength(1);
-    expect(screen.getByRole("region", { name: "Wiki link preview" })).toHaveTextContent("点击正文中的 wikilink");
+    expect(screen.getByRole("region", { name: "Wiki link preview" })).toHaveTextContent("链接预览");
 
     await userEvent.click(screen.getByRole("button", { name: "DIKW pyramid" }));
 
     const preview = screen.getByRole("region", { name: "Wiki link preview" });
-    expect(within(preview).getByRole("heading", { name: "DIKW pyramid" })).toBeInTheDocument();
-    expect(within(preview).getByText("wiki/concepts/dikw-pyramid.md")).toBeInTheDocument();
+    expect(within(preview).getByRole("heading", { name: "DIKW 金字塔" })).toBeInTheDocument();
+    expect(within(preview).getByText("wiki/concepts/pyramid-diagram.md")).toBeInTheDocument();
     expect(within(preview).getByText("Preview body for the pyramid concept.")).toBeInTheDocument();
     expect(within(screen.getByRole("main", { name: "Wiki reader" })).getByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
 
     await userEvent.click(within(preview).getByRole("button", { name: "打开为主文档" }));
 
-    expect(await within(screen.getByRole("main", { name: "Wiki reader" })).findByRole("heading", { name: "DIKW pyramid", level: 1 })).toBeInTheDocument();
+    expect(await within(screen.getByRole("main", { name: "Wiki reader" })).findByRole("heading", { name: "DIKW 金字塔", level: 1 })).toBeInTheDocument();
   });
 
   it("expands matching wiki tree branches while filtering", async () => {
@@ -235,7 +260,7 @@ describe("read console pages", () => {
     await screen.findByRole("heading", { name: "dikw-core", level: 1 });
     await userEvent.type(screen.getByLabelText("Filter"), "pyramid");
 
-    const directory = screen.getByRole("tree", { name: "Knowledge directory" });
+    const directory = screen.getByRole("tree", { name: "Base directory" });
     expect(within(directory).getByRole("treeitem", { name: "wiki" })).toHaveAttribute("aria-expanded", "true");
     expect(within(directory).getByRole("treeitem", { name: "concepts" })).toHaveAttribute("aria-expanded", "true");
     expect(await within(directory).findByRole("button", { name: /DIKW pyramid/ })).toBeInTheDocument();
@@ -283,33 +308,6 @@ describe("read console pages", () => {
     await userEvent.click(within(preview).getByRole("button", { name: "用目标过滤目录" }));
 
     expect(screen.getByLabelText("Filter")).toHaveValue("Missing Concept");
-  });
-
-  it("browses source pages through the base pages layer filter", async () => {
-    const client = createMockClient();
-    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
-      if (path === "/v1/base/pages") {
-        return Promise.resolve(options?.params?.layer === "source" ? sourcePagesFixture : wikiPagesFixture);
-      }
-      if (path.startsWith("/v1/base/pages/")) {
-        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
-      }
-      return Promise.reject(new Error(`Unexpected path ${path}`));
-    });
-
-    render(<WikiPage client={client} />);
-
-    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText("Layer"), "source");
-
-    expect(await screen.findByText("Original source body.")).toBeInTheDocument();
-    expect(client.get).toHaveBeenCalledWith(
-      "/v1/base/pages",
-      expect.objectContaining({
-        params: expect.objectContaining({ active: true, layer: "source" })
-      })
-    );
   });
 
   it("refreshes the selected wiki page body from the header action", async () => {

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Link2, RefreshCw, X } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Link2, RefreshCw, Search, X } from "lucide-react";
 import { DikwClient } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
-import type { DocumentRecord, Layer, PageReadResult } from "../types";
+import type { DocumentRecord, PageReadResult } from "../types";
 import { getMarkdownTitle, parseMarkdownDocument } from "../utils/markdown";
 import { formatUnixSeconds, truncateMiddle } from "../utils/format";
 
@@ -29,7 +29,6 @@ type PreviewState =
   | { kind: "error"; target: string; error: unknown };
 
 export function WikiPage({ client }: WikiPageProps) {
-  const [layer, setLayer] = useState<"" | Extract<Layer, "source" | "wiki">>("wiki");
   const [filter, setFilter] = useState("");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [page, setPage] = useState<PageReadResult | null>(null);
@@ -41,10 +40,10 @@ export function WikiPage({ client }: WikiPageProps) {
   const previewRequestIdRef = useRef(0);
 
   const loadPages = useCallback(
-    (signal: AbortSignal) => client.get<DocumentRecord[]>("/v1/base/pages", { signal, params: { active: true, layer: layer || undefined } }),
-    [client, layer]
+    (signal: AbortSignal) => client.get<DocumentRecord[]>("/v1/base/pages", { signal, params: { active: true } }),
+    [client]
   );
-  const pages = useAsyncResource(loadPages, [client, layer]);
+  const pages = useAsyncResource(loadPages, [client]);
 
   const visiblePages = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -61,11 +60,12 @@ export function WikiPage({ client }: WikiPageProps) {
   const tree = useMemo(() => buildWikiTree(visiblePages), [visiblePages]);
   const expandedTreeIds = useMemo(() => {
     const next = new Set(expandedDirs);
+    const pathForExpansion = selectedPath ?? pickDefaultPagePath(visiblePages);
     if (filter.trim()) {
       collectDirectoryIds(tree, next);
     }
-    if (selectedPath) {
-      collectPathAncestors(selectedPath).forEach((id) => next.add(id));
+    if (pathForExpansion) {
+      collectPathAncestors(pathForExpansion).forEach((id) => next.add(id));
     }
     for (const node of tree) {
       if (!node.doc) {
@@ -73,15 +73,16 @@ export function WikiPage({ client }: WikiPageProps) {
       }
     }
     return next;
-  }, [expandedDirs, filter, selectedPath, tree]);
+  }, [expandedDirs, filter, selectedPath, tree, visiblePages]);
 
   useEffect(() => {
-    if (!visiblePages.length) {
+    const nextSelectedPath = pickDefaultPagePath(visiblePages);
+    if (!nextSelectedPath) {
       setSelectedPath(null);
       return;
     }
     if (!selectedPath || !visiblePages.some((doc) => doc.path === selectedPath)) {
-      setSelectedPath(visiblePages[0].path);
+      setSelectedPath(nextSelectedPath);
     }
   }, [selectedPath, visiblePages]);
 
@@ -183,17 +184,26 @@ export function WikiPage({ client }: WikiPageProps) {
 
       <section className={`wiki-layout ${preview.kind === "idle" ? "wiki-layout--preview-collapsed" : ""}`}>
         <aside className="wiki-sidebar">
-          <label className="field">
-            <span>Layer</span>
-            <select value={layer} onChange={(event) => setLayer(event.target.value as "" | Extract<Layer, "source" | "wiki">)}>
-              <option value="wiki">wiki</option>
-              <option value="source">source</option>
-              <option value="">all</option>
-            </select>
-          </label>
-          <label className="field">
-            <span>Filter</span>
-            <input value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="path 或 title" />
+          <div className="wiki-explorer__header">
+            <div>
+              <p className="eyebrow">Base</p>
+              <h2>目录 / Directory</h2>
+            </div>
+            <span className="soft-label">{formatFileCount(pages.data?.length ?? 0)}</span>
+          </div>
+          <label className="wiki-search">
+            <Search size={15} aria-hidden="true" />
+            <input
+              aria-label="Filter"
+              value={filter}
+              onChange={(event) => setFilter(event.target.value)}
+              placeholder="搜索文件 / Search files..."
+            />
+            {filter ? (
+              <button className="wiki-search__clear" type="button" onClick={() => setFilter("")} aria-label="清空目录搜索">
+                <X size={14} aria-hidden="true" />
+              </button>
+            ) : null}
           </label>
           <WikiTree
             nodes={tree}
@@ -238,7 +248,7 @@ function WikiTree({
   onSelect: (path: string) => void;
 }) {
   return (
-    <div className="wiki-tree" role="tree" aria-label="Knowledge directory">
+    <div className="wiki-tree" role="tree" aria-label="Base directory">
       {nodes.map((node) => (
         <WikiTreeNodeView
           key={node.id}
@@ -290,10 +300,11 @@ function WikiTreeNodeView({
 
   const expanded = expandedIds.has(node.id);
   const FolderIcon = expanded ? FolderOpen : Folder;
+  const isRoot = node.id === "base";
   return (
     <div role="treeitem" aria-label={node.name} aria-expanded={expanded}>
       <button
-        className="wiki-tree__item wiki-tree__item--folder"
+        className={`wiki-tree__item wiki-tree__item--folder ${isRoot ? "wiki-tree__item--root" : ""}`}
         type="button"
         style={{ paddingLeft: `${10 + depth * 16}px` }}
         onClick={() => onToggle(node.id)}
@@ -371,10 +382,9 @@ function WikiLinkPreview({
   return (
     <aside className={`wiki-preview panel ${expanded ? "wiki-preview--open" : "wiki-preview--collapsed"}`} role="region" aria-label="Wiki link preview">
       {preview.kind === "idle" ? (
-        <div className="wiki-preview__rail">
+        <div className="wiki-preview__rail" title="点击正文中的 wikilink">
           <Link2 size={16} aria-hidden="true" />
           <strong>链接预览</strong>
-          <small>点击正文中的 wikilink</small>
         </div>
       ) : null}
       {preview.kind === "loading" ? (
@@ -433,7 +443,7 @@ function PreviewFrame({ title, onClose, children }: { title: string; onClose: ()
 }
 
 function buildWikiTree(docs: DocumentRecord[]): WikiTreeNode[] {
-  const root: WikiTreeNode = { id: "", name: "", children: [], doc: null };
+  const root: WikiTreeNode = { id: "base", name: "base", children: [], doc: null };
   for (const doc of docs) {
     const parts = doc.path.split("/").filter(Boolean);
     let current = root;
@@ -459,7 +469,7 @@ function buildWikiTree(docs: DocumentRecord[]): WikiTreeNode[] {
     }
   }
   sortTree(root);
-  return root.children;
+  return [root];
 }
 
 function sortTree(node: WikiTreeNode) {
@@ -467,9 +477,30 @@ function sortTree(node: WikiTreeNode) {
     if (Boolean(a.doc) !== Boolean(b.doc)) {
       return a.doc ? 1 : -1;
     }
+    const rankDelta = treeNodeRank(node, a) - treeNodeRank(node, b);
+    if (rankDelta !== 0) {
+      return rankDelta;
+    }
     return a.name.localeCompare(b.name);
   });
   node.children.forEach(sortTree);
+}
+
+function treeNodeRank(parent: WikiTreeNode, node: WikiTreeNode): number {
+  if (parent.id !== "base" || node.doc) {
+    return 10;
+  }
+  if (node.name === "wiki") {
+    return 0;
+  }
+  if (node.name === "sources" || node.name === "source") {
+    return 1;
+  }
+  return 10;
+}
+
+function pickDefaultPagePath(docs: DocumentRecord[]): string | null {
+  return (docs.find((doc) => doc.layer === "wiki" || doc.path.startsWith("wiki/")) ?? docs[0] ?? null)?.path ?? null;
 }
 
 function collectDirectoryIds(nodes: WikiTreeNode[], target: Set<string>) {
@@ -483,24 +514,42 @@ function collectDirectoryIds(nodes: WikiTreeNode[], target: Set<string>) {
 
 function collectPathAncestors(path: string): string[] {
   const parts = path.split("/").filter(Boolean);
-  return parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join("/"));
+  return ["base", ...parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join("/"))];
 }
 
 function findPageForTarget(target: string, docs: DocumentRecord[]): DocumentRecord | null {
   const normalizedTarget = normalizeTarget(target);
-  return (
-    docs.find((doc) => {
-      const pathWithoutWiki = doc.path.replace(/^wiki\//, "");
-      const candidates = [
-        doc.path,
-        pathWithoutWiki,
-        doc.title ?? "",
-        basename(doc.path),
-        basename(doc.path).replace(/\.md$/i, "")
-      ].map(normalizeTarget);
-      return candidates.includes(normalizedTarget) || normalizeTarget(doc.path).endsWith(`/${normalizedTarget}`);
-    }) ?? null
+  const exactMatch = docs.find((doc) => {
+    const candidates = getPageMatchCandidates(doc);
+    return candidates.includes(normalizedTarget) || normalizeTarget(doc.path).endsWith(`/${normalizedTarget}`);
+  });
+  if (exactMatch) {
+    return exactMatch;
+  }
+
+  const targetTokens = normalizedTarget.split(/[/-]+/).filter((token) => token.length >= 3);
+  const fullTokenMatches = findUniqueMatch(docs, (doc) =>
+    getPageMatchCandidates(doc).some((candidate) => targetTokens.length > 0 && targetTokens.every((token) => candidate.includes(token)))
   );
+  if (fullTokenMatches) {
+    return fullTokenMatches;
+  }
+
+  const lastToken = targetTokens.at(-1);
+  if (!lastToken) {
+    return null;
+  }
+  return findUniqueMatch(docs, (doc) => getPageMatchCandidates(doc).some((candidate) => candidate.includes(lastToken)));
+}
+
+function getPageMatchCandidates(doc: DocumentRecord): string[] {
+  const pathWithoutWiki = doc.path.replace(/^wiki\//, "");
+  return [doc.path, pathWithoutWiki, doc.title ?? "", basename(doc.path), basename(doc.path).replace(/\.md$/i, "")].map(normalizeTarget);
+}
+
+function findUniqueMatch(docs: DocumentRecord[], predicate: (doc: DocumentRecord) => boolean): DocumentRecord | null {
+  const matches = docs.filter(predicate);
+  return matches.length === 1 ? matches[0] : null;
 }
 
 function summarizeMarkdown(body: string): string {
@@ -516,7 +565,13 @@ function summarizeMarkdown(body: string): string {
 }
 
 function normalizeTarget(value: string): string {
-  return value.replace(/\\/g, "/").replace(/^wiki\//, "").trim().toLowerCase();
+  return value
+    .replace(/\\/g, "/")
+    .replace(/^wiki\//, "")
+    .replace(/\.md$/i, "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-");
 }
 
 function displayFileName(doc: DocumentRecord): string {
@@ -533,4 +588,8 @@ function basename(path: string): string {
 
 function formatAnchorCount(count: number): string {
   return `${count} ${count === 1 ? "anchor" : "anchors"}`;
+}
+
+function formatFileCount(count: number): string {
+  return `${count} ${count === 1 ? "file" : "files"}`;
 }
