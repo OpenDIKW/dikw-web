@@ -326,6 +326,51 @@ describe("read console pages", () => {
     expect(client.streamTaskEvents).toHaveBeenCalledTimes(2);
   });
 
+  it("updates a followed task to its final status without a manual refresh", async () => {
+    const client = createMockClient();
+    const runningTask: TaskRow = {
+      ...taskRowsFixture[0],
+      task_id: "eval-running-1",
+      status: "running",
+      finished_at: null,
+      result: null
+    };
+    const completedEvents: TaskEvent[] = [
+      {
+        type: "task_started",
+        seq: 1,
+        ts: "2026-05-05T09:37:11Z",
+        task_id: "eval-running-1",
+        op: "eval"
+      },
+      {
+        type: "final",
+        seq: 2,
+        ts: "2026-05-05T09:37:25Z",
+        status: "succeeded",
+        result: taskRowsFixture[0].result,
+        error: null
+      }
+    ];
+    client.get.mockResolvedValue([runningTask]);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents(completedEvents));
+
+    render(<TasksPage client={client} />);
+
+    const taskButton = (await screen.findByText("eval-running-1")).closest("button") as HTMLElement;
+    expect(within(taskButton).getByText("running")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "eval" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Follow/ }));
+
+    await waitFor(() => {
+      expect(within(taskButton).getByText("succeeded")).toBeInTheDocument();
+    });
+    expect(within(taskButton).queryByText("running")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Load events/ })).toBeEnabled();
+    expect(screen.getAllByText("synthetic-diverse-v1").length).toBeGreaterThan(0);
+  });
+
   it("renders scan progress with an unknown total as an indeterminate count", async () => {
     const client = createMockClient();
     const zeroTotalScanEvents: TaskEvent[] = [

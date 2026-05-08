@@ -13,6 +13,8 @@ interface TasksPageProps {
 }
 
 type ProgressEvent = Extract<TaskEvent, { type: "progress" }>;
+type FinalEvent = Extract<TaskEvent, { type: "final" }>;
+type TaskPatch = Pick<TaskRow, "status" | "finished_at" | "result" | "error">;
 
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
 
@@ -23,6 +25,7 @@ export function TasksPage({ client }: TasksPageProps) {
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [eventsError, setEventsError] = useState<unknown>(null);
   const [following, setFollowing] = useState(false);
+  const [taskPatches, setTaskPatches] = useState<Record<string, TaskPatch>>({});
   const controllerRef = useRef<AbortController | null>(null);
   const eventTapeTaskIdRef = useRef<string | null>(null);
 
@@ -39,13 +42,17 @@ export function TasksPage({ client }: TasksPageProps) {
     [client, op, status]
   );
   const tasks = useAsyncResource(load, [client, op, status]);
-  const selected = useMemo(() => (tasks.data ?? []).find((task) => task.task_id === selectedId) ?? null, [selectedId, tasks.data]);
+  const visibleTasks = useMemo(
+    () => (tasks.data ?? []).map((task) => (taskPatches[task.task_id] ? { ...task, ...taskPatches[task.task_id] } : task)),
+    [taskPatches, tasks.data]
+  );
+  const selected = useMemo(() => visibleTasks.find((task) => task.task_id === selectedId) ?? null, [selectedId, visibleTasks]);
 
   useEffect(() => {
-    if (!selectedId && tasks.data?.length) {
-      setSelectedId(tasks.data[0].task_id);
+    if (!selectedId && visibleTasks.length) {
+      setSelectedId(visibleTasks[0].task_id);
     }
-  }, [selectedId, tasks.data]);
+  }, [selectedId, visibleTasks]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
@@ -53,6 +60,18 @@ export function TasksPage({ client }: TasksPageProps) {
     controllerRef.current?.abort();
     controllerRef.current = null;
     setFollowing(false);
+  }
+
+  function applyFinalEvent(taskId: string, event: FinalEvent) {
+    setTaskPatches((value) => ({
+      ...value,
+      [taskId]: {
+        status: event.status,
+        finished_at: event.ts,
+        result: event.result ?? null,
+        error: event.error ?? null
+      }
+    }));
   }
 
   async function follow(row: TaskRow) {
@@ -64,6 +83,7 @@ export function TasksPage({ client }: TasksPageProps) {
     setEvents([]);
     setEventsError(null);
     setFollowing(true);
+    let sawFinalEvent = false;
     try {
       for await (const event of client.streamTaskEvents(row.task_id, undefined, controller.signal)) {
         if (controllerRef.current !== controller) {
@@ -71,6 +91,8 @@ export function TasksPage({ client }: TasksPageProps) {
         }
         setEvents((value) => [...value, event]);
         if (event.type === "final") {
+          sawFinalEvent = true;
+          applyFinalEvent(row.task_id, event);
           break;
         }
       }
@@ -82,6 +104,9 @@ export function TasksPage({ client }: TasksPageProps) {
       if (controllerRef.current === controller) {
         controllerRef.current = null;
         setFollowing(false);
+        if (sawFinalEvent) {
+          tasks.reload();
+        }
       }
     }
   }
@@ -132,7 +157,7 @@ export function TasksPage({ client }: TasksPageProps) {
         <div className="panel task-list-panel">
           {(tasks.data ?? []).length ? (
             <div className="task-list">
-              {(tasks.data ?? []).map((task) => (
+              {visibleTasks.map((task) => (
                 <button
                   className={`task-list__item ${selectedId === task.task_id ? "is-selected" : ""}`}
                   key={task.task_id}
