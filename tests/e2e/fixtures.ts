@@ -17,8 +17,8 @@ export const healthFixture = {
   base_root: "C:\\demo\\base",
   storage_engine: "sqlite",
   layer_counts: {
-    sources: 2,
-    wiki_pages: 2,
+    sources: 1,
+    wiki_pages: 3,
     wisdom_items: 4,
     chunks: 31
   },
@@ -53,7 +53,7 @@ export const healthFixture = {
 };
 
 export const statusFixture = {
-  documents_by_layer: { source: 2, wiki: 2, wisdom: 1 },
+  documents_by_layer: { source: 1, wiki: 3, wisdom: 1 },
   chunks: 31,
   embeddings: 31,
   links: 3,
@@ -83,6 +83,26 @@ export const wikiPagesFixture = [
     mtime: 1777819300,
     layer: "wiki",
     active: true
+  },
+  {
+    doc_id: "wiki-orphan",
+    path: "wiki/concepts/orphan.md",
+    path_key: "wiki/concepts/orphan.md",
+    title: "Orphan",
+    hash: "hash-o",
+    mtime: 1777819400,
+    layer: "wiki",
+    active: true
+  },
+  {
+    doc_id: "source-architecture",
+    path: "sources/architecture.md",
+    path_key: "sources/architecture.md",
+    title: "Architecture source",
+    hash: "hash-src-a",
+    mtime: 1777819100,
+    layer: "source",
+    active: true
   }
 ];
 
@@ -92,7 +112,7 @@ export const wikiPageBodiesFixture = {
     path: "wiki/concepts/architecture.md",
     layer: "wiki",
     title: "Architecture",
-    body: "---\ntitle: Architecture\ntags:\n- DIKW\n---\n\n# Architecture\n\nLayered DIKW notes.\n\nSee [[Synthesis]].",
+    body: "---\ntitle: Architecture\ntags:\n- DIKW\n---\n\n# Architecture\n\nLayered DIKW notes.\n\nSee [[Synthesis]] and [[Missing Concept]].",
     anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }]
   },
   "wiki/concepts/synthesis.md": {
@@ -102,6 +122,22 @@ export const wikiPageBodiesFixture = {
     title: "Synthesis",
     body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body.",
     anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }]
+  },
+  "wiki/concepts/orphan.md": {
+    doc_id: "wiki-orphan",
+    path: "wiki/concepts/orphan.md",
+    layer: "wiki",
+    title: "Orphan",
+    body: "# Orphan\n\nNo graph links yet.",
+    anchors: []
+  },
+  "sources/architecture.md": {
+    doc_id: "source-architecture",
+    path: "sources/architecture.md",
+    layer: "source",
+    title: "Architecture source",
+    body: "# Architecture source\n\nOriginal source body.",
+    anchors: []
   }
 };
 

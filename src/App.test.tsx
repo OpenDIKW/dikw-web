@@ -69,6 +69,10 @@ describe("App shell", () => {
     expect(await screen.findByRole("heading", { name: "知识库" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#wiki");
 
+    await userEvent.click(screen.getByRole("button", { name: /图谱Graph/ }));
+    expect(await screen.findByRole("heading", { name: "知识图谱" })).toBeInTheDocument();
+    expect(window.location.hash).toBe("#graph");
+
     await userEvent.click(screen.getByRole("button", { name: /智慧Wisdom/ }));
     expect(await screen.findByRole("heading", { name: "智慧沉淀" })).toBeInTheDocument();
   });
@@ -84,5 +88,19 @@ describe("App shell", () => {
       expect(sessionStorage.getItem("dikw-web.serverUrl")).toBe("http://127.0.0.1:8765");
       expect(sessionStorage.getItem("dikw-web.token")).toBe("secret");
     });
+  });
+
+  it("opens a graph node in the wiki reader", async () => {
+    stubApi();
+    window.location.hash = "#graph";
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "知识图谱" })).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Architecture graph node" }));
+    await userEvent.click(screen.getByRole("button", { name: "在知识库打开" }));
+
+    expect(window.location.hash).toBe("#wiki");
+    expect(await screen.findByRole("heading", { name: "Architecture", level: 1 })).toBeInTheDocument();
   });
 });

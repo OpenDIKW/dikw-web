@@ -7,11 +7,13 @@ import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import type { DocumentRecord, PageReadResult } from "../types";
+import { findPageForTarget } from "../utils/graph";
 import { getMarkdownTitle, parseMarkdownDocument } from "../utils/markdown";
 import { formatUnixSeconds, truncateMiddle } from "../utils/format";
 
 interface WikiPageProps {
   client: DikwClient;
+  initialPath?: string | null;
 }
 
 interface WikiTreeNode {
@@ -28,7 +30,7 @@ type PreviewState =
   | { kind: "not-found"; target: string }
   | { kind: "error"; target: string; error: unknown };
 
-export function WikiPage({ client }: WikiPageProps) {
+export function WikiPage({ client, initialPath }: WikiPageProps) {
   const [filter, setFilter] = useState("");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [page, setPage] = useState<PageReadResult | null>(null);
@@ -44,6 +46,12 @@ export function WikiPage({ client }: WikiPageProps) {
     [client]
   );
   const pages = useAsyncResource(loadPages, [client]);
+
+  useEffect(() => {
+    if (initialPath) {
+      setSelectedPath(initialPath);
+    }
+  }, [initialPath]);
 
   const visiblePages = useMemo(() => {
     const needle = filter.trim().toLowerCase();
@@ -517,41 +525,6 @@ function collectPathAncestors(path: string): string[] {
   return ["base", ...parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join("/"))];
 }
 
-function findPageForTarget(target: string, docs: DocumentRecord[]): DocumentRecord | null {
-  const normalizedTarget = normalizeTarget(target);
-  const exactMatch = docs.find((doc) => {
-    const candidates = getPageMatchCandidates(doc);
-    return candidates.includes(normalizedTarget) || normalizeTarget(doc.path).endsWith(`/${normalizedTarget}`);
-  });
-  if (exactMatch) {
-    return exactMatch;
-  }
-
-  const targetTokens = normalizedTarget.split(/[/-]+/).filter((token) => token.length >= 3);
-  const fullTokenMatches = findUniqueMatch(docs, (doc) =>
-    getPageMatchCandidates(doc).some((candidate) => targetTokens.length > 0 && targetTokens.every((token) => candidate.includes(token)))
-  );
-  if (fullTokenMatches) {
-    return fullTokenMatches;
-  }
-
-  const lastToken = targetTokens.at(-1);
-  if (!lastToken) {
-    return null;
-  }
-  return findUniqueMatch(docs, (doc) => getPageMatchCandidates(doc).some((candidate) => candidate.includes(lastToken)));
-}
-
-function getPageMatchCandidates(doc: DocumentRecord): string[] {
-  const pathWithoutWiki = doc.path.replace(/^wiki\//, "");
-  return [doc.path, pathWithoutWiki, doc.title ?? "", basename(doc.path), basename(doc.path).replace(/\.md$/i, "")].map(normalizeTarget);
-}
-
-function findUniqueMatch(docs: DocumentRecord[], predicate: (doc: DocumentRecord) => boolean): DocumentRecord | null {
-  const matches = docs.filter(predicate);
-  return matches.length === 1 ? matches[0] : null;
-}
-
 function summarizeMarkdown(body: string): string {
   const parsed = parseMarkdownDocument(body, { stripDuplicateTitle: false });
   const text = parsed.body
@@ -562,16 +535,6 @@ function summarizeMarkdown(body: string): string {
     .replace(/\s+/g, " ")
     .trim();
   return text ? truncateMiddle(text, 220) : "没有可预览的正文。";
-}
-
-function normalizeTarget(value: string): string {
-  return value
-    .replace(/\\/g, "/")
-    .replace(/^wiki\//, "")
-    .replace(/\.md$/i, "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, "-");
 }
 
 function displayFileName(doc: DocumentRecord): string {

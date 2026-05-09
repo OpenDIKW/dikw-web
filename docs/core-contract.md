@@ -21,15 +21,29 @@ not come from `status.documents_by_layer.wisdom`.
 
 The knowledge page uses the cross-layer page reader:
 
-- `GET /v1/base/pages?active=true&layer=wiki` by default.
-- `GET /v1/base/pages?active=true&layer=source` when the user selects
-  the source layer.
-- `GET /v1/base/pages?active=true` when the user selects all layers.
+- `GET /v1/base/pages?active=true` for the base directory tree.
 - `GET /v1/base/pages/{path}` for the selected page body.
 
 `PageReadResult` includes `doc_id`, `path`, `layer`, `title`, `body`,
-and `anchors[]`. The reader displays layer and anchor count with the
-markdown body. The legacy `/v1/wiki/pages` endpoint is not used.
+and `anchors[]`. The reader displays path, layer, anchor count, update
+metadata, and the markdown body. The web app does not render a layer
+dropdown on the knowledge page; it shows the base tree directly and
+keeps wiki/source grouping visible through paths and metadata. The
+legacy `/v1/wiki/pages` endpoint is not used.
+
+## Graph View
+
+Graph View is read-only and does not require a core graph endpoint in
+v1:
+
+- `GET /v1/base/pages?active=true` loads active page records.
+- `GET /v1/base/pages/{path}` loads bodies for the selected graph layer.
+
+The web layer parses markdown wikilinks from `body`, resolves them
+against active page records, and renders only resolved internal links as
+graph edges. Unresolved wikilinks are shown as counts and source-node
+detail, but they do not create ghost nodes. Default graph layer is
+`wiki`; `source` and `all` are client-side graph scopes.
 
 ## Task Events
 

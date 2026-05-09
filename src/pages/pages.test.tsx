@@ -1,6 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { GraphPage } from "./GraphPage";
 import { OverviewPage } from "./OverviewPage";
 import { QueryPage } from "./QueryPage";
 import { RetrievePage } from "./RetrievePage";
@@ -334,6 +335,111 @@ describe("read console pages", () => {
     await userEvent.click(screen.getByRole("button", { name: "刷新知识库" }));
 
     expect(await screen.findByText("Updated Body.")).toBeInTheDocument();
+  });
+
+  it("loads base pages into a default wiki graph", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
+      if (path === "/v1/base/pages") {
+        expect(options?.params).toEqual({ active: true });
+        return Promise.resolve([...wikiPagesFixture, ...sourcePagesFixture]);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<GraphPage client={client} />);
+
+    expect(await screen.findByText("2 nodes")).toBeInTheDocument();
+    expect(screen.getByText("1 link")).toBeInTheDocument();
+    expect(screen.getByText("0 unresolved")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Knowledge graph" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Architecture graph node" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Synthesis graph node" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reset zoom" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Repel strength")).toBeInTheDocument();
+    expect(screen.getByLabelText("Link distance")).toBeInTheDocument();
+    expect(screen.getByLabelText("Node size")).toBeInTheDocument();
+    expect(screen.getByLabelText("Link thickness")).toBeInTheDocument();
+    expect(client.get).not.toHaveBeenCalledWith("/v1/base/pages/sources/architecture.md", expect.anything());
+  });
+
+  it("filters graph nodes, focuses neighbors, and opens the selected node in wiki", async () => {
+    const client = createMockClient();
+    const openedPaths: string[] = [];
+    const graphPages: DocumentRecord[] = [
+      ...wikiPagesFixture,
+      {
+        doc_id: "wiki-orphan",
+        path: "wiki/orphan.md",
+        path_key: "wiki/orphan.md",
+        title: "Orphan",
+        hash: "hash-o",
+        mtime: 1777819400,
+        layer: "wiki",
+        active: true
+      }
+    ];
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve(graphPages);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        if (selectedPath === "wiki/orphan.md") {
+          return Promise.resolve({
+            doc_id: "wiki-orphan",
+            path: "wiki/orphan.md",
+            layer: "wiki",
+            title: "Orphan",
+            body: "# Orphan\n\nNo links.",
+            anchors: []
+          } satisfies PageReadResult);
+        }
+        if (selectedPath === "wiki/architecture.md") {
+          return Promise.resolve({
+            ...wikiPageBodiesFixture["wiki/architecture.md"],
+            body: "# Architecture\n\nSee [[Synthesis]] and [[Missing Concept]]."
+          });
+        }
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<GraphPage client={client} onOpenWikiPath={(path) => openedPaths.push(path)} />);
+
+    expect(await screen.findByText("3 nodes")).toBeInTheDocument();
+    expect(screen.getByText("1 unresolved")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Graph search"), "synth");
+
+    expect(screen.getByRole("button", { name: "Synthesis graph node" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Architecture graph node" })).not.toBeInTheDocument();
+
+    await userEvent.clear(screen.getByLabelText("Graph search"));
+    await userEvent.click(screen.getByLabelText("Hide orphans"));
+
+    expect(screen.queryByRole("button", { name: "Orphan graph node" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Architecture graph node" }));
+
+    const detail = screen.getByRole("region", { name: "Graph node detail" });
+    expect(within(detail).getByRole("heading", { name: "Architecture" })).toBeInTheDocument();
+    expect(within(detail).getByText("0 inbound")).toBeInTheDocument();
+    expect(within(detail).getByText("1 outbound")).toBeInTheDocument();
+    expect(within(detail).getByText("Missing Concept")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Architecture graph node" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Synthesis graph node" })).toHaveAttribute("data-muted", "false");
+
+    await userEvent.click(within(detail).getByRole("button", { name: "在知识库打开" }));
+
+    expect(openedPaths).toEqual(["wiki/architecture.md"]);
   });
 
   it("loads wisdom items and refetches when filters change", async () => {

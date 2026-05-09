@@ -25,6 +25,24 @@ names. Endpoint paths, request params, visible summaries, and error
 states are stable enough to test because they are the web app's public
 boundary with `dikw-core`.
 
+## Graph View Slice Example
+
+Graph View followed the same vertical loop:
+
+1. App shell test first: add `图谱 / Graph`, click it, and assert
+   `#graph` plus the `知识图谱` heading.
+2. Graph builder unit test next: feed page records and markdown bodies,
+   parse `[[Target]]`, `[[Target|alias]]`, and `[[Target#anchor]]`,
+   dedupe repeated edges, and record unresolved wikilinks.
+3. Page test then covers the API boundary: load
+   `/v1/base/pages?active=true`, read page bodies, render SVG nodes and
+   links, then verify search, hide-orphans, focus, and open-in-Wiki.
+4. E2E mock locks the user path: navigate to `#graph`, click a node,
+   inspect detail, and open it in the Wiki reader.
+
+This keeps implementation choices, such as SVG rendering and d3-force
+layout, replaceable while the visible graph behavior stays protected.
+
 ## Commands
 
 - `npm run test:watch`: local red-green loop.

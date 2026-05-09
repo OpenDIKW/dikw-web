@@ -10,13 +10,14 @@ import {
 } from "lucide-react";
 import { DikwClient } from "./api/client";
 import { OverviewPage } from "./pages/OverviewPage";
+import { GraphPage } from "./pages/GraphPage";
 import { QueryPage } from "./pages/QueryPage";
 import { RetrievePage } from "./pages/RetrievePage";
 import { TasksPage } from "./pages/TasksPage";
 import { WikiPage } from "./pages/WikiPage";
 import { WisdomPage } from "./pages/WisdomPage";
 
-type ViewId = "overview" | "query" | "retrieve" | "wiki" | "wisdom" | "tasks";
+type ViewId = "overview" | "query" | "retrieve" | "wiki" | "graph" | "wisdom" | "tasks";
 
 const serverKey = "dikw-web.serverUrl";
 const tokenKey = "dikw-web.token";
@@ -26,6 +27,7 @@ const navItems = [
   { id: "query", labelZh: "查询", labelEn: "Query", icon: MessageSquareText },
   { id: "retrieve", labelZh: "检索", labelEn: "Retrieve", icon: Search },
   { id: "wiki", labelZh: "知识库", labelEn: "Wiki", icon: BookOpen },
+  { id: "graph", labelZh: "图谱", labelEn: "Graph", icon: Network },
   { id: "wisdom", labelZh: "智慧", labelEn: "Wisdom", icon: Gem },
   { id: "tasks", labelZh: "任务", labelEn: "Tasks", icon: ListChecks }
 ] satisfies Array<{ id: ViewId; labelZh: string; labelEn: string; icon: typeof LayoutDashboard }>;
@@ -34,6 +36,7 @@ export function App() {
   const [activeView, setActiveView] = useState<ViewId>(() => viewFromHash());
   const [serverUrl, setServerUrl] = useState(() => sessionStorage.getItem(serverKey) ?? "");
   const [token, setToken] = useState(() => sessionStorage.getItem(tokenKey) ?? "");
+  const [wikiInitialPath, setWikiInitialPath] = useState<string | null>(null);
   const client = useMemo(() => new DikwClient({ baseUrl: serverUrl, token }), [serverUrl, token]);
 
   useEffect(() => {
@@ -63,6 +66,11 @@ export function App() {
   function openView(view: ViewId) {
     setActiveView(view);
     window.location.hash = view;
+  }
+
+  function openWikiPath(path: string) {
+    setWikiInitialPath(path);
+    openView("wiki");
   }
 
   return (
@@ -130,7 +138,8 @@ export function App() {
           {activeView === "overview" ? <OverviewPage client={client} /> : null}
           {activeView === "query" ? <QueryPage client={client} /> : null}
           {activeView === "retrieve" ? <RetrievePage client={client} /> : null}
-          {activeView === "wiki" ? <WikiPage client={client} /> : null}
+          {activeView === "wiki" ? <WikiPage client={client} initialPath={wikiInitialPath} /> : null}
+          {activeView === "graph" ? <GraphPage client={client} onOpenWikiPath={openWikiPath} /> : null}
           {activeView === "wisdom" ? <WisdomPage client={client} /> : null}
           {activeView === "tasks" ? <TasksPage client={client} /> : null}
         </main>
