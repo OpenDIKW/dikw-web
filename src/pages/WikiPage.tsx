@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, Link2, RefreshCw, Search, X } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, X } from "lucide-react";
 import { DikwClient } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
@@ -40,6 +40,7 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(() => new Set());
   const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
   const previewRequestIdRef = useRef(0);
+  const didAutoSelectRef = useRef(false);
 
   const loadPages = useCallback(
     (signal: AbortSignal) => client.get<DocumentRecord[]>("/v1/base/pages", { signal, params: { active: true } }),
@@ -49,6 +50,7 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
 
   useEffect(() => {
     if (initialPath) {
+      didAutoSelectRef.current = true;
       setSelectedPath(initialPath);
     }
   }, [initialPath]);
@@ -68,7 +70,7 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
   const tree = useMemo(() => buildWikiTree(visiblePages), [visiblePages]);
   const expandedTreeIds = useMemo(() => {
     const next = new Set(expandedDirs);
-    const pathForExpansion = selectedPath ?? pickDefaultPagePath(visiblePages);
+    const pathForExpansion = selectedPath;
     if (filter.trim()) {
       collectDirectoryIds(tree, next);
     }
@@ -87,10 +89,17 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
     const nextSelectedPath = pickDefaultPagePath(visiblePages);
     if (!nextSelectedPath) {
       setSelectedPath(null);
+      didAutoSelectRef.current = false;
       return;
     }
-    if (!selectedPath || !visiblePages.some((doc) => doc.path === selectedPath)) {
+    if (selectedPath && !visiblePages.some((doc) => doc.path === selectedPath)) {
       setSelectedPath(nextSelectedPath);
+      didAutoSelectRef.current = true;
+      return;
+    }
+    if (!selectedPath && !didAutoSelectRef.current) {
+      setSelectedPath(nextSelectedPath);
+      didAutoSelectRef.current = true;
     }
   }, [selectedPath, visiblePages]);
 
@@ -131,6 +140,7 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
   }
 
   function toggleDirectory(id: string) {
+    const isClosing = expandedTreeIds.has(id);
     setExpandedDirs((value) => {
       const next = new Set(value);
       if (next.has(id)) {
@@ -138,11 +148,23 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
       } else {
         next.add(id);
       }
+      if (isClosing && selectedPath && pathIsInsideDirectory(selectedPath, id)) {
+        collectPathAncestors(selectedPath).forEach((ancestorId) => {
+          if (ancestorId !== id) {
+            next.add(ancestorId);
+          }
+        });
+        next.delete(id);
+      }
       return next;
     });
+    if (isClosing && selectedPath && pathIsInsideDirectory(selectedPath, id)) {
+      clearReader();
+    }
   }
 
   function selectPage(path: string) {
+    didAutoSelectRef.current = true;
     setSelectedPath(path);
   }
 
@@ -174,6 +196,16 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
     setFilter(target);
   }
 
+  function clearReader() {
+    didAutoSelectRef.current = true;
+    previewRequestIdRef.current += 1;
+    setSelectedPath(null);
+    setPage(null);
+    setPageError(null);
+    setPageLoading(false);
+    setPreview({ kind: "idle" });
+  }
+
   const selectedDoc = pages.data?.find((doc) => doc.path === page?.path) ?? null;
 
   return (
@@ -190,7 +222,7 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
 
       {pages.error ? <Notice title="无法读取 wiki pages" error={pages.error} /> : null}
 
-      <section className={`wiki-layout ${preview.kind === "idle" ? "wiki-layout--preview-collapsed" : ""}`}>
+      <section className={`wiki-layout ${preview.kind !== "idle" ? "wiki-layout--preview-open" : ""}`}>
         <aside className="wiki-sidebar">
           <div className="wiki-explorer__header">
             <div>
@@ -231,12 +263,14 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
           onWikiLink={openWikiLink}
         />
 
-        <WikiLinkPreview
-          preview={preview}
-          onClose={() => setPreview({ kind: "idle" })}
-          onOpen={(path) => setSelectedPath(path)}
-          onFilter={filterByPreviewTarget}
-        />
+        {preview.kind !== "idle" ? (
+          <WikiLinkPreview
+            preview={preview}
+            onClose={() => setPreview({ kind: "idle" })}
+            onOpen={selectPage}
+            onFilter={filterByPreviewTarget}
+          />
+        ) : null}
       </section>
     </div>
   );
@@ -369,7 +403,7 @@ function WikiReader({
           <MarkdownView body={page.body} fallbackTitle={page.title || getMarkdownTitle(page.body) || basename(page.path)} onWikiLink={onWikiLink} />
         </>
       ) : !loading && !error ? (
-        <EmptyState title="选择一篇 wiki 页面" />
+        <EmptyState title="选择一篇文档开始阅读" />
       ) : null}
     </main>
   );
@@ -386,15 +420,8 @@ function WikiLinkPreview({
   onOpen: (path: string) => void;
   onFilter: (target: string) => void;
 }) {
-  const expanded = preview.kind !== "idle";
   return (
-    <aside className={`wiki-preview panel ${expanded ? "wiki-preview--open" : "wiki-preview--collapsed"}`} role="region" aria-label="Wiki link preview">
-      {preview.kind === "idle" ? (
-        <div className="wiki-preview__rail" title="点击正文中的 wikilink">
-          <Link2 size={16} aria-hidden="true" />
-          <strong>链接预览</strong>
-        </div>
-      ) : null}
+    <aside className="wiki-preview panel wiki-preview--open" role="region" aria-label="Wiki link preview">
       {preview.kind === "loading" ? (
         <PreviewFrame title="Link preview" onClose={onClose}>
           <EmptyState title="读取引用页面中" detail={preview.target} />
@@ -523,6 +550,10 @@ function collectDirectoryIds(nodes: WikiTreeNode[], target: Set<string>) {
 function collectPathAncestors(path: string): string[] {
   const parts = path.split("/").filter(Boolean);
   return ["base", ...parts.slice(0, -1).map((_, index) => parts.slice(0, index + 1).join("/"))];
+}
+
+function pathIsInsideDirectory(path: string, directoryId: string): boolean {
+  return directoryId === "base" || path === directoryId || path.startsWith(`${directoryId}/`);
 }
 
 function summarizeMarkdown(body: string): string {

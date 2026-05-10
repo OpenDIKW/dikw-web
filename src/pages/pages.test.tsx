@@ -138,7 +138,7 @@ describe("read console pages", () => {
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
   });
 
-  it("renders wiki pages as a directory tree and opens wikilinks in the preview rail", async () => {
+  it("renders wiki pages as a directory tree and opens wikilinks in the preview panel", async () => {
     const client = createMockClient();
     const treePages: DocumentRecord[] = [
       {
@@ -196,11 +196,11 @@ describe("read console pages", () => {
     const directory = await screen.findByRole("tree", { name: "Base directory" });
     expect(within(directory).getByRole("treeitem", { name: "base" })).toBeInTheDocument();
     expect(within(directory).getByRole("treeitem", { name: /wiki/ })).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "dikw-core", level: 1 });
     expect(within(directory).getByRole("treeitem", { name: /entities/ })).toBeInTheDocument();
     expect(await within(directory).findByRole("button", { name: /dikw-core/ })).toBeInTheDocument();
-    await screen.findByRole("heading", { name: "dikw-core", level: 1 });
     expect(screen.getAllByRole("heading", { name: "dikw-core", level: 1 })).toHaveLength(1);
-    expect(screen.getByRole("region", { name: "Wiki link preview" })).toHaveTextContent("链接预览");
+    expect(screen.queryByRole("region", { name: "Wiki link preview" })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "DIKW pyramid" }));
 
@@ -210,7 +210,14 @@ describe("read console pages", () => {
     expect(within(preview).getByText("Preview body for the pyramid concept.")).toBeInTheDocument();
     expect(within(screen.getByRole("main", { name: "Wiki reader" })).getByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
 
-    await userEvent.click(within(preview).getByRole("button", { name: "打开为主文档" }));
+    await userEvent.click(within(preview).getByRole("button", { name: "收起链接预览" }));
+
+    expect(screen.queryByRole("region", { name: "Wiki link preview" })).not.toBeInTheDocument();
+    expect(within(screen.getByRole("main", { name: "Wiki reader" })).getByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "DIKW pyramid" }));
+    const reopenedPreview = screen.getByRole("region", { name: "Wiki link preview" });
+    await userEvent.click(within(reopenedPreview).getByRole("button", { name: "打开为主文档" }));
 
     expect(await within(screen.getByRole("main", { name: "Wiki reader" })).findByRole("heading", { name: "DIKW 金字塔", level: 1 })).toBeInTheDocument();
   });
@@ -266,6 +273,74 @@ describe("read console pages", () => {
     expect(within(directory).getByRole("treeitem", { name: "concepts" })).toHaveAttribute("aria-expanded", "true");
     expect(await within(directory).findByRole("button", { name: /DIKW pyramid/ })).toBeInTheDocument();
     expect(within(directory).queryByRole("button", { name: /dikw-core/ })).not.toBeInTheDocument();
+  });
+
+  it("clears the reader when closing the directory that contains the selected page", async () => {
+    const client = createMockClient();
+    let bodyReads = 0;
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve([
+          {
+            doc_id: "wiki-dikw-core",
+            path: "wiki/entities/dikw-core.md",
+            path_key: "wiki/entities/dikw-core.md",
+            title: "dikw-core",
+            hash: "hash-core",
+            mtime: 1777820000,
+            layer: "wiki",
+            active: true
+          },
+          {
+            doc_id: "wiki-dikw-pyramid",
+            path: "wiki/concepts/dikw-pyramid.md",
+            path_key: "wiki/concepts/dikw-pyramid.md",
+            title: "DIKW pyramid",
+            hash: "hash-pyramid",
+            mtime: 1777820100,
+            layer: "wiki",
+            active: true
+          }
+        ] satisfies DocumentRecord[]);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        bodyReads += 1;
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve({
+          doc_id: selectedPath,
+          path: selectedPath,
+          layer: "wiki",
+          title: selectedPath.includes("pyramid") ? "DIKW pyramid" : "dikw-core",
+          body: selectedPath.includes("pyramid") ? "# DIKW pyramid\n\nPyramid body." : "# dikw-core\n\nCore body with [[DIKW pyramid]].",
+          anchors: []
+        } satisfies PageReadResult);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    const reader = screen.getByRole("main", { name: "Wiki reader" });
+    const directory = await screen.findByRole("tree", { name: "Base directory" });
+    expect(await within(reader).findByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
+
+    await userEvent.click(within(reader).getByRole("button", { name: "DIKW pyramid" }));
+    expect(screen.getByRole("region", { name: "Wiki link preview" })).toBeInTheDocument();
+
+    await userEvent.click(within(directory).getByRole("button", { name: "concepts" }));
+    expect(within(reader).getByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
+
+    await userEvent.click(within(directory).getByRole("button", { name: "entities" }));
+
+    expect(within(directory).getByRole("treeitem", { name: "entities" })).toHaveAttribute("aria-expanded", "false");
+    expect(within(reader).queryByRole("heading", { name: "dikw-core", level: 1 })).not.toBeInTheDocument();
+    expect(within(reader).getByText("选择一篇文档开始阅读")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Wiki link preview" })).not.toBeInTheDocument();
+
+    const readsAfterClear = bodyReads;
+    await userEvent.click(screen.getByRole("button", { name: "刷新知识库" }));
+
+    expect(bodyReads).toBe(readsAfterClear);
   });
 
   it("shows an unresolved wikilink preview and can filter by the missing target", async () => {

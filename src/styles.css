@@ -770,13 +770,13 @@ textarea:focus {
 
 .wiki-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(280px, 340px);
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
   gap: 14px;
   align-items: start;
 }
 
-.wiki-layout--preview-collapsed {
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) 92px;
+.wiki-layout--preview-open {
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(280px, 340px);
 }
 
 .wiki-sidebar,
@@ -1234,44 +1234,11 @@ textarea:focus {
   overflow: auto;
 }
 
-.wiki-preview--collapsed {
-  display: grid;
-  place-items: center;
-  padding: 10px;
-}
-
 .wiki-preview--open {
   display: grid;
   align-content: start;
   gap: 12px;
   padding: 12px;
-}
-
-.wiki-preview__rail {
-  display: grid;
-  justify-items: center;
-  align-content: center;
-  gap: 6px;
-  min-height: 170px;
-  width: 100%;
-  padding: 12px 8px;
-  border: 1px dashed #d7e4df;
-  border-radius: 8px;
-  background: #fbfdfc;
-  color: var(--muted);
-  text-align: center;
-}
-
-.wiki-preview__rail strong {
-  color: #31413d;
-  font-size: 12px;
-  letter-spacing: 0;
-}
-
-.wiki-preview__rail small {
-  max-width: 64px;
-  font-size: 11px;
-  line-height: 1.35;
 }
 
 .wiki-preview__header {
@@ -2013,18 +1980,6 @@ textarea:focus {
     position: static;
     min-height: auto;
     max-height: none;
-  }
-
-  .wiki-preview--collapsed {
-    display: block;
-  }
-
-  .wiki-preview__rail {
-    grid-auto-flow: column;
-    justify-content: start;
-    justify-items: start;
-    text-align: left;
-    writing-mode: horizontal-tb;
   }
 
   .reader-header,
