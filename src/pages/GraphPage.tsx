@@ -9,6 +9,7 @@ import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, type K
 interface GraphPageProps {
   client: DikwClient;
   onOpenWikiPath?: (path: string) => void;
+  pageReadTimeoutMs?: number;
 }
 
 type GraphLayer = Extract<Layer, "wiki" | "source"> | "all";
@@ -17,8 +18,15 @@ interface GraphLoadState {
   loading: boolean;
   loaded: number;
   total: number;
+  skipped: GraphBodyReadIssue[];
   graph: KnowledgeGraph | null;
   error: unknown;
+}
+
+interface GraphBodyReadIssue {
+  path: string;
+  title: string;
+  message: string;
 }
 
 interface ForceSettings {
@@ -36,8 +44,9 @@ const defaultForceSettings: ForceSettings = {
 };
 
 const graphReadConcurrency = 8;
+const defaultPageReadTimeoutMs = 15_000;
 
-export function GraphPage({ client, onOpenWikiPath: _onOpenWikiPath }: GraphPageProps) {
+export function GraphPage({ client, onOpenWikiPath: _onOpenWikiPath, pageReadTimeoutMs = defaultPageReadTimeoutMs }: GraphPageProps) {
   const [layer, setLayer] = useState<GraphLayer>("wiki");
   const [query, setQuery] = useState("");
   const [hideOrphans, setHideOrphans] = useState(false);
@@ -49,18 +58,19 @@ export function GraphPage({ client, onOpenWikiPath: _onOpenWikiPath }: GraphPage
     loading: true,
     loaded: 0,
     total: 0,
+    skipped: [],
     graph: null,
     error: null
   });
 
   const loadGraph = useCallback(
     async (signal: AbortSignal) => {
-      setState((current) => ({ ...current, loading: true, loaded: 0, total: 0, error: null }));
+      setState((current) => ({ ...current, loading: true, loaded: 0, total: 0, skipped: [], error: null }));
       const pages = await client.get<DocumentRecord[]>("/v1/base/pages", { signal, params: { active: true } });
       const graphPages = pages.filter((page) => layer === "all" || page.layer === layer);
       setState((current) => ({ ...current, total: graphPages.length }));
 
-      const bodies = await readPageBodies(client, graphPages, signal, () => {
+      const { bodies, skipped } = await readPageBodies(client, graphPages, signal, pageReadTimeoutMs, () => {
         setState((current) => ({ ...current, loaded: current.loaded + 1 }));
       });
 
@@ -69,12 +79,13 @@ export function GraphPage({ client, onOpenWikiPath: _onOpenWikiPath }: GraphPage
           loading: false,
           loaded: graphPages.length,
           total: graphPages.length,
+          skipped,
           graph: buildKnowledgeGraph(graphPages, bodies),
           error: null
         });
       }
     },
-    [client, layer]
+    [client, layer, pageReadTimeoutMs]
   );
 
   useEffect(() => {
@@ -156,6 +167,17 @@ export function GraphPage({ client, onOpenWikiPath: _onOpenWikiPath }: GraphPage
       </section>
 
       {state.error ? <Notice title="无法构建知识图谱" error={state.error} /> : null}
+      {state.skipped.length ? (
+        <Notice title="部分页面正文读取失败，图谱已用已返回页面继续构建。" tone="warn">
+          <div>
+            {state.skipped.length} skipped: {state.skipped
+              .slice(0, 3)
+              .map((issue) => issue.path)
+              .join(", ")}
+            {state.skipped.length > 3 ? "..." : ""}
+          </div>
+        </Notice>
+      ) : null}
 
       {filteredGraph ? (
         <section className="graph-layout">
@@ -165,6 +187,7 @@ export function GraphPage({ client, onOpenWikiPath: _onOpenWikiPath }: GraphPage
                 <span className="soft-label">{filteredGraph.stats.nodeCount} nodes</span>
                 <span className="soft-label">{filteredGraph.stats.edgeCount} link</span>
                 <span className="soft-label">{filteredGraph.stats.unresolvedCount} unresolved</span>
+                {state.skipped.length ? <span className="soft-label">{state.skipped.length} skipped</span> : null}
               </div>
               <div className="graph-zoom" aria-label="Graph zoom controls">
                 <button
@@ -402,9 +425,11 @@ async function readPageBodies(
   client: DikwClient,
   pages: DocumentRecord[],
   signal: AbortSignal,
+  timeoutMs: number,
   onLoaded: () => void
-): Promise<Record<string, PageReadResult>> {
+): Promise<{ bodies: Record<string, PageReadResult>; skipped: GraphBodyReadIssue[] }> {
   const bodies: Record<string, PageReadResult> = {};
+  const skipped: GraphBodyReadIssue[] = [];
   let nextIndex = 0;
 
   async function worker() {
@@ -414,16 +439,66 @@ async function readPageBodies(
       if (!page) {
         return;
       }
-      const body = await client.get<PageReadResult>(`/v1/base/pages/${encodePath(page.path)}`, { signal });
+      const result = await readPageBody(client, page, signal, timeoutMs);
+      if (signal.aborted) {
+        return;
+      }
+      if (result.ok) {
+        bodies[page.path] = result.body;
+      } else {
+        skipped.push({
+          path: page.path,
+          title: page.title || page.path,
+          message: result.message
+        });
+      }
       if (!signal.aborted) {
-        bodies[page.path] = body;
         onLoaded();
       }
     }
   }
 
   await Promise.all(Array.from({ length: Math.min(graphReadConcurrency, pages.length) }, () => worker()));
-  return bodies;
+  return { bodies, skipped };
+}
+
+async function readPageBody(
+  client: DikwClient,
+  page: DocumentRecord,
+  parentSignal: AbortSignal,
+  timeoutMs: number
+): Promise<{ ok: true; body: PageReadResult } | { ok: false; message: string }> {
+  const controller = new AbortController();
+  const abortFromParent = () => controller.abort(parentSignal.reason);
+  if (parentSignal.aborted) {
+    return { ok: false, message: "request aborted" };
+  }
+  parentSignal.addEventListener("abort", abortFromParent, { once: true });
+
+  let timeoutId: number | undefined;
+  try {
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timeoutId = window.setTimeout(() => {
+        controller.abort(new Error(`Timed out after ${timeoutMs}ms`));
+        reject(new Error(`Timed out after ${timeoutMs}ms`));
+      }, timeoutMs);
+    });
+    const body = await Promise.race([
+      client.get<PageReadResult>(`/v1/base/pages/${encodePath(page.path)}`, { signal: controller.signal }),
+      timeout
+    ]);
+    return { ok: true, body };
+  } catch (error) {
+    if (parentSignal.aborted) {
+      throw error;
+    }
+    return { ok: false, message: getErrorMessage(error) };
+  } finally {
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId);
+    }
+    parentSignal.removeEventListener("abort", abortFromParent);
+  }
 }
 
 function encodePath(path: string): string {
@@ -445,4 +520,11 @@ function getFocusedNodeIds(graph: KnowledgeGraph, nodeId: string): Set<string> {
 
 function clampNumber(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }

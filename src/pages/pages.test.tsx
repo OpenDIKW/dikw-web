@@ -369,6 +369,31 @@ describe("read console pages", () => {
     expect(client.get).not.toHaveBeenCalledWith("/v1/base/pages/sources/architecture.md", expect.anything());
   });
 
+  it("renders a partial graph when one page body times out", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string, options?: { signal?: AbortSignal }) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve(wikiPagesFixture);
+      }
+      if (path === "/v1/base/pages/wiki/architecture.md") {
+        return Promise.resolve(wikiPageBodiesFixture["wiki/architecture.md"]);
+      }
+      if (path === "/v1/base/pages/wiki/synthesis.md") {
+        return new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener("abort", () => reject(new Error("request aborted")), { once: true });
+        });
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<GraphPage client={client} pageReadTimeoutMs={5} />);
+
+    expect(await screen.findByText("2 nodes")).toBeInTheDocument();
+    expect(screen.getByText("1 link")).toBeInTheDocument();
+    expect(screen.getByText("1 skipped")).toBeInTheDocument();
+    expect(screen.getByText("部分页面正文读取失败，图谱已用已返回页面继续构建。")).toBeInTheDocument();
+  });
+
   it("filters graph nodes, focuses neighbors, and opens the selected node in wiki", async () => {
     const client = createMockClient();
     const openedPaths: string[] = [];

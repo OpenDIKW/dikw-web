@@ -18,7 +18,11 @@ copy Obsidian behavior wholesale and does not modify base content.
 The page loads active page records from `GET /v1/base/pages?active=true`,
 then reads page bodies through `GET /v1/base/pages/{path}` for the
 selected scope. Body reads are capped at 8 concurrent requests so large
-knowledge bases do not start hundreds of fetches at once.
+knowledge bases do not start hundreds of fetches at once. Each body read
+also has a client-side timeout; a timed-out page is counted as `skipped`
+and the graph is built from the bodies that did return. This prevents a
+single stuck page request from leaving the graph page in a permanent
+`读取 x / y pages` loading state.
 
 ## Wikilink Resolution
 
