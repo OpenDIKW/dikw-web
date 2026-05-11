@@ -34,4 +34,23 @@ describe("MarkdownView", () => {
     await userEvent.click(screen.getByRole("button", { name: "the synthesis page" }));
     expect(onWikiLink).toHaveBeenCalledWith("Synthesis");
   });
+
+  it("keeps hash routing intact when following in-document heading anchors", async () => {
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    window.location.hash = "#wiki";
+
+    try {
+      render(<MarkdownView body={"[第1章](#第1章)\n\n# 第1章\n\n正文。"} />);
+      expect(screen.getByRole("heading", { name: "第1章" })).toHaveAttribute("id", "第1章");
+
+      await userEvent.click(screen.getByRole("link", { name: "第1章" }));
+
+      expect(window.location.hash).toBe("#wiki");
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+    }
+  });
 });

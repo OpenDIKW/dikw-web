@@ -31,11 +31,19 @@ export function MarkdownView({ body, fallbackTitle, onWikiLink }: MarkdownViewPr
   function handleClick(event: React.MouseEvent<HTMLElement>) {
     const element = (event.target as HTMLElement).closest<HTMLElement>("[data-wiki-link]");
     const target = element?.dataset.wikiLink;
-    if (!target) {
+    if (target) {
+      event.preventDefault();
+      onWikiLink?.(target);
       return;
     }
-    event.preventDefault();
-    onWikiLink?.(target);
+
+    const anchor = (event.target as HTMLElement).closest<HTMLAnchorElement>("a[href]");
+    const href = anchor?.getAttribute("href") ?? "";
+    if (href.startsWith("#") && href.length > 1) {
+      event.preventDefault();
+      const targetElement = findDocumentAnchor(event.currentTarget, href.slice(1));
+      targetElement?.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
   }
 
   return (
@@ -126,6 +134,9 @@ function installRendererRules(md: MarkdownIt) {
   const defaultRender =
     md.renderer.rules.link_open ??
     ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+  const headingRender =
+    md.renderer.rules.heading_open ??
+    ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
 
   md.renderer.rules.link_open = (tokens, index, options, env, self) => {
     const href = tokens[index].attrGet("href") ?? "";
@@ -134,6 +145,15 @@ function installRendererRules(md: MarkdownIt) {
       tokens[index].attrSet("rel", "noreferrer");
     }
     return defaultRender(tokens, index, options, env, self);
+  };
+
+  md.renderer.rules.heading_open = (tokens, index, options, env, self) => {
+    const inline = tokens[index + 1];
+    const slug = inline?.type === "inline" ? uniqueHeadingSlug(env, inline.content) : "";
+    if (slug) {
+      tokens[index].attrSet("id", slug);
+    }
+    return headingRender(tokens, index, options, env, self);
   };
 
   md.renderer.rules.table_open = () => '<div class="markdown-table-wrap"><table>';
@@ -169,4 +189,56 @@ function escapeHtml(value: string): string {
 
 function escapeAttribute(value: string): string {
   return escapeHtml(value).replace(/'/g, "&#39;");
+}
+
+function uniqueHeadingSlug(env: Record<string, unknown>, value: string): string {
+  const slug = slugifyHeading(value);
+  if (!slug) {
+    return "";
+  }
+  const counts =
+    env.headingSlugCounts instanceof Map
+      ? env.headingSlugCounts
+      : new Map<string, number>();
+  env.headingSlugCounts = counts;
+  const count = counts.get(slug) ?? 0;
+  counts.set(slug, count + 1);
+  return count === 0 ? slug : `${slug}-${count + 1}`;
+}
+
+function findDocumentAnchor(root: HTMLElement, rawTarget: string): HTMLElement | null {
+  const target = decodeAnchorTarget(rawTarget);
+  const exact = root.ownerDocument.getElementById(target);
+  if (exact instanceof HTMLElement && root.contains(exact)) {
+    return exact;
+  }
+
+  const slug = slugifyHeading(target);
+  const slugMatch = slug ? root.ownerDocument.getElementById(slug) : null;
+  if (slugMatch instanceof HTMLElement && root.contains(slugMatch)) {
+    return slugMatch;
+  }
+
+  const headings = Array.from(root.querySelectorAll<HTMLElement>("h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]"));
+  return headings.find((heading) => heading.id.startsWith(slug || target)) ?? null;
+}
+
+function decodeAnchorTarget(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function slugifyHeading(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s_-]+/gu, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
