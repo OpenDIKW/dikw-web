@@ -31,6 +31,20 @@ dropdown on the knowledge page; it shows the base tree directly and
 keeps wiki/source grouping visible through paths and metadata. The
 legacy `/v1/wiki/pages` endpoint is not used.
 
+The Wiki middle pane derives all reading tabs from the selected
+`PageReadResult`:
+
+- `Read` renders the markdown body as a polished, read-only article.
+  Frontmatter is not shown in this tab.
+- `Info` renders frontmatter, path, layer, anchor count, and update
+  metadata.
+- `Outline` derives headings and wikilinks from the markdown body.
+- `Source` renders the raw markdown body for verification.
+
+Markdown internal anchor links stay inside the current Wiki view. They
+scroll the selected article instead of rewriting the application hash
+route away from `#wiki`.
+
 ## Graph View
 
 Graph View is read-only and does not require a core graph endpoint in
@@ -44,28 +58,6 @@ against active page records, and renders only resolved internal links as
 graph edges. Unresolved wikilinks are shown as counts and source-node
 detail, but they do not create ghost nodes. Default graph layer is
 `wiki`; `source` and `all` are client-side graph scopes.
-
-## Artifact Studio
-
-Artifact Studio does not add a core endpoint in v1. It derives controlled
-`ArtifactDocument` objects from data that existing pages have already
-loaded:
-
-- Wiki knowledge explainers use `/v1/base/pages` records plus
-  `/v1/base/pages/{path}` bodies.
-- Task run reports use `/v1/tasks` rows plus
-  `/v1/tasks/{id}/events` NDJSON events.
-- Query answer reports use `/v1/query` stream final state, citations,
-  retrieval hits, and applied wisdom.
-- Retrieve answer reports use `/v1/retrieve` stream final chunks and
-  page refs.
-- Graph explainers use the client-built graph from `/v1/base/pages*`.
-
-Artifacts are browser-session state only. The web app does not persist
-them, read local files, import external HTML, or execute external
-scripts. If core later exposes `/v1/artifacts`, the web contract should
-keep the current `ArtifactDocument` rendering behavior and move artifact
-construction behind the API boundary.
 
 ## Task Events
 

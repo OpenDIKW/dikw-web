@@ -12,10 +12,30 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
   await expect(page.getByRole("tree", { name: "Base directory" })).toBeVisible();
   await expect(page.getByRole("treeitem", { name: "concepts" })).toBeVisible();
   await expect(page.getByText("Layered DIKW notes.")).toBeVisible();
+  await expect(page.getByRole("tab", { name: /阅读\s*\/\s*Read/ })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("region", { name: "Wiki link preview" })).toHaveCount(0);
   await expect(page.locator(".wiki-layout")).not.toHaveClass(/wiki-layout--preview-open/);
 
   const reader = page.getByRole("main", { name: "Wiki reader" });
+  await reader.getByRole("link", { name: "Jump to links" }).click();
+  await expect(page).toHaveURL(/#wiki$/);
+  await expect(reader.getByRole("heading", { name: "Architecture" })).toBeVisible();
+
+  await page.getByRole("tab", { name: /信息\s*\/\s*Info/ }).click();
+  const infoPanel = page.getByRole("tabpanel", { name: "信息 / Info" });
+  await expect(infoPanel.getByText("wiki/concepts/architecture.md")).toBeVisible();
+  await expect(infoPanel.getByText("draft")).toBeVisible();
+  await expect(infoPanel.getByText("#DIKW")).toBeVisible();
+  await expect(infoPanel.getByText("source/a.md")).toBeVisible();
+
+  await page.getByRole("tab", { name: /目录与链接\s*\/\s*Outline/ }).click();
+  await expect(reader.getByRole("heading", { name: "Architecture" })).toBeVisible();
+  await expect(reader.getByRole("heading", { name: "Links", exact: true })).toBeVisible();
+
+  await page.getByRole("tab", { name: /源码\s*\/\s*Source/ }).click();
+  await expect(reader.getByText(/title: Architecture/)).toBeVisible();
+
+  await page.getByRole("tab", { name: /阅读\s*\/\s*Read/ }).click();
   await reader.getByRole("button", { name: "Synthesis", exact: true }).click();
 
   const preview = page.getByRole("region", { name: "Wiki link preview" });

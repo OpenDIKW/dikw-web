@@ -1,8 +1,6 @@
 import { useRef, useState } from "react";
-import { Pause, Play, Search, Sparkles } from "lucide-react";
+import { Pause, Play, Search } from "lucide-react";
 import { DikwClient } from "../api/client";
-import { buildQueryAnswerReport } from "../artifacts/builders";
-import type { ArtifactDocument } from "../artifacts/types";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import type { Citation, Hit, QueryResult } from "../types";
@@ -10,10 +8,9 @@ import { formatScore } from "../utils/format";
 
 interface QueryPageProps {
   client: DikwClient;
-  onCreateArtifact?: (artifact: ArtifactDocument) => void;
 }
 
-export function QueryPage({ client, onCreateArtifact }: QueryPageProps) {
+export function QueryPage({ client }: QueryPageProps) {
   const [question, setQuestion] = useState("");
   const [limit, setLimit] = useState(5);
   const [answer, setAnswer] = useState("");
@@ -115,27 +112,6 @@ export function QueryPage({ client, onCreateArtifact }: QueryPageProps) {
               <Pause size={16} />
               Stop
             </button>
-            {onCreateArtifact && finalStatus === "succeeded" ? (
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() =>
-                  onCreateArtifact(
-                    buildQueryAnswerReport({
-                      question: question.trim(),
-                      answer,
-                      limit,
-                      hits,
-                      citations,
-                      appliedWisdom
-                    })
-                  )
-                }
-              >
-                <Sparkles size={16} />
-                Generate answer report
-              </button>
-            ) : null}
           </div>
 
           {error ? <Notice title="查询失败" error={error} /> : null}

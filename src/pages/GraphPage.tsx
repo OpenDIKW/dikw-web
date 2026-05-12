@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, RotateCcw, Search, Sparkles, ZoomIn, ZoomOut } from "lucide-react";
+import { RefreshCw, RotateCcw, Search, ZoomIn, ZoomOut } from "lucide-react";
 import type { DikwClient } from "../api/client";
-import { buildGraphExplainer } from "../artifacts/builders";
-import type { ArtifactDocument } from "../artifacts/types";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import type { DocumentRecord, Layer, PageReadResult } from "../types";
@@ -11,7 +9,6 @@ import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, type K
 interface GraphPageProps {
   client: DikwClient;
   onOpenWikiPath?: (path: string) => void;
-  onCreateArtifact?: (artifact: ArtifactDocument) => void;
   pageReadTimeoutMs?: number;
 }
 
@@ -52,7 +49,6 @@ const defaultPageReadTimeoutMs = 15_000;
 export function GraphPage({
   client,
   onOpenWikiPath: _onOpenWikiPath,
-  onCreateArtifact,
   pageReadTimeoutMs = defaultPageReadTimeoutMs
 }: GraphPageProps) {
   const [layer, setLayer] = useState<GraphLayer>("wiki");
@@ -297,12 +293,6 @@ export function GraphPage({
               <button className="secondary-button" type="button" onClick={() => _onOpenWikiPath?.(focusedNode.path)}>
                 在知识库打开
               </button>
-              {onCreateArtifact ? (
-                <button className="secondary-button" type="button" onClick={() => onCreateArtifact(buildGraphExplainer(filteredGraph, focusedNode.id))}>
-                  <Sparkles size={16} />
-                  Generate graph explainer
-                </button>
-              ) : null}
             </aside>
           ) : null}
         </section>

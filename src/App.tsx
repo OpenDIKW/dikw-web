@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
-  FileText,
   Gem,
   LayoutDashboard,
   ListChecks,
@@ -10,8 +9,6 @@ import {
   Search
 } from "lucide-react";
 import { DikwClient } from "./api/client";
-import type { ArtifactDocument, ArtifactSource } from "./artifacts/types";
-import { ArtifactPage } from "./pages/ArtifactPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { GraphPage } from "./pages/GraphPage";
 import { QueryPage } from "./pages/QueryPage";
@@ -20,7 +17,7 @@ import { TasksPage } from "./pages/TasksPage";
 import { WikiPage } from "./pages/WikiPage";
 import { WisdomPage } from "./pages/WisdomPage";
 
-type ViewId = "overview" | "query" | "retrieve" | "wiki" | "graph" | "artifacts" | "wisdom" | "tasks";
+type ViewId = "overview" | "query" | "retrieve" | "wiki" | "graph" | "wisdom" | "tasks";
 
 const serverKey = "dikw-web.serverUrl";
 const tokenKey = "dikw-web.token";
@@ -31,7 +28,6 @@ const navItems = [
   { id: "retrieve", labelZh: "检索", labelEn: "Retrieve", icon: Search },
   { id: "wiki", labelZh: "知识库", labelEn: "Wiki", icon: BookOpen },
   { id: "graph", labelZh: "图谱", labelEn: "Graph", icon: Network },
-  { id: "artifacts", labelZh: "产物", labelEn: "Artifacts", icon: FileText },
   { id: "wisdom", labelZh: "智慧", labelEn: "Wisdom", icon: Gem },
   { id: "tasks", labelZh: "任务", labelEn: "Tasks", icon: ListChecks }
 ] satisfies Array<{ id: ViewId; labelZh: string; labelEn: string; icon: typeof LayoutDashboard }>;
@@ -41,8 +37,6 @@ export function App() {
   const [serverUrl, setServerUrl] = useState(() => sessionStorage.getItem(serverKey) ?? "");
   const [token, setToken] = useState(() => sessionStorage.getItem(tokenKey) ?? "");
   const [wikiInitialPath, setWikiInitialPath] = useState<string | null>(null);
-  const [artifacts, setArtifacts] = useState<ArtifactDocument[]>([]);
-  const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const client = useMemo(() => new DikwClient({ baseUrl: serverUrl, token }), [serverUrl, token]);
 
   useEffect(() => {
@@ -77,22 +71,6 @@ export function App() {
   function openWikiPath(path: string) {
     setWikiInitialPath(path);
     openView("wiki");
-  }
-
-  function createArtifact(artifact: ArtifactDocument) {
-    setArtifacts((value) => [artifact, ...value.filter((item) => item.id !== artifact.id)]);
-    setSelectedArtifactId(artifact.id);
-    openView("artifacts");
-  }
-
-  function openArtifactSource(source: ArtifactSource) {
-    if (source.view === "wiki" && source.path) {
-      openWikiPath(source.path);
-      return;
-    }
-    if (source.view === "graph" || source.view === "tasks" || source.view === "query" || source.view === "retrieve") {
-      openView(source.view);
-    }
   }
 
   return (
@@ -158,20 +136,12 @@ export function App() {
 
         <main className="content">
           {activeView === "overview" ? <OverviewPage client={client} /> : null}
-          {activeView === "query" ? <QueryPage client={client} onCreateArtifact={createArtifact} /> : null}
-          {activeView === "retrieve" ? <RetrievePage client={client} onCreateArtifact={createArtifact} /> : null}
-          {activeView === "wiki" ? <WikiPage client={client} initialPath={wikiInitialPath} onCreateArtifact={createArtifact} /> : null}
-          {activeView === "graph" ? <GraphPage client={client} onOpenWikiPath={openWikiPath} onCreateArtifact={createArtifact} /> : null}
-          {activeView === "artifacts" ? (
-            <ArtifactPage
-              artifacts={artifacts}
-              selectedId={selectedArtifactId}
-              onSelectArtifact={setSelectedArtifactId}
-              onOpenSource={openArtifactSource}
-            />
-          ) : null}
+          {activeView === "query" ? <QueryPage client={client} /> : null}
+          {activeView === "retrieve" ? <RetrievePage client={client} /> : null}
+          {activeView === "wiki" ? <WikiPage client={client} initialPath={wikiInitialPath} /> : null}
+          {activeView === "graph" ? <GraphPage client={client} onOpenWikiPath={openWikiPath} /> : null}
           {activeView === "wisdom" ? <WisdomPage client={client} /> : null}
-          {activeView === "tasks" ? <TasksPage client={client} onCreateArtifact={createArtifact} /> : null}
+          {activeView === "tasks" ? <TasksPage client={client} /> : null}
         </main>
       </div>
     </div>

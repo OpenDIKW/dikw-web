@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, Sparkles, X } from "lucide-react";
-import { buildKnowledgeExplainer } from "../artifacts/builders";
-import type { ArtifactDocument } from "../artifacts/types";
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, X } from "lucide-react";
 import { DikwClient } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
@@ -16,7 +14,6 @@ import { formatUnixSeconds, truncateMiddle } from "../utils/format";
 interface WikiPageProps {
   client: DikwClient;
   initialPath?: string | null;
-  onCreateArtifact?: (artifact: ArtifactDocument) => void;
 }
 
 interface WikiTreeNode {
@@ -33,7 +30,9 @@ type PreviewState =
   | { kind: "not-found"; target: string }
   | { kind: "error"; target: string; error: unknown };
 
-export function WikiPage({ client, initialPath, onCreateArtifact }: WikiPageProps) {
+type WikiReaderTab = "read" | "info" | "outline" | "source";
+
+export function WikiPage({ client, initialPath }: WikiPageProps) {
   const [filter, setFilter] = useState("");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [page, setPage] = useState<PageReadResult | null>(null);
@@ -264,7 +263,6 @@ export function WikiPage({ client, initialPath, onCreateArtifact }: WikiPageProp
           loading={pageLoading}
           error={pageError}
           onWikiLink={openWikiLink}
-          onCreateArtifact={onCreateArtifact}
         />
 
         {preview.kind !== "idle" ? (
@@ -383,16 +381,26 @@ function WikiReader({
   doc,
   loading,
   error,
-  onWikiLink,
-  onCreateArtifact
+  onWikiLink
 }: {
   page: PageReadResult | null;
   doc: DocumentRecord | null;
   loading: boolean;
   error: unknown;
   onWikiLink: (target: string) => void;
-  onCreateArtifact?: (artifact: ArtifactDocument) => void;
 }) {
+  const [activeTab, setActiveTab] = useState<WikiReaderTab>("read");
+  const parsed = useMemo(
+    () => (page ? parseMarkdownDocument(page.body, { stripDuplicateTitle: false }) : null),
+    [page]
+  );
+  const headings = useMemo(() => (parsed ? extractHeadings(parsed.body) : []), [parsed]);
+  const wikilinks = useMemo(() => (parsed ? extractWikiLinkTargets(parsed.body) : []), [parsed]);
+
+  useEffect(() => {
+    setActiveTab("read");
+  }, [page?.path]);
+
   return (
     <main className="wiki-reader panel" aria-label="Wiki reader">
       {loading ? <EmptyState title="读取页面中" /> : null}
@@ -404,20 +412,168 @@ function WikiReader({
             <div className="reader-header__meta">
               <span className="soft-label">{page.layer} · {formatAnchorCount(page.anchors.length)}</span>
               <span className="soft-label">{formatUnixSeconds(doc?.mtime)}</span>
-              {onCreateArtifact ? (
-                <button className="secondary-button secondary-button--compact" type="button" onClick={() => onCreateArtifact(buildKnowledgeExplainer(page, doc))}>
-                  <Sparkles size={15} aria-hidden="true" />
-                  Generate explainer
-                </button>
-              ) : null}
             </div>
           </div>
-          <MarkdownView body={page.body} fallbackTitle={page.title || getMarkdownTitle(page.body) || basename(page.path)} onWikiLink={onWikiLink} />
+          <WikiReaderTabs activeTab={activeTab} onSelect={setActiveTab} />
+          {activeTab === "read" ? (
+            <section className="wiki-reader-tab-panel" role="tabpanel" aria-label="阅读 / Read">
+              <MarkdownView
+                body={page.body}
+                fallbackTitle={page.title || getMarkdownTitle(page.body) || basename(page.path)}
+                onWikiLink={onWikiLink}
+                showFrontmatter={false}
+              />
+            </section>
+          ) : null}
+          {activeTab === "info" && parsed ? (
+            <WikiInfoPanel page={page} doc={doc} meta={parsed.meta} />
+          ) : null}
+          {activeTab === "outline" ? (
+            <WikiOutlinePanel headings={headings} wikilinks={wikilinks} anchors={page.anchors.length} onWikiLink={onWikiLink} />
+          ) : null}
+          {activeTab === "source" ? (
+            <section className="wiki-reader-tab-panel" role="tabpanel" aria-label="源码 / Source">
+              <pre className="wiki-source-code">{page.body}</pre>
+            </section>
+          ) : null}
         </>
       ) : !loading && !error ? (
         <EmptyState title="选择一篇文档开始阅读" />
       ) : null}
     </main>
+  );
+}
+
+function WikiReaderTabs({ activeTab, onSelect }: { activeTab: WikiReaderTab; onSelect: (tab: WikiReaderTab) => void }) {
+  const tabs: Array<{ id: WikiReaderTab; label: string }> = [
+    { id: "read", label: "阅读 / Read" },
+    { id: "info", label: "信息 / Info" },
+    { id: "outline", label: "目录与链接 / Outline" },
+    { id: "source", label: "源码 / Source" }
+  ];
+  return (
+    <div className="wiki-reader-tabs" role="tablist" aria-label="Wiki reader views">
+      {tabs.map((tab) => (
+        <button
+          className={activeTab === tab.id ? "is-active" : ""}
+          key={tab.id}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === tab.id}
+          onClick={() => onSelect(tab.id)}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function WikiInfoPanel({
+  page,
+  doc,
+  meta
+}: {
+  page: PageReadResult;
+  doc: DocumentRecord | null;
+  meta: Record<string, string | string[] | undefined>;
+}) {
+  const metaRows = Object.entries(meta).filter(([, value]) => typeof value === "string" && value.length > 0) as Array<[string, string]>;
+  const tags = asStringList(meta.tags);
+  const sources = asStringList(meta.sources);
+  return (
+    <section className="wiki-reader-tab-panel wiki-info-panel" role="tabpanel" aria-label="信息 / Info">
+      <dl className="wiki-info-grid">
+        <div>
+          <dt>path</dt>
+          <dd>{page.path}</dd>
+        </div>
+        <div>
+          <dt>layer</dt>
+          <dd>{page.layer}</dd>
+        </div>
+        <div>
+          <dt>anchors</dt>
+          <dd>{formatAnchorCount(page.anchors.length)}</dd>
+        </div>
+        <div>
+          <dt>updated</dt>
+          <dd>{formatUnixSeconds(doc?.mtime)}</dd>
+        </div>
+        {metaRows.map(([key, value]) => (
+          <div key={key}>
+            <dt>{key}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {tags.length || sources.length ? (
+        <div className="wiki-info-chips" aria-label="Frontmatter chips">
+          {tags.map((tag) => (
+            <span className="frontmatter-chip frontmatter-chip--tag" key={`tag-${tag}`}>
+              #{tag}
+            </span>
+          ))}
+          {sources.map((source) => (
+            <span className="frontmatter-chip frontmatter-chip--source" key={`source-${source}`}>
+              {source}
+            </span>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function WikiOutlinePanel({
+  headings,
+  wikilinks,
+  anchors,
+  onWikiLink
+}: {
+  headings: Array<{ level: number; title: string }>;
+  wikilinks: string[];
+  anchors: number;
+  onWikiLink: (target: string) => void;
+}) {
+  return (
+    <section className="wiki-reader-tab-panel wiki-outline-panel" role="tabpanel" aria-label="目录与链接 / Outline">
+      <div className="wiki-outline-summary">
+        <span className="soft-label">{headings.length} headings</span>
+        <span className="soft-label">{wikilinks.length} wikilinks</span>
+        <span className="soft-label">{formatAnchorCount(anchors)}</span>
+      </div>
+      <div className="wiki-outline-columns">
+        <section>
+          <h2>Headings</h2>
+          {headings.length ? (
+            <ol className="wiki-outline-list">
+              {headings.map((heading, index) => (
+                <li key={`${heading.title}-${index}`} style={{ paddingLeft: `${Math.max(0, heading.level - 1) * 10}px` }}>
+                  <h3>{heading.title}</h3>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <EmptyState title="没有目录" />
+          )}
+        </section>
+        <section>
+          <h2>Wikilinks</h2>
+          {wikilinks.length ? (
+            <div className="wiki-outline-links">
+              {wikilinks.map((target) => (
+                <button className="inline-wikilink" type="button" key={target} onClick={() => onWikiLink(target)}>
+                  {target}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="没有 wikilink" />
+          )}
+        </section>
+      </div>
+    </section>
   );
 }
 
@@ -578,6 +734,34 @@ function summarizeMarkdown(body: string): string {
     .replace(/\s+/g, " ")
     .trim();
   return text ? truncateMiddle(text, 220) : "没有可预览的正文。";
+}
+
+function extractHeadings(body: string): Array<{ level: number; title: string }> {
+  return body
+    .split(/\r?\n/)
+    .map((line) => /^(#{1,6})\s+(.+)$/.exec(line.trim()))
+    .filter((match): match is RegExpExecArray => Boolean(match))
+    .map((match) => ({ level: match[1].length, title: match[2].trim() }));
+}
+
+function extractWikiLinkTargets(body: string): string[] {
+  const targets = new Set<string>();
+  const regex = /\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|[^\]]+)?\]\]/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(body)) !== null) {
+    targets.add(match[1].trim());
+  }
+  return Array.from(targets);
+}
+
+function asStringList(value: string | string[] | undefined): string[] {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  if (typeof value === "string" && value) {
+    return [value];
+  }
+  return [];
 }
 
 function displayFileName(doc: DocumentRecord): string {

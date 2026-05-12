@@ -7,6 +7,7 @@ interface MarkdownViewProps {
   body: string;
   fallbackTitle?: string | null;
   onWikiLink?: (target: string) => void;
+  showFrontmatter?: boolean;
 }
 
 const markdown = new MarkdownIt({
@@ -18,7 +19,7 @@ const markdown = new MarkdownIt({
 installWikiLinks(markdown);
 installRendererRules(markdown);
 
-export function MarkdownView({ body, fallbackTitle, onWikiLink }: MarkdownViewProps) {
+export function MarkdownView({ body, fallbackTitle, onWikiLink, showFrontmatter = true }: MarkdownViewProps) {
   const { html, meta, needsFallbackTitle } = useMemo(() => {
     const parsed = parseMarkdownDocument(body, { stripDuplicateTitle: false });
     return {
@@ -48,7 +49,7 @@ export function MarkdownView({ body, fallbackTitle, onWikiLink }: MarkdownViewPr
 
   return (
     <article className="markdown-view" onClick={handleClick}>
-      <FrontmatterSummary meta={meta} />
+      {showFrontmatter ? <FrontmatterSummary meta={meta} /> : null}
       {needsFallbackTitle ? <h1 className="markdown-fallback-title">{fallbackTitle}</h1> : null}
       <div className="markdown-body" dangerouslySetInnerHTML={{ __html: html }} />
     </article>

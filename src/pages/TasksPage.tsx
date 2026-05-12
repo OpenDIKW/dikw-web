@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pause, Play, RefreshCw, Sparkles } from "lucide-react";
+import { Pause, Play, RefreshCw } from "lucide-react";
 import { DikwClient } from "../api/client";
-import { buildRunReport } from "../artifacts/builders";
-import type { ArtifactDocument } from "../artifacts/types";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
@@ -12,7 +10,6 @@ import { formatDuration, formatIso, formatNumber, formatScore, isTerminalTask } 
 
 interface TasksPageProps {
   client: DikwClient;
-  onCreateArtifact?: (artifact: ArtifactDocument) => void;
 }
 
 type ProgressEvent = Extract<TaskEvent, { type: "progress" }>;
@@ -21,7 +18,7 @@ type TaskPatch = Pick<TaskRow, "status" | "finished_at" | "result" | "error">;
 
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
 
-export function TasksPage({ client, onCreateArtifact }: TasksPageProps) {
+export function TasksPage({ client }: TasksPageProps) {
   const [status, setStatus] = useState<"" | TaskStatus>("");
   const [op, setOp] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -225,12 +222,6 @@ export function TasksPage({ client, onCreateArtifact }: TasksPageProps) {
                   <Pause size={16} />
                   Stop
                 </button>
-                {onCreateArtifact && isTerminalTask(selected.status) && events.length ? (
-                  <button className="secondary-button" type="button" onClick={() => onCreateArtifact(buildRunReport(selected, events))}>
-                    <Sparkles size={16} />
-                    Generate run report
-                  </button>
-                ) : null}
               </div>
               {eventsError ? <Notice title="无法读取任务事件" error={eventsError} /> : null}
               <EventTape events={events} following={following} selected={selected} />

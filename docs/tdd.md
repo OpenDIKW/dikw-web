@@ -43,29 +43,27 @@ Graph View followed the same vertical loop:
 This keeps implementation choices, such as SVG rendering and d3-force
 layout, replaceable while the visible graph behavior stays protected.
 
-## Artifact Studio Slice Example
+## Wiki Reader Slice Example
 
-Artifact Studio should also move as vertical behavior slices:
+Wiki reader changes should land as vertical UI slices:
 
-1. App shell first: add `产物 / Artifacts`, click it, and assert the
-   empty gallery state.
-2. Component shell next: render one `ArtifactDocument` through
-   `ArtifactShell` and assert TL;DR, metrics, TOC, sections, raw data
-   collapsed by default, and copy-as-markdown.
-3. Page entry points then land one at a time: Wiki knowledge explainer,
-   Tasks run report, Query/Retrieve answer report, and Graph explainer.
-   Each test clicks the real page button and asserts the generated
-   `ArtifactDocument` through the public callback.
-4. App integration stores artifacts in current session state and verifies
-   source navigation back to Wiki/Tasks/Query/Retrieve/Graph.
-5. E2E smoke locks the browser path with mocked `/v1` data: generate
-   artifacts from Wiki, Tasks, Query, and Graph, then inspect the
-   Artifacts gallery.
+1. App shell first: assert removed routes, such as `#artifacts`, fall back
+   to Overview and have no sidebar item.
+2. Page test next: open `#wiki`, assert the default `阅读 / Read` tab,
+   rendered HTML body, and absence of any report-generation button.
+3. Add tab behavior one slice at a time: `信息 / Info` for frontmatter and
+   core metadata, `目录与链接 / Outline` for headings and wikilinks, and
+   `源码 / Source` for raw Markdown.
+4. Link regression stays close to the user bug: clicking in-document
+   heading links must not change the app hash away from `#wiki`, and
+   wikilinks must open the right preview panel instead of navigating the
+   main document.
+5. E2E smoke covers the same browser path with mocked `/v1` data and
+   checks desktop/mobile overflow.
 
-Artifact builders are intentionally small deep modules. They accept
-already-loaded view models and return controlled `ArtifactDocument`
-objects, which keeps the report UI testable without adding a new core
-contract.
+This keeps the structured reading layer inside Wiki, where users already
+expect it, while leaving Tasks, Query, Retrieve, and Graph as their own
+read-only views.
 
 ## Commands
 

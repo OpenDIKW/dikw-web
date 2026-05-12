@@ -1,8 +1,6 @@
 import { useRef, useState } from "react";
-import { Pause, Play, Sparkles } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import { DikwClient } from "../api/client";
-import { buildRetrieveAnswerReport } from "../artifacts/builders";
-import type { ArtifactDocument } from "../artifacts/types";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import type { Hit, PageRef, RetrieveResult } from "../types";
@@ -10,10 +8,9 @@ import { formatScore } from "../utils/format";
 
 interface RetrievePageProps {
   client: DikwClient;
-  onCreateArtifact?: (artifact: ArtifactDocument) => void;
 }
 
-export function RetrievePage({ client, onCreateArtifact }: RetrievePageProps) {
+export function RetrievePage({ client }: RetrievePageProps) {
   const [question, setQuestion] = useState("");
   const [limit, setLimit] = useState(10);
   const [previewHits, setPreviewHits] = useState<Hit[]>([]);
@@ -86,25 +83,6 @@ export function RetrievePage({ client, onCreateArtifact }: RetrievePageProps) {
             <Pause size={16} />
             Stop
           </button>
-          {onCreateArtifact && chunks.length ? (
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() =>
-                onCreateArtifact(
-                  buildRetrieveAnswerReport({
-                    question: question.trim(),
-                    limit,
-                    chunks,
-                    pageRefs
-                  })
-                )
-              }
-            >
-              <Sparkles size={16} />
-              Generate answer report
-            </button>
-          ) : null}
         </div>
       </section>
 
