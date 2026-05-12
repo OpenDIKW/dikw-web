@@ -6,38 +6,57 @@ import {
   ListChecks,
   MessageSquareText,
   Network,
-  Search
+  Search,
+  Settings
 } from "lucide-react";
 import { DikwClient } from "./api/client";
+import {
+  isLocale,
+  isThemePreference,
+  localeStorageKey,
+  themeStorageKey,
+  translations,
+  type Locale,
+  type ResolvedTheme,
+  type ThemePreference
+} from "./i18n";
 import { OverviewPage } from "./pages/OverviewPage";
 import { GraphPage } from "./pages/GraphPage";
 import { QueryPage } from "./pages/QueryPage";
 import { RetrievePage } from "./pages/RetrievePage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { TasksPage } from "./pages/TasksPage";
 import { WikiPage } from "./pages/WikiPage";
 import { WisdomPage } from "./pages/WisdomPage";
 
-type ViewId = "overview" | "query" | "retrieve" | "wiki" | "graph" | "wisdom" | "tasks";
+type ViewId = "overview" | "query" | "retrieve" | "wiki" | "graph" | "wisdom" | "tasks" | "settings";
 
 const serverKey = "dikw-web.serverUrl";
 const tokenKey = "dikw-web.token";
 
 const navItems = [
-  { id: "overview", labelZh: "概览", labelEn: "Overview", icon: LayoutDashboard },
-  { id: "query", labelZh: "查询", labelEn: "Query", icon: MessageSquareText },
-  { id: "retrieve", labelZh: "检索", labelEn: "Retrieve", icon: Search },
-  { id: "wiki", labelZh: "知识库", labelEn: "Wiki", icon: BookOpen },
-  { id: "graph", labelZh: "图谱", labelEn: "Graph", icon: Network },
-  { id: "wisdom", labelZh: "智慧", labelEn: "Wisdom", icon: Gem },
-  { id: "tasks", labelZh: "任务", labelEn: "Tasks", icon: ListChecks }
-] satisfies Array<{ id: ViewId; labelZh: string; labelEn: string; icon: typeof LayoutDashboard }>;
+  { id: "overview", labelKey: "overview", icon: LayoutDashboard },
+  { id: "query", labelKey: "query", icon: MessageSquareText },
+  { id: "retrieve", labelKey: "retrieve", icon: Search },
+  { id: "wiki", labelKey: "wiki", icon: BookOpen },
+  { id: "graph", labelKey: "graph", icon: Network },
+  { id: "wisdom", labelKey: "wisdom", icon: Gem },
+  { id: "tasks", labelKey: "tasks", icon: ListChecks }
+] satisfies Array<{ id: ViewId; labelKey: keyof (typeof translations)["en"]["nav"]; icon: typeof LayoutDashboard }>;
+
+const settingsNavItem = { id: "settings" as const, labelKey: "settings" as const, icon: Settings };
+const allViewIds = [...navItems.map((item) => item.id), settingsNavItem.id];
 
 export function App() {
   const [activeView, setActiveView] = useState<ViewId>(() => viewFromHash());
   const [serverUrl, setServerUrl] = useState(() => sessionStorage.getItem(serverKey) ?? "");
   const [token, setToken] = useState(() => sessionStorage.getItem(tokenKey) ?? "");
+  const [locale, setLocale] = useState<Locale>(() => readLocale());
+  const [theme, setTheme] = useState<ThemePreference>(() => readThemePreference());
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readThemePreference()));
   const [wikiInitialPath, setWikiInitialPath] = useState<string | null>(null);
   const client = useMemo(() => new DikwClient({ baseUrl: serverUrl, token }), [serverUrl, token]);
+  const copy = translations[locale];
 
   useEffect(() => {
     if (serverUrl) {
@@ -54,6 +73,29 @@ export function App() {
       sessionStorage.removeItem(tokenKey);
     }
   }, [token]);
+
+  useEffect(() => {
+    localStorage.setItem(localeStorageKey, locale);
+  }, [locale]);
+
+  useEffect(() => {
+    localStorage.setItem(themeStorageKey, theme);
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const applyTheme = () => {
+      const nextTheme = resolveTheme(theme);
+      setResolvedTheme(nextTheme);
+      document.documentElement.dataset.theme = nextTheme;
+      document.documentElement.style.colorScheme = nextTheme;
+    };
+
+    applyTheme();
+    if (theme !== "system" || !media) {
+      return;
+    }
+
+    media.addEventListener?.("change", applyTheme);
+    return () => media.removeEventListener?.("change", applyTheme);
+  }, [theme]);
 
   useEffect(() => {
     function syncFromHash() {
@@ -73,6 +115,14 @@ export function App() {
     openView("wiki");
   }
 
+  function clearConnection() {
+    setServerUrl("");
+    setToken("");
+  }
+
+  const connectionTarget = serverUrl ? `${copy.connection.customServer}: ${serverUrl}` : copy.connection.sameOrigin;
+  const tokenStatus = token ? copy.connection.tokenConfigured : copy.connection.noToken;
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -82,55 +132,38 @@ export function App() {
           </div>
           <div>
             <strong>OpenDIKW</strong>
-            <span>read console</span>
+            <span>{copy.brandSubtitle}</span>
           </div>
         </div>
 
-        <nav className="nav-list" aria-label="Primary">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                className={`nav-item ${activeView === item.id ? "is-active" : ""}`}
-                key={item.id}
-                type="button"
-                onClick={() => openView(item.id)}
-              >
-                <Icon size={18} aria-hidden="true" />
-                <span className="nav-item__label">
-                  <strong>{item.labelZh}</strong>
-                  <span>{item.labelEn}</span>
-                </span>
-              </button>
-            );
-          })}
+        <nav className="nav-list nav-main" aria-label="Primary">
+          {navItems.map((item) => (
+            <NavButton
+              active={activeView === item.id}
+              icon={item.icon}
+              key={item.id}
+              label={copy.nav[item.labelKey]}
+              onClick={() => openView(item.id)}
+            />
+          ))}
+        </nav>
+
+        <nav className="nav-list nav-footer" aria-label="Settings">
+          <NavButton
+            active={activeView === "settings"}
+            icon={settingsNavItem.icon}
+            label={copy.nav.settings}
+            onClick={() => openView("settings")}
+          />
         </nav>
       </aside>
 
       <div className="workspace">
-        <header className="topbar">
-          <div className="connection-label">
+        <header className="topbar topbar--status-only">
+          <div className="connection-label connection-status">
             <Network size={17} aria-hidden="true" />
-            <span>{serverUrl || "same-origin /v1 proxy"}</span>
-          </div>
-          <div className="connection-form">
-            <label className="field field--inline">
-              <span>Server</span>
-              <input
-                value={serverUrl}
-                onChange={(event) => setServerUrl(event.target.value)}
-                placeholder="同源代理，或 http://127.0.0.1:8765"
-              />
-            </label>
-            <label className="field field--inline field--token">
-              <span>Token</span>
-              <input
-                value={token}
-                onChange={(event) => setToken(event.target.value)}
-                placeholder="Bearer token"
-                type="password"
-              />
-            </label>
+            <span className="connection-label__main">{connectionTarget}</span>
+            <span className="connection-label__meta">{tokenStatus}</span>
           </div>
         </header>
 
@@ -142,13 +175,65 @@ export function App() {
           {activeView === "graph" ? <GraphPage client={client} onOpenWikiPath={openWikiPath} /> : null}
           {activeView === "wisdom" ? <WisdomPage client={client} /> : null}
           {activeView === "tasks" ? <TasksPage client={client} /> : null}
+          {activeView === "settings" ? (
+            <SettingsPage
+              locale={locale}
+              theme={theme}
+              resolvedTheme={resolvedTheme}
+              serverUrl={serverUrl}
+              token={token}
+              onLocaleChange={setLocale}
+              onThemeChange={setTheme}
+              onServerUrlChange={setServerUrl}
+              onTokenChange={setToken}
+              onClearConnection={clearConnection}
+            />
+          ) : null}
         </main>
       </div>
     </div>
   );
 }
 
+function NavButton({
+  active,
+  icon: Icon,
+  label,
+  onClick
+}: {
+  active: boolean;
+  icon: typeof LayoutDashboard;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button className={`nav-item ${active ? "is-active" : ""}`} type="button" onClick={onClick}>
+      <Icon size={18} aria-hidden="true" />
+      <span className="nav-item__label">
+        <strong>{label}</strong>
+      </span>
+    </button>
+  );
+}
+
+function readLocale(): Locale {
+  const value = localStorage.getItem(localeStorageKey);
+  return isLocale(value) ? value : "en";
+}
+
+function readThemePreference(): ThemePreference {
+  const value = localStorage.getItem(themeStorageKey);
+  return isThemePreference(value) ? value : "system";
+}
+
+function resolveTheme(theme: ThemePreference): ResolvedTheme {
+  if (theme === "light" || theme === "dark") {
+    return theme;
+  }
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
 function viewFromHash(): ViewId {
   const value = window.location.hash.replace(/^#\/?/, "");
-  return navItems.some((item) => item.id === value) ? (value as ViewId) : "overview";
+  return allViewIds.some((id) => id === value) ? (value as ViewId) : "overview";
 }

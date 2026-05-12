@@ -3,6 +3,24 @@
 `dikw-web` is a read-only console over the `dikw-core` `/v1` HTTP API.
 This document records the web-facing subset that current tests lock.
 
+## Web Settings
+
+Settings does not add a core endpoint. It only manages browser-side
+preferences and connection configuration:
+
+- `dikw-web.serverUrl` in `sessionStorage` selects a custom core base
+  URL for the current browser session.
+- `dikw-web.token` in `sessionStorage` stores the current session bearer
+  token value.
+- `dikw-web.locale` in `localStorage` selects the UI locale.
+- `dikw-web.theme` in `localStorage` selects `system`, `light`, or
+  `dark`.
+
+The top bar may summarize connection target and token posture, but it
+must not display the token value. All `/v1` calls continue to flow
+through `DikwClient`; Settings changes only the client configuration and
+presentation preferences.
+
 ## Overview
 
 Overview reads:

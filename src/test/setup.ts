@@ -7,5 +7,8 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   sessionStorage.clear();
+  localStorage.clear();
+  document.documentElement.removeAttribute("data-theme");
+  document.documentElement.style.colorScheme = "";
   window.location.hash = "";
 });

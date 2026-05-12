@@ -65,6 +65,25 @@ This keeps the structured reading layer inside Wiki, where users already
 expect it, while leaving Tasks, Query, Retrieve, and Graph as their own
 read-only views.
 
+## Settings, i18n, and Theme Slice Example
+
+Shell preference work should also land vertically:
+
+1. App shell test first: assert the default English navigation, the
+   sidebar Settings entry, and the absence of Server/Token inputs in the
+   top bar.
+2. Settings behavior next: edit Server URL and Token in `#settings` and
+   assert the existing session storage keys still drive `DikwClient`.
+3. Locale behavior next: switch to `zh-CN`, assert sidebar labels and
+   Settings copy change, and assert `dikw-web.locale` persists in
+   `localStorage`.
+4. Theme behavior next: switch Light/Dark/System, assert
+   `dikw-web.theme` persists and `html[data-theme]` resolves to light or
+   dark.
+5. E2E smoke covers desktop and mobile overflow for primary pages plus
+   Settings, and verifies the top bar remains a read-only connection
+   status strip.
+
 ## Commands
 
 - `npm run test:watch`: local red-green loop.

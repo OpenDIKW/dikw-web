@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -53,7 +53,7 @@ function stubApi() {
 }
 
 describe("App shell", () => {
-  it("renders bilingual navigation and navigates by hash", async () => {
+  it("renders localized navigation and moves connection settings into Settings", async () => {
     stubApi();
     window.location.hash = "#overview";
 
@@ -61,19 +61,33 @@ describe("App shell", () => {
 
     const mark = screen.getByRole("img", { name: "OpenDIKW" });
     expect(mark).toHaveAttribute("src", "/opendikw-avatar.png");
-    expect(screen.getByText("概览")).toBeInTheDocument();
-    expect(screen.getAllByText("Overview").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "概览" })).not.toBeInTheDocument();
     expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("同源代理，或 http://127.0.0.1:8765")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Bearer token")).not.toBeInTheDocument();
+    expect(screen.getByText("same-origin /v1 proxy")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /知识库Wiki/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(window.location.hash).toBe("#settings");
+    expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Server URL"), { target: { value: "http://127.0.0.1:8765" } });
+    fireEvent.change(screen.getByLabelText("Token"), { target: { value: "secret" } });
+    await waitFor(() => {
+      expect(sessionStorage.getItem("dikw-web.serverUrl")).toBe("http://127.0.0.1:8765");
+      expect(sessionStorage.getItem("dikw-web.token")).toBe("secret");
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Knowledge" }));
     expect(await screen.findByRole("heading", { name: "知识库" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#wiki");
 
-    await userEvent.click(screen.getByRole("button", { name: /图谱Graph/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Graph" }));
     expect(await screen.findByRole("heading", { name: "知识图谱" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#graph");
 
-    await userEvent.click(screen.getByRole("button", { name: /智慧Wisdom/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Wisdom" }));
     expect(await screen.findByRole("heading", { name: "智慧沉淀" })).toBeInTheDocument();
   });
 
@@ -88,16 +102,30 @@ describe("App shell", () => {
     expect(await screen.findByRole("heading", { name: "工作台概览" })).toBeInTheDocument();
   });
 
-  it("persists connection settings in session storage", async () => {
+  it("persists locale and theme preferences in local storage", async () => {
     stubApi();
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn()
+    });
+
     render(<App />);
 
-    await userEvent.type(screen.getByPlaceholderText("同源代理，或 http://127.0.0.1:8765"), "http://127.0.0.1:8765");
-    await userEvent.type(screen.getByPlaceholderText("Bearer token"), "secret");
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+    await userEvent.click(screen.getByRole("button", { name: "简体中文" }));
 
     await waitFor(() => {
-      expect(sessionStorage.getItem("dikw-web.serverUrl")).toBe("http://127.0.0.1:8765");
-      expect(sessionStorage.getItem("dikw-web.token")).toBe("secret");
+      expect(localStorage.getItem("dikw-web.locale")).toBe("zh-CN");
+      expect(screen.getByRole("button", { name: "概览" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "设置" })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "深色" }));
+
+    await waitFor(() => {
+      expect(localStorage.getItem("dikw-web.theme")).toBe("dark");
+      expect(document.documentElement).toHaveAttribute("data-theme", "dark");
     });
   });
 
