@@ -1186,6 +1186,206 @@ textarea:focus {
   margin-top: 0.24em;
 }
 
+.artifact-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.artifact-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.artifact-hero h1 {
+  margin: 4px 0 10px;
+  font-size: 24px;
+}
+
+.artifact-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.artifact-source strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.artifact-tldr {
+  border-left: 3px solid var(--accent);
+  padding: 12px 14px;
+  background: #eff8f6;
+}
+
+.artifact-tldr p {
+  margin: 4px 0 0;
+}
+
+.artifact-section-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.artifact-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.artifact-metric {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px;
+  background: white;
+}
+
+.artifact-metric span,
+.artifact-metric small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.artifact-metric strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 18px;
+}
+
+.artifact-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
+}
+
+.artifact-toc a {
+  color: var(--accent-strong);
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.artifact-sections {
+  display: grid;
+  gap: 14px;
+}
+
+.artifact-section {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: white;
+}
+
+.artifact-section h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.artifact-section p {
+  color: var(--text);
+  line-height: 1.7;
+}
+
+.artifact-detail-list {
+  display: grid;
+  gap: 8px;
+}
+
+.artifact-detail-list div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.artifact-detail-list span {
+  color: var(--muted);
+}
+
+.artifact-raw {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: white;
+}
+
+.artifact-raw summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.artifact-raw pre {
+  overflow: auto;
+  margin: 10px 0 0;
+  font-size: 12px;
+}
+
+.artifact-page {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  gap: 10px;
+  min-height: 0;
+}
+
+.artifact-gallery {
+  min-width: 0;
+}
+
+.artifact-gallery__list {
+  display: grid;
+  gap: 8px;
+}
+
+.artifact-card {
+  display: grid;
+  gap: 5px;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.artifact-card.is-selected {
+  border-color: rgba(0, 110, 103, 0.35);
+  background: var(--accent-soft);
+}
+
+.artifact-card span,
+.artifact-card small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.artifact-detail {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.artifact-detail__toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .markdown-table-wrap {
   overflow: auto;
   margin: 16px 0;
@@ -1959,7 +2159,8 @@ textarea:focus {
 
   .two-column-grid,
   .two-column-grid--wide-left,
-  .wiki-layout {
+  .wiki-layout,
+  .artifact-page {
     grid-template-columns: 1fr;
   }
 

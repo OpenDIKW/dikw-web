@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { GraphPage } from "./GraphPage";
 import { OverviewPage } from "./OverviewPage";
 import { QueryPage } from "./QueryPage";
@@ -25,6 +25,7 @@ import {
 } from "../test/fixtures";
 import { createMockClient } from "../test/mockClient";
 import type { DocumentRecord, PageReadResult, TaskEvent, TaskRow } from "../types";
+import type { ArtifactDocument } from "../artifacts/types";
 
 describe("read console pages", () => {
   it("loads overview status from the client", async () => {
@@ -412,6 +413,49 @@ describe("read console pages", () => {
     expect(await screen.findByText("Updated Body.")).toBeInTheDocument();
   });
 
+  it("generates a knowledge explainer artifact for the selected wiki page", async () => {
+    const client = createMockClient();
+    const artifacts: ArtifactDocument[] = [];
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve(wikiPagesFixture);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve({
+          ...wikiPageBodiesFixture[selectedPath],
+          body: "# Architecture\n\nLayered DIKW notes.\n\n## Data flow\n\nSee [[Synthesis]]."
+        });
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} onCreateArtifact={(artifact) => artifacts.push(artifact)} />);
+
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Generate explainer" }));
+
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]).toMatchObject({
+      kind: "knowledge_explainer",
+      title: "Architecture explainer",
+      source: { view: "wiki", path: "wiki/architecture.md" },
+      tldr: expect.stringContaining("wiki/architecture.md")
+    });
+    expect(artifacts[0].metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Layer", value: "wiki" }),
+        expect.objectContaining({ label: "Anchors", value: "1" })
+      ])
+    );
+    expect(artifacts[0].sections.map((section) => section.title)).toEqual(
+      expect.arrayContaining(["Chapters", "Wikilinks", "Document stats"])
+    );
+    expect(artifacts[0].sections.find((section) => section.title === "Chapters")?.items).toEqual(
+      expect.arrayContaining(["Architecture", "Data flow"])
+    );
+  });
+
   it("loads base pages into a default wiki graph", async () => {
     const client = createMockClient();
     client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
@@ -542,6 +586,54 @@ describe("read console pages", () => {
     expect(openedPaths).toEqual(["wiki/architecture.md"]);
   });
 
+  it("generates a graph explainer artifact from the focused node", async () => {
+    const client = createMockClient();
+    const artifacts: ArtifactDocument[] = [];
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve(wikiPagesFixture);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        if (selectedPath === "wiki/architecture.md") {
+          return Promise.resolve({
+            ...wikiPageBodiesFixture["wiki/architecture.md"],
+            body: "# Architecture\n\nSee [[Synthesis]] and [[Missing Concept]]."
+          });
+        }
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<GraphPage client={client} onCreateArtifact={(artifact) => artifacts.push(artifact)} />);
+
+    expect(await screen.findByText("2 nodes")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Architecture graph node" }));
+    const detail = screen.getByRole("region", { name: "Graph node detail" });
+    await userEvent.click(within(detail).getByRole("button", { name: "Generate graph explainer" }));
+
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]).toMatchObject({
+      kind: "graph_explainer",
+      title: "Architecture graph explainer",
+      source: { view: "graph", path: "wiki/architecture.md", nodeId: "wiki/architecture.md" }
+    });
+    expect(artifacts[0].metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Inbound", value: "0" }),
+        expect.objectContaining({ label: "Outbound", value: "1" }),
+        expect.objectContaining({ label: "Unresolved", value: "1" })
+      ])
+    );
+    expect(artifacts[0].sections.find((section) => section.title === "Neighbors")?.items).toEqual(
+      expect.arrayContaining(["Synthesis"])
+    );
+    expect(artifacts[0].sections.find((section) => section.title === "Unresolved links")?.items).toEqual(
+      expect.arrayContaining(["Missing Concept"])
+    );
+  });
+
   it("loads wisdom items and refetches when filters change", async () => {
     const client = createMockClient();
     client.get.mockResolvedValue(wisdomItemsFixture);
@@ -604,6 +696,36 @@ describe("read console pages", () => {
     expect(client.streamQuery).toHaveBeenCalledWith({ q: "What is DIKW?", limit: 5 }, expect.any(AbortSignal));
   });
 
+  it("generates an answer report artifact from query final results", async () => {
+    const client = createMockClient();
+    const artifacts: ArtifactDocument[] = [];
+    client.streamQuery.mockImplementation(() => createAsyncEvents(queryEventsFixture));
+
+    render(<QueryPage client={client} onCreateArtifact={(artifact) => artifacts.push(artifact)} />);
+    await userEvent.type(screen.getByLabelText("Question"), "What is DIKW?");
+    await userEvent.click(screen.getByRole("button", { name: /Run/ }));
+
+    expect(await screen.findByText("Layered answer.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Generate answer report" }));
+
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]).toMatchObject({
+      kind: "answer_report",
+      title: "What is DIKW? answer report",
+      source: { view: "query" }
+    });
+    expect(artifacts[0].metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Citations", value: "1" }),
+        expect.objectContaining({ label: "Retrieval hits", value: "1" }),
+        expect.objectContaining({ label: "Applied wisdom", value: "1" })
+      ])
+    );
+    expect(artifacts[0].sections.find((section) => section.title === "Evidence chain")?.table?.rows).toEqual(
+      expect.arrayContaining([expect.arrayContaining(["wiki/architecture.md", "Architecture", "Layered DIKW notes."])])
+    );
+  });
+
   it("runs retrieve streams into chunks and page refs", async () => {
     const client = createMockClient();
     client.streamRetrieve.mockImplementation(() => createAsyncEvents(retrieveEventsFixture));
@@ -615,6 +737,35 @@ describe("read console pages", () => {
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
     expect(screen.getByText("Architecture")).toBeInTheDocument();
     expect(client.streamRetrieve).toHaveBeenCalledWith({ q: "DIKW", limit: 10 }, expect.any(AbortSignal));
+  });
+
+  it("generates an answer report artifact from retrieve final results", async () => {
+    const client = createMockClient();
+    const artifacts: ArtifactDocument[] = [];
+    client.streamRetrieve.mockImplementation(() => createAsyncEvents(retrieveEventsFixture));
+
+    render(<RetrievePage client={client} onCreateArtifact={(artifact) => artifacts.push(artifact)} />);
+    await userEvent.type(screen.getByLabelText("Query"), "DIKW");
+    await userEvent.click(screen.getByRole("button", { name: /Run/ }));
+
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Generate answer report" }));
+
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]).toMatchObject({
+      kind: "answer_report",
+      title: "DIKW retrieve report",
+      source: { view: "retrieve" }
+    });
+    expect(artifacts[0].metrics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Chunks", value: "1" }),
+        expect.objectContaining({ label: "Page refs", value: "1" })
+      ])
+    );
+    expect(artifacts[0].sections.find((section) => section.title === "Page refs")?.table?.rows).toEqual(
+      expect.arrayContaining([expect.arrayContaining(["wiki/architecture.md", "Architecture", "101"])])
+    );
   });
 
   it("summarizes eval tasks and loads event timelines without expanding raw JSON", async () => {
@@ -669,6 +820,48 @@ describe("read console pages", () => {
     expect(screen.getAllByText("parse_error").length).toBeGreaterThan(0);
     expect(screen.getAllByText("sources/broken.md").length).toBeGreaterThan(0);
     expect(screen.getAllByText("invalid YAML front matter").length).toBeGreaterThan(0);
+  });
+
+  it("generates a run report artifact from loaded task events", async () => {
+    const client = createMockClient();
+    const artifacts: ArtifactDocument[] = [];
+    const finalEvent = ingestFileErrorEventsFixture.find(
+      (event): event is Extract<TaskEvent, { type: "final" }> => event.type === "final"
+    );
+    const ingestRows: TaskRow[] = [
+      {
+        task_id: "ingest-task-1",
+        op: "ingest",
+        status: "succeeded",
+        created_at: "2026-05-05T09:37:11Z",
+        started_at: "2026-05-05T09:37:11Z",
+        finished_at: "2026-05-05T09:37:25Z",
+        params_digest: "ingest",
+        result: finalEvent?.result ?? null,
+        error: null
+      }
+    ];
+    client.get.mockResolvedValue(ingestRows);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents(ingestFileErrorEventsFixture));
+
+    render(<TasksPage client={client} onCreateArtifact={(artifact) => artifacts.push(artifact)} />);
+
+    expect(await screen.findByRole("heading", { name: "ingest" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Load events/ }));
+    expect(await screen.findByText("3 events")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Generate run report" }));
+
+    expect(artifacts).toHaveLength(1);
+    expect(artifacts[0]).toMatchObject({
+      kind: "run_report",
+      title: "ingest run report",
+      source: { view: "tasks", taskId: "ingest-task-1" }
+    });
+    expect(artifacts[0].metrics).toEqual(expect.arrayContaining([expect.objectContaining({ label: "Events", value: "3" })]));
+    expect(artifacts[0].sections.find((section) => section.title === "File errors")?.table?.rows).toEqual(
+      expect.arrayContaining([expect.arrayContaining(["sources/broken.md", "parse_error", "invalid YAML front matter"])])
+    );
+    expect(artifacts[0].raw).toMatchObject({ task: expect.objectContaining({ task_id: "ingest-task-1" }) });
   });
 
   it("refreshes the open task event tape from the header action", async () => {

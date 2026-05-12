@@ -73,6 +73,11 @@ describe("App shell", () => {
     expect(await screen.findByRole("heading", { name: "知识图谱" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#graph");
 
+    await userEvent.click(screen.getByRole("button", { name: /产物Artifacts/ }));
+    expect(await screen.findByRole("heading", { name: "产物工作台" })).toBeInTheDocument();
+    expect(screen.getByText("尚未生成产物")).toBeInTheDocument();
+    expect(window.location.hash).toBe("#artifacts");
+
     await userEvent.click(screen.getByRole("button", { name: /智慧Wisdom/ }));
     expect(await screen.findByRole("heading", { name: "智慧沉淀" })).toBeInTheDocument();
   });
@@ -99,6 +104,25 @@ describe("App shell", () => {
     expect(await screen.findByRole("heading", { name: "知识图谱" })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "Architecture graph node" }));
     await userEvent.click(screen.getByRole("button", { name: "在知识库打开" }));
+
+    expect(window.location.hash).toBe("#wiki");
+    expect(await screen.findByRole("heading", { name: "Architecture", level: 1 })).toBeInTheDocument();
+  });
+
+  it("stores generated artifacts in the session gallery and opens their source", async () => {
+    stubApi();
+    window.location.hash = "#wiki";
+
+    render(<App />);
+
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Generate explainer" }));
+
+    expect(window.location.hash).toBe("#artifacts");
+    expect(await screen.findByRole("heading", { name: "Architecture explainer" })).toBeInTheDocument();
+    expect(screen.getAllByText("wiki/architecture.md").length).toBeGreaterThan(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "打开来源" }));
 
     expect(window.location.hash).toBe("#wiki");
     expect(await screen.findByRole("heading", { name: "Architecture", level: 1 })).toBeInTheDocument();

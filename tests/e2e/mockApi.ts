@@ -2,6 +2,8 @@ import type { Page } from "@playwright/test";
 import {
   healthFixture,
   infoFixture,
+  queryEventsFixture,
+  retrieveEventsFixture,
   statusFixture,
   taskEventsFixture,
   taskRowsFixture,
@@ -48,6 +50,20 @@ export async function mockDikwApi(page: Page) {
       await route.fulfill({
         contentType: "application/x-ndjson",
         body: taskEventsFixture.map((event) => JSON.stringify(event)).join("\n")
+      });
+      return;
+    }
+    if (path === "/v1/query") {
+      await route.fulfill({
+        contentType: "application/x-ndjson",
+        body: queryEventsFixture.map((event) => JSON.stringify(event)).join("\n")
+      });
+      return;
+    }
+    if (path === "/v1/retrieve") {
+      await route.fulfill({
+        contentType: "application/x-ndjson",
+        body: retrieveEventsFixture.map((event) => JSON.stringify(event)).join("\n")
       });
       return;
     }

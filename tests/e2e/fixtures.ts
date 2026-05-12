@@ -155,6 +155,76 @@ export const wisdomItemsFixture = [
   }
 ];
 
+export const hitFixture = {
+  doc_id: "wiki-architecture",
+  chunk_id: 101,
+  seq: 1,
+  score: 0.982,
+  snippet: "Layered DIKW notes.",
+  path: "wiki/concepts/architecture.md",
+  title: "Architecture",
+  asset_refs: [],
+  layer: "wiki",
+  start: 0,
+  end: 21,
+  text: "Layered DIKW notes."
+};
+
+export const queryEventsFixture = [
+  { type: "query_started", ts: "2026-05-05T09:00:00Z", q: "What is DIKW?", limit: 5 },
+  { type: "retrieval_done", ts: "2026-05-05T09:00:01Z", hits: [hitFixture] },
+  { type: "llm_token", ts: "2026-05-05T09:00:02Z", delta: "Layered " },
+  { type: "llm_token", ts: "2026-05-05T09:00:03Z", delta: "answer." },
+  {
+    type: "final",
+    ts: "2026-05-05T09:00:04Z",
+    status: "succeeded",
+    result: {
+      answer: "Layered answer.",
+      citations: [
+        {
+          n: 1,
+          path: "wiki/concepts/architecture.md",
+          title: "Architecture",
+          layer: "wiki",
+          seq: 1,
+          excerpt: "Layered DIKW notes."
+        }
+      ],
+      applied_wisdom: [
+        {
+          ref: "W1",
+          item_id: "wisdom-1",
+          kind: "principle",
+          title: "Prefer evidence"
+        }
+      ]
+    }
+  }
+];
+
+export const retrieveEventsFixture = [
+  { type: "retrieve_started", ts: "2026-05-05T09:00:00Z", q: "DIKW", limit: 10 },
+  { type: "retrieval_done", ts: "2026-05-05T09:00:01Z", hits: [hitFixture] },
+  {
+    type: "final",
+    ts: "2026-05-05T09:00:02Z",
+    status: "succeeded",
+    result: {
+      chunks: [hitFixture],
+      page_refs: [
+        {
+          path: "wiki/concepts/architecture.md",
+          layer: "wiki",
+          title: "Architecture",
+          score: 0.982,
+          hit_chunk_ids: [101]
+        }
+      ]
+    }
+  }
+];
+
 export const evalResultFixture = {
   dataset_name: "synthetic-diverse-v1",
   modes: ["hybrid"],

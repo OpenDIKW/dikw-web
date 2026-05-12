@@ -45,6 +45,28 @@ graph edges. Unresolved wikilinks are shown as counts and source-node
 detail, but they do not create ghost nodes. Default graph layer is
 `wiki`; `source` and `all` are client-side graph scopes.
 
+## Artifact Studio
+
+Artifact Studio does not add a core endpoint in v1. It derives controlled
+`ArtifactDocument` objects from data that existing pages have already
+loaded:
+
+- Wiki knowledge explainers use `/v1/base/pages` records plus
+  `/v1/base/pages/{path}` bodies.
+- Task run reports use `/v1/tasks` rows plus
+  `/v1/tasks/{id}/events` NDJSON events.
+- Query answer reports use `/v1/query` stream final state, citations,
+  retrieval hits, and applied wisdom.
+- Retrieve answer reports use `/v1/retrieve` stream final chunks and
+  page refs.
+- Graph explainers use the client-built graph from `/v1/base/pages*`.
+
+Artifacts are browser-session state only. The web app does not persist
+them, read local files, import external HTML, or execute external
+scripts. If core later exposes `/v1/artifacts`, the web contract should
+keep the current `ArtifactDocument` rendering behavior and move artifact
+construction behind the API boundary.
+
 ## Task Events
 
 Task events are NDJSON from `GET /v1/tasks/{id}/events`.

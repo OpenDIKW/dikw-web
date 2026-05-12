@@ -43,6 +43,30 @@ Graph View followed the same vertical loop:
 This keeps implementation choices, such as SVG rendering and d3-force
 layout, replaceable while the visible graph behavior stays protected.
 
+## Artifact Studio Slice Example
+
+Artifact Studio should also move as vertical behavior slices:
+
+1. App shell first: add `产物 / Artifacts`, click it, and assert the
+   empty gallery state.
+2. Component shell next: render one `ArtifactDocument` through
+   `ArtifactShell` and assert TL;DR, metrics, TOC, sections, raw data
+   collapsed by default, and copy-as-markdown.
+3. Page entry points then land one at a time: Wiki knowledge explainer,
+   Tasks run report, Query/Retrieve answer report, and Graph explainer.
+   Each test clicks the real page button and asserts the generated
+   `ArtifactDocument` through the public callback.
+4. App integration stores artifacts in current session state and verifies
+   source navigation back to Wiki/Tasks/Query/Retrieve/Graph.
+5. E2E smoke locks the browser path with mocked `/v1` data: generate
+   artifacts from Wiki, Tasks, Query, and Graph, then inspect the
+   Artifacts gallery.
+
+Artifact builders are intentionally small deep modules. They accept
+already-loaded view models and return controlled `ArtifactDocument`
+objects, which keeps the report UI testable without adding a new core
+contract.
+
 ## Commands
 
 - `npm run test:watch`: local red-green loop.

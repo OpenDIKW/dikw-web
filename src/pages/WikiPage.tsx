@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, X } from "lucide-react";
+import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, Sparkles, X } from "lucide-react";
+import { buildKnowledgeExplainer } from "../artifacts/builders";
+import type { ArtifactDocument } from "../artifacts/types";
 import { DikwClient } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
@@ -14,6 +16,7 @@ import { formatUnixSeconds, truncateMiddle } from "../utils/format";
 interface WikiPageProps {
   client: DikwClient;
   initialPath?: string | null;
+  onCreateArtifact?: (artifact: ArtifactDocument) => void;
 }
 
 interface WikiTreeNode {
@@ -30,7 +33,7 @@ type PreviewState =
   | { kind: "not-found"; target: string }
   | { kind: "error"; target: string; error: unknown };
 
-export function WikiPage({ client, initialPath }: WikiPageProps) {
+export function WikiPage({ client, initialPath, onCreateArtifact }: WikiPageProps) {
   const [filter, setFilter] = useState("");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [page, setPage] = useState<PageReadResult | null>(null);
@@ -261,6 +264,7 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
           loading={pageLoading}
           error={pageError}
           onWikiLink={openWikiLink}
+          onCreateArtifact={onCreateArtifact}
         />
 
         {preview.kind !== "idle" ? (
@@ -379,13 +383,15 @@ function WikiReader({
   doc,
   loading,
   error,
-  onWikiLink
+  onWikiLink,
+  onCreateArtifact
 }: {
   page: PageReadResult | null;
   doc: DocumentRecord | null;
   loading: boolean;
   error: unknown;
   onWikiLink: (target: string) => void;
+  onCreateArtifact?: (artifact: ArtifactDocument) => void;
 }) {
   return (
     <main className="wiki-reader panel" aria-label="Wiki reader">
@@ -398,6 +404,12 @@ function WikiReader({
             <div className="reader-header__meta">
               <span className="soft-label">{page.layer} · {formatAnchorCount(page.anchors.length)}</span>
               <span className="soft-label">{formatUnixSeconds(doc?.mtime)}</span>
+              {onCreateArtifact ? (
+                <button className="secondary-button secondary-button--compact" type="button" onClick={() => onCreateArtifact(buildKnowledgeExplainer(page, doc))}>
+                  <Sparkles size={15} aria-hidden="true" />
+                  Generate explainer
+                </button>
+              ) : null}
             </div>
           </div>
           <MarkdownView body={page.body} fallbackTitle={page.title || getMarkdownTitle(page.body) || basename(page.path)} onWikiLink={onWikiLink} />
