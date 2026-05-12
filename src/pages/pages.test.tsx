@@ -85,7 +85,7 @@ describe("read console pages", () => {
     render(<OverviewPage client={client} />);
 
     expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "刷新概览" }));
+    await userEvent.click(screen.getByRole("button", { name: "Refresh overview" }));
 
     expect(await screen.findByText("dikw-core 0.2.1")).toBeInTheDocument();
     expect(screen.getByText("42")).toBeInTheDocument();
@@ -210,14 +210,14 @@ describe("read console pages", () => {
     expect(within(preview).getByText("Preview body for the pyramid concept.")).toBeInTheDocument();
     expect(within(screen.getByRole("main", { name: "Wiki reader" })).getByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
 
-    await userEvent.click(within(preview).getByRole("button", { name: "收起链接预览" }));
+    await userEvent.click(within(preview).getByRole("button", { name: "Collapse link preview" }));
 
     expect(screen.queryByRole("region", { name: "Wiki link preview" })).not.toBeInTheDocument();
     expect(within(screen.getByRole("main", { name: "Wiki reader" })).getByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "DIKW pyramid" }));
     const reopenedPreview = screen.getByRole("region", { name: "Wiki link preview" });
-    await userEvent.click(within(reopenedPreview).getByRole("button", { name: "打开为主文档" }));
+    await userEvent.click(within(reopenedPreview).getByRole("button", { name: "Open as main document" }));
 
     expect(await within(screen.getByRole("main", { name: "Wiki reader" })).findByRole("heading", { name: "DIKW 金字塔", level: 1 })).toBeInTheDocument();
   });
@@ -334,11 +334,11 @@ describe("read console pages", () => {
 
     expect(within(directory).getByRole("treeitem", { name: "entities" })).toHaveAttribute("aria-expanded", "false");
     expect(within(reader).queryByRole("heading", { name: "dikw-core", level: 1 })).not.toBeInTheDocument();
-    expect(within(reader).getByText("选择一篇文档开始阅读")).toBeInTheDocument();
+    expect(within(reader).getByText("Select a document to start reading")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Wiki link preview" })).not.toBeInTheDocument();
 
     const readsAfterClear = bodyReads;
-    await userEvent.click(screen.getByRole("button", { name: "刷新知识库" }));
+    await userEvent.click(screen.getByRole("button", { name: "Refresh knowledge" }));
 
     expect(bodyReads).toBe(readsAfterClear);
   });
@@ -378,10 +378,10 @@ describe("read console pages", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Missing Concept" }));
 
     const preview = screen.getByRole("region", { name: "Wiki link preview" });
-    expect(within(preview).getByRole("heading", { name: "未找到引用页面" })).toBeInTheDocument();
+    expect(within(preview).getByRole("heading", { name: "Linked page not found" })).toBeInTheDocument();
     expect(within(preview).getByText("Missing Concept")).toBeInTheDocument();
 
-    await userEvent.click(within(preview).getByRole("button", { name: "用目标过滤目录" }));
+    await userEvent.click(within(preview).getByRole("button", { name: "Filter directory by target" }));
 
     expect(screen.getByLabelText("Filter")).toHaveValue("Missing Concept");
   });
@@ -407,7 +407,7 @@ describe("read console pages", () => {
     render(<WikiPage client={client} />);
 
     expect(await screen.findByText("Original Body.")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "刷新知识库" }));
+    await userEvent.click(screen.getByRole("button", { name: "Refresh knowledge" }));
 
     expect(await screen.findByText("Updated Body.")).toBeInTheDocument();
   });
@@ -433,18 +433,18 @@ describe("read console pages", () => {
 
     const reader = screen.getByRole("main", { name: "Wiki reader" });
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
-    expect(within(reader).getByRole("tab", { name: "阅读 / Read" })).toHaveAttribute("aria-selected", "true");
+    expect(within(reader).getByRole("tab", { name: "Read" })).toHaveAttribute("aria-selected", "true");
     expect(within(reader).queryByRole("button", { name: "Generate explainer" })).not.toBeInTheDocument();
     expect(within(reader).queryByLabelText("Document metadata")).not.toBeInTheDocument();
 
-    await userEvent.click(within(reader).getByRole("tab", { name: "信息 / Info" }));
+    await userEvent.click(within(reader).getByRole("tab", { name: "Info" }));
 
     expect(within(reader).getAllByText("wiki/architecture.md").length).toBeGreaterThan(0);
     expect(within(reader).getByText("draft")).toBeInTheDocument();
     expect(within(reader).getByText("#DIKW")).toBeInTheDocument();
     expect(within(reader).getByText("source/a.md")).toBeInTheDocument();
 
-    await userEvent.click(within(reader).getByRole("tab", { name: "目录与链接 / Outline" }));
+    await userEvent.click(within(reader).getByRole("tab", { name: "Outline" }));
 
     expect(within(reader).getByRole("heading", { name: "Architecture" })).toBeInTheDocument();
     expect(within(reader).getByRole("heading", { name: "Data flow" })).toBeInTheDocument();
@@ -452,7 +452,7 @@ describe("read console pages", () => {
     expect(await screen.findByRole("region", { name: "Wiki link preview" })).toBeInTheDocument();
     expect(within(reader).queryByText("Synthesis Body.")).not.toBeInTheDocument();
 
-    await userEvent.click(within(reader).getByRole("tab", { name: "源码 / Source" }));
+    await userEvent.click(within(reader).getByRole("tab", { name: "Source" }));
 
     expect(within(reader).getByText(/title: Architecture/)).toBeInTheDocument();
     expect(within(reader).getByText(/\[\[Synthesis\]\]/)).toBeInTheDocument();
@@ -616,7 +616,7 @@ describe("read console pages", () => {
     expect(screen.getByRole("button", { name: "Architecture graph node" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Synthesis graph node" })).toHaveAttribute("data-muted", "false");
 
-    await userEvent.click(within(detail).getByRole("button", { name: "在知识库打开" }));
+    await userEvent.click(within(detail).getByRole("button", { name: "Open in Knowledge" }));
 
     expect(openedPaths).toEqual(["wiki/architecture.md"]);
   });
@@ -774,7 +774,7 @@ describe("read console pages", () => {
     await userEvent.click(screen.getByRole("button", { name: /Load events/ }));
     expect(await screen.findByText("4 events")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "刷新任务" }));
+    await userEvent.click(screen.getByRole("button", { name: "Refresh tasks" }));
 
     expect(await screen.findByText(/events refreshed/)).toBeInTheDocument();
     expect(screen.getByText("5 events")).toBeInTheDocument();

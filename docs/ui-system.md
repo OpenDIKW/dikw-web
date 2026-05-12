@@ -18,6 +18,12 @@ styled like a generic admin dashboard.
 
 - Locale is stored in `localStorage` under `dikw-web.locale`.
 - Supported locales are `en` and `zh-CN`; the default is `en`.
+- Navigation, page headers, toolbars, tabs, empty states, and primary
+  page actions should render in the current locale only. Do not show
+  bilingual chrome such as `Overview / 工作台概览`.
+- Core data is not translated by the web layer. Markdown bodies, task
+  results, raw JSON, provider names, model names, paths, and user content
+  should be rendered as returned by `/v1`.
 - Theme preference is stored in `localStorage` under `dikw-web.theme`.
 - Supported theme preferences are `system`, `light`, and `dark`; the
   default is `system`.
@@ -28,6 +34,14 @@ styled like a generic admin dashboard.
 Use CSS variables for page background, surfaces, text, muted text,
 lines, accent, status colors, and shadows. New UI should consume tokens
 instead of hard-coded colors so light and dark modes stay aligned.
+
+The Wiki reader has reader-specific tokens for article surfaces, text,
+links, borders, quote blocks, code, and tables. Dark mode must keep the
+middle reading pane as a low-glare dark surface; it must not introduce
+large near-white reader controls or article blocks. Browser E2E checks
+lock the reader contract with contrast thresholds: normal article text
+at least 4.5:1, large headings at least 3:1, and metadata/control text
+at least 3:1.
 
 Cards and controls should keep radii at 8px or less. Shadows should be
 subtle and used to separate work areas, not decorate the page.

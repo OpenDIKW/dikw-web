@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 test("loads overview and navigates with localized sidebar labels and settings", async ({ page }) => {
   await page.goto("/#overview");
 
-  await expect(page.getByRole("heading", { name: "工作台概览" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await expect(page.getByText("dikw-core 0.2.0")).toBeVisible();
   const primaryNav = page.getByRole("navigation", { name: "Primary" });
   await expect(primaryNav.getByRole("button", { name: "Overview", exact: true })).toBeVisible();
@@ -19,15 +19,15 @@ test("loads overview and navigates with localized sidebar labels and settings", 
   await expect(page.getByRole("img", { name: "OpenDIKW" })).toHaveAttribute("src", "/opendikw-avatar.png");
 
   await primaryNav.getByRole("button", { name: "Knowledge", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "知识库" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Knowledge" })).toBeVisible();
 
   await primaryNav.getByRole("button", { name: "Graph", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "知识图谱" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Graph" })).toBeVisible();
 
   await expect(page.getByRole("button", { name: /产物\s+Artifacts/ })).toHaveCount(0);
 
   await primaryNav.getByRole("button", { name: "Wisdom", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "智慧沉淀" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Wisdom" })).toBeVisible();
 
   await page.getByRole("button", { name: "Settings" }).click();
   await expect(page).toHaveURL(/#settings$/);

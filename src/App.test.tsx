@@ -80,15 +80,15 @@ describe("App shell", () => {
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Knowledge" }));
-    expect(await screen.findByRole("heading", { name: "知识库" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Knowledge" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#wiki");
 
     await userEvent.click(screen.getByRole("button", { name: "Graph" }));
-    expect(await screen.findByRole("heading", { name: "知识图谱" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Graph" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#graph");
 
     await userEvent.click(screen.getByRole("button", { name: "Wisdom" }));
-    expect(await screen.findByRole("heading", { name: "智慧沉淀" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Wisdom" })).toBeInTheDocument();
   });
 
   it("does not expose the removed artifacts route", async () => {
@@ -99,7 +99,7 @@ describe("App shell", () => {
 
     expect(screen.queryByRole("button", { name: /产物Artifacts/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "产物工作台" })).not.toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "工作台概览" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
   });
 
   it("persists locale and theme preferences in local storage", async () => {
@@ -135,9 +135,9 @@ describe("App shell", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "知识图谱" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Graph" })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "Architecture graph node" }));
-    await userEvent.click(screen.getByRole("button", { name: "在知识库打开" }));
+    await userEvent.click(screen.getByRole("button", { name: "Open in Knowledge" }));
 
     expect(window.location.hash).toBe("#wiki");
     expect(await screen.findByRole("heading", { name: "Architecture", level: 1 })).toBeInTheDocument();

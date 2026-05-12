@@ -5,11 +5,13 @@ import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
 import { useAsyncResource } from "../hooks/useAsyncResource";
+import { translations, type Locale } from "../i18n";
 import type { IngestError, TaskEvent, TaskRow, TaskStatus } from "../types";
 import { formatDuration, formatIso, formatNumber, formatScore, isTerminalTask } from "../utils/format";
 
 interface TasksPageProps {
   client: DikwClient;
+  locale?: Locale;
 }
 
 type ProgressEvent = Extract<TaskEvent, { type: "progress" }>;
@@ -18,7 +20,8 @@ type TaskPatch = Pick<TaskRow, "status" | "finished_at" | "result" | "error">;
 
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
 
-export function TasksPage({ client }: TasksPageProps) {
+export function TasksPage({ client, locale = "en" }: TasksPageProps) {
+  const copy = translations[locale].pages.tasks;
   const [status, setStatus] = useState<"" | TaskStatus>("");
   const [op, setOp] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -124,12 +127,12 @@ export function TasksPage({ client }: TasksPageProps) {
 
   return (
     <div className="page-stack">
-      <header className="page-header">
+      <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">Tasks</p>
-          <h1>任务查看</h1>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
         </div>
-        <button className="icon-button" type="button" onClick={refreshTasks} aria-label="刷新任务">
+        <button className="icon-button" type="button" onClick={refreshTasks} aria-label={copy.refresh}>
           <RefreshCw size={18} />
         </button>
       </header>

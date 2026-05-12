@@ -21,6 +21,11 @@ must not display the token value. All `/v1` calls continue to flow
 through `DikwClient`; Settings changes only the client configuration and
 presentation preferences.
 
+Locale and theme are web-only presentation state. They do not change
+request paths, request params, auth behavior, or the shape of any core
+response. Page chrome is localized by the web app; core/user content is
+rendered as returned.
+
 ## Overview
 
 Overview reads:

@@ -6,6 +6,7 @@ import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
+import { translations, type Locale } from "../i18n";
 import type { DocumentRecord, PageReadResult } from "../types";
 import { findPageForTarget } from "../utils/graph";
 import { getMarkdownTitle, parseMarkdownDocument } from "../utils/markdown";
@@ -14,6 +15,7 @@ import { formatUnixSeconds, truncateMiddle } from "../utils/format";
 interface WikiPageProps {
   client: DikwClient;
   initialPath?: string | null;
+  locale?: Locale;
 }
 
 interface WikiTreeNode {
@@ -31,8 +33,10 @@ type PreviewState =
   | { kind: "error"; target: string; error: unknown };
 
 type WikiReaderTab = "read" | "info" | "outline" | "source";
+type WikiCopy = (typeof translations)["en"]["pages"]["wiki"];
 
-export function WikiPage({ client, initialPath }: WikiPageProps) {
+export function WikiPage({ client, initialPath, locale = "en" }: WikiPageProps) {
+  const copy = translations[locale].pages.wiki;
   const [filter, setFilter] = useState("");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [page, setPage] = useState<PageReadResult | null>(null);
@@ -212,12 +216,12 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
 
   return (
     <div className="page-stack">
-      <header className="page-header">
+      <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">Wiki</p>
-          <h1>知识库</h1>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
         </div>
-        <button className="icon-button" type="button" onClick={refreshWiki} aria-label="刷新知识库">
+        <button className="icon-button" type="button" onClick={refreshWiki} aria-label={copy.refresh}>
           <RefreshCw size={18} />
         </button>
       </header>
@@ -228,8 +232,8 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
         <aside className="wiki-sidebar">
           <div className="wiki-explorer__header">
             <div>
-              <p className="eyebrow">Base</p>
-              <h2>目录 / Directory</h2>
+              <p className="eyebrow">{copy.baseEyebrow}</p>
+              <h2>{copy.directoryTitle}</h2>
             </div>
             <span className="soft-label">{formatFileCount(pages.data?.length ?? 0)}</span>
           </div>
@@ -239,10 +243,10 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
               aria-label="Filter"
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
-              placeholder="搜索文件 / Search files..."
+              placeholder={copy.searchPlaceholder}
             />
             {filter ? (
-              <button className="wiki-search__clear" type="button" onClick={() => setFilter("")} aria-label="清空目录搜索">
+              <button className="wiki-search__clear" type="button" onClick={() => setFilter("")} aria-label={copy.clearSearch}>
                 <X size={14} aria-hidden="true" />
               </button>
             ) : null}
@@ -254,7 +258,7 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
             onToggle={toggleDirectory}
             onSelect={selectPage}
           />
-          {!visiblePages.length ? <EmptyState title="没有匹配页面" /> : null}
+          {!visiblePages.length ? <EmptyState title={copy.noMatches} /> : null}
         </aside>
 
         <WikiReader
@@ -263,6 +267,7 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
           loading={pageLoading}
           error={pageError}
           onWikiLink={openWikiLink}
+          copy={copy}
         />
 
         {preview.kind !== "idle" ? (
@@ -271,6 +276,7 @@ export function WikiPage({ client, initialPath }: WikiPageProps) {
             onClose={() => setPreview({ kind: "idle" })}
             onOpen={selectPage}
             onFilter={filterByPreviewTarget}
+            copy={copy}
           />
         ) : null}
       </section>
@@ -381,13 +387,15 @@ function WikiReader({
   doc,
   loading,
   error,
-  onWikiLink
+  onWikiLink,
+  copy
 }: {
   page: PageReadResult | null;
   doc: DocumentRecord | null;
   loading: boolean;
   error: unknown;
   onWikiLink: (target: string) => void;
+  copy: WikiCopy;
 }) {
   const [activeTab, setActiveTab] = useState<WikiReaderTab>("read");
   const parsed = useMemo(
@@ -403,7 +411,7 @@ function WikiReader({
 
   return (
     <main className="wiki-reader panel" aria-label="Wiki reader">
-      {loading ? <EmptyState title="读取页面中" /> : null}
+      {loading ? <EmptyState title={copy.loadingPage} /> : null}
       {error ? <Notice title="无法读取页面" error={error} /> : null}
       {page ? (
         <>
@@ -414,9 +422,9 @@ function WikiReader({
               <span className="soft-label">{formatUnixSeconds(doc?.mtime)}</span>
             </div>
           </div>
-          <WikiReaderTabs activeTab={activeTab} onSelect={setActiveTab} />
+          <WikiReaderTabs activeTab={activeTab} onSelect={setActiveTab} copy={copy} />
           {activeTab === "read" ? (
-            <section className="wiki-reader-tab-panel" role="tabpanel" aria-label="阅读 / Read">
+            <section className="wiki-reader-tab-panel" role="tabpanel" aria-label={copy.readTab}>
               <MarkdownView
                 body={page.body}
                 fallbackTitle={page.title || getMarkdownTitle(page.body) || basename(page.path)}
@@ -426,33 +434,41 @@ function WikiReader({
             </section>
           ) : null}
           {activeTab === "info" && parsed ? (
-            <WikiInfoPanel page={page} doc={doc} meta={parsed.meta} />
+            <WikiInfoPanel page={page} doc={doc} meta={parsed.meta} copy={copy} />
           ) : null}
           {activeTab === "outline" ? (
-            <WikiOutlinePanel headings={headings} wikilinks={wikilinks} anchors={page.anchors.length} onWikiLink={onWikiLink} />
+            <WikiOutlinePanel headings={headings} wikilinks={wikilinks} anchors={page.anchors.length} onWikiLink={onWikiLink} copy={copy} />
           ) : null}
           {activeTab === "source" ? (
-            <section className="wiki-reader-tab-panel" role="tabpanel" aria-label="源码 / Source">
+            <section className="wiki-reader-tab-panel" role="tabpanel" aria-label={copy.sourceTab}>
               <pre className="wiki-source-code">{page.body}</pre>
             </section>
           ) : null}
         </>
       ) : !loading && !error ? (
-        <EmptyState title="选择一篇文档开始阅读" />
+        <EmptyState title={copy.emptyReader} />
       ) : null}
     </main>
   );
 }
 
-function WikiReaderTabs({ activeTab, onSelect }: { activeTab: WikiReaderTab; onSelect: (tab: WikiReaderTab) => void }) {
+function WikiReaderTabs({
+  activeTab,
+  onSelect,
+  copy
+}: {
+  activeTab: WikiReaderTab;
+  onSelect: (tab: WikiReaderTab) => void;
+  copy: WikiCopy;
+}) {
   const tabs: Array<{ id: WikiReaderTab; label: string }> = [
-    { id: "read", label: "阅读 / Read" },
-    { id: "info", label: "信息 / Info" },
-    { id: "outline", label: "目录与链接 / Outline" },
-    { id: "source", label: "源码 / Source" }
+    { id: "read", label: copy.readTab },
+    { id: "info", label: copy.infoTab },
+    { id: "outline", label: copy.outlineTab },
+    { id: "source", label: copy.sourceTab }
   ];
   return (
-    <div className="wiki-reader-tabs" role="tablist" aria-label="Wiki reader views">
+    <div className="wiki-reader-tabs" role="tablist" aria-label={copy.tabList}>
       {tabs.map((tab) => (
         <button
           className={activeTab === tab.id ? "is-active" : ""}
@@ -472,17 +488,19 @@ function WikiReaderTabs({ activeTab, onSelect }: { activeTab: WikiReaderTab; onS
 function WikiInfoPanel({
   page,
   doc,
-  meta
+  meta,
+  copy
 }: {
   page: PageReadResult;
   doc: DocumentRecord | null;
   meta: Record<string, string | string[] | undefined>;
+  copy: WikiCopy;
 }) {
   const metaRows = Object.entries(meta).filter(([, value]) => typeof value === "string" && value.length > 0) as Array<[string, string]>;
   const tags = asStringList(meta.tags);
   const sources = asStringList(meta.sources);
   return (
-    <section className="wiki-reader-tab-panel wiki-info-panel" role="tabpanel" aria-label="信息 / Info">
+    <section className="wiki-reader-tab-panel wiki-info-panel" role="tabpanel" aria-label={copy.infoPanel}>
       <dl className="wiki-info-grid">
         <div>
           <dt>path</dt>
@@ -529,15 +547,17 @@ function WikiOutlinePanel({
   headings,
   wikilinks,
   anchors,
-  onWikiLink
+  onWikiLink,
+  copy
 }: {
   headings: Array<{ level: number; title: string }>;
   wikilinks: string[];
   anchors: number;
   onWikiLink: (target: string) => void;
+  copy: WikiCopy;
 }) {
   return (
-    <section className="wiki-reader-tab-panel wiki-outline-panel" role="tabpanel" aria-label="目录与链接 / Outline">
+    <section className="wiki-reader-tab-panel wiki-outline-panel" role="tabpanel" aria-label={copy.outlinePanel}>
       <div className="wiki-outline-summary">
         <span className="soft-label">{headings.length} headings</span>
         <span className="soft-label">{wikilinks.length} wikilinks</span>
@@ -555,7 +575,7 @@ function WikiOutlinePanel({
               ))}
             </ol>
           ) : (
-            <EmptyState title="没有目录" />
+            <EmptyState title={copy.noHeadings} />
           )}
         </section>
         <section>
@@ -569,7 +589,7 @@ function WikiOutlinePanel({
               ))}
             </div>
           ) : (
-            <EmptyState title="没有 wikilink" />
+            <EmptyState title={copy.noWikilinks} />
           )}
         </section>
       </div>
@@ -581,22 +601,24 @@ function WikiLinkPreview({
   preview,
   onClose,
   onOpen,
-  onFilter
+  onFilter,
+  copy
 }: {
   preview: PreviewState;
   onClose: () => void;
   onOpen: (path: string) => void;
   onFilter: (target: string) => void;
+  copy: WikiCopy;
 }) {
   return (
-    <aside className="wiki-preview panel wiki-preview--open" role="region" aria-label="Wiki link preview">
+    <aside className="wiki-preview panel wiki-preview--open" role="region" aria-label={copy.previewRegion}>
       {preview.kind === "loading" ? (
-        <PreviewFrame title="Link preview" onClose={onClose}>
-          <EmptyState title="读取引用页面中" detail={preview.target} />
+        <PreviewFrame title={copy.previewTitle} onClose={onClose} closeLabel={copy.previewClose}>
+          <EmptyState title={copy.previewLoading} detail={preview.target} />
         </PreviewFrame>
       ) : null}
       {preview.kind === "ready" ? (
-        <PreviewFrame title="Link preview" onClose={onClose}>
+        <PreviewFrame title={copy.previewTitle} onClose={onClose} closeLabel={copy.previewClose}>
           <article className="wiki-preview-card">
             <div className="reader-header__path">{preview.page.path}</div>
             <h2>{preview.page.title || getMarkdownTitle(preview.page.body) || basename(preview.page.path)}</h2>
@@ -606,24 +628,24 @@ function WikiLinkPreview({
             </div>
             <p>{summarizeMarkdown(preview.page.body)}</p>
             <button className="secondary-button" type="button" onClick={() => onOpen(preview.page.path)}>
-              打开为主文档
+              {copy.previewOpen}
             </button>
           </article>
         </PreviewFrame>
       ) : null}
       {preview.kind === "not-found" ? (
-        <PreviewFrame title="Link preview" onClose={onClose}>
+        <PreviewFrame title={copy.previewTitle} onClose={onClose} closeLabel={copy.previewClose}>
           <div className="wiki-preview-card wiki-preview-card--empty">
-            <h2>未找到引用页面</h2>
+            <h2>{copy.previewNotFound}</h2>
             <p>{preview.target}</p>
             <button className="secondary-button" type="button" onClick={() => onFilter(preview.target)}>
-              用目标过滤目录
+              {copy.previewFilter}
             </button>
           </div>
         </PreviewFrame>
       ) : null}
       {preview.kind === "error" ? (
-        <PreviewFrame title="Link preview" onClose={onClose}>
+        <PreviewFrame title={copy.previewTitle} onClose={onClose} closeLabel={copy.previewClose}>
           <Notice title="无法读取引用页面" error={preview.error} />
         </PreviewFrame>
       ) : null}
@@ -631,12 +653,22 @@ function WikiLinkPreview({
   );
 }
 
-function PreviewFrame({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+function PreviewFrame({
+  title,
+  onClose,
+  closeLabel,
+  children
+}: {
+  title: string;
+  onClose: () => void;
+  closeLabel: string;
+  children: ReactNode;
+}) {
   return (
     <>
       <div className="wiki-preview__header">
         <span>{title}</span>
-        <button className="icon-button" type="button" onClick={onClose} aria-label="收起链接预览">
+        <button className="icon-button" type="button" onClick={onClose} aria-label={closeLabel}>
           <X size={16} />
         </button>
       </div>

@@ -3,14 +3,17 @@ import { Pause, Play } from "lucide-react";
 import { DikwClient } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
+import { translations, type Locale } from "../i18n";
 import type { Hit, PageRef, RetrieveResult } from "../types";
 import { formatScore } from "../utils/format";
 
 interface RetrievePageProps {
   client: DikwClient;
+  locale?: Locale;
 }
 
-export function RetrievePage({ client }: RetrievePageProps) {
+export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
+  const copy = translations[locale].pages.retrieve;
   const [question, setQuestion] = useState("");
   const [limit, setLimit] = useState(10);
   const [previewHits, setPreviewHits] = useState<Hit[]>([]);
@@ -58,10 +61,10 @@ export function RetrievePage({ client }: RetrievePageProps) {
 
   return (
     <div className="page-stack">
-      <header className="page-header">
+      <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">Retrieve</p>
-          <h1>检索上下文</h1>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
         </div>
       </header>
 

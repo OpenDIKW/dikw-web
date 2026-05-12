@@ -168,13 +168,13 @@ export function App() {
         </header>
 
         <main className="content">
-          {activeView === "overview" ? <OverviewPage client={client} /> : null}
-          {activeView === "query" ? <QueryPage client={client} /> : null}
-          {activeView === "retrieve" ? <RetrievePage client={client} /> : null}
-          {activeView === "wiki" ? <WikiPage client={client} initialPath={wikiInitialPath} /> : null}
-          {activeView === "graph" ? <GraphPage client={client} onOpenWikiPath={openWikiPath} /> : null}
-          {activeView === "wisdom" ? <WisdomPage client={client} /> : null}
-          {activeView === "tasks" ? <TasksPage client={client} /> : null}
+          {activeView === "overview" ? <OverviewPage client={client} locale={locale} /> : null}
+          {activeView === "query" ? <QueryPage client={client} locale={locale} /> : null}
+          {activeView === "retrieve" ? <RetrievePage client={client} locale={locale} /> : null}
+          {activeView === "wiki" ? <WikiPage client={client} initialPath={wikiInitialPath} locale={locale} /> : null}
+          {activeView === "graph" ? <GraphPage client={client} onOpenWikiPath={openWikiPath} locale={locale} /> : null}
+          {activeView === "wisdom" ? <WisdomPage client={client} locale={locale} /> : null}
+          {activeView === "tasks" ? <TasksPage client={client} locale={locale} /> : null}
           {activeView === "settings" ? (
             <SettingsPage
               locale={locale}

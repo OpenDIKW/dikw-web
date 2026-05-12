@@ -3,14 +3,17 @@ import { Pause, Play, Search } from "lucide-react";
 import { DikwClient } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
+import { translations, type Locale } from "../i18n";
 import type { Citation, Hit, QueryResult } from "../types";
 import { formatScore } from "../utils/format";
 
 interface QueryPageProps {
   client: DikwClient;
+  locale?: Locale;
 }
 
-export function QueryPage({ client }: QueryPageProps) {
+export function QueryPage({ client, locale = "en" }: QueryPageProps) {
+  const copy = translations[locale].pages.query;
   const [question, setQuestion] = useState("");
   const [limit, setLimit] = useState(5);
   const [answer, setAnswer] = useState("");
@@ -75,10 +78,10 @@ export function QueryPage({ client }: QueryPageProps) {
 
   return (
     <div className="page-stack">
-      <header className="page-header">
+      <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">Query</p>
-          <h1>自然语言查阅</h1>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
         </div>
       </header>
 

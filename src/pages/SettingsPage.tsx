@@ -31,7 +31,7 @@ export function SettingsPage({
 
   return (
     <div className="page-stack settings-page">
-      <header className="page-header">
+      <header className="page-header" data-testid="page-header">
         <div>
           <p className="eyebrow">{copy.eyebrow}</p>
           <h1>{copy.title}</h1>

@@ -29,8 +29,8 @@ boundary with `dikw-core`.
 
 Graph View followed the same vertical loop:
 
-1. App shell test first: add `图谱 / Graph`, click it, and assert
-   `#graph` plus the `知识图谱` heading.
+1. App shell test first: add the localized `Graph` navigation entry,
+   click it, and assert `#graph` plus the current-locale page heading.
 2. Graph builder unit test next: feed page records and markdown bodies,
    parse `[[Target]]`, `[[Target|alias]]`, and `[[Target#anchor]]`,
    dedupe repeated edges, and record unresolved wikilinks.
@@ -49,11 +49,11 @@ Wiki reader changes should land as vertical UI slices:
 
 1. App shell first: assert removed routes, such as `#artifacts`, fall back
    to Overview and have no sidebar item.
-2. Page test next: open `#wiki`, assert the default `阅读 / Read` tab,
+2. Page test next: open `#wiki`, assert the default `Read` tab,
    rendered HTML body, and absence of any report-generation button.
-3. Add tab behavior one slice at a time: `信息 / Info` for frontmatter and
-   core metadata, `目录与链接 / Outline` for headings and wikilinks, and
-   `源码 / Source` for raw Markdown.
+3. Add tab behavior one slice at a time: `Info` for frontmatter and
+   core metadata, `Outline` for headings and wikilinks, and `Source`
+   for raw Markdown.
 4. Link regression stays close to the user bug: clicking in-document
    heading links must not change the app hash away from `#wiki`, and
    wikilinks must open the right preview panel instead of navigating the
@@ -83,6 +83,24 @@ Shell preference work should also land vertically:
 5. E2E smoke covers desktop and mobile overflow for primary pages plus
    Settings, and verifies the top bar remains a read-only connection
    status strip.
+
+## i18n and Dark Reader Slice Example
+
+Locale and theme regressions should be caught at the browser boundary:
+
+1. Add an E2E test that visits each primary route in the default English
+   locale and asserts the `page-header` region is English-only.
+2. Add the matching `zh-CN` E2E path by switching language in Settings,
+   then assert page headers become Chinese-only.
+3. Keep the language assertion scoped to web chrome. Do not assert
+   against Markdown bodies, task results, raw JSON, paths, provider
+   names, or model names because those are core/user data.
+4. Add a dark Wiki reader E2E test before changing styles. It should set
+   `dikw-web.theme=dark`, open `#wiki`, compute text/background contrast
+   for reader paragraphs, headings, code, tables, quotes, tabs, and
+   metadata, and reject visible near-white backgrounds in `.wiki-reader`.
+5. Only after those tests fail, move page chrome into `translations` and
+   replace reader hard-coded colors with reader-specific CSS tokens.
 
 ## Commands
 

@@ -22,6 +22,15 @@ html[data-theme="light"] {
   --red: #b43a32;
   --blue: #2868a3;
   --scan-gray: #dfe6e8;
+  --reader-bg: #ffffff;
+  --reader-text: #202b28;
+  --reader-muted: #64716d;
+  --reader-heading: #111817;
+  --reader-link: #075c54;
+  --reader-code-bg: #16221f;
+  --reader-border: #d9e1de;
+  --reader-quote-bg: #eff8f6;
+  --reader-table-bg: #f0f5f3;
   --shadow: 0 8px 24px rgba(17, 24, 23, 0.05);
   --radius: 8px;
 }
@@ -45,6 +54,15 @@ html[data-theme="dark"] {
   --red: #ef7f75;
   --blue: #75aee9;
   --scan-gray: #34413e;
+  --reader-bg: #151d1b;
+  --reader-text: #d9e6e2;
+  --reader-muted: #a7b8b3;
+  --reader-heading: #f2faf7;
+  --reader-link: #7de0d2;
+  --reader-code-bg: #0f1715;
+  --reader-border: #2b3834;
+  --reader-quote-bg: #142622;
+  --reader-table-bg: #1b2522;
   --shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
 }
 
@@ -1034,6 +1052,8 @@ textarea:focus {
 .wiki-reader {
   min-height: calc(100vh - 132px);
   overflow: hidden;
+  background: var(--reader-bg);
+  color: var(--reader-text);
 }
 
 .reader-header,
@@ -1048,7 +1068,7 @@ textarea:focus {
 
 .reader-header__path {
   margin-bottom: 4px;
-  color: var(--muted);
+  color: var(--reader-muted);
   font-size: 12px;
   font-weight: 750;
   overflow-wrap: anywhere;
@@ -1065,19 +1085,19 @@ textarea:focus {
 .reader-header--metadata-only {
   align-items: center;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--reader-border);
 }
 
 .markdown-view {
   max-width: 760px;
   margin: 0 auto;
-  color: #202b28;
+  color: var(--reader-text);
   line-height: 1.76;
 }
 
 .markdown-fallback-title {
   margin: 0 0 18px;
-  color: #0d1715;
+  color: var(--reader-heading);
   font-size: 31px;
   line-height: 1.16;
   letter-spacing: 0;
@@ -1089,7 +1109,7 @@ textarea:focus {
   gap: 7px;
   margin: 0 0 14px;
   padding: 0 0 12px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--reader-border);
   background: transparent;
 }
 
@@ -1128,7 +1148,7 @@ textarea:focus {
 .markdown-body h3,
 .markdown-body h4 {
   margin: 1.25em 0 0.45em;
-  color: #111817;
+  color: var(--reader-heading);
   line-height: 1.25;
 }
 
@@ -1144,7 +1164,7 @@ textarea:focus {
 
 .markdown-body h2 {
   padding-bottom: 6px;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--reader-border);
   font-size: 22px;
 }
 
@@ -1158,7 +1178,7 @@ textarea:focus {
 
 .markdown-body a,
 .inline-wikilink {
-  color: var(--accent-strong);
+  color: var(--reader-link);
   font-weight: 700;
   text-decoration: none;
 }
@@ -1167,7 +1187,7 @@ textarea:focus {
   display: inline;
   padding: 0 1px;
   border: 0;
-  border-bottom: 1px solid #92c8bd;
+  border-bottom: 1px solid color-mix(in srgb, var(--reader-link) 55%, transparent);
   border-radius: 0;
   background: transparent;
   line-height: inherit;
@@ -1175,14 +1195,15 @@ textarea:focus {
 }
 
 .inline-wikilink:hover {
-  color: #003f36;
-  border-bottom-color: #006a58;
+  color: var(--accent-strong);
+  border-bottom-color: var(--accent-strong);
 }
 
 .markdown-body code {
   padding: 2px 5px;
   border-radius: 5px;
-  background: #edf2f1;
+  background: var(--reader-table-bg);
+  color: var(--reader-text);
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 0.92em;
 }
@@ -1191,9 +1212,9 @@ textarea:focus {
 .event-tape pre {
   overflow: auto;
   padding: 12px;
-  border: 1px solid #263530;
+  border: 1px solid var(--reader-border);
   border-radius: var(--radius);
-  background: #16221f;
+  background: var(--reader-code-bg);
   color: #eef8f5;
 }
 
@@ -1206,9 +1227,9 @@ textarea:focus {
 .code-block {
   margin: 14px 0;
   overflow: hidden;
-  border: 1px solid #263530;
+  border: 1px solid var(--reader-border);
   border-radius: var(--radius);
-  background: #16221f;
+  background: var(--reader-code-bg);
 }
 
 .code-block pre {
@@ -1219,7 +1240,7 @@ textarea:focus {
 
 .code-label {
   padding: 6px 10px;
-  border-bottom: 1px solid #30443e;
+  border-bottom: 1px solid var(--reader-border);
   color: #a8c9c2;
   font-size: 12px;
   font-weight: 800;
@@ -1230,13 +1251,13 @@ textarea:focus {
   margin: 1em 0;
   padding: 8px 12px;
   border-left: 3px solid var(--accent);
-  background: #eff8f6;
-  color: #344541;
+  background: var(--reader-quote-bg);
+  color: var(--reader-text);
 }
 
 .markdown-body hr {
   border: 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid var(--reader-border);
   margin: 18px 0;
 }
 
@@ -1256,9 +1277,9 @@ textarea:focus {
   gap: 6px;
   margin: 0 0 18px;
   padding: 4px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--reader-border);
   border-radius: var(--radius);
-  background: #f7faf9;
+  background: color-mix(in srgb, var(--reader-bg) 82%, var(--surface-2));
 }
 
 .wiki-reader-tabs button {
@@ -1266,16 +1287,16 @@ textarea:focus {
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: var(--muted);
+  color: var(--reader-muted);
   font-size: 13px;
   font-weight: 750;
   cursor: pointer;
 }
 
 .wiki-reader-tabs button.is-active {
-  background: var(--surface);
-  color: var(--accent-strong);
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  background: var(--reader-bg);
+  color: var(--reader-link);
+  box-shadow: inset 0 0 0 1px var(--reader-border);
 }
 
 .wiki-reader-tab-panel {
@@ -1313,7 +1334,7 @@ textarea:focus {
 
 .wiki-info-grid dd {
   margin: 4px 0 0;
-  color: var(--text);
+  color: var(--reader-text);
   font-weight: 650;
   overflow-wrap: anywhere;
 }
@@ -1335,9 +1356,9 @@ textarea:focus {
 .wiki-outline-columns > section {
   min-width: 0;
   padding: 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--reader-border);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: color-mix(in srgb, var(--reader-bg) 88%, var(--surface-2));
 }
 
 .wiki-outline-columns h2 {
@@ -1355,7 +1376,7 @@ textarea:focus {
 
 .wiki-outline-list h3 {
   margin: 0;
-  color: var(--text);
+  color: var(--reader-text);
   font-size: 14px;
 }
 
@@ -1364,9 +1385,9 @@ textarea:focus {
   max-height: calc(100vh - 260px);
   margin: 0;
   padding: 14px;
-  border: 1px solid #263530;
+  border: 1px solid var(--reader-border);
   border-radius: var(--radius);
-  background: #16221f;
+  background: var(--reader-code-bg);
   color: #eef8f5;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 13px;
@@ -1376,9 +1397,9 @@ textarea:focus {
 .markdown-table-wrap {
   overflow: auto;
   margin: 16px 0;
-  border: 1px solid var(--line);
+  border: 1px solid var(--reader-border);
   border-radius: var(--radius);
-  background: var(--surface);
+  background: var(--reader-bg);
 }
 
 .markdown-table-wrap table {
@@ -1390,15 +1411,15 @@ textarea:focus {
 .markdown-table-wrap th,
 .markdown-table-wrap td {
   padding: 9px 11px;
-  border-bottom: 1px solid var(--line);
-  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--reader-border);
+  border-right: 1px solid var(--reader-border);
   text-align: left;
   vertical-align: top;
 }
 
 .markdown-table-wrap th {
-  background: #f0f5f3;
-  color: #33433e;
+  background: var(--reader-table-bg);
+  color: var(--reader-muted);
   font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
@@ -2218,6 +2239,49 @@ html[data-theme="dark"] .graph-svg {
 html[data-theme="dark"] .graph-svg__nodes text {
   fill: var(--text);
   stroke: rgba(15, 20, 19, 0.9);
+}
+
+html[data-theme="dark"] .wiki-reader,
+html[data-theme="dark"] .markdown-table-wrap {
+  background: var(--reader-bg);
+  color: var(--reader-text);
+}
+
+html[data-theme="dark"] .markdown-view {
+  color: var(--reader-text);
+}
+
+html[data-theme="dark"] .markdown-body h1,
+html[data-theme="dark"] .markdown-body h2,
+html[data-theme="dark"] .markdown-body h3,
+html[data-theme="dark"] .markdown-body h4,
+html[data-theme="dark"] .markdown-fallback-title {
+  color: var(--reader-heading);
+}
+
+html[data-theme="dark"] .reader-header__path,
+html[data-theme="dark"] .wiki-reader-tabs button,
+html[data-theme="dark"] .markdown-table-wrap th {
+  color: var(--reader-muted);
+}
+
+html[data-theme="dark"] .wiki-reader-tabs {
+  background: color-mix(in srgb, var(--reader-bg) 82%, var(--surface-2));
+}
+
+html[data-theme="dark"] .wiki-reader-tabs button.is-active {
+  background: var(--reader-bg);
+  color: var(--reader-link);
+}
+
+html[data-theme="dark"] .markdown-body code,
+html[data-theme="dark"] .markdown-table-wrap th {
+  background: var(--reader-table-bg);
+}
+
+html[data-theme="dark"] .markdown-body blockquote {
+  background: var(--reader-quote-bg);
+  color: var(--reader-text);
 }
 
 @media (max-width: 1180px) {

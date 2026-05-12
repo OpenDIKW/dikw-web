@@ -3,6 +3,7 @@ import { RefreshCw, RotateCcw, Search, ZoomIn, ZoomOut } from "lucide-react";
 import type { DikwClient } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
+import { translations, type Locale } from "../i18n";
 import type { DocumentRecord, Layer, PageReadResult } from "../types";
 import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, type KnowledgeGraph } from "../utils/graph";
 
@@ -10,6 +11,7 @@ interface GraphPageProps {
   client: DikwClient;
   onOpenWikiPath?: (path: string) => void;
   pageReadTimeoutMs?: number;
+  locale?: Locale;
 }
 
 type GraphLayer = Extract<Layer, "wiki" | "source"> | "all";
@@ -49,8 +51,10 @@ const defaultPageReadTimeoutMs = 15_000;
 export function GraphPage({
   client,
   onOpenWikiPath: _onOpenWikiPath,
-  pageReadTimeoutMs = defaultPageReadTimeoutMs
+  pageReadTimeoutMs = defaultPageReadTimeoutMs,
+  locale = "en"
 }: GraphPageProps) {
+  const copy = translations[locale].pages.graph;
   const [layer, setLayer] = useState<GraphLayer>("wiki");
   const [query, setQuery] = useState("");
   const [hideOrphans, setHideOrphans] = useState(false);
@@ -115,12 +119,12 @@ export function GraphPage({
 
   return (
     <div className="page-stack">
-      <header className="page-header">
+      <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">Graph</p>
-          <h1>知识图谱</h1>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
         </div>
-        <button className="icon-button" type="button" aria-label="刷新图谱" onClick={() => setReloadId((value) => value + 1)}>
+        <button className="icon-button" type="button" aria-label={copy.refresh} onClick={() => setReloadId((value) => value + 1)}>
           <RefreshCw size={18} />
         </button>
       </header>
@@ -147,7 +151,7 @@ export function GraphPage({
               setQuery(event.target.value);
               setFocusedNodeId(null);
             }}
-            placeholder="搜索图谱 / Search graph..."
+            placeholder={copy.searchPlaceholder}
           />
         </label>
         <label className="graph-toggle">
@@ -160,11 +164,11 @@ export function GraphPage({
               setFocusedNodeId(null);
             }}
           />
-          <span>隐藏孤立节点 / Hide orphans</span>
+          <span>{copy.hideOrphans}</span>
         </label>
         {focusedNodeId ? (
           <button className="secondary-button" type="button" onClick={() => setFocusedNodeId(null)}>
-            Reset focus
+            {copy.resetFocus}
           </button>
         ) : null}
         {state.loading ? <span className="soft-label">读取 {state.loaded} / {state.total} pages</span> : null}
@@ -291,7 +295,7 @@ export function GraphPage({
                 </div>
               ) : null}
               <button className="secondary-button" type="button" onClick={() => _onOpenWikiPath?.(focusedNode.path)}>
-                在知识库打开
+                {copy.openInWiki}
               </button>
             </aside>
           ) : null}

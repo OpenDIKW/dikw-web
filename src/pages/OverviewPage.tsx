@@ -5,11 +5,13 @@ import { MetricCard } from "../components/MetricCard";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
 import { useAsyncResource } from "../hooks/useAsyncResource";
+import { translations, type Locale } from "../i18n";
 import type { HealthReport, InfoResponse, StorageCounts } from "../types";
 import { formatNumber, formatUnixSeconds } from "../utils/format";
 
 interface OverviewPageProps {
   client: DikwClient;
+  locale?: Locale;
 }
 
 interface OverviewData {
@@ -18,7 +20,8 @@ interface OverviewData {
   status: StorageCounts;
 }
 
-export function OverviewPage({ client }: OverviewPageProps) {
+export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
+  const copy = translations[locale].pages.overview;
   const load = useCallback(
     async (signal: AbortSignal): Promise<OverviewData> => {
       const [health, info, status] = await Promise.all([
@@ -35,12 +38,12 @@ export function OverviewPage({ client }: OverviewPageProps) {
 
   return (
     <div className="page-stack">
-      <header className="page-header">
+      <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">Overview</p>
-          <h1>工作台概览</h1>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
         </div>
-        <button className="icon-button" type="button" onClick={resource.reload} aria-label="刷新概览">
+        <button className="icon-button" type="button" onClick={resource.reload} aria-label={copy.refresh}>
           <RefreshCw size={18} />
         </button>
       </header>

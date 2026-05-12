@@ -5,17 +5,20 @@ import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
 import { useAsyncResource } from "../hooks/useAsyncResource";
+import { translations, type Locale } from "../i18n";
 import type { WisdomItem, WisdomKind, WisdomStatus } from "../types";
 import { formatPercent, formatUnixSeconds } from "../utils/format";
 
 interface WisdomPageProps {
   client: DikwClient;
+  locale?: Locale;
 }
 
 const statuses: Array<"" | WisdomStatus> = ["", "candidate", "approved", "archived"];
 const kinds: Array<"" | WisdomKind> = ["", "principle", "lesson", "pattern"];
 
-export function WisdomPage({ client }: WisdomPageProps) {
+export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
+  const copy = translations[locale].pages.wisdom;
   const [status, setStatus] = useState<"" | WisdomStatus>("");
   const [kind, setKind] = useState<"" | WisdomKind>("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -50,12 +53,12 @@ export function WisdomPage({ client }: WisdomPageProps) {
 
   return (
     <div className="page-stack">
-      <header className="page-header">
+      <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">Wisdom Layer</p>
-          <h1>智慧沉淀</h1>
+          <p className="eyebrow">{copy.eyebrow}</p>
+          <h1>{copy.title}</h1>
         </div>
-        <button className="icon-button" type="button" onClick={wisdom.reload} aria-label="刷新智慧条目">
+        <button className="icon-button" type="button" onClick={wisdom.reload} aria-label={copy.refresh}>
           <RefreshCw size={18} />
         </button>
       </header>

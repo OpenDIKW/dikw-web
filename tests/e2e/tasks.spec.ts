@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 test("loads eval task events and keeps raw JSON collapsed", async ({ page }) => {
   await page.goto("/#tasks");
 
-  await expect(page.getByRole("heading", { name: "任务查看" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tasks" })).toBeVisible();
   await expect(page.locator(".eval-dataset-line strong", { hasText: "synthetic-diverse-v1" })).toBeVisible();
 
   await page.getByRole("button", { name: /Load events/ }).click();

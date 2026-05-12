@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 test("shows the global graph and opens a node in the wiki reader", async ({ page }) => {
   await page.goto("/#graph");
 
-  await expect(page.getByRole("heading", { name: "知识图谱" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Graph" })).toBeVisible();
   await expect(page.getByText("3 nodes")).toBeVisible();
   await expect(page.getByText("1 link")).toBeVisible();
   await expect(page.getByText("1 unresolved")).toBeVisible();
@@ -19,7 +19,7 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   await expect(detail.getByRole("heading", { name: "Architecture" })).toBeVisible();
   await expect(detail.getByText("Missing Concept")).toBeVisible();
 
-  await detail.getByRole("button", { name: "在知识库打开" }).click();
+  await detail.getByRole("button", { name: "Open in Knowledge" }).click();
 
   await expect(page).toHaveURL(/#wiki$/);
   await expect(page.getByRole("main", { name: "Wiki reader" }).getByRole("heading", { name: "Architecture" })).toBeVisible();
