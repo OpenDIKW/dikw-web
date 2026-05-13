@@ -29,20 +29,13 @@ test("opens chat, renames a session, reopens history, and keeps legacy query red
   await expect(page.getByTestId("agent-conversation-scroll").getByText("Layered answer.", { exact: true })).toBeVisible();
 });
 
-test("keeps reply context in the same scroll container as the conversation", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 520 });
+test("keeps session context outside the conversation scroll container", async ({ page }) => {
   await page.goto("/#chat");
-
-  for (let index = 0; index < 10; index += 1) {
-    await page.getByLabel("Message").fill(`Question ${index + 1}`);
-    await page.getByRole("button", { name: "Send" }).click();
-    await expect(page.getByText("Layered answer.").last()).toBeVisible();
-  }
 
   const scrollRegion = page.getByTestId("agent-conversation-scroll");
   await expect(scrollRegion).toBeVisible();
-  await expect(scrollRegion.getByText("Sources")).toBeVisible();
-  await expect(scrollRegion.getByText("Tool calls")).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Session context" }).getByText("Sources", { exact: true })).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Session context" }).getByText("Tool calls", { exact: true })).toBeVisible();
 
   const structure = await page.evaluate(() => {
     const scroll = document.querySelector('[data-testid="agent-conversation-scroll"]');
@@ -53,33 +46,22 @@ test("keeps reply context in the same scroll container as the conversation", asy
       composerInsideScroll: Boolean(scroll && composer && scroll.contains(composer))
     };
   });
-  expect(structure).toEqual({ contextInsideScroll: true, composerInsideScroll: false });
-
-  await scrollRegion.evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
-  });
-  await expect.poll(() => scrollRegion.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
+  expect(structure).toEqual({ contextInsideScroll: false, composerInsideScroll: false });
   await expect(page.getByLabel("Message")).toBeVisible();
 });
 
-test("keeps the reply context rail content-sized instead of stretching across the chat canvas", async ({ page }) => {
-  await page.setViewportSize({ width: 1660, height: 920 });
+test("shows session-level sources and tool calls across replies", async ({ page }) => {
   await page.goto("/#chat");
 
-  const layout = await page.evaluate(() => {
-    const scroll = document.querySelector('[data-testid="agent-conversation-scroll"]');
-    const context = document.querySelector(".agent-context");
-    if (!scroll || !context) {
-      return null;
-    }
-    const scrollRect = scroll.getBoundingClientRect();
-    const contextRect = context.getBoundingClientRect();
-    return {
-      scrollHeight: scrollRect.height,
-      contextHeight: contextRect.height
-    };
-  });
+  await page.getByLabel("Message").fill("First question");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Layered answer.").last()).toBeVisible();
+  await page.getByLabel("Message").fill("Second question");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Layered answer.").last()).toBeVisible();
 
-  expect(layout).not.toBeNull();
-  expect(layout!.contextHeight).toBeLessThan(layout!.scrollHeight * 0.8);
+  const context = page.getByRole("complementary", { name: "Session context" });
+  await expect(context.getByText("wiki/concepts/architecture-1.md")).toBeVisible();
+  await expect(context.getByText("wiki/concepts/architecture-2.md")).toBeVisible();
+  await expect(context.getByText("retrieve_knowledge")).toHaveCount(2);
 });

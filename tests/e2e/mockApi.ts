@@ -20,9 +20,9 @@ export async function mockDikwApi(page: Page) {
     updatedAt: "2026-05-13T00:00:00.000Z",
     messageCount: 0,
     lastMessagePreview: "",
-    messages: [] as Array<{ id: string; role: string; content: string; createdAt: string; turnId?: string }>,
-    toolEvents: [] as Array<{ id: string; type: string; name: string; status: string; createdAt: string; turnId?: string }>,
-    sources: [] as Array<{ path: string; title: string; layer: string; turnId?: string }>,
+    messages: [] as Array<{ id: string; role: string; content: string; createdAt: string }>,
+    toolEvents: [] as Array<{ id: string; type: string; name: string; status: string; createdAt: string }>,
+    sources: [] as Array<{ path: string; title: string; layer: string }>,
     proposals: [] as unknown[]
   };
 
@@ -64,8 +64,8 @@ export async function mockDikwApi(page: Page) {
           messageCount: 2,
           lastMessagePreview: "Layered answer.",
           messages: [
-            { id: "m1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z", turnId: "turn-1" },
-            { id: "m2", role: "assistant", content: "Layered answer.", createdAt: "2026-05-13T00:00:01.000Z", turnId: "turn-1" }
+            { id: "m1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z" },
+            { id: "m2", role: "assistant", content: "Layered answer.", createdAt: "2026-05-13T00:00:01.000Z" }
           ],
           toolEvents: [
             {
@@ -73,11 +73,10 @@ export async function mockDikwApi(page: Page) {
               type: "tool_call",
               name: "retrieve_knowledge",
               status: "succeeded",
-              createdAt: "2026-05-13T00:00:00.500Z",
-              turnId: "turn-1"
+              createdAt: "2026-05-13T00:00:00.500Z"
             }
           ],
-          sources: [{ path: "wiki/concepts/architecture.md", title: "Architecture", layer: "wiki", turnId: "turn-1" }]
+          sources: [{ path: "wiki/concepts/architecture.md", title: "Architecture", layer: "wiki" }]
         };
       }
       await route.fulfill({ json: agentSession });
@@ -88,17 +87,15 @@ export async function mockDikwApi(page: Page) {
       const body = route.request().postDataJSON() as { message?: string };
       const userMessage = String(body.message ?? "What is DIKW?");
       const turnNumber = Math.floor(agentSession.messages.length / 2) + 1;
-      const turnId = `turn-${turnNumber}`;
       const assistantMessage = "Layered answer.";
       const toolEvent = {
         id: `tool-${turnNumber}`,
         type: "tool_call",
         name: "retrieve_knowledge",
         status: "succeeded",
-        createdAt: "2026-05-13T00:00:00.500Z",
-        turnId
+        createdAt: "2026-05-13T00:00:00.500Z"
       };
-      const source = { path: "wiki/concepts/architecture.md", title: "Architecture", layer: "wiki", turnId };
+      const source = { path: `wiki/concepts/architecture-${turnNumber}.md`, title: `Architecture ${turnNumber}`, layer: "wiki" };
       agentSession = {
         ...agentSession,
         title: agentSession.title === "New chat" ? userMessage.slice(0, 40) : agentSession.title,
@@ -107,8 +104,8 @@ export async function mockDikwApi(page: Page) {
         lastMessagePreview: assistantMessage,
         messages: [
           ...agentSession.messages,
-          { id: `m${turnNumber * 2 - 1}`, role: "user", content: userMessage, createdAt: "2026-05-13T00:00:00.000Z", turnId },
-          { id: `m${turnNumber * 2}`, role: "assistant", content: assistantMessage, createdAt: "2026-05-13T00:00:01.000Z", turnId }
+          { id: `m${turnNumber * 2 - 1}`, role: "user", content: userMessage, createdAt: "2026-05-13T00:00:00.000Z" },
+          { id: `m${turnNumber * 2}`, role: "assistant", content: assistantMessage, createdAt: "2026-05-13T00:00:01.000Z" }
         ],
         toolEvents: [...agentSession.toolEvents, toolEvent],
         sources: [...agentSession.sources, source]

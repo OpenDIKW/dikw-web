@@ -11,13 +11,13 @@ styled like a generic admin dashboard.
   route.
 - Chat lives behind the canonical `#chat` route. Legacy `#query` links
   should redirect to `#chat`, but new UI and docs must use Chat/会话.
-- Chat uses a two-zone workbench: the left history list scrolls
-  independently, while messages and the right context rail share one
-  conversation scroll container. The composer stays fixed at the bottom
-  of the Chat workspace.
-- Chat context is reply-scoped. By default the right rail shows sources
-  and tool calls for the latest assistant reply; selecting an older
-  assistant reply switches the rail to that turn.
+- Chat uses a three-zone workbench: the left history list scrolls
+  independently, the center message list has its own conversation scroll,
+  and the right rail shows session-level sources and tool calls. The
+  composer stays fixed at the bottom of the Chat workspace.
+- Chat context is session-scoped. The right rail keeps accumulated
+  sources and tool calls for the open session instead of changing when a
+  user clicks an assistant reply.
 - The top bar is a read-only connection status strip. It shows the
   target server and whether a token is configured, but never displays
   the token value.

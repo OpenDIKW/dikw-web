@@ -56,35 +56,29 @@ export class FileSessionStore {
     return this.touchAndWrite(session);
   }
 
-  async appendUserMessage(id: string, content: string, turnId?: string): Promise<AgentSession> {
-    return this.appendMessage(id, "user", content, turnId);
+  async appendUserMessage(id: string, content: string): Promise<AgentSession> {
+    return this.appendMessage(id, "user", content);
   }
 
-  async appendAssistantMessage(id: string, content: string, turnId?: string): Promise<AgentSession> {
-    return this.appendMessage(id, "assistant", content, turnId);
+  async appendAssistantMessage(id: string, content: string): Promise<AgentSession> {
+    return this.appendMessage(id, "assistant", content);
   }
 
-  async recordToolEvent(id: string, event: AgentToolEvent, turnId?: string): Promise<AgentSession> {
+  async recordToolEvent(id: string, event: AgentToolEvent): Promise<AgentSession> {
     const session = await this.getSession(id);
-    const nextEvent = turnId && !event.turnId ? { ...event, turnId } : event;
-    const index = session.toolEvents.findIndex((item) => item.id === nextEvent.id && item.turnId === nextEvent.turnId);
+    const index = session.toolEvents.findIndex((item) => item.id === event.id);
     if (index === -1) {
-      session.toolEvents.push(nextEvent);
+      session.toolEvents.push(event);
     } else {
-      session.toolEvents[index] = nextEvent;
+      session.toolEvents[index] = event;
     }
     return this.touchAndWrite(session);
   }
 
-  async recordSource(id: string, source: AgentSource, turnId?: string): Promise<AgentSession> {
+  async recordSource(id: string, source: AgentSource): Promise<AgentSession> {
     const session = await this.getSession(id);
-    const nextSource = turnId && !source.turnId ? { ...source, turnId } : source;
-    if (
-      !session.sources.some(
-        (item) => item.path === nextSource.path && item.title === nextSource.title && item.turnId === nextSource.turnId
-      )
-    ) {
-      session.sources.push(nextSource);
+    if (!session.sources.some((item) => item.path === source.path && item.title === source.title)) {
+      session.sources.push(source);
     }
     return this.touchAndWrite(session);
   }
@@ -111,19 +105,13 @@ export class FileSessionStore {
     return this.touchAndWrite(session);
   }
 
-  private async appendMessage(
-    id: string,
-    role: AgentMessage["role"],
-    content: string,
-    turnId?: string
-  ): Promise<AgentSession> {
+  private async appendMessage(id: string, role: AgentMessage["role"], content: string): Promise<AgentSession> {
     const session = await this.getSession(id);
     session.messages.push({
       id: randomUUID(),
       role,
       content,
-      createdAt: timestamp(),
-      ...(turnId ? { turnId } : {})
+      createdAt: timestamp()
     });
     if (role === "user" && session.title === "New chat") {
       session.title = preview(content, 40) || "New chat";

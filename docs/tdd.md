@@ -123,15 +123,13 @@ Agent chat integration should land as separate red-green slices:
 6. Page behavior next: verify history selection, new chat, manual
    rename, streamed answer deltas, sources, tool calls, stop, and
    delete.
-7. Turn context next: write store/protocol tests proving messages,
-   tool calls, and sources carry a shared `turnId`; then page tests
-   should verify the right rail defaults to the latest assistant reply,
-   switches when an older reply is selected, and does not reuse stale
-   sources for source-less replies.
+7. Session context next: write store/protocol tests proving sources are
+   de-duplicated by page and tool events update by id; then page tests
+   should verify the right rail shows the accumulated session context.
 8. Layout behavior next: add a DOM/page test that `Sources` and
-   `Tool calls` sit inside the shared conversation scroll container
-   while the composer remains outside it, then lock the same behavior
-   with a Playwright smoke test.
+   `Tool calls` stay outside the conversation scroll container while the
+   composer also remains outside it, then lock the same behavior with a
+   Playwright smoke test.
 
 Do not put LLM keys in browser fixtures or screenshots. Agent tests use
 mocked sidecar/core behavior; real MiniMax smoke testing is manual.

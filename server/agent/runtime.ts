@@ -29,9 +29,8 @@ export class PiAgentRunner implements AgentRunner {
   constructor(private readonly options: PiAgentRunnerOptions) {}
 
   async runMessage({ sessionId, message, coreUrl, token, signal, onEvent }: RunAgentMessageOptions): Promise<void> {
-    const turnId = randomUUID();
     const priorSession = await this.options.store.getSession(sessionId);
-    await this.options.store.appendUserMessage(sessionId, message, turnId);
+    await this.options.store.appendUserMessage(sessionId, message);
     await onEvent({ type: "agent_start", sessionId });
 
     let assistantText = "";
@@ -51,7 +50,7 @@ export class PiAgentRunner implements AgentRunner {
       if (signal?.aborted || activeSignal.aborted) {
         return;
       }
-      const mapped = mapPiEvent(sessionId, event, turnId);
+      const mapped = mapPiEvent(sessionId, event);
       for (const item of mapped.events) {
         if (item.type === "message_delta") {
           assistantText += item.delta;
@@ -69,7 +68,7 @@ export class PiAgentRunner implements AgentRunner {
       signal?.removeEventListener("abort", abort);
     }
     if (assistantText.trim()) {
-      await this.options.store.appendAssistantMessage(sessionId, assistantText.trim(), turnId);
+      await this.options.store.appendAssistantMessage(sessionId, assistantText.trim());
     }
     await onEvent({ type: "agent_end", sessionId });
   }
@@ -77,15 +76,15 @@ export class PiAgentRunner implements AgentRunner {
 
 async function persistEvent(store: FileSessionStore, sessionId: string, event: AgentStreamEvent): Promise<void> {
   if (event.type === "tool_event") {
-    await store.recordToolEvent(sessionId, event.event, event.event.turnId);
+    await store.recordToolEvent(sessionId, event.event);
   } else if (event.type === "source") {
-    await store.recordSource(sessionId, event.source, event.source.turnId);
+    await store.recordSource(sessionId, event.source);
   } else if (event.type === "proposal") {
     await store.recordProposal(sessionId, event.proposal);
   }
 }
 
-function mapPiEvent(sessionId: string, event: AgentEvent, turnId: string): { events: AgentStreamEvent[] } {
+function mapPiEvent(sessionId: string, event: AgentEvent): { events: AgentStreamEvent[] } {
   if (event.type === "message_update") {
     const assistantEvent = event.assistantMessageEvent as { type?: string; delta?: string };
     if (assistantEvent.type === "text_delta" && assistantEvent.delta) {
@@ -104,7 +103,6 @@ function mapPiEvent(sessionId: string, event: AgentEvent, turnId: string): { eve
             name: event.toolName,
             status: "running",
             createdAt: new Date().toISOString(),
-            turnId,
             input: event.args
           }
         }
@@ -123,14 +121,13 @@ function mapPiEvent(sessionId: string, event: AgentEvent, turnId: string): { eve
           name: event.toolName,
           status: event.isError ? "failed" : "succeeded",
           createdAt: new Date().toISOString(),
-          turnId,
           output: details,
           error: event.isError ? JSON.stringify(details ?? event.result) : undefined
         }
       }
     ];
     for (const source of sourcesFromTool(event.toolName, details)) {
-      events.push({ type: "source", sessionId, source: { ...source, turnId } });
+      events.push({ type: "source", sessionId, source });
     }
     const proposal = proposalFromTool(event.toolName, details);
     if (proposal) {

@@ -9,7 +9,6 @@ export interface AgentMessage {
   role: AgentMessageRole;
   content: string;
   createdAt: string;
-  turnId?: string;
 }
 
 export interface AgentSource {
@@ -18,7 +17,6 @@ export interface AgentSource {
   layer?: Layer | string | null;
   excerpt?: string | null;
   score?: number | null;
-  turnId?: string;
 }
 
 export interface AgentToolEvent {
@@ -27,7 +25,6 @@ export interface AgentToolEvent {
   name: string;
   status: "running" | "succeeded" | "failed";
   createdAt: string;
-  turnId?: string;
   input?: unknown;
   output?: unknown;
   error?: string;

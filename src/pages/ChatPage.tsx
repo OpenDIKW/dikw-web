@@ -36,8 +36,6 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [draft, setDraft] = useState("");
-  const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
-  const [streamingTurnId, setStreamingTurnId] = useState<string | null>(null);
   const [streamingAnswer, setStreamingAnswer] = useState("");
   const [streamingTools, setStreamingTools] = useState<AgentToolEvent[]>([]);
   const [streamingSources, setStreamingSources] = useState<AgentSource[]>([]);
@@ -63,8 +61,6 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
           const created = await resolvedAgentClient.createSession();
           if (!cancelled) {
             setActiveSession(created);
-            setSelectedTurnId(null);
-            setStreamingTurnId(null);
             setSessions([toSummary(created)]);
           }
         }
@@ -90,8 +86,6 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   async function openSession(sessionId: string) {
     const session = await resolvedAgentClient.getSession(sessionId);
     setActiveSession(session);
-    setSelectedTurnId(latestAssistantTurnId(session));
-    setStreamingTurnId(null);
     setStreamingAnswer("");
     setStreamingSources([]);
     setStreamingTools([]);
@@ -101,8 +95,6 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
     setError(null);
     const session = await resolvedAgentClient.createSession();
     setActiveSession(session);
-    setSelectedTurnId(null);
-    setStreamingTurnId(null);
     setSessions((items) => [toSummary(session), ...items]);
   }
 
@@ -164,12 +156,9 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
     }
     const controller = new AbortController();
     controllerRef.current = controller;
-    let currentTurnId = `local-${Date.now()}`;
     setDraft("");
     setError(null);
     setRunning(true);
-    setSelectedTurnId(currentTurnId);
-    setStreamingTurnId(currentTurnId);
     setStreamingAnswer("");
     setStreamingSources([]);
     setStreamingTools([]);
@@ -177,7 +166,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
       current
         ? {
             ...current,
-            messages: [...(current.messages ?? []), localMessage("user", message, currentTurnId)]
+            messages: [...(current.messages ?? []), localMessage("user", message)]
           }
         : current
     );
@@ -187,24 +176,16 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
         if (event.type === "message_delta") {
           setStreamingAnswer((value) => value + event.delta);
         } else if (event.type === "source") {
-          currentTurnId = event.source.turnId ?? currentTurnId;
-          setSelectedTurnId(currentTurnId);
-          setStreamingTurnId(currentTurnId);
-          setStreamingSources((value) => mergeSources(value, withTurnId(event.source, currentTurnId)));
+          setStreamingSources((value) => mergeSources(value, event.source));
         } else if (event.type === "tool_event") {
-          currentTurnId = event.event.turnId ?? currentTurnId;
-          setSelectedTurnId(currentTurnId);
-          setStreamingTurnId(currentTurnId);
-          setStreamingTools((value) => mergeTools(value, withTurnId(event.event, currentTurnId)));
+          setStreamingTools((value) => mergeTools(value, event.event));
         } else if (event.type === "error") {
           setError(new Error(event.message));
         }
       }
       const refreshed = await resolvedAgentClient.getSession(session.id);
       setActiveSession(refreshed);
-      setSelectedTurnId(latestAssistantTurnId(refreshed) ?? currentTurnId);
       setSessions((items) => mergeSummary(items, toSummary(refreshed)));
-      setStreamingTurnId(null);
       setStreamingAnswer("");
       setStreamingSources([]);
       setStreamingTools([]);
@@ -227,9 +208,8 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   }
 
   const messages = activeSession?.messages ?? [];
-  const contextTurnId = selectedTurnId ?? latestAssistantTurnId(activeSession);
-  const sources = filterByTurn([...(activeSession?.sources ?? []), ...streamingSources], contextTurnId);
-  const toolEvents = filterByTurn([...(activeSession?.toolEvents ?? []), ...streamingTools], contextTurnId);
+  const sources = [...(activeSession?.sources ?? []), ...streamingSources];
+  const toolEvents = [...(activeSession?.toolEvents ?? []), ...streamingTools];
 
   return (
     <div className="page-stack">
@@ -314,21 +294,13 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                   {messages.map((message) => (
                     <MessageBubble
                       assistantRole={copy.assistantRole}
-                      isSelected={Boolean(message.role === "assistant" && message.turnId && message.turnId === contextTurnId)}
                       message={message}
-                      onSelect={
-                        message.role === "assistant" && message.turnId ? () => setSelectedTurnId(message.turnId ?? null) : undefined
-                      }
                       userRole={copy.userRole}
                       key={message.id}
                     />
                   ))}
                   {streamingAnswer ? (
-                    <article
-                      className={`agent-message agent-message--assistant agent-message--streaming ${
-                        streamingTurnId && streamingTurnId === contextTurnId ? "agent-message--selected" : ""
-                      }`}
-                    >
+                    <article className="agent-message agent-message--assistant agent-message--streaming">
                       <div className="agent-message__role">
                         <Loader2 size={11} className="agent-message__spinner" aria-hidden="true" />
                         {copy.assistantRole}
@@ -341,67 +313,63 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                 <EmptyState title={copy.emptyAnswerTitle} detail={copy.emptyAnswerDetail} />
               )}
             </div>
-
-            <aside className="agent-context" aria-label={copy.contextTitle}>
-              <div className="agent-context__heading">{copy.contextTitle}</div>
-              <section className="panel">
-                <div className="panel__title">
-                  <MessageSquareText size={17} />
-                  {copy.sourcesTitle}
-                </div>
-                {sources.length ? (
-                  <div className="citation-list">
-                    {sources.map((source) => (
-                      <article className="citation-item" key={`${source.turnId ?? "turn"}-${source.path}-${source.title ?? ""}`}>
-                        <div className="citation-item__meta">
-                          <span>{source.layer ?? "base"}</span>
-                          {typeof source.score === "number" ? <span>{source.score.toFixed(3)}</span> : null}
-                        </div>
-                        <div className="citation-item__path">{source.path}</div>
-                        {source.title ? <p>{source.title}</p> : null}
-                        {source.excerpt ? <p>{source.excerpt}</p> : null}
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <EmptyState title={copy.emptySources} />
-                )}
-              </section>
-
-              <section className="panel">
-                <div className="panel__title">
-                  <Wrench size={17} />
-                  {copy.toolsTitle}
-                </div>
-                {toolEvents.length ? (
-                  <ul className="tool-call-list" aria-label={copy.toolsTitle}>
-                    {toolEvents.map((event) => (
-                      <li
-                        className={`tool-call tool-call--${event.status}`}
-                        key={`${event.turnId ?? "turn"}-${event.id}`}
-                        title={toolStatusLabel(event.status, copy)}
-                      >
-                        <span className="tool-call__icon" aria-hidden="true">
-                          <ToolStatusIcon status={event.status} />
-                        </span>
-                        <span className="tool-call__name">{event.name}</span>
-                        <span className="tool-call__sr">{toolStatusLabel(event.status, copy)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <EmptyState title={copy.emptyTools} />
-                )}
-              </section>
-
-              {activeSession ? (
-                <button className="secondary-button secondary-button--danger" type="button" onClick={() => deleteSession(activeSession.id)}>
-                  <Trash2 size={16} />
-                  {copy.deleteSession}
-                </button>
-              ) : null}
-            </aside>
           </div>
+
+          <aside className="agent-context" aria-label={copy.contextTitle}>
+            <div className="agent-context__heading">{copy.contextTitle}</div>
+            <section className="panel">
+              <div className="panel__title">
+                <MessageSquareText size={17} />
+                {copy.sourcesTitle}
+              </div>
+              {sources.length ? (
+                <div className="citation-list">
+                  {sources.map((source) => (
+                    <article className="citation-item" key={`${source.path}-${source.title ?? ""}`}>
+                      <div className="citation-item__meta">
+                        <span>{source.layer ?? "base"}</span>
+                        {typeof source.score === "number" ? <span>{source.score.toFixed(3)}</span> : null}
+                      </div>
+                      <div className="citation-item__path">{source.path}</div>
+                      {source.title ? <p>{source.title}</p> : null}
+                      {source.excerpt ? <p>{source.excerpt}</p> : null}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState title={copy.emptySources} />
+              )}
+            </section>
+
+            <section className="panel">
+              <div className="panel__title">
+                <Wrench size={17} />
+                {copy.toolsTitle}
+              </div>
+              {toolEvents.length ? (
+                <ul className="tool-call-list" aria-label={copy.toolsTitle}>
+                  {toolEvents.map((event) => (
+                    <li className={`tool-call tool-call--${event.status}`} key={event.id} title={toolStatusLabel(event.status, copy)}>
+                      <span className="tool-call__icon" aria-hidden="true">
+                        <ToolStatusIcon status={event.status} />
+                      </span>
+                      <span className="tool-call__name">{event.name}</span>
+                      <span className="tool-call__sr">{toolStatusLabel(event.status, copy)}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <EmptyState title={copy.emptyTools} />
+              )}
+            </section>
+
+            {activeSession ? (
+              <button className="secondary-button secondary-button--danger" type="button" onClick={() => deleteSession(activeSession.id)}>
+                <Trash2 size={16} />
+                {copy.deleteSession}
+              </button>
+            ) : null}
+          </aside>
 
           <div className="agent-composer">
             <label className="field field--grow">
@@ -431,41 +399,18 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
 
 function MessageBubble({
   assistantRole,
-  isSelected,
   message,
-  onSelect,
   userRole
 }: {
   assistantRole: string;
-  isSelected: boolean;
   message: AgentMessage;
-  onSelect?: () => void;
   userRole: string;
 }) {
   const isUser = message.role === "user";
-  const isSelectable = !isUser && Boolean(onSelect);
   const roleLabel = isUser ? userRole : assistantRole;
   return (
-    <article
-      className={`agent-message ${isUser ? "agent-message--user" : "agent-message--assistant"} ${
-        isSelected ? "agent-message--selected" : ""
-      }`}
-    >
-      <div className="agent-message__role">
-        {isSelectable ? (
-          <button
-            className="agent-message__select"
-            type="button"
-            aria-pressed={isSelected}
-            onClick={onSelect}
-          >
-            <span>{roleLabel}</span>
-            <span className="sr-only">: {messagePreview(message.content)}</span>
-          </button>
-        ) : (
-          roleLabel
-        )}
-      </div>
+    <article className={`agent-message ${isUser ? "agent-message--user" : "agent-message--assistant"}`}>
+      <div className="agent-message__role">{roleLabel}</div>
       {isUser ? <p>{message.content}</p> : <MarkdownView body={message.content} showFrontmatter={false} />}
     </article>
   );
@@ -490,24 +435,23 @@ function toolStatusLabel(
   return copy.toolStatusFailed;
 }
 
-function localMessage(role: AgentMessage["role"], content: string, turnId?: string): AgentMessage {
+function localMessage(role: AgentMessage["role"], content: string): AgentMessage {
   return {
     id: `local-${Date.now()}`,
     role,
     content,
-    createdAt: new Date().toISOString(),
-    ...(turnId ? { turnId } : {})
+    createdAt: new Date().toISOString()
   };
 }
 
 function mergeSources(items: AgentSource[], next: AgentSource): AgentSource[] {
-  return items.some((item) => item.path === next.path && item.title === next.title && item.turnId === next.turnId)
+  return items.some((item) => item.path === next.path && item.title === next.title)
     ? items
     : [...items, next];
 }
 
 function mergeTools(items: AgentToolEvent[], next: AgentToolEvent): AgentToolEvent[] {
-  const index = items.findIndex((item) => item.id === next.id && item.turnId === next.turnId);
+  const index = items.findIndex((item) => item.id === next.id);
   if (index === -1) {
     return [...items, next];
   }
@@ -518,36 +462,6 @@ function mergeTools(items: AgentToolEvent[], next: AgentToolEvent): AgentToolEve
 
 function mergeSummary(items: SessionSummary[], next: SessionSummary): SessionSummary[] {
   return [next, ...items.filter((item) => item.id !== next.id)];
-}
-
-function latestAssistantTurnId(session: AgentSession | null): string | null {
-  const messages = session?.messages ?? [];
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const message = messages[index];
-    if (message.role === "assistant") {
-      return message.turnId ?? null;
-    }
-  }
-  return null;
-}
-
-function filterByTurn<T extends { turnId?: string }>(items: T[], turnId: string | null): T[] {
-  if (!turnId) {
-    return [];
-  }
-  return items.filter((item) => item.turnId === turnId);
-}
-
-function withTurnId<T extends { turnId?: string }>(item: T, turnId: string): T {
-  if (item.turnId) {
-    return item;
-  }
-  return { ...item, turnId };
-}
-
-function messagePreview(value: string): string {
-  const compact = value.replace(/\s+/g, " ").trim();
-  return compact.length > 80 ? `${compact.slice(0, 79)}…` : compact;
 }
 
 function toSummary(session: AgentSession): SessionSummary {

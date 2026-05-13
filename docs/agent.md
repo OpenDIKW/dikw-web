@@ -38,11 +38,10 @@ Session files store messages, tool call summaries, source references,
 and maintenance proposal status. They must not store MiniMax or other
 LLM API keys, core bearer tokens, or browser session storage values.
 
-Each user prompt starts a new turn. The sidecar assigns a `turnId` to
-that turn and writes the same value on the user message, assistant
-message, tool call events, and source references produced by the turn.
-The web UI uses this to show sources and tool calls for the selected
-assistant reply instead of showing stale session-wide context.
+Sources and tool call summaries are session-level context. The Chat UI
+shows the accumulated context for the open session instead of filtering
+it by assistant reply. This keeps the right rail stable while users read
+or scroll through the conversation history.
 
 Each session has a `title`. New sessions start as `New chat`; the first
 user message auto-generates a title only while the title is still the
@@ -69,10 +68,9 @@ object.
 `messages` returns NDJSON events such as `message_delta`, `tool_event`,
 `source`, `proposal`, `error`, and `agent_end`.
 
-`tool_event` and `source` payloads include the current `turnId` when they
-come from a live Agent turn. Older session files may not have `turnId`;
-the UI keeps those records for compatibility but does not attach them to
-the newest reply by default.
+`tool_event` and `source` payloads are appended to the session context.
+The sidecar de-duplicates sources by `path` and `title`, and updates tool
+events by `id`.
 
 `PATCH /agent/sessions/{id}` trims the title and requires 1-80
 characters. Invalid titles return `400 invalid_request`.

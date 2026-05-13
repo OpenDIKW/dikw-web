@@ -47,40 +47,34 @@ describe("FileSessionStore", () => {
     }
   });
 
-  it("persists messages, tool events, and sources with their turn id", async () => {
+  it("persists messages, tool events, and sources as session context", async () => {
     const root = await mkdtemp(join(tmpdir(), "dikw-agent-sessions-"));
     try {
       const store = new FileSessionStore(root);
       const session = await store.createSession();
 
-      await store.appendUserMessage(session.id, "What is DIKW?", "turn-1");
-      await store.recordToolEvent(
-        session.id,
-        {
-          id: "tool-1",
-          type: "tool_call",
-          name: "retrieve_knowledge",
-          status: "succeeded",
-          createdAt: "2026-05-13T00:00:00.000Z"
-        },
-        "turn-1"
-      );
-      await store.recordSource(session.id, { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }, "turn-1");
-      await store.appendAssistantMessage(session.id, "Layered answer.", "turn-1");
+      await store.appendUserMessage(session.id, "What is DIKW?");
+      await store.recordToolEvent(session.id, {
+        id: "tool-1",
+        type: "tool_call",
+        name: "retrieve_knowledge",
+        status: "succeeded",
+        createdAt: "2026-05-13T00:00:00.000Z"
+      });
+      await store.recordSource(session.id, { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" });
+      await store.recordSource(session.id, { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" });
+      await store.appendAssistantMessage(session.id, "Layered answer.");
 
       const reopened = await new FileSessionStore(root).getSession(session.id);
-      expect(reopened.messages.map((message) => ({ role: message.role, turnId: message.turnId }))).toEqual([
-        { role: "user", turnId: "turn-1" },
-        { role: "assistant", turnId: "turn-1" }
-      ]);
-      expect(reopened.toolEvents[0]).toMatchObject({ id: "tool-1", turnId: "turn-1" });
-      expect(reopened.sources[0]).toMatchObject({ path: "wiki/architecture.md", turnId: "turn-1" });
+      expect(reopened.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
+      expect(reopened.toolEvents[0]).toMatchObject({ id: "tool-1", status: "succeeded" });
+      expect(reopened.sources).toEqual([expect.objectContaining({ path: "wiki/architecture.md" })]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
   });
 
-  it("keeps tool events with the same id separate across turns", async () => {
+  it("updates tool events with the same id in place", async () => {
     const root = await mkdtemp(join(tmpdir(), "dikw-agent-sessions-"));
     try {
       const store = new FileSessionStore(root);
@@ -93,15 +87,11 @@ describe("FileSessionStore", () => {
         createdAt: "2026-05-13T00:00:00.000Z"
       };
 
-      await store.recordToolEvent(session.id, baseTool, "turn-1");
-      await store.recordToolEvent(session.id, { ...baseTool, status: "succeeded" }, "turn-1");
-      await store.recordToolEvent(session.id, { ...baseTool, status: "failed" }, "turn-2");
+      await store.recordToolEvent(session.id, baseTool);
+      await store.recordToolEvent(session.id, { ...baseTool, status: "succeeded" });
 
       const reopened = await new FileSessionStore(root).getSession(session.id);
-      expect(reopened.toolEvents).toEqual([
-        expect.objectContaining({ id: "tool-1", status: "succeeded", turnId: "turn-1" }),
-        expect.objectContaining({ id: "tool-1", status: "failed", turnId: "turn-2" })
-      ]);
+      expect(reopened.toolEvents).toEqual([expect.objectContaining({ id: "tool-1", status: "succeeded" })]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

@@ -24,9 +24,8 @@ describe("agent HTTP sidecar", () => {
     const runInputs: Array<{ coreUrl?: string; token?: string }> = [];
     const runner: AgentRunner = {
       async runMessage({ sessionId, message, coreUrl, token, onEvent }) {
-        const turnId = "turn-1";
         runInputs.push({ coreUrl, token });
-        await store.appendUserMessage(sessionId, message, turnId);
+        await store.appendUserMessage(sessionId, message);
         const toolEvent = {
           id: "tool-1",
           type: "tool_call" as const,
@@ -34,20 +33,16 @@ describe("agent HTTP sidecar", () => {
           status: "succeeded" as const,
           createdAt: "2026-05-13T00:00:00.500Z"
         };
-        await store.recordToolEvent(sessionId, toolEvent, turnId);
-        await onEvent({ type: "tool_event", sessionId, event: { ...toolEvent, turnId } as typeof toolEvent });
+        await store.recordToolEvent(sessionId, toolEvent);
+        await onEvent({ type: "tool_event", sessionId, event: toolEvent });
         await onEvent({ type: "message_delta", sessionId, delta: "Layered answer." });
-        await store.recordSource(sessionId, { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }, turnId);
+        await store.recordSource(sessionId, { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" });
         await onEvent({
           type: "source",
           sessionId,
-          source: { path: "wiki/architecture.md", title: "Architecture", layer: "wiki", turnId } as {
-            path: string;
-            title: string;
-            layer: string;
-          }
+          source: { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }
         });
-        await store.appendAssistantMessage(sessionId, "Layered answer.", turnId);
+        await store.appendAssistantMessage(sessionId, "Layered answer.");
         await onEvent({ type: "agent_end", sessionId });
       }
     };
@@ -74,23 +69,19 @@ describe("agent HTTP sidecar", () => {
     const events = (await stream.text())
       .trim()
       .split("\n")
-      .map((line) => JSON.parse(line) as { type: string; event?: { turnId?: string }; source?: { turnId?: string } });
+      .map((line) => JSON.parse(line) as { type: string });
 
     expect(events.map((event) => event.type)).toEqual(["tool_event", "message_delta", "source", "agent_end"]);
-    expect(events.find((event) => event.type === "tool_event")?.event?.turnId).toBe("turn-1");
-    expect(events.find((event) => event.type === "source")?.source?.turnId).toBe("turn-1");
     expect(runInputs).toEqual([{ coreUrl: "http://127.0.0.1:8765", token: "core-token" }]);
 
     const reopened = (await (await fetch(`${baseUrl}/sessions/${created.id}`)).json()) as {
-      messages: Array<{ role: string; content: string; turnId?: string }>;
-      sources: Array<{ path: string; turnId?: string }>;
-      toolEvents: Array<{ id: string; turnId?: string }>;
+      messages: Array<{ role: string; content: string }>;
+      sources: Array<{ path: string }>;
+      toolEvents: Array<{ id: string }>;
     };
     expect(reopened.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
-    expect(reopened.messages.map((message) => message.turnId)).toEqual(["turn-1", "turn-1"]);
-    expect(reopened.toolEvents[0]).toMatchObject({ id: "tool-1", turnId: "turn-1" });
+    expect(reopened.toolEvents[0]).toMatchObject({ id: "tool-1" });
     expect(reopened.sources[0].path).toBe("wiki/architecture.md");
-    expect(reopened.sources[0].turnId).toBe("turn-1");
 
     const summaries = (await (await fetch(`${baseUrl}/sessions`)).json()) as Array<{ id: string; messageCount: number }>;
     expect(summaries).toEqual([expect.objectContaining({ id: created.id, messageCount: 2 })]);

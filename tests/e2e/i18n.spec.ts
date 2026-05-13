@@ -71,7 +71,7 @@ test("default English locale keeps page-level chrome free of Chinese fallback te
   await page.goto("/#chat");
   await expect(page.getByPlaceholder("Ask the DIKW agent about the knowledge base")).toBeVisible();
   await expect(page.getByText("Start a chat")).toBeVisible();
-  await expect(page.getByText("No sources for this reply")).toBeVisible();
+  await expect(page.getByText("No sources yet")).toBeVisible();
   await expect(page.getByText("Agent Chat")).toHaveCount(0);
 
   await page.goto("/#retrieve");
