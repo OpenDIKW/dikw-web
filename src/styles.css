@@ -1,69 +1,78 @@
 :root,
 html[data-theme="light"] {
   color-scheme: light;
-  font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* PR1: Fonts — UI sans, editorial serif for titles, mono for IDs/paths */
+  --font-ui: "Inter Tight", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-serif: "Source Serif 4", ui-serif, Georgia, "Songti SC", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-ui);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  --bg: #f6f8f7;
+  /* PR1: Warm-stone neutrals (no green tint) — accent stands alone */
+  --bg: #f5f3ee;
   --surface: #ffffff;
-  --surface-soft: #f9fbfa;
-  --surface-2: #eef3f1;
-  --line: #d9e1de;
-  --line-strong: #b9c5c1;
-  --text: #111817;
-  --muted: #64716d;
-  --subtle: #87938f;
-  --accent: #0b7c70;
-  --accent-strong: #075c54;
-  --accent-soft: #e5f4f1;
-  --green: #247a4d;
-  --amber: #956012;
-  --red: #b43a32;
-  --blue: #2868a3;
+  --surface-soft: #faf9f5;
+  --surface-2: #f0eee8;
+  --line: #e2dfd6;
+  --line-strong: #cdc9bd;
+  --hairline: #ebe8df;
+  --text: #1a1d1c;
+  --muted: #6c6f6a;
+  --subtle: #95968f;
+  /* PR1: Single deep petrol accent — higher contrast against warm-stone */
+  --accent: #0d5e57;
+  --accent-strong: #094540;
+  --accent-soft: #e2eeec;
+  --green: #2f7a4d;
+  --amber: #8a5a14;
+  --red: #a8362c;
+  --blue: #2f6aa8;
   --scan-gray: #dfe6e8;
   --reader-bg: #ffffff;
-  --reader-text: #202b28;
-  --reader-muted: #64716d;
-  --reader-heading: #111817;
-  --reader-link: #075c54;
-  --reader-code-bg: #16221f;
-  --reader-border: #d9e1de;
-  --reader-quote-bg: #eff8f6;
-  --reader-table-bg: #f0f5f3;
-  --shadow: 0 8px 24px rgba(17, 24, 23, 0.05);
+  --reader-text: #1f2624;
+  --reader-muted: #6c6f6a;
+  --reader-heading: #14181b;
+  --reader-link: #094540;
+  --reader-code-bg: #14181b;
+  --reader-border: #e2dfd6;
+  --reader-quote-bg: #eef5f3;
+  --reader-table-bg: #f0eee8;
+  /* PR1: Replaced 24px blur shadow (invisible on warm-stone) with 1px hairline */
+  --shadow: 0 1px 0 rgba(20, 29, 28, 0.04);
   --radius: 8px;
 }
 
 html[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0f1413;
-  --surface: #151d1b;
-  --surface-soft: #111917;
-  --surface-2: #1b2522;
-  --line: #2b3834;
-  --line-strong: #4b5d58;
-  --text: #edf4f2;
-  --muted: #a9b8b4;
-  --subtle: #788985;
-  --accent: #38b8a8;
-  --accent-strong: #7de0d2;
-  --accent-soft: #12332f;
-  --green: #53c58a;
+  /* PR1: Warm-dark neutrals, accent shifted to petrol family */
+  --bg: #14140f;
+  --surface: #1b1b15;
+  --surface-soft: #161611;
+  --surface-2: #25241d;
+  --line: #2f2d24;
+  --line-strong: #4e4a3c;
+  --hairline: #232017;
+  --text: #f0eee7;
+  --muted: #b0aca0;
+  --subtle: #87826f;
+  --accent: #4eb8a6;
+  --accent-strong: #92e3d4;
+  --accent-soft: #142a26;
+  --green: #5ec78a;
   --amber: #e3ad4c;
   --red: #ef7f75;
   --blue: #75aee9;
-  --scan-gray: #34413e;
-  --reader-bg: #151d1b;
-  --reader-text: #d9e6e2;
-  --reader-muted: #a7b8b3;
-  --reader-heading: #f2faf7;
-  --reader-link: #7de0d2;
-  --reader-code-bg: #0f1715;
-  --reader-border: #2b3834;
-  --reader-quote-bg: #142622;
-  --reader-table-bg: #1b2522;
-  --shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  --scan-gray: #3a382e;
+  --reader-bg: #1b1b15;
+  --reader-text: #e2dccc;
+  --reader-muted: #ada89b;
+  --reader-heading: #f4f1e7;
+  --reader-link: #92e3d4;
+  --reader-code-bg: #11110c;
+  --reader-border: #2f2d24;
+  --reader-quote-bg: #1f2a26;
+  --reader-table-bg: #25241d;
+  --shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
 
 * {
@@ -283,7 +292,7 @@ button:disabled {
   background: var(--surface-soft);
   color: var(--muted);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .connection-form,
@@ -338,15 +347,6 @@ button:disabled {
   line-height: 1.55;
 }
 
-.eyebrow {
-  margin: 0 0 4px;
-  color: var(--accent-strong);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
-
 .panel,
 .metric-card,
 .answer-panel,
@@ -370,7 +370,7 @@ button:disabled {
   margin-bottom: 14px;
   color: #25322f;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .overview-grid {
@@ -390,7 +390,7 @@ button:disabled {
 .compact-dl dt {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0;
   text-transform: uppercase;
 }
@@ -399,7 +399,7 @@ button:disabled {
   margin-top: 12px;
   color: var(--text);
   font-size: 27px;
-  font-weight: 760;
+  font-weight: 600;
   line-height: 1;
 }
 
@@ -511,7 +511,7 @@ textarea:focus {
   gap: 8px;
   min-height: 36px;
   border-radius: 7px;
-  font-weight: 750;
+  font-weight: 500;
   transition:
     background-color 120ms ease,
     border-color 120ms ease,
@@ -558,7 +558,7 @@ textarea:focus {
   padding: 4px 8px;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -617,13 +617,13 @@ textarea:focus {
 .notice__title {
   margin-bottom: 2px;
   color: var(--text);
-  font-weight: 760;
+  font-weight: 600;
 }
 
 .notice__code {
   margin-bottom: 3px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .empty-state {
@@ -640,7 +640,7 @@ textarea:focus {
 
 .empty-state__title {
   color: var(--text);
-  font-weight: 760;
+  font-weight: 600;
 }
 
 .empty-state__detail {
@@ -692,6 +692,140 @@ textarea:focus {
   white-space: pre-wrap;
 }
 
+.agent-shell {
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr) 340px;
+  gap: 12px;
+  align-items: stretch;
+  min-height: calc(100vh - 150px);
+}
+
+.agent-sessions,
+.agent-chat,
+.agent-context {
+  min-width: 0;
+}
+
+.agent-sessions,
+.agent-chat {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.agent-sessions {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
+}
+
+.agent-sessions__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.agent-session-list {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 8px;
+  overflow: auto;
+}
+
+.agent-session {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.agent-session:hover,
+.agent-session.is-active {
+  border-color: var(--line-strong);
+  background: var(--surface-soft);
+}
+
+.agent-session span {
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-chat {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.agent-message-list {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  overflow: auto;
+}
+
+.agent-message {
+  max-width: min(760px, 88%);
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+}
+
+.agent-message--user {
+  justify-self: end;
+  background: var(--accent-soft);
+}
+
+.agent-message--assistant {
+  justify-self: start;
+}
+
+.agent-message__role {
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.agent-message p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.agent-composer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: end;
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.agent-context {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.secondary-button--danger {
+  color: var(--danger);
+}
+
 .live-dot {
   width: 8px;
   height: 8px;
@@ -710,7 +844,7 @@ textarea:focus {
   border-radius: 999px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
@@ -763,14 +897,14 @@ textarea:focus {
   gap: 8px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .citation-item__path {
   margin: 6px 0;
   color: var(--accent-strong);
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -817,7 +951,7 @@ textarea:focus {
 .metrics-table__head {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -847,7 +981,7 @@ textarea:focus {
   background: #eef3f1;
   color: #34423e;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .wiki-layout {
@@ -974,7 +1108,7 @@ textarea:focus {
   gap: 6px;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .wiki-tree__item--folder svg:last-of-type {
@@ -1020,7 +1154,7 @@ textarea:focus {
   margin-top: 1px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 650;
+  font-weight: 500;
 }
 
 .wiki-list__item {
@@ -1070,7 +1204,7 @@ textarea:focus {
   margin-bottom: 4px;
   color: var(--reader-muted);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
@@ -1130,7 +1264,7 @@ textarea:focus {
 
 .frontmatter-chip strong {
   color: var(--muted);
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -1140,7 +1274,7 @@ textarea:focus {
 
 .frontmatter-chip--source {
   border-radius: 6px;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
 }
 
 .markdown-body h1,
@@ -1204,7 +1338,7 @@ textarea:focus {
   border-radius: 5px;
   background: var(--reader-table-bg);
   color: var(--reader-text);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 0.92em;
 }
 
@@ -1243,7 +1377,7 @@ textarea:focus {
   border-bottom: 1px solid var(--reader-border);
   color: #a8c9c2;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -1289,7 +1423,7 @@ textarea:focus {
   background: transparent;
   color: var(--reader-muted);
   font-size: 13px;
-  font-weight: 750;
+  font-weight: 500;
   cursor: pointer;
 }
 
@@ -1328,14 +1462,14 @@ textarea:focus {
 .wiki-info-grid dt {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
 .wiki-info-grid dd {
   margin: 4px 0 0;
   color: var(--reader-text);
-  font-weight: 650;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 
@@ -1389,7 +1523,7 @@ textarea:focus {
   border-radius: var(--radius);
   background: var(--reader-code-bg);
   color: #eef8f5;
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.65;
 }
@@ -1421,7 +1555,7 @@ textarea:focus {
   background: var(--reader-table-bg);
   color: var(--reader-muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -1456,7 +1590,7 @@ textarea:focus {
   gap: 8px;
   color: #31413d;
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -1519,7 +1653,7 @@ textarea:focus {
   background: transparent;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .segmented-control button:hover,
@@ -1597,7 +1731,7 @@ textarea:focus {
   min-height: 34px;
   color: #394844;
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -1695,7 +1829,7 @@ textarea:focus {
 .graph-svg__nodes text {
   fill: #263531;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   paint-order: stroke;
   pointer-events: none;
   stroke: rgba(255, 255, 255, 0.92);
@@ -1719,7 +1853,7 @@ textarea:focus {
   min-width: 0;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .graph-force-control input {
@@ -1828,7 +1962,7 @@ textarea:focus {
   flex-wrap: wrap;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 750;
+  font-weight: 500;
 }
 
 .wisdom-detail {
@@ -1905,7 +2039,7 @@ textarea:focus {
 .task-list__id {
   overflow: hidden;
   color: var(--muted);
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1943,7 +2077,7 @@ textarea:focus {
   margin-bottom: 4px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -1951,7 +2085,7 @@ textarea:focus {
 .summary-metric dd {
   margin: 0;
   overflow-wrap: anywhere;
-  font-weight: 760;
+  font-weight: 600;
 }
 
 .result-summary {
@@ -1981,7 +2115,7 @@ textarea:focus {
   gap: 10px;
   color: #25322f;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .eval-dataset-line {
@@ -2040,13 +2174,13 @@ textarea:focus {
 .file-error-card__title span {
   color: #7b5b12;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .file-error-card__path {
   color: #26332f;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
@@ -2088,7 +2222,7 @@ textarea:focus {
   padding: 9px 10px;
   color: var(--accent-strong);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 600;
   cursor: pointer;
 }
 
@@ -2291,6 +2425,7 @@ html[data-theme="dark"] .markdown-body blockquote {
   }
 
   .query-shell,
+  .agent-shell,
   .tasks-layout,
   .graph-layout,
   .wisdom-layout {
@@ -2298,6 +2433,7 @@ html[data-theme="dark"] .markdown-body blockquote {
   }
 
   .task-list-panel,
+  .agent-sessions,
   .graph-detail,
   .wisdom-list-panel {
     position: static;
@@ -2454,3 +2590,406 @@ html[data-theme="dark"] .markdown-body blockquote {
     font-size: 24px;
   }
 }
+
+
+/* ============================================================
+   PR1 · Type role overrides
+   ─ Big headings + numeric metrics use editorial serif
+   ─ Labels / IDs / paths use mono uppercase
+   ─ Status pills lose 800 weight, gain hairline edge
+   ============================================================ */
+
+/* Editorial serif on display titles + big numbers */
+.page-header h1,
+.metric-card__value,
+.markdown-body h1,
+.markdown-body h2,
+.markdown-fallback-title,
+.reader-header h2,
+.task-detail__header h2,
+.wisdom-card h2,
+.wisdom-detail h2,
+.graph-detail h2,
+.summary-metric dd {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+/* Mono uppercase on all eyebrow labels */
+.metric-card__label,
+.detail-list dt,
+.compact-dl dt,
+.task-summary-grid dt,
+.summary-metric dt,
+.field span,
+.result-table__head,
+.metrics-table__head,
+.frontmatter-chip strong,
+.graph-detail__section strong,
+.code-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Connection + ID strings → mono so they're scannable */
+.connection-label,
+.connection-label__meta,
+.task-list__id,
+.citation-item__path {
+  font-family: var(--font-mono);
+}
+
+/* Cards: drop heavy shadow, keep hairline border only */
+.panel,
+.metric-card,
+.answer-panel,
+.wisdom-card,
+.agent-sessions,
+.agent-chat,
+.query-form {
+  box-shadow: none;
+}
+
+/* Status pills: hairline edge + dot, no more 800 weight */
+.status-pill {
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+.status-pill--ok    { border-color: color-mix(in srgb, var(--green) 25%, transparent); }
+.status-pill--info  { border-color: color-mix(in srgb, var(--blue)  25%, transparent); }
+.status-pill--warn  { border-color: color-mix(in srgb, var(--amber) 25%, transparent); }
+.status-pill--bad   { border-color: color-mix(in srgb, var(--red)   25%, transparent); }
+.status-pill--muted { border-color: var(--line); }
+
+/* Page H1: nudge to a proper display size, ditch hard-bold UI feel */
+.page-header h1 { font-size: 30px; line-height: 1.1; }
+
+/* Reader: longer measure + taller leading on Markdown body */
+.markdown-view { font-size: 15px; line-height: 1.78; }
+.markdown-body h1 { font-size: 32px; }
+.markdown-body h2 { font-size: 22px; }
+.markdown-body h3 { font-size: 17px; font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.005em; }
+
+/* Frontmatter chip: square corners + mono — looks like a data tag, not a button */
+.frontmatter-chip {
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+/* Agent: user bubble flips to solid accent for clearer turn-taking */
+.agent-message--user {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent-strong);
+}
+.agent-message--user .agent-message__role { color: rgba(255,255,255,0.7); }
+
+/* Sidebar nav: 2px left marker on active, single-line label */
+.nav-item.is-active { position: relative; }
+.nav-item.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 9px; bottom: 9px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+.nav-item__label span { display: none; } /* hide unused subtitle slot */
+.nav-item__label strong { font-size: 13px; font-weight: 500; }
+.nav-item.is-active .nav-item__label strong { font-weight: 600; }
+
+/* Tabular numerals everywhere a number is displayed */
+.metric-card__value,
+.summary-metric dd,
+.task-summary-grid dd,
+.task-list__id,
+.event-progress-heading span {
+  font-variant-numeric: tabular-nums;
+}
+
+
+/* ============================================================
+   PR2 · Sidebar groups + richer topbar
+   ─ nav now has Knowledge / System group labels
+   ─ topbar shows breadcrumb left + connection chip right
+   ─ brand mark anchored to accent, subtitle uses mono
+   ============================================================ */
+
+/* ---- Brand mark ---- */
+.brand {
+  align-items: center;
+  padding: 0 6px 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+.brand__mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  background: var(--surface-soft);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.brand__logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.95);
+  transform-origin: 50% 30%;
+}
+.brand strong { font-size: 13.5px; font-weight: 600; letter-spacing: -0.005em; }
+.brand span {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+/* ---- Nav group label ---- */
+.nav-group-label {
+  padding: 0 8px 6px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--subtle);
+}
+.nav-list { gap: 1px; }
+.nav-main + .nav-main { margin-top: 4px; }
+.nav-footer .nav-group-label { padding-top: 12px; }
+
+/* tighten nav-item now that it's single-line */
+.nav-item { min-height: 34px; padding: 5px 9px; gap: 9px; }
+.nav-item.is-active::before { top: 6px; bottom: 6px; }
+
+/* ---- Topbar v2 ---- */
+.topbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 52px;
+  padding: 8px 24px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(10px);
+  justify-content: unset; /* override original flex layout */
+}
+/* keep the modifier alive but inert — old callers that still pass it won't break */
+.topbar--status-only { justify-content: unset; }
+
+.topbar__crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow: hidden;
+}
+.topbar__crumb-root { color: var(--muted); }
+.topbar__crumb-sep { color: var(--subtle); opacity: 0.6; }
+.topbar__crumb-leaf {
+  color: var(--accent);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Connection chip ---- */
+.connection-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--muted);
+  max-width: 460px;
+}
+.connection-chip__dot {
+  width: 6px; height: 6px;
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 18%, transparent);
+}
+.connection-chip[data-token="off"] .connection-chip__dot {
+  background: var(--amber);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--amber) 18%, transparent);
+}
+.connection-chip__url {
+  color: var(--text-2, var(--text));
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 240px;
+}
+.connection-chip__sep { color: var(--subtle); opacity: 0.55; }
+.connection-chip__token {
+  color: var(--muted);
+}
+.connection-chip[data-token="off"] .connection-chip__token { color: var(--amber); }
+
+/* dark mode adjustments for new chrome */
+html[data-theme="dark"] .topbar { background: color-mix(in srgb, var(--surface) 88%, transparent); }
+html[data-theme="dark"] .connection-chip { background: var(--surface-2); border-color: var(--line); }
+html[data-theme="dark"] .brand__mark { background: var(--surface-2); border-color: var(--line); }
+
+/* mobile rules — keep new topbar gracefully vertical */
+@media (max-width: 900px) {
+  .topbar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 10px 16px;
+  }
+  .connection-chip { justify-self: start; max-width: 100%; }
+  .brand { padding: 0 4px 10px; }
+}
+
+
+/* ============================================================
+   PR3 · Metric grid as single hairline container + tighter wiki tree
+   ─ overview-grid: one outer frame, internal hairline dividers
+   ─ metric-card: lose its own border/shadow/radius
+   ─ wiki-tree: hide redundant path subline, single-line rows,
+                left marker on selection
+   ============================================================ */
+
+/* ---- Overview metric strip ---- */
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  overflow: hidden;
+}
+.overview-grid > .metric-card {
+  border: 0;
+  border-right: 1px solid var(--hairline);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  min-height: 110px;
+  padding: 14px 16px 16px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0;
+}
+.overview-grid > .metric-card:last-child { border-right: 0; }
+.overview-grid > .metric-card:first-child .metric-card__label { color: var(--accent); }
+
+.metric-card__label {
+  /* PR3 ramp — mono labels feel like column headers, not bold UI text */
+  margin-bottom: 2px;
+}
+.metric-card__value {
+  margin-top: 12px;
+  font-size: 30px;
+  line-height: 1;
+  align-self: end;
+}
+.metric-card__detail {
+  margin-top: 10px;
+  align-self: end;
+}
+
+/* When a metric value is a pill (e.g. server health), align it like a value */
+.overview-grid > .metric-card .metric-card__value .status-pill {
+  font-size: 12px;
+}
+.overview-grid > .metric-card:has(.status-pill) .metric-card__value {
+  font-size: 14px;
+  font-family: var(--font-ui);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* On medium screens, fold to 3 wide; keep dividers consistent */
+@media (max-width: 1180px) {
+  .overview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .overview-grid > .metric-card { border-right: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+  .overview-grid > .metric-card:nth-child(3n) { border-right: 0; }
+  .overview-grid > .metric-card:nth-child(n+4) { border-bottom: 0; }
+}
+@media (max-width: 640px) {
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+  .overview-grid > .metric-card { border-right: 0; border-bottom: 1px solid var(--hairline); }
+  .overview-grid > .metric-card:last-child { border-bottom: 0; }
+  .overview-grid > .metric-card .metric-card__value { font-size: 26px; }
+}
+
+/* ---- Wiki tree: single-line file rows ---- */
+.wiki-tree__item--file small {
+  /* The path is redundant with the title for our typical wiki layout;
+     keep the data in DOM for a11y but stop drawing it. */
+  display: none;
+}
+.wiki-tree__item {
+  min-height: 28px;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.wiki-tree__item--folder { font-weight: 500; font-size: 12.5px; letter-spacing: 0.01em; }
+.wiki-tree__item--file strong { font-weight: 500; font-size: 13px; }
+.wiki-tree__item.is-selected strong { font-weight: 600; }
+.wiki-tree__item.is-selected {
+  box-shadow: none; /* drop the inset 2px marker; use a real ::before */
+  position: relative;
+}
+.wiki-tree__item.is-selected::before {
+  content: "";
+  position: absolute;
+  left: 2px; top: 5px; bottom: 5px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+
+/* Folder icon color: walk back the accent saturation so files lead the eye */
+.wiki-tree__item--folder svg:last-of-type { color: var(--muted); }
+.wiki-tree__item:hover svg:last-of-type { color: var(--accent); }
+
+/* Explorer header chrome — match the rest of the system */
+.wiki-explorer__header h2 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  font-size: 15px;
+}
+.soft-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ---- Markdown table-of-contents callout (also touched by reader spacing) ---- */
+.wiki-source-code { font-family: var(--font-mono); }
+
+/* ---- Dark theme: keep the new container coherent ---- */
+html[data-theme="dark"] .overview-grid {
+  background: var(--surface);
+  border-color: var(--line);
+}
+html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(--hairline); }

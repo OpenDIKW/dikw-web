@@ -62,8 +62,28 @@ Wiki reader changes should land as vertical UI slices:
    checks desktop/mobile overflow.
 
 This keeps the structured reading layer inside Wiki, where users already
-expect it, while leaving Tasks, Query, Retrieve, and Graph as their own
-read-only views.
+expect it, while leaving Tasks, Agent Chat, Retrieve, and Graph as their
+own views.
+
+## Pi Agent Slice Example
+
+Agent integration should land as separate red-green slices:
+
+1. App shell first: assert `#query` renders Agent Chat and no longer
+   calls `/v1/query`.
+2. Sidecar configuration next: load `.env.agent.local`, require
+   `DIKW_AGENT_API_KEY`, and assert errors do not leak secret values.
+3. Session store next: create, list, reopen, append, and delete
+   `.agent-sessions/*.json` sessions with atomic writes.
+4. DIKW tools next: test each tool against mocked core responses,
+   especially `/v1/retrieve`, base pages, page links, and wisdom.
+5. HTTP protocol next: test `/agent/sessions` and streamed
+   `/agent/sessions/{id}/messages` events through a real Node server.
+6. Page behavior next: verify history selection, new chat, streamed
+   answer deltas, sources, tool calls, stop, and delete.
+
+Do not put LLM keys in browser fixtures or screenshots. Agent tests use
+mocked sidecar/core behavior; real MiniMax smoke testing is manual.
 
 ## Settings, i18n, and Theme Slice Example
 

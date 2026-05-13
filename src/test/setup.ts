@@ -6,9 +6,17 @@ afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
-  sessionStorage.clear();
-  localStorage.clear();
-  document.documentElement.removeAttribute("data-theme");
-  document.documentElement.style.colorScheme = "";
-  window.location.hash = "";
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.clear();
+  }
+  if (typeof localStorage !== "undefined") {
+    localStorage.clear();
+  }
+  if (typeof document !== "undefined") {
+    document.documentElement.removeAttribute("data-theme");
+    document.documentElement.style.colorScheme = "";
+  }
+  if (typeof window !== "undefined") {
+    window.location.hash = "";
+  }
 });

@@ -1,7 +1,6 @@
 import { decodeNdjsonStream } from "./ndjson";
 import type {
   ApiErrorEnvelope,
-  QueryStreamEvent,
   RetrieveStreamEvent,
   TaskEvent
 } from "../types";
@@ -78,17 +77,6 @@ export class DikwClient {
     }
 
     return (await response.json()) as T;
-  }
-
-  streamQuery(
-    body: { q: string; limit: number },
-    signal?: AbortSignal
-  ): AsyncGenerator<QueryStreamEvent> {
-    return this.streamNdjson<QueryStreamEvent>("/v1/query", {
-      method: "POST",
-      body,
-      signal
-    });
   }
 
   streamRetrieve(

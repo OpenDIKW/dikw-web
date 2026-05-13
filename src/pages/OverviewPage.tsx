@@ -40,7 +40,6 @@ export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
     <div className="page-stack">
       <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">{copy.eyebrow}</p>
           <h1>{copy.title}</h1>
         </div>
         <button className="icon-button" type="button" onClick={resource.reload} aria-label={copy.refresh}>
@@ -48,7 +47,7 @@ export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
         </button>
       </header>
 
-      {resource.error ? <Notice title="无法读取 dikw-core 状态" error={resource.error} /> : null}
+      {resource.error ? <Notice title={copy.errorTitle} error={resource.error} /> : null}
 
       <section className="overview-grid">
         <MetricCard

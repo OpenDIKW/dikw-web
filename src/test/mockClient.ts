@@ -7,7 +7,6 @@ export type MockDikwClient = DikwClient & {
   get: AnyMock;
   post: AnyMock;
   requestJson: AnyMock;
-  streamQuery: AnyMock;
   streamRetrieve: AnyMock;
   streamTaskEvents: AnyMock;
   streamNdjson: AnyMock;
@@ -18,7 +17,6 @@ export function createMockClient(): MockDikwClient {
     get: vi.fn(),
     post: vi.fn(),
     requestJson: vi.fn(),
-    streamQuery: vi.fn(),
     streamRetrieve: vi.fn(),
     streamTaskEvents: vi.fn(),
     streamNdjson: vi.fn()

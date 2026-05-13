@@ -10,7 +10,7 @@ export const translations = {
     brandSubtitle: "knowledge workbench",
     nav: {
       overview: "Overview",
-      query: "Query",
+      query: "Agent",
       retrieve: "Retrieve",
       wiki: "Knowledge",
       graph: "Graph",
@@ -18,25 +18,57 @@ export const translations = {
       tasks: "Tasks",
       settings: "Settings"
     },
+    navGroups: {
+      knowledge: "Knowledge",
+      system: "System"
+    },
     pages: {
       overview: {
-        eyebrow: "Workbench",
         title: "Overview",
-        refresh: "Refresh overview"
+        refresh: "Refresh overview",
+        errorTitle: "Could not read dikw-core status"
       },
       query: {
-        eyebrow: "Query",
-        title: "Query"
+        title: "Agent Chat",
+        sessionsTitle: "Sessions",
+        newSession: "New session",
+        deleteSession: "Delete session",
+        loadingSessions: "Loading sessions",
+        emptySession: "No messages yet",
+        chatRegion: "Agent conversation",
+        messageLabel: "Message",
+        messagePlaceholder: "Ask the DIKW agent about the knowledge base",
+        send: "Send",
+        stop: "Stop",
+        errorTitle: "Agent failed",
+        emptyAnswerTitle: "Start a DIKW conversation",
+        emptyAnswerDetail: "The agent will retrieve core knowledge, inspect pages, and compose an answer with sources.",
+        userRole: "User",
+        assistantRole: "Agent",
+        sourcesTitle: "Sources",
+        emptySources: "No sources yet",
+        toolsTitle: "Tool calls",
+        emptyTools: "No tool calls yet"
       },
       retrieve: {
-        eyebrow: "Retrieve",
-        title: "Retrieve"
+        title: "Retrieve",
+        queryLabel: "Query",
+        queryPlaceholder: "Search chunks and page refs",
+        limitLabel: "Limit",
+        run: "Run",
+        stop: "Stop",
+        errorTitle: "Retrieve failed",
+        chunksTitle: "Chunks",
+        emptyChunks: "No chunks yet",
+        emptyChunksDetail: "Run retrieve to show final chunks; streaming partial results appear as a preview.",
+        pageRefsTitle: "Page Refs",
+        emptyPageRefs: "No page refs"
       },
       wiki: {
-        eyebrow: "知识",
         title: "Knowledge",
         refresh: "Refresh knowledge",
-        baseEyebrow: "Base",
+        listErrorTitle: "Could not read wiki pages",
+        pageErrorTitle: "Could not read page",
         directoryTitle: "Directory",
         searchPlaceholder: "Search files...",
         clearSearch: "Clear directory search",
@@ -58,42 +90,62 @@ export const translations = {
         previewOpen: "Open as main document",
         previewNotFound: "Linked page not found",
         previewFilter: "Filter directory by target",
+        previewErrorTitle: "Could not read linked page",
         noMatches: "No matching pages"
       },
       graph: {
-        eyebrow: "Network",
         title: "Graph",
         refresh: "Refresh graph",
         searchPlaceholder: "Search graph...",
         hideOrphans: "Hide orphans",
         resetFocus: "Reset focus",
-        openInWiki: "Open in Knowledge"
+        openInWiki: "Open in Knowledge",
+        readingPages: "Reading",
+        pages: "pages",
+        emptyGraph: "No graph nodes to display",
+        partialReadWarning: "Some page bodies could not be read. The graph continues with returned pages.",
+        errorTitle: "Could not build graph"
       },
       wisdom: {
-        eyebrow: "Wisdom Layer",
         title: "Wisdom",
-        refresh: "Refresh wisdom items"
+        refresh: "Refresh wisdom items",
+        statusLabel: "Status",
+        kindLabel: "Kind",
+        errorTitle: "Could not read wisdom items",
+        emptyList: "No wisdom items",
+        loadingList: "Reading wisdom items",
+        selectItem: "Select a wisdom item"
       },
       tasks: {
-        eyebrow: "Runs",
         title: "Tasks",
-        refresh: "Refresh tasks"
+        refresh: "Refresh tasks",
+        statusLabel: "Status",
+        opLabel: "Op",
+        listErrorTitle: "Could not read task list",
+        eventsErrorTitle: "Could not read task events",
+        taskListEmpty: "No task records",
+        selectTask: "Select a task",
+        waitingEvents: "Waiting for events",
+        eventsNotLoaded: "Events not loaded",
+        terminalEventDetail: "Click Load events to view the task event timeline.",
+        runningEventDetail: "Click Follow to stream task events.",
+        waitingForCount: "Waiting for count",
+        totalUnknown: "total unknown",
+        scanned: "Scanned",
+        processed: "Processed"
       }
     },
     connection: {
-      sameOrigin: "same-origin /v1 proxy",
-      customServer: "custom server",
       tokenConfigured: "token configured",
       noToken: "no token"
     },
     settings: {
-      eyebrow: "Settings",
       title: "Settings",
       description: "Manage connection, language, and appearance for this browser session.",
       connectionTitle: "Connection",
-      connectionDetail: "Leave Server URL empty to use the same-origin /v1 proxy.",
+      connectionDetail: "Configure the dikw-core API address used by the web app and Agent.",
       serverUrl: "Server URL",
-      serverPlaceholder: "same-origin, or http://127.0.0.1:8765",
+      serverPlaceholder: "http://127.0.0.1:8765",
       token: "Token",
       tokenPlaceholder: "Bearer token",
       clearConnection: "Clear connection",
@@ -113,7 +165,7 @@ export const translations = {
     brandSubtitle: "知识工作台",
     nav: {
       overview: "概览",
-      query: "查询",
+      query: "对话",
       retrieve: "检索",
       wiki: "知识库",
       graph: "图谱",
@@ -121,25 +173,57 @@ export const translations = {
       tasks: "任务",
       settings: "设置"
     },
+    navGroups: {
+      knowledge: "知识",
+      system: "系统"
+    },
     pages: {
       overview: {
-        eyebrow: "工作台",
         title: "工作台概览",
-        refresh: "刷新概览"
+        refresh: "刷新概览",
+        errorTitle: "无法读取 dikw-core 状态"
       },
       query: {
-        eyebrow: "查询",
-        title: "自然语言查阅"
+        title: "Agent 对话",
+        sessionsTitle: "会话",
+        newSession: "新建会话",
+        deleteSession: "删除会话",
+        loadingSessions: "加载会话中",
+        emptySession: "暂无消息",
+        chatRegion: "Agent 对话",
+        messageLabel: "消息",
+        messagePlaceholder: "向 DIKW Agent 询问知识库内容",
+        send: "发送",
+        stop: "停止",
+        errorTitle: "Agent 失败",
+        emptyAnswerTitle: "开始 DIKW 对话",
+        emptyAnswerDetail: "Agent 会检索 core 知识、读取页面，并带来源生成回答。",
+        userRole: "用户",
+        assistantRole: "Agent",
+        sourcesTitle: "来源",
+        emptySources: "暂无来源",
+        toolsTitle: "工具调用",
+        emptyTools: "暂无工具调用"
       },
       retrieve: {
-        eyebrow: "检索",
-        title: "检索上下文"
+        title: "检索上下文",
+        queryLabel: "检索",
+        queryPlaceholder: "检索 chunk 和 page refs",
+        limitLabel: "数量",
+        run: "运行",
+        stop: "停止",
+        errorTitle: "检索失败",
+        chunksTitle: "Chunks",
+        emptyChunks: "尚无 chunks",
+        emptyChunksDetail: "运行检索后会显示最终 chunks；流式 partial 会先作为预览出现。",
+        pageRefsTitle: "Page Refs",
+        emptyPageRefs: "尚无 page refs"
       },
       wiki: {
-        eyebrow: "Wiki",
         title: "知识库",
         refresh: "刷新知识库",
-        baseEyebrow: "Base",
+        listErrorTitle: "无法读取 wiki pages",
+        pageErrorTitle: "无法读取页面",
         directoryTitle: "目录",
         searchPlaceholder: "搜索文件...",
         clearSearch: "清空目录搜索",
@@ -161,42 +245,62 @@ export const translations = {
         previewOpen: "打开为主文档",
         previewNotFound: "未找到引用页面",
         previewFilter: "用目标过滤目录",
+        previewErrorTitle: "无法读取引用页面",
         noMatches: "没有匹配页面"
       },
       graph: {
-        eyebrow: "图谱",
         title: "知识图谱",
         refresh: "刷新图谱",
         searchPlaceholder: "搜索图谱...",
         hideOrphans: "隐藏孤立节点",
         resetFocus: "重置聚焦",
-        openInWiki: "在知识库打开"
+        openInWiki: "在知识库打开",
+        readingPages: "读取",
+        pages: "pages",
+        emptyGraph: "没有可显示的图谱节点",
+        partialReadWarning: "部分页面正文读取失败，图谱已用已返回页面继续构建。",
+        errorTitle: "无法构建知识图谱"
       },
       wisdom: {
-        eyebrow: "智慧",
         title: "智慧沉淀",
-        refresh: "刷新智慧条目"
+        refresh: "刷新智慧条目",
+        statusLabel: "状态",
+        kindLabel: "类型",
+        errorTitle: "无法读取智慧条目",
+        emptyList: "暂无智慧条目",
+        loadingList: "读取智慧条目中",
+        selectItem: "选择一个智慧条目"
       },
       tasks: {
-        eyebrow: "任务",
         title: "任务",
-        refresh: "刷新任务"
+        refresh: "刷新任务",
+        statusLabel: "状态",
+        opLabel: "操作",
+        listErrorTitle: "无法读取任务列表",
+        eventsErrorTitle: "无法读取任务事件",
+        taskListEmpty: "没有任务记录",
+        selectTask: "选择一个任务",
+        waitingEvents: "等待事件",
+        eventsNotLoaded: "事件尚未加载",
+        terminalEventDetail: "点击 Load events 查看任务事件时间线。",
+        runningEventDetail: "点击 Follow 跟随任务事件流。",
+        waitingForCount: "等待统计",
+        totalUnknown: "总量未知",
+        scanned: "已扫描",
+        processed: "已处理"
       }
     },
     connection: {
-      sameOrigin: "同源 /v1 代理",
-      customServer: "自定义服务端",
       tokenConfigured: "已配置令牌",
       noToken: "未配置令牌"
     },
     settings: {
-      eyebrow: "偏好",
       title: "设置",
       description: "管理当前浏览器会话的连接、语言和外观。",
       connectionTitle: "连接",
-      connectionDetail: "Server URL 留空时使用同源 /v1 代理。",
+      connectionDetail: "配置 Web 与 Agent 使用的 dikw-core API 地址。",
       serverUrl: "服务器地址",
-      serverPlaceholder: "同源代理，或 http://127.0.0.1:8765",
+      serverPlaceholder: "http://127.0.0.1:8765",
       token: "令牌",
       tokenPlaceholder: "Bearer token",
       clearConnection: "清空连接配置",

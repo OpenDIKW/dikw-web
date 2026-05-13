@@ -218,7 +218,6 @@ export function WikiPage({ client, initialPath, locale = "en" }: WikiPageProps) 
     <div className="page-stack">
       <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">{copy.eyebrow}</p>
           <h1>{copy.title}</h1>
         </div>
         <button className="icon-button" type="button" onClick={refreshWiki} aria-label={copy.refresh}>
@@ -226,13 +225,12 @@ export function WikiPage({ client, initialPath, locale = "en" }: WikiPageProps) 
         </button>
       </header>
 
-      {pages.error ? <Notice title="无法读取 wiki pages" error={pages.error} /> : null}
+      {pages.error ? <Notice title={copy.listErrorTitle} error={pages.error} /> : null}
 
       <section className={`wiki-layout ${preview.kind !== "idle" ? "wiki-layout--preview-open" : ""}`}>
         <aside className="wiki-sidebar">
           <div className="wiki-explorer__header">
             <div>
-              <p className="eyebrow">{copy.baseEyebrow}</p>
               <h2>{copy.directoryTitle}</h2>
             </div>
             <span className="soft-label">{formatFileCount(pages.data?.length ?? 0)}</span>
@@ -412,7 +410,7 @@ function WikiReader({
   return (
     <main className="wiki-reader panel" aria-label="Wiki reader">
       {loading ? <EmptyState title={copy.loadingPage} /> : null}
-      {error ? <Notice title="无法读取页面" error={error} /> : null}
+      {error ? <Notice title={copy.pageErrorTitle} error={error} /> : null}
       {page ? (
         <>
           <div className="reader-header reader-header--metadata-only">
@@ -646,7 +644,7 @@ function WikiLinkPreview({
       ) : null}
       {preview.kind === "error" ? (
         <PreviewFrame title={copy.previewTitle} onClose={onClose} closeLabel={copy.previewClose}>
-          <Notice title="无法读取引用页面" error={preview.error} />
+          <Notice title={copy.previewErrorTitle} error={preview.error} />
         </PreviewFrame>
       ) : null}
     </aside>

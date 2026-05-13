@@ -63,7 +63,6 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
     <div className="page-stack">
       <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">{copy.eyebrow}</p>
           <h1>{copy.title}</h1>
         </div>
       </header>
@@ -71,29 +70,29 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
       <section className="panel">
         <div className="query-form query-form--compact">
           <label className="field field--grow">
-            <span>Query</span>
-            <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="检索 chunk 和 page refs" />
+            <span>{copy.queryLabel}</span>
+            <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={copy.queryPlaceholder} />
           </label>
           <label className="field field--small">
-            <span>Limit</span>
+            <span>{copy.limitLabel}</span>
             <input type="number" min={1} max={100} value={limit} onChange={(event) => setLimit(Number(event.target.value))} />
           </label>
           <button className="primary-button" type="button" onClick={runRetrieve} disabled={running || !question.trim()}>
             <Play size={16} />
-            Run
+            {copy.run}
           </button>
           <button className="secondary-button" type="button" onClick={() => controllerRef.current?.abort()} disabled={!running}>
             <Pause size={16} />
-            Stop
+            {copy.stop}
           </button>
         </div>
       </section>
 
-      {error ? <Notice title="检索失败" error={error} /> : null}
+      {error ? <Notice title={copy.errorTitle} error={error} /> : null}
 
       <section className="two-column-grid two-column-grid--wide-left">
         <div className="panel">
-          <div className="panel__title">Chunks {running ? <span className="live-dot" /> : null}</div>
+          <div className="panel__title">{copy.chunksTitle} {running ? <span className="live-dot" /> : null}</div>
           {(chunks.length ? chunks : previewHits).length ? (
             <div className="result-table">
               <div className="result-table__head result-table__row">
@@ -114,12 +113,12 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
               ))}
             </div>
           ) : (
-            <EmptyState title="尚无 chunks" detail="运行检索后会显示最终 chunks；流式 partial 会先作为预览出现。" />
+            <EmptyState title={copy.emptyChunks} detail={copy.emptyChunksDetail} />
           )}
         </div>
 
         <div className="panel">
-          <div className="panel__title">Page Refs</div>
+          <div className="panel__title">{copy.pageRefsTitle}</div>
           {pageRefs.length ? (
             <div className="page-ref-list">
               {pageRefs.map((ref) => (
@@ -136,7 +135,7 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
               ))}
             </div>
           ) : (
-            <EmptyState title="尚无 page refs" />
+            <EmptyState title={copy.emptyPageRefs} />
           )}
         </div>
       </section>

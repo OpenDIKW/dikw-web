@@ -22,7 +22,7 @@ knowledge bases do not start hundreds of fetches at once. Each body read
 also has a client-side timeout; a timed-out page is counted as `skipped`
 and the graph is built from the bodies that did return. This prevents a
 single stuck page request from leaving the graph page in a permanent
-`读取 x / y pages` loading state.
+`Reading x / y pages` loading state in the default English locale.
 
 ## Wikilink Resolution
 

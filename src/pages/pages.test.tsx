@@ -8,12 +8,13 @@ import { RetrievePage } from "./RetrievePage";
 import { TasksPage } from "./TasksPage";
 import { WikiPage } from "./WikiPage";
 import { WisdomPage } from "./WisdomPage";
+import type { AgentClientLike } from "./agentTypes";
+import type { AgentStreamEvent } from "../agent/types";
 import {
   createAsyncEvents,
   healthFixture,
   infoFixture,
   ingestFileErrorEventsFixture,
-  queryEventsFixture,
   retrieveEventsFixture,
   sourcePagesFixture,
   statusFixture,
@@ -545,7 +546,7 @@ describe("read console pages", () => {
     expect(await screen.findByText("2 nodes")).toBeInTheDocument();
     expect(screen.getByText("1 link")).toBeInTheDocument();
     expect(screen.getByText("1 skipped")).toBeInTheDocument();
-    expect(screen.getByText("部分页面正文读取失败，图谱已用已返回页面继续构建。")).toBeInTheDocument();
+    expect(screen.getByText("Some page bodies could not be read. The graph continues with returned pages.")).toBeInTheDocument();
   });
 
   it("filters graph nodes, focuses neighbors, and opens the selected node in wiki", async () => {
@@ -628,7 +629,7 @@ describe("read console pages", () => {
     render(<WisdomPage client={client} />);
 
     expect(await screen.findByRole("heading", { name: "Prefer evidence" })).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText("状态"), "approved");
+    await userEvent.selectOptions(screen.getByLabelText("Status"), "approved");
 
     await waitFor(() => {
       expect(client.get).toHaveBeenLastCalledWith(
@@ -669,18 +670,57 @@ describe("read console pages", () => {
     expect(within(detail).getByText("approved", { selector: ".status-pill" })).toBeInTheDocument();
   });
 
-  it("runs query streams into answer, hits, citations, and wisdom", async () => {
-    const client = createMockClient();
-    client.streamQuery.mockImplementation(() => createAsyncEvents(queryEventsFixture));
+  it("runs agent chat streams without calling the removed query endpoint", async () => {
+    const agentClient: AgentClientLike = {
+      listSessions: vi.fn().mockResolvedValue([]),
+      createSession: vi.fn().mockResolvedValue({
+        id: "session-1",
+        title: "New chat",
+        createdAt: "2026-05-13T00:00:00.000Z",
+        updatedAt: "2026-05-13T00:00:00.000Z",
+        messageCount: 0,
+        lastMessagePreview: "",
+        messages: [],
+        toolEvents: [],
+        sources: [],
+        proposals: []
+      }),
+      getSession: vi.fn().mockResolvedValue({
+        id: "session-1",
+        title: "What is DIKW?",
+        createdAt: "2026-05-13T00:00:00.000Z",
+        updatedAt: "2026-05-13T00:00:01.000Z",
+        messageCount: 2,
+        lastMessagePreview: "Layered answer.",
+        messages: [
+          { id: "m1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z" },
+          { id: "m2", role: "assistant", content: "Layered answer.", createdAt: "2026-05-13T00:00:01.000Z" }
+        ],
+        toolEvents: [],
+        sources: [{ path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }],
+        proposals: []
+      }),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() =>
+        createAsyncEvents([
+          { type: "message_delta", sessionId: "session-1", delta: "Layered answer." },
+          {
+            type: "source",
+            sessionId: "session-1",
+            source: { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }
+          },
+          { type: "agent_end", sessionId: "session-1" }
+        ] satisfies AgentStreamEvent[])
+      )
+    };
+    render(<QueryPage agentClient={agentClient} />);
+    await userEvent.type(await screen.findByLabelText("Message"), "What is DIKW?");
+    await userEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    render(<QueryPage client={client} />);
-    await userEvent.type(screen.getByLabelText("Question"), "What is DIKW?");
-    await userEvent.click(screen.getByRole("button", { name: /Run/ }));
-
-    expect(await screen.findByText("Layered answer.")).toBeInTheDocument();
-    expect(screen.getAllByText("wiki/architecture.md").length).toBeGreaterThan(0);
-    expect(screen.getByText("W1 · principle · Prefer evidence")).toBeInTheDocument();
-    expect(client.streamQuery).toHaveBeenCalledWith({ q: "What is DIKW?", limit: 5 }, expect.any(AbortSignal));
+    expect((await screen.findAllByText("Layered answer.")).length).toBeGreaterThan(0);
+    expect(screen.getByText("wiki/architecture.md")).toBeInTheDocument();
+    expect(agentClient.sendMessage).toHaveBeenCalledWith("session-1", "What is DIKW?", expect.any(AbortSignal));
   });
 
   it("runs retrieve streams into chunks and page refs", async () => {
@@ -826,7 +866,7 @@ describe("read console pages", () => {
     expect(screen.getAllByText("synthetic-diverse-v1").length).toBeGreaterThan(0);
   });
 
-  it("renders scan progress with an unknown total as an indeterminate count", async () => {
+  it("localizes scan progress with an unknown total as an indeterminate count", async () => {
     const client = createMockClient();
     const zeroTotalScanEvents: TaskEvent[] = [
       {
@@ -855,7 +895,9 @@ describe("read console pages", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Load events/ }));
 
-    expect(await screen.findByText("已扫描 42 · 总量未知")).toBeInTheDocument();
+    expect(await screen.findByText("Waiting for count · total unknown")).toBeInTheDocument();
+    expect(screen.getByText("Scanned 42 · total unknown")).toBeInTheDocument();
+    expect(screen.queryByText("已扫描 42 · 总量未知")).not.toBeInTheDocument();
     expect(screen.queryByText("42/0")).not.toBeInTheDocument();
   });
 

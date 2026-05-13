@@ -1,0 +1,80 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+export interface AgentConfig {
+  provider: string;
+  api: "anthropic-messages" | "openai-completions";
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
+
+export interface LoadAgentConfigOptions {
+  cwd?: string;
+  env?: Record<string, string | undefined>;
+}
+
+export async function loadAgentConfig(options: LoadAgentConfigOptions = {}): Promise<AgentConfig> {
+  const cwd = options.cwd ?? process.cwd();
+  const fileEnv = await readEnvFile(join(cwd, ".env.agent.local"));
+  const env = { ...fileEnv, ...(options.env ?? process.env) };
+  const apiKey = readRequired(env, "DIKW_AGENT_API_KEY");
+  return {
+    provider: env.DIKW_AGENT_PROVIDER?.trim() || "minimax",
+    api: readApi(env.DIKW_AGENT_API),
+    apiKey,
+    baseUrl: readRequired(env, "DIKW_AGENT_BASE_URL"),
+    model: readRequired(env, "DIKW_AGENT_MODEL")
+  };
+}
+
+async function readEnvFile(path: string): Promise<Record<string, string>> {
+  try {
+    return parseEnv(await readFile(path, "utf8"));
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      return {};
+    }
+    throw error;
+  }
+}
+
+export function parseEnv(text: string): Record<string, string> {
+  const values: Record<string, string> = {};
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+    const separator = line.indexOf("=");
+    if (separator === -1) {
+      continue;
+    }
+    const key = line.slice(0, separator).trim();
+    let value = line.slice(separator + 1).trim();
+    if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    values[key] = value;
+  }
+  return values;
+}
+
+function readRequired(env: Record<string, string | undefined>, key: string): string {
+  const value = env[key]?.trim();
+  if (!value) {
+    throw new Error(`${key} is required for dikw-web Agent sidecar`);
+  }
+  return value;
+}
+
+function readApi(value: string | undefined): AgentConfig["api"] {
+  if (value === "openai-completions") {
+    return value;
+  }
+  return "anthropic-messages";
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
+}

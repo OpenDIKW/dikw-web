@@ -1,15 +1,16 @@
 import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { agentSidecarPlugin } from "./server/agent/vitePlugin";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const target = env.VITE_DIKW_PROXY_TARGET || "http://127.0.0.1:8765";
 
   return {
-    plugins: [react()],
+    plugins: [react(), agentSidecarPlugin()],
     test: {
-      include: ["src/**/*.{test,spec}.{ts,tsx}"],
+      include: ["src/**/*.{test,spec}.{ts,tsx}", "server/**/*.{test,spec}.ts"],
       exclude: ["tests/e2e/**", "node_modules/**", "dist/**"],
       environment: "jsdom",
       setupFiles: ["./src/test/setup.ts"],

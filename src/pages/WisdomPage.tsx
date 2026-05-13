@@ -55,7 +55,6 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
     <div className="page-stack">
       <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">{copy.eyebrow}</p>
           <h1>{copy.title}</h1>
         </div>
         <button className="icon-button" type="button" onClick={wisdom.reload} aria-label={copy.refresh}>
@@ -65,7 +64,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
 
       <section className="panel filter-bar">
         <label className="field">
-          <span>状态</span>
+          <span>{copy.statusLabel}</span>
           <select value={status} onChange={(event) => setStatus(event.target.value as "" | WisdomStatus)}>
             {statuses.map((value) => (
               <option value={value} key={value || "all"}>
@@ -75,7 +74,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
           </select>
         </label>
         <label className="field">
-          <span>类型</span>
+          <span>{copy.kindLabel}</span>
           <select value={kind} onChange={(event) => setKind(event.target.value as "" | WisdomKind)}>
             {kinds.map((value) => (
               <option value={value} key={value || "all"}>
@@ -86,7 +85,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
         </label>
       </section>
 
-      {wisdom.error ? <Notice title="无法读取智慧条目" error={wisdom.error} /> : null}
+      {wisdom.error ? <Notice title={copy.errorTitle} error={wisdom.error} /> : null}
 
       <section className="wisdom-layout">
         <aside className="panel wisdom-list-panel">
@@ -118,9 +117,9 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
               ))}
             </div>
           ) : !wisdom.loading ? (
-            <EmptyState title="暂无智慧条目" />
+            <EmptyState title={copy.emptyList} />
           ) : (
-            <EmptyState title="读取智慧条目中" />
+            <EmptyState title={copy.loadingList} />
           )}
         </aside>
 
@@ -158,7 +157,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
               </dl>
             </>
           ) : (
-            <EmptyState title="选择一个智慧条目" />
+            <EmptyState title={copy.selectItem} />
           )}
         </section>
       </section>

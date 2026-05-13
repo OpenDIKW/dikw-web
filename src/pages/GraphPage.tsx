@@ -15,6 +15,7 @@ interface GraphPageProps {
 }
 
 type GraphLayer = Extract<Layer, "wiki" | "source"> | "all";
+type GraphCopy = (typeof translations)["en"]["pages"]["graph"];
 
 interface GraphLoadState {
   loading: boolean;
@@ -121,7 +122,6 @@ export function GraphPage({
     <div className="page-stack">
       <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">{copy.eyebrow}</p>
           <h1>{copy.title}</h1>
         </div>
         <button className="icon-button" type="button" aria-label={copy.refresh} onClick={() => setReloadId((value) => value + 1)}>
@@ -171,12 +171,12 @@ export function GraphPage({
             {copy.resetFocus}
           </button>
         ) : null}
-        {state.loading ? <span className="soft-label">读取 {state.loaded} / {state.total} pages</span> : null}
+        {state.loading ? <span className="soft-label">{formatReadingPages(copy, state.loaded, state.total)}</span> : null}
       </section>
 
-      {state.error ? <Notice title="无法构建知识图谱" error={state.error} /> : null}
+      {state.error ? <Notice title={copy.errorTitle} error={state.error} /> : null}
       {state.skipped.length ? (
-        <Notice title="部分页面正文读取失败，图谱已用已返回页面继续构建。" tone="warn">
+        <Notice title={copy.partialReadWarning} tone="warn">
           <div>
             {state.skipped.length} skipped: {state.skipped
               .slice(0, 3)
@@ -230,7 +230,7 @@ export function GraphPage({
                 onSelectNode={setFocusedNodeId}
               />
             ) : (
-              <EmptyState title="没有可显示的图谱节点" />
+              <EmptyState title={copy.emptyGraph} />
             )}
             <div className="graph-force-controls" aria-label="Graph force settings">
               <ForceSlider
@@ -301,10 +301,14 @@ export function GraphPage({
           ) : null}
         </section>
       ) : !state.loading && !state.error ? (
-        <EmptyState title="没有可显示的图谱节点" />
+        <EmptyState title={copy.emptyGraph} />
       ) : null}
     </div>
   );
+}
+
+function formatReadingPages(copy: GraphCopy, loaded: number, total: number): string {
+  return `${copy.readingPages} ${loaded} / ${total} ${copy.pages}`;
 }
 
 function GraphSvg({

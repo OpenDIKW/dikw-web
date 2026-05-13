@@ -159,28 +159,6 @@ export interface RetrieveResult {
   page_refs: PageRef[];
 }
 
-export interface Citation {
-  n: number;
-  path: string;
-  title: string | null;
-  layer: string;
-  seq: number | null;
-  excerpt: string;
-}
-
-export interface AppliedWisdomRef {
-  ref: string;
-  item_id: string;
-  kind: string;
-  title: string;
-}
-
-export interface QueryResult {
-  answer: string;
-  citations: Citation[];
-  applied_wisdom: AppliedWisdomRef[];
-}
-
 export interface WisdomItem {
   item_id: string;
   kind: WisdomKind;
@@ -256,26 +234,6 @@ export type TaskEvent =
       ts: string;
       code: string;
       message: string;
-    };
-
-export type QueryStreamEvent =
-  | { type: "query_started"; ts: string; q: string; limit: number }
-  | { type: "retrieval_done"; ts: string; hits: Hit[] }
-  | { type: "llm_token"; ts: string; delta: string }
-  | { type: "progress"; ts: string; phase: string; current: number; total: number }
-  | { type: "log"; ts: string; level: string; message: string }
-  | { type: "partial"; ts: string; kind: string; payload: Record<string, unknown> }
-  | {
-      type: "final";
-      ts: string;
-      status: "succeeded";
-      result: QueryResult;
-    }
-  | {
-      type: "final";
-      ts: string;
-      status: "failed" | "cancelled";
-      error?: { code: string; message: string; detail?: Record<string, unknown> };
     };
 
 export type RetrieveStreamEvent =

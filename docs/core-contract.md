@@ -3,13 +3,18 @@
 `dikw-web` is a read-only console over the `dikw-core` `/v1` HTTP API.
 This document records the web-facing subset that current tests lock.
 
+`/v1/query` is no longer part of the consumed core contract. Natural
+language answers are composed by the web-side Pi Agent sidecar, which
+uses core retrieval/page/wisdom endpoints as tools.
+
 ## Web Settings
 
 Settings does not add a core endpoint. It only manages browser-side
 preferences and connection configuration:
 
 - `dikw-web.serverUrl` in `sessionStorage` selects a custom core base
-  URL for the current browser session.
+  URL for the current browser session. The default visible value is
+  `http://127.0.0.1:8765`.
 - `dikw-web.token` in `sessionStorage` stores the current session bearer
   token value.
 - `dikw-web.locale` in `localStorage` selects the UI locale.
@@ -17,9 +22,11 @@ preferences and connection configuration:
   `dark`.
 
 The top bar may summarize connection target and token posture, but it
-must not display the token value. All `/v1` calls continue to flow
-through `DikwClient`; Settings changes only the client configuration and
-presentation preferences.
+must not display the token value. When the visible server URL is the
+default `http://127.0.0.1:8765`, browser `/v1` calls use the same-origin
+Vite proxy to avoid CORS requirements on `dikw-core`. Custom server URLs
+are requested directly. Settings changes only the client configuration
+and presentation preferences.
 
 Locale and theme are web-only presentation state. They do not change
 request paths, request params, auth behavior, or the shape of any core
@@ -81,6 +88,31 @@ against active page records, and renders only resolved internal links as
 graph edges. Unresolved wikilinks are shown as counts and source-node
 detail, but they do not create ghost nodes. Default graph layer is
 `wiki`; `source` and `all` are client-side graph scopes.
+
+## Agent Chat
+
+Agent Chat is exposed to the browser as same-origin `/agent/*` routes
+owned by `dikw-web`, not by `dikw-core`. The sidecar runs Pi Agent and
+uses the current Settings `Server URL` from each browser request to call
+these core endpoints as tools:
+
+- `GET /v1/health`
+- `POST /v1/retrieve`
+- `GET /v1/base/pages`
+- `GET /v1/base/pages/{path}`
+- `GET /v1/base/pages/{path}/links`
+- `GET /v1/wisdom`
+
+Core returns facts and evidence; the Agent composes the final answer
+with its own LLM credentials. LLM keys are sidecar-only and must not be
+sent to the browser, stored in Settings, or persisted in session files.
+The core URL and optional core bearer token are request-scoped Agent
+inputs; if `coreUrl` is missing, the sidecar rejects the request instead
+of falling back to `.env.agent.local`.
+
+Maintenance endpoints such as `/v1/ingest`, `/v1/synth`,
+`/v1/distill`, and `/v1/lint/propose` may only be called after the
+Agent creates a proposal and the user confirms it in the UI.
 
 ## Task Events
 

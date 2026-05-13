@@ -33,7 +33,6 @@ export function SettingsPage({
     <div className="page-stack settings-page">
       <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">{copy.eyebrow}</p>
           <h1>{copy.title}</h1>
           <p className="page-header__description">{copy.description}</p>
         </div>

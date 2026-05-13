@@ -21,40 +21,59 @@ function jsonResponse(body: unknown): Promise<Response> {
 }
 
 function stubApi() {
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    const url = new URL(String(input), window.location.origin);
+    if (url.pathname === "/v1/info") {
+      return jsonResponse(infoFixture);
+    }
+    if (url.pathname === "/v1/health") {
+      return jsonResponse(healthFixture);
+    }
+    if (url.pathname === "/v1/status") {
+      return jsonResponse(statusFixture);
+    }
+    if (url.pathname === "/v1/base/pages") {
+      return jsonResponse(wikiPagesFixture);
+    }
+    if (url.pathname.startsWith("/v1/base/pages/")) {
+      const selectedPath = decodeURIComponent(url.pathname.replace("/v1/base/pages/", ""));
+      return jsonResponse(wikiPageBodiesFixture[selectedPath]);
+    }
+    if (url.pathname === "/v1/wisdom") {
+      return jsonResponse(wisdomItemsFixture);
+    }
+    if (url.pathname === "/v1/tasks") {
+      return jsonResponse([]);
+    }
+    if (url.pathname === "/agent/sessions") {
+      if (init?.method === "POST") {
+        return jsonResponse({
+          id: "session-1",
+          title: "New chat",
+          createdAt: "2026-05-13T00:00:00.000Z",
+          updatedAt: "2026-05-13T00:00:00.000Z",
+          messageCount: 0,
+          lastMessagePreview: "",
+          messages: [],
+          toolEvents: [],
+          sources: [],
+          proposals: []
+        });
+      }
+      return jsonResponse([]);
+    }
+    return Promise.resolve(new Response("not found", { status: 404 }));
+  });
   vi.stubGlobal(
     "fetch",
-    vi.fn((input: RequestInfo | URL) => {
-      const url = new URL(String(input), window.location.origin);
-      if (url.pathname === "/v1/info") {
-        return jsonResponse(infoFixture);
-      }
-      if (url.pathname === "/v1/health") {
-        return jsonResponse(healthFixture);
-      }
-      if (url.pathname === "/v1/status") {
-        return jsonResponse(statusFixture);
-      }
-      if (url.pathname === "/v1/base/pages") {
-        return jsonResponse(wikiPagesFixture);
-      }
-      if (url.pathname.startsWith("/v1/base/pages/")) {
-        const selectedPath = decodeURIComponent(url.pathname.replace("/v1/base/pages/", ""));
-        return jsonResponse(wikiPageBodiesFixture[selectedPath]);
-      }
-      if (url.pathname === "/v1/wisdom") {
-        return jsonResponse(wisdomItemsFixture);
-      }
-      if (url.pathname === "/v1/tasks") {
-        return jsonResponse([]);
-      }
-      return Promise.resolve(new Response("not found", { status: 404 }));
-    })
+    fetchMock
   );
+  return fetchMock;
 }
 
 describe("App shell", () => {
   it("renders localized navigation and moves connection settings into Settings", async () => {
-    stubApi();
+    const fetchMock = stubApi();
     window.location.hash = "#overview";
 
     render(<App />);
@@ -62,21 +81,39 @@ describe("App shell", () => {
     const mark = screen.getByRole("img", { name: "OpenDIKW" });
     expect(mark).toHaveAttribute("src", "/opendikw-avatar.png");
     expect(screen.getByRole("button", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agent" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "概览" })).not.toBeInTheDocument();
     expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("同源代理，或 http://127.0.0.1:8765")).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("http://127.0.0.1:8765")).not.toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Bearer token")).not.toBeInTheDocument();
-    expect(screen.getByText("same-origin /v1 proxy")).toBeInTheDocument();
+    expect(screen.queryByText(/same-origin/i)).not.toBeInTheDocument();
+    expect(screen.getByText("http://127.0.0.1:8765")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual(
+      expect.arrayContaining(["/v1/health", "/v1/status", "/v1/info"])
+    );
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^http:\/\/127\.0\.0\.1:8765\/v1\//)
+      ])
+    );
 
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
     expect(window.location.hash).toBe("#settings");
     expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Server URL")).toHaveValue("http://127.0.0.1:8765");
 
     fireEvent.change(screen.getByLabelText("Server URL"), { target: { value: "http://127.0.0.1:8765" } });
     fireEvent.change(screen.getByLabelText("Token"), { target: { value: "secret" } });
     await waitFor(() => {
       expect(sessionStorage.getItem("dikw-web.serverUrl")).toBe("http://127.0.0.1:8765");
       expect(sessionStorage.getItem("dikw-web.token")).toBe("secret");
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "Clear connection" }));
+    await waitFor(() => {
+      expect(screen.getByLabelText("Server URL")).toHaveValue("http://127.0.0.1:8765");
+      expect(sessionStorage.getItem("dikw-web.serverUrl")).toBe("http://127.0.0.1:8765");
+      expect(sessionStorage.getItem("dikw-web.token")).toBeNull();
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Knowledge" }));
@@ -89,7 +126,7 @@ describe("App shell", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Wisdom" }));
     expect(await screen.findByRole("heading", { name: "Wisdom" })).toBeInTheDocument();
-  });
+  }, 10_000);
 
   it("does not expose the removed artifacts route", async () => {
     stubApi();

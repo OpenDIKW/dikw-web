@@ -9,7 +9,8 @@ import {
   Search,
   Settings
 } from "lucide-react";
-import { DikwClient } from "./api/client";
+import { DikwClient, normalizeBaseUrl } from "./api/client";
+import { AgentClient } from "./api/agentClient";
 import {
   isLocale,
   isThemePreference,
@@ -30,32 +31,49 @@ import { WikiPage } from "./pages/WikiPage";
 import { WisdomPage } from "./pages/WisdomPage";
 
 type ViewId = "overview" | "query" | "retrieve" | "wiki" | "graph" | "wisdom" | "tasks" | "settings";
+type NavLabelKey = keyof (typeof translations)["en"]["nav"];
 
 const serverKey = "dikw-web.serverUrl";
 const tokenKey = "dikw-web.token";
+const defaultServerUrl = "http://127.0.0.1:8765";
 
-const navItems = [
-  { id: "overview", labelKey: "overview", icon: LayoutDashboard },
-  { id: "query", labelKey: "query", icon: MessageSquareText },
-  { id: "retrieve", labelKey: "retrieve", icon: Search },
-  { id: "wiki", labelKey: "wiki", icon: BookOpen },
-  { id: "graph", labelKey: "graph", icon: Network },
-  { id: "wisdom", labelKey: "wisdom", icon: Gem },
-  { id: "tasks", labelKey: "tasks", icon: ListChecks }
-] satisfies Array<{ id: ViewId; labelKey: keyof (typeof translations)["en"]["nav"]; icon: typeof LayoutDashboard }>;
+type NavItem = { id: ViewId; labelKey: NavLabelKey; icon: typeof LayoutDashboard };
+type NavGroupId = keyof (typeof translations)["en"]["navGroups"];
 
-const settingsNavItem = { id: "settings" as const, labelKey: "settings" as const, icon: Settings };
-const allViewIds = [...navItems.map((item) => item.id), settingsNavItem.id];
+// PR2: Sidebar nav is now grouped so the eye gets a rhythmic break
+// between the seven knowledge routes and the single System entry.
+const navGroups: Array<{ id: NavGroupId; items: NavItem[] }> = [
+  {
+    id: "knowledge",
+    items: [
+      { id: "overview", labelKey: "overview", icon: LayoutDashboard },
+      { id: "query", labelKey: "query", icon: MessageSquareText },
+      { id: "retrieve", labelKey: "retrieve", icon: Search },
+      { id: "wiki", labelKey: "wiki", icon: BookOpen },
+      { id: "graph", labelKey: "graph", icon: Network },
+      { id: "wisdom", labelKey: "wisdom", icon: Gem },
+      { id: "tasks", labelKey: "tasks", icon: ListChecks }
+    ]
+  }
+];
+
+const settingsNavItem: NavItem = { id: "settings", labelKey: "settings", icon: Settings };
+const allViewIds: ViewId[] = [
+  ...navGroups.flatMap((group) => group.items.map((item) => item.id)),
+  settingsNavItem.id
+];
 
 export function App() {
   const [activeView, setActiveView] = useState<ViewId>(() => viewFromHash());
-  const [serverUrl, setServerUrl] = useState(() => sessionStorage.getItem(serverKey) ?? "");
+  const [serverUrl, setServerUrl] = useState(() => sessionStorage.getItem(serverKey) ?? defaultServerUrl);
   const [token, setToken] = useState(() => sessionStorage.getItem(tokenKey) ?? "");
   const [locale, setLocale] = useState<Locale>(() => readLocale());
   const [theme, setTheme] = useState<ThemePreference>(() => readThemePreference());
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readThemePreference()));
   const [wikiInitialPath, setWikiInitialPath] = useState<string | null>(null);
-  const client = useMemo(() => new DikwClient({ baseUrl: serverUrl, token }), [serverUrl, token]);
+  const clientBaseUrl = normalizeBaseUrl(serverUrl) === defaultServerUrl ? "" : serverUrl;
+  const client = useMemo(() => new DikwClient({ baseUrl: clientBaseUrl, token }), [clientBaseUrl, token]);
+  const agentClient = useMemo(() => new AgentClient({ coreUrl: serverUrl, token }), [serverUrl, token]);
   const copy = translations[locale];
 
   useEffect(() => {
@@ -116,12 +134,14 @@ export function App() {
   }
 
   function clearConnection() {
-    setServerUrl("");
+    setServerUrl(defaultServerUrl);
     setToken("");
   }
 
-  const connectionTarget = serverUrl ? `${copy.connection.customServer}: ${serverUrl}` : copy.connection.sameOrigin;
-  const tokenStatus = token ? copy.connection.tokenConfigured : copy.connection.noToken;
+  const connectionTarget = serverUrl;
+  const tokenConfigured = Boolean(token);
+  const tokenStatus = tokenConfigured ? copy.connection.tokenConfigured : copy.connection.noToken;
+  const activeLabel = copy.nav[activeView as NavLabelKey] ?? copy.nav.overview;
 
   return (
     <div className="app-shell">
@@ -136,19 +156,23 @@ export function App() {
           </div>
         </div>
 
-        <nav className="nav-list nav-main" aria-label="Primary">
-          {navItems.map((item) => (
-            <NavButton
-              active={activeView === item.id}
-              icon={item.icon}
-              key={item.id}
-              label={copy.nav[item.labelKey]}
-              onClick={() => openView(item.id)}
-            />
-          ))}
-        </nav>
+        {navGroups.map((group) => (
+          <nav className="nav-list nav-main" aria-label={copy.navGroups[group.id]} key={group.id}>
+            <div className="nav-group-label">{copy.navGroups[group.id]}</div>
+            {group.items.map((item) => (
+              <NavButton
+                active={activeView === item.id}
+                icon={item.icon}
+                key={item.id}
+                label={copy.nav[item.labelKey]}
+                onClick={() => openView(item.id)}
+              />
+            ))}
+          </nav>
+        ))}
 
-        <nav className="nav-list nav-footer" aria-label="Settings">
+        <nav className="nav-list nav-footer" aria-label={copy.navGroups.system}>
+          <div className="nav-group-label">{copy.navGroups.system}</div>
           <NavButton
             active={activeView === "settings"}
             icon={settingsNavItem.icon}
@@ -159,17 +183,24 @@ export function App() {
       </aside>
 
       <div className="workspace">
-        <header className="topbar topbar--status-only">
-          <div className="connection-label connection-status">
-            <Network size={17} aria-hidden="true" />
-            <span className="connection-label__main">{connectionTarget}</span>
-            <span className="connection-label__meta">{tokenStatus}</span>
+        <header className="topbar">
+          <nav className="topbar__crumb" aria-label="Breadcrumb">
+            <span className="topbar__crumb-root">OpenDIKW</span>
+            <span className="topbar__crumb-sep" aria-hidden="true">／</span>
+            <span className="topbar__crumb-leaf">{activeLabel}</span>
+          </nav>
+
+          <div className="connection-chip" data-token={tokenConfigured ? "on" : "off"}>
+            <span className="connection-chip__dot" aria-hidden="true" />
+            <span className="connection-chip__url">{connectionTarget}</span>
+            <span className="connection-chip__sep" aria-hidden="true">·</span>
+            <span className="connection-chip__token">{tokenStatus}</span>
           </div>
         </header>
 
         <main className="content">
           {activeView === "overview" ? <OverviewPage client={client} locale={locale} /> : null}
-          {activeView === "query" ? <QueryPage client={client} locale={locale} /> : null}
+          {activeView === "query" ? <QueryPage agentClient={agentClient} client={client} locale={locale} /> : null}
           {activeView === "retrieve" ? <RetrievePage client={client} locale={locale} /> : null}
           {activeView === "wiki" ? <WikiPage client={client} initialPath={wikiInitialPath} locale={locale} /> : null}
           {activeView === "graph" ? <GraphPage client={client} onOpenWikiPath={openWikiPath} locale={locale} /> : null}
@@ -208,7 +239,7 @@ function NavButton({
 }) {
   return (
     <button className={`nav-item ${active ? "is-active" : ""}`} type="button" onClick={onClick}>
-      <Icon size={18} aria-hidden="true" />
+      <Icon size={17} aria-hidden="true" />
       <span className="nav-item__label">
         <strong>{label}</strong>
       </span>

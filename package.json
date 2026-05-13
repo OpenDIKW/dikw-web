@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
+    "dev": "vite --host 127.0.0.1 --port 4321 --strictPort",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "typecheck": "tsc --noEmit",
@@ -15,6 +15,8 @@
     "verify": "npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e"
   },
   "dependencies": {
+    "@earendil-works/pi-agent-core": "^0.74.0",
+    "@earendil-works/pi-ai": "^0.74.0",
     "@vitejs/plugin-react": "^5.1.1",
     "d3-force": "^3.0.0",
     "lucide-react": "^0.561.0",

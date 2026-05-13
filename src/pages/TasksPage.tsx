@@ -17,6 +17,7 @@ interface TasksPageProps {
 type ProgressEvent = Extract<TaskEvent, { type: "progress" }>;
 type FinalEvent = Extract<TaskEvent, { type: "final" }>;
 type TaskPatch = Pick<TaskRow, "status" | "finished_at" | "result" | "error">;
+type TasksCopy = (typeof translations)["en"]["pages"]["tasks"];
 
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
 
@@ -129,7 +130,6 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     <div className="page-stack">
       <header className="page-header" data-testid="page-header">
         <div>
-          <p className="eyebrow">{copy.eyebrow}</p>
           <h1>{copy.title}</h1>
         </div>
         <button className="icon-button" type="button" onClick={refreshTasks} aria-label={copy.refresh}>
@@ -139,7 +139,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
 
       <section className="panel filter-bar">
         <label className="field">
-          <span>Status</span>
+          <span>{copy.statusLabel}</span>
           <select value={status} onChange={(event) => setStatus(event.target.value as "" | TaskStatus)}>
             {taskStatuses.map((value) => (
               <option value={value} key={value || "all"}>
@@ -149,12 +149,12 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
           </select>
         </label>
         <label className="field">
-          <span>Op</span>
+          <span>{copy.opLabel}</span>
           <input value={op} onChange={(event) => setOp(event.target.value)} placeholder="ingest / synth / distill" />
         </label>
       </section>
 
-      {tasks.error ? <Notice title="无法读取任务列表" error={tasks.error} /> : null}
+      {tasks.error ? <Notice title={copy.listErrorTitle} error={tasks.error} /> : null}
 
       <section className="tasks-layout">
         <div className="panel task-list-panel">
@@ -186,7 +186,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
               ))}
             </div>
           ) : (
-            <EmptyState title="没有任务记录" />
+            <EmptyState title={copy.taskListEmpty} />
           )}
         </div>
 
@@ -226,11 +226,11 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
                   Stop
                 </button>
               </div>
-              {eventsError ? <Notice title="无法读取任务事件" error={eventsError} /> : null}
-              <EventTape events={events} following={following} selected={selected} />
+              {eventsError ? <Notice title={copy.eventsErrorTitle} error={eventsError} /> : null}
+              <EventTape events={events} following={following} selected={selected} copy={copy} />
             </>
           ) : (
-            <EmptyState title="选择一个任务" />
+            <EmptyState title={copy.selectTask} />
           )}
         </aside>
       </section>
@@ -238,13 +238,23 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   );
 }
 
-function EventTape({ events, following, selected }: { events: TaskEvent[]; following: boolean; selected: TaskRow }) {
+function EventTape({
+  events,
+  following,
+  selected,
+  copy
+}: {
+  events: TaskEvent[];
+  following: boolean;
+  selected: TaskRow;
+  copy: TasksCopy;
+}) {
   if (!events.length) {
     return (
       <div className="event-empty">
         <EmptyState
-          title={following ? "等待事件" : "事件尚未加载"}
-          detail={isTerminalTask(selected.status) ? "点击 Load events 查看任务事件时间线。" : "点击 Follow 跟随任务事件流。"}
+          title={following ? copy.waitingEvents : copy.eventsNotLoaded}
+          detail={isTerminalTask(selected.status) ? copy.terminalEventDetail : copy.runningEventDetail}
         />
       </div>
     );
@@ -263,7 +273,7 @@ function EventTape({ events, following, selected }: { events: TaskEvent[]; follo
               <span>{event.type}</span>
               <span>{formatIso(event.ts)}</span>
             </div>
-            <EventBody event={event} op={selected.op} />
+            <EventBody event={event} op={selected.op} copy={copy} />
           </article>
         ))}
       </div>
@@ -271,11 +281,11 @@ function EventTape({ events, following, selected }: { events: TaskEvent[]; follo
   );
 }
 
-function EventBody({ event, op }: { event: TaskEvent; op: string }) {
+function EventBody({ event, op, copy }: { event: TaskEvent; op: string; copy: TasksCopy }) {
   if (event.type === "progress") {
     const detail = event.detail ? compactDetail(event.detail) : "";
     const percentage = progressPercentage(event);
-    const progressLabel = formatProgressLabel(event);
+    const progressLabel = formatProgressLabel(event, copy);
     const progressBarClass = [
       "progress-bar",
       percentage === null ? "progress-bar--indeterminate" : "",
@@ -329,15 +339,15 @@ function progressPercentage(event: ProgressEvent): number | null {
   return Math.min(100, Math.max(0, (event.current / event.total) * 100));
 }
 
-function formatProgressLabel(event: ProgressEvent): string {
+function formatProgressLabel(event: ProgressEvent, copy: TasksCopy): string {
   if (event.total > 0) {
     return `${formatNumber(event.current)}/${formatNumber(event.total)}`;
   }
   if (event.current <= 0) {
-    return "等待统计 · 总量未知";
+    return `${copy.waitingForCount} · ${copy.totalUnknown}`;
   }
-  const verb = event.phase === "scan" ? "已扫描" : "已处理";
-  return `${verb} ${formatNumber(event.current)} · 总量未知`;
+  const verb = event.phase === "scan" ? copy.scanned : copy.processed;
+  return `${verb} ${formatNumber(event.current)} · ${copy.totalUnknown}`;
 }
 
 function TaskResultSummary({ op, result, compact = false }: { op: string; result: Record<string, unknown>; compact?: boolean }) {

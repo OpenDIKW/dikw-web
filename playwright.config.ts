@@ -7,13 +7,13 @@ export default defineConfig({
   fullyParallel: true,
   reporter: "list",
   use: {
-    baseURL: "http://127.0.0.1:5175",
+    baseURL: "http://127.0.0.1:4321",
     trace: "on-first-retry"
   },
   webServer: {
-    command: `${npmRun} dev -- --port 5175 --strictPort`,
-    port: 5175,
-    reuseExistingServer: false,
+    command: `${npmRun} dev`,
+    port: 4321,
+    reuseExistingServer: true,
     timeout: 120_000
   },
   projects: [

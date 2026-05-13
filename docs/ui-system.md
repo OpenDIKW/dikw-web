@@ -9,10 +9,16 @@ styled like a generic admin dashboard.
 - Primary routes live in the sidebar.
 - Settings is a separate sidebar footer item, not a primary knowledge
   route.
+- Agent Chat lives behind the existing `#query` route for compatibility,
+  but the visible product concept is Agent-driven conversation rather
+  than a raw query form.
 - The top bar is a read-only connection status strip. It shows the
   target server and whether a token is configured, but never displays
   the token value.
-- Server URL and token editing only happens in Settings.
+- Server URL and token editing only happens in Settings. The default
+  visible Server URL is `http://127.0.0.1:8765`; same-origin proxy
+  wording should not appear in the shell chrome. The default browser
+  requests may still use the Vite `/v1` proxy internally to avoid CORS.
 
 ## Preferences
 
@@ -34,6 +40,13 @@ styled like a generic admin dashboard.
 Use CSS variables for page background, surfaces, text, muted text,
 lines, accent, status colors, and shadows. New UI should consume tokens
 instead of hard-coded colors so light and dark modes stay aligned.
+
+The current `src/styles.css` is the baseline UI specification for future
+iterations. Keep the warm-stone neutral palette, petrol accent,
+hairline borders, restrained shadows, grouped sidebar, breadcrumb
+topbar, compact metric grid, and left-marker selected states unless a
+future design explicitly replaces the system. Avoid one-off page colors,
+heavy card shadows, oversized radii, and decorative gradients.
 
 The Wiki reader has reader-specific tokens for article surfaces, text,
 links, borders, quote blocks, code, and tables. Dark mode must keep the

@@ -1,0 +1,213 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { join } from "node:path";
+import { loadAgentConfig } from "./config";
+import { FileSessionStore } from "./sessionStore";
+import { PiAgentRunner, type AgentRunner } from "./runtime";
+import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types";
+
+export interface AgentHandlerOptions {
+  cwd?: string;
+  store?: FileSessionStore;
+  runner?: AgentRunner;
+}
+
+export async function createDefaultAgentHandler(cwd = process.cwd()) {
+  const config = await loadAgentConfig({ cwd });
+  const store = new FileSessionStore(join(cwd, ".agent-sessions"));
+  return createAgentHandler({
+    cwd,
+    store,
+    runner: new PiAgentRunner({ config, store })
+  });
+}
+
+export function createAgentHandler(options: AgentHandlerOptions = {}) {
+  const cwd = options.cwd ?? process.cwd();
+  const store = options.store ?? new FileSessionStore(join(cwd, ".agent-sessions"));
+  const runnerPromise =
+    options.runner ??
+    loadAgentConfig({ cwd }).then((config) => new PiAgentRunner({ config, store }) satisfies AgentRunner);
+  const activeControllers = new Map<string, AbortController>();
+
+  return async function agentHandler(req: IncomingMessage, res: ServerResponse, next?: (error?: unknown) => void) {
+    try {
+      const url = new URL(req.url ?? "/", "http://localhost");
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts[0] !== "sessions") {
+        return notFound(res);
+      }
+      if (req.method === "GET" && parts.length === 1) {
+        return json(res, await store.listSessions());
+      }
+      if (req.method === "POST" && parts.length === 1) {
+        return json(res, await store.createSession(), 201);
+      }
+      const sessionId = parts[1];
+      if (!sessionId) {
+        return notFound(res);
+      }
+      if (req.method === "GET" && parts.length === 2) {
+        return json(res, await store.getSession(sessionId));
+      }
+      if (req.method === "DELETE" && parts.length === 2) {
+        await store.deleteSession(sessionId);
+        return noContent(res);
+      }
+      if (req.method === "POST" && parts.length === 3 && parts[2] === "abort") {
+        activeControllers.get(sessionId)?.abort();
+        return noContent(res);
+      }
+      if (req.method === "POST" && parts.length === 3 && parts[2] === "messages") {
+        const body = await readJsonBody(req);
+        if (!isRecord(body) || typeof body.message !== "string" || !body.message.trim()) {
+          return errorJson(res, 400, "invalid_request", "message is required");
+        }
+        const connection = readCoreConnection(body);
+        if ("error" in connection) {
+          return errorJson(res, 400, "invalid_request", connection.error);
+        }
+        const controller = new AbortController();
+        activeControllers.set(sessionId, controller);
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+        const writeEvent = (event: AgentStreamEvent) => {
+          res.write(`${JSON.stringify(event)}\n`);
+        };
+        try {
+          await (await runnerPromise).runMessage({
+            sessionId,
+            message: body.message.trim(),
+            coreUrl: connection.coreUrl,
+            token: connection.token,
+            signal: controller.signal,
+            onEvent: writeEvent
+          });
+        } catch (error) {
+          writeEvent({
+            type: "error",
+            sessionId,
+            code: "agent_error",
+            message: error instanceof Error ? error.message : String(error)
+          });
+        } finally {
+          activeControllers.delete(sessionId);
+          res.end();
+        }
+        return;
+      }
+      if (req.method === "POST" && parts.length === 5 && parts[2] === "proposals") {
+        const proposalId = parts[3];
+        if (parts[4] === "reject") {
+          return json(res, await store.updateProposalStatus(sessionId, proposalId, "rejected"));
+        }
+        if (parts[4] === "confirm") {
+          const body = await readJsonBody(req);
+          const connection = readCoreConnection(body);
+          if ("error" in connection) {
+            return errorJson(res, 400, "invalid_request", connection.error);
+          }
+          const session = await store.updateProposalStatus(sessionId, proposalId, "confirmed");
+          const proposal = session.proposals.find((item) => item.id === proposalId);
+          if (!proposal) {
+            return errorJson(res, 404, "not_found", "proposal not found");
+          }
+          const task = await runMaintenanceProposal(proposal.action, proposal.params ?? {}, connection);
+          proposal.status = "succeeded";
+          proposal.taskId = task.task_id;
+          return json(res, await store.recordProposal(sessionId, proposal));
+        }
+      }
+      return notFound(res);
+    } catch (error) {
+      if (next) {
+        next(error);
+        return;
+      }
+      return errorJson(res, 500, "agent_http_error", error instanceof Error ? error.message : String(error));
+    }
+  };
+}
+
+interface CoreConnection {
+  coreUrl: string;
+  token?: string;
+}
+
+async function runMaintenanceProposal(
+  action: AgentMaintenanceAction,
+  params: Record<string, unknown>,
+  connection: CoreConnection
+): Promise<{ task_id?: string }> {
+  const endpoint =
+    action === "ingest"
+      ? "/v1/ingest"
+      : action === "synth"
+        ? "/v1/synth"
+        : action === "distill"
+        ? "/v1/distill"
+        : "/v1/lint/propose";
+  const headers: Record<string, string> = { Accept: "application/json", "Content-Type": "application/json" };
+  if (connection.token) {
+    headers.Authorization = `Bearer ${connection.token}`;
+  }
+  const response = await fetch(`${connection.coreUrl}${endpoint}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(params)
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return (await response.json()) as { task_id?: string };
+}
+
+function readCoreConnection(body: unknown): CoreConnection | { error: string } {
+  if (!isRecord(body) || typeof body.coreUrl !== "string" || !body.coreUrl.trim()) {
+    return { error: "coreUrl is required" };
+  }
+  try {
+    const url = new URL(body.coreUrl.trim());
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return { error: "coreUrl must be an absolute http(s) URL" };
+    }
+    return {
+      coreUrl: url.toString().replace(/\/$/, ""),
+      ...(typeof body.token === "string" && body.token ? { token: body.token } : {})
+    };
+  } catch {
+    return { error: "coreUrl must be an absolute http(s) URL" };
+  }
+}
+
+function json(res: ServerResponse, value: unknown, status = 200) {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify(value));
+}
+
+function noContent(res: ServerResponse) {
+  res.statusCode = 204;
+  res.end();
+}
+
+function notFound(res: ServerResponse) {
+  errorJson(res, 404, "not_found", "agent route not found");
+}
+
+function errorJson(res: ServerResponse, status: number, code: string, message: string) {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify({ error: { code, message } }));
+}
+
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  let text = "";
+  for await (const chunk of req) {
+    text += chunk;
+  }
+  return text ? JSON.parse(text) : {};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
