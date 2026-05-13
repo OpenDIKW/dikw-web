@@ -33,6 +33,14 @@ export class AgentClient {
     return requestJson<AgentSession>(`/agent/sessions/${encodeURIComponent(sessionId)}`, { signal });
   }
 
+  async renameSession(sessionId: string, title: string, signal?: AbortSignal): Promise<AgentSession> {
+    return requestJson<AgentSession>(`/agent/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title }),
+      signal
+    });
+  }
+
   async deleteSession(sessionId: string, signal?: AbortSignal): Promise<void> {
     await requestJson<void>(`/agent/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE", signal });
   }

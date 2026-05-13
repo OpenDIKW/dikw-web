@@ -106,3 +106,59 @@ test("dark Wiki reader uses low-glare surfaces with readable contrast", async ({
   const screenshot = await reader.screenshot();
   expect(screenshot.length).toBeGreaterThan(1000);
 });
+
+test("dark Wiki reader keeps details and Mermaid diagrams on reader surfaces", async ({ page }) => {
+  await page.goto("/#wiki");
+
+  await page.getByLabel("Filter").fill("active-learning");
+  await page.getByRole("treeitem", { name: "Active Learning Medium" }).getByRole("button").click();
+  const reader = page.locator(".wiki-reader");
+  await reader.getByText("flowchart").click();
+
+  await expect(reader.locator(".markdown-details")).toBeVisible();
+  await expect(reader.locator(".mermaid-diagram svg")).toBeVisible();
+
+  const surfaceChecks = await page.evaluate(() => {
+    const selectors = [".markdown-details", ".mermaid-diagram"];
+    return selectors.map((selector) => {
+      const element = document.querySelector<HTMLElement>(selector);
+      if (!element) {
+        return { selector, missing: true, nearWhite: false };
+      }
+      const background = effectiveBackground(element);
+      return {
+        selector,
+        missing: false,
+        nearWhite: background.slice(0, 3).every((part) => part >= 235)
+      };
+    });
+
+    function effectiveBackground(element: HTMLElement): [number, number, number, number] {
+      let current: HTMLElement | null = element;
+      while (current) {
+        const color = readColor(getComputedStyle(current).backgroundColor);
+        if (color[3] > 0) {
+          return color;
+        }
+        current = current.parentElement;
+      }
+      return readColor(getComputedStyle(document.body).backgroundColor);
+    }
+
+    function readColor(value: string): [number, number, number, number] {
+      const match = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(value);
+      if (!match) {
+        return [0, 0, 0, 0];
+      }
+      return [Number(match[1]), Number(match[2]), Number(match[3]), match[4] === undefined ? 1 : Number(match[4])];
+    }
+  });
+
+  for (const check of surfaceChecks) {
+    expect(check, `${check.selector} should exist`).toMatchObject({ missing: false });
+    expect(check.nearWhite, `${check.selector} should not use a near-white surface`).toBe(false);
+  }
+
+  const pageOverflows = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+  expect(pageOverflows).toBe(false);
+});

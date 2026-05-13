@@ -74,4 +74,39 @@ describe("AgentClient", () => {
 
     expect(bodies).toEqual([{ coreUrl: "http://127.0.0.1:8765", token: "secret-token" }]);
   });
+
+  it("renames sessions through the sidecar API", async () => {
+    const bodies: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(String(input), window.location.origin);
+        if (url.pathname === "/agent/sessions/s1" && init?.method === "PATCH") {
+          bodies.push(JSON.parse(String(init.body)));
+          return Promise.resolve(
+            Response.json({
+              id: "s1",
+              title: "Project Review",
+              createdAt: "now",
+              updatedAt: "later",
+              messageCount: 0,
+              lastMessagePreview: "",
+              messages: [],
+              toolEvents: [],
+              sources: [],
+              proposals: []
+            })
+          );
+        }
+        return Promise.resolve(new Response("not found", { status: 404 }));
+      })
+    );
+
+    const client = new AgentClient();
+    await expect(client.renameSession("s1", "Project Review")).resolves.toMatchObject({
+      id: "s1",
+      title: "Project Review"
+    });
+    expect(bodies).toEqual([{ title: "Project Review" }]);
+  });
 });

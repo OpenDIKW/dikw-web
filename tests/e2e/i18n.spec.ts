@@ -3,7 +3,7 @@ import { mockDikwApi } from "./mockApi";
 
 const englishRoutes = [
   { hash: "overview", heading: "Overview" },
-  { hash: "query", heading: "Agent Chat" },
+  { hash: "chat", heading: "Chat" },
   { hash: "wiki", heading: "Knowledge" },
   { hash: "graph", heading: "Graph" },
   { hash: "tasks", heading: "Tasks" },
@@ -13,7 +13,7 @@ const englishRoutes = [
 
 const chineseRoutes = [
   { hash: "overview", heading: "工作台概览" },
-  { hash: "query", heading: "Agent 对话" },
+  { hash: "chat", heading: "会话" },
   { hash: "wiki", heading: "知识库" },
   { hash: "graph", heading: "知识图谱" },
   { hash: "tasks", heading: "任务" },
@@ -22,7 +22,7 @@ const chineseRoutes = [
 ];
 
 const cjkText = /[\u3400-\u9fff]/;
-const businessRoutes = ["overview", "query", "retrieve", "wiki", "graph", "tasks", "wisdom"];
+const businessRoutes = ["overview", "chat", "retrieve", "wiki", "graph", "tasks", "wisdom"];
 
 test.beforeEach(async ({ page }) => {
   await mockDikwApi(page);
@@ -57,7 +57,7 @@ test("Chinese locale keeps page chrome single-language", async ({ page }) => {
     const header = page.getByTestId("page-header");
     await expect(header.getByRole("heading", { name: route.heading, exact: true })).toBeVisible();
     await expect(header.locator(".eyebrow")).toHaveCount(0);
-    await expect(header).not.toContainText(/Overview|Knowledge|Graph|Tasks|Wisdom|Settings/);
+    await expect(header).not.toContainText(/Overview|Chat|Knowledge|Graph|Tasks|Wisdom|Settings/);
   }
 });
 
@@ -68,10 +68,11 @@ test("default English locale keeps page-level chrome free of Chinese fallback te
     await expect(page.locator(".content .eyebrow")).toHaveCount(0);
   }
 
-  await page.goto("/#query");
+  await page.goto("/#chat");
   await expect(page.getByPlaceholder("Ask the DIKW agent about the knowledge base")).toBeVisible();
-  await expect(page.getByText("Start a DIKW conversation")).toBeVisible();
-  await expect(page.getByText("No sources yet")).toBeVisible();
+  await expect(page.getByText("Start a chat")).toBeVisible();
+  await expect(page.getByText("No sources for this reply")).toBeVisible();
+  await expect(page.getByText("Agent Chat")).toHaveCount(0);
 
   await page.goto("/#retrieve");
   await expect(page.getByPlaceholder("Search chunks and page refs")).toBeVisible();
@@ -87,4 +88,10 @@ test("default English locale keeps page-level chrome free of Chinese fallback te
 
   await page.goto("/#graph");
   await expect(page.getByText(/Reading \d+ \/ \d+ pages/)).toBeVisible();
+});
+
+test("legacy query hash redirects to the canonical chat route", async ({ page }) => {
+  await page.goto("/#query");
+  await expect(page).toHaveURL(/#chat$/);
+  await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
 });

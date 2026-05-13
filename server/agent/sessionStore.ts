@@ -50,29 +50,41 @@ export class FileSessionStore {
     await rm(this.pathFor(id), { force: true });
   }
 
-  async appendUserMessage(id: string, content: string): Promise<AgentSession> {
-    return this.appendMessage(id, "user", content);
-  }
-
-  async appendAssistantMessage(id: string, content: string): Promise<AgentSession> {
-    return this.appendMessage(id, "assistant", content);
-  }
-
-  async recordToolEvent(id: string, event: AgentToolEvent): Promise<AgentSession> {
+  async renameSession(id: string, title: string): Promise<AgentSession> {
     const session = await this.getSession(id);
-    const index = session.toolEvents.findIndex((item) => item.id === event.id);
+    session.title = validateSessionTitle(title);
+    return this.touchAndWrite(session);
+  }
+
+  async appendUserMessage(id: string, content: string, turnId?: string): Promise<AgentSession> {
+    return this.appendMessage(id, "user", content, turnId);
+  }
+
+  async appendAssistantMessage(id: string, content: string, turnId?: string): Promise<AgentSession> {
+    return this.appendMessage(id, "assistant", content, turnId);
+  }
+
+  async recordToolEvent(id: string, event: AgentToolEvent, turnId?: string): Promise<AgentSession> {
+    const session = await this.getSession(id);
+    const nextEvent = turnId && !event.turnId ? { ...event, turnId } : event;
+    const index = session.toolEvents.findIndex((item) => item.id === nextEvent.id && item.turnId === nextEvent.turnId);
     if (index === -1) {
-      session.toolEvents.push(event);
+      session.toolEvents.push(nextEvent);
     } else {
-      session.toolEvents[index] = event;
+      session.toolEvents[index] = nextEvent;
     }
     return this.touchAndWrite(session);
   }
 
-  async recordSource(id: string, source: AgentSource): Promise<AgentSession> {
+  async recordSource(id: string, source: AgentSource, turnId?: string): Promise<AgentSession> {
     const session = await this.getSession(id);
-    if (!session.sources.some((item) => item.path === source.path && item.title === source.title)) {
-      session.sources.push(source);
+    const nextSource = turnId && !source.turnId ? { ...source, turnId } : source;
+    if (
+      !session.sources.some(
+        (item) => item.path === nextSource.path && item.title === nextSource.title && item.turnId === nextSource.turnId
+      )
+    ) {
+      session.sources.push(nextSource);
     }
     return this.touchAndWrite(session);
   }
@@ -99,15 +111,21 @@ export class FileSessionStore {
     return this.touchAndWrite(session);
   }
 
-  private async appendMessage(id: string, role: AgentMessage["role"], content: string): Promise<AgentSession> {
+  private async appendMessage(
+    id: string,
+    role: AgentMessage["role"],
+    content: string,
+    turnId?: string
+  ): Promise<AgentSession> {
     const session = await this.getSession(id);
     session.messages.push({
       id: randomUUID(),
       role,
       content,
-      createdAt: timestamp()
+      createdAt: timestamp(),
+      ...(turnId ? { turnId } : {})
     });
-    if (role === "user" && (session.title === "New chat" || session.messageCount === 0)) {
+    if (role === "user" && session.title === "New chat") {
       session.title = preview(content, 40) || "New chat";
     }
     return this.touchAndWrite(session);
@@ -181,6 +199,17 @@ function toSummary(session: AgentSession): SessionSummary {
 function preview(value: string, max: number): string {
   const compact = value.replace(/\s+/g, " ").trim();
   return compact.length > max ? `${compact.slice(0, max - 1)}…` : compact;
+}
+
+export function validateSessionTitle(value: unknown): string {
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error("session title is required");
+  }
+  const title = value.trim();
+  if (title.length > 80) {
+    throw new Error("session title is too long");
+  }
+  return title;
 }
 
 function safeId(id: string): string {

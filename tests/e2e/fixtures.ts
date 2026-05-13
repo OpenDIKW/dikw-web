@@ -103,6 +103,16 @@ export const wikiPagesFixture = [
     mtime: 1777819100,
     layer: "source",
     active: true
+  },
+  {
+    doc_id: "source-active-learning-medium",
+    path: "sources/active-learning-medium/active-learning-medium.md",
+    path_key: "sources/active-learning-medium/active-learning-medium.md",
+    title: "Active Learning Medium",
+    hash: "hash-src-active-learning",
+    mtime: 1777819500,
+    layer: "source",
+    active: true
   }
 ];
 
@@ -112,7 +122,7 @@ export const wikiPageBodiesFixture = {
     path: "wiki/concepts/architecture.md",
     layer: "wiki",
     title: "Architecture",
-    body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\nstatus: draft\n---\n\n# Architecture\n\nLayered DIKW notes with `inline code`.\n\n> Evidence should stay readable in dark mode.\n\n| Layer | Purpose |\n| --- | --- |\n| Knowledge | Durable notes |\n\n```ts\nconst layer = \"knowledge\";\n```\n\n[Jump to links](#links)\n\n## Links\n\nSee [[Synthesis]] and [[Missing Concept]].",
+    body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\nstatus: draft\n---\n\n# Architecture\n\nLayered DIKW notes with `inline code`.\n\n> Evidence should stay readable in dark mode.\n\n| Layer | Purpose |\n| --- | --- |\n| Knowledge | Durable notes |\n\nInline chemistry $\\mathrm { C O } _ { 2 }$ stays readable.\n\n$$x^2 + y^2 = z^2$$\n\n<table><caption>Hybrid studies</caption><thead><tr><th>First principles</th><th>Training method</th></tr></thead><tbody><tr><td>Mass balance</td><td>FBA</td></tr></tbody></table>\n\n```ts\nconst layer = \"knowledge\";\n```\n\n[Jump to links](#links)\n\n## Links\n\nSee [[Synthesis]] and [[Missing Concept]].",
     anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }]
   },
   "wiki/concepts/synthesis.md": {
@@ -137,6 +147,14 @@ export const wikiPageBodiesFixture = {
     layer: "source",
     title: "Architecture source",
     body: "# Architecture source\n\nOriginal source body.",
+    anchors: []
+  },
+  "sources/active-learning-medium/active-learning-medium.md": {
+    doc_id: "source-active-learning-medium",
+    path: "sources/active-learning-medium/active-learning-medium.md",
+    layer: "source",
+    title: "Active Learning Medium",
+    body: "# Active Learning Medium\n\n<details>\n<summary>flowchart</summary>\n\n```mermaid\ngraph LR\n    A[\"Vitamins Amino acids Metal salts etc.\"] --> B[\"Medium combinations\"]\n    B --> C[\"Incubation (37°C, 5% CO₂, 7 days)\"]\n    C --> D[\"Chemical assay, A450\"]\n```\n</details>\n\nAfter the diagram.",
     anchors: []
   }
 };

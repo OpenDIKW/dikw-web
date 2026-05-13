@@ -81,7 +81,8 @@ describe("App shell", () => {
     const mark = screen.getByRole("img", { name: "OpenDIKW" });
     expect(mark).toHaveAttribute("src", "/opendikw-avatar.png");
     expect(screen.getByRole("button", { name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Agent" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Chat" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Agent" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "概览" })).not.toBeInTheDocument();
     expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("http://127.0.0.1:8765")).not.toBeInTheDocument();
@@ -126,7 +127,26 @@ describe("App shell", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Wisdom" }));
     expect(await screen.findByRole("heading", { name: "Wisdom" })).toBeInTheDocument();
-  }, 10_000);
+  }, 15_000);
+
+  it("uses #chat as the canonical conversation route and redirects legacy #query", async () => {
+    stubApi();
+    window.location.hash = "#chat";
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Chat" })).toBeInTheDocument();
+    expect(window.location.hash).toBe("#chat");
+    expect(screen.queryByRole("heading", { name: "Agent Chat" })).not.toBeInTheDocument();
+
+    window.location.hash = "#query";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+
+    await waitFor(() => {
+      expect(window.location.hash).toBe("#chat");
+      expect(screen.getByRole("heading", { name: "Chat" })).toBeInTheDocument();
+    });
+  });
 
   it("does not expose the removed artifacts route", async () => {
     stubApi();

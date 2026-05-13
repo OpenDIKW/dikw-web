@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { loadAgentConfig } from "./config";
-import { FileSessionStore } from "./sessionStore";
+import { FileSessionStore, validateSessionTitle } from "./sessionStore";
 import { PiAgentRunner, type AgentRunner } from "./runtime";
 import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types";
 
@@ -48,6 +48,16 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       }
       if (req.method === "GET" && parts.length === 2) {
         return json(res, await store.getSession(sessionId));
+      }
+      if (req.method === "PATCH" && parts.length === 2) {
+        const body = await readJsonBody(req);
+        let title: string;
+        try {
+          title = validateSessionTitle(isRecord(body) ? body.title : undefined);
+        } catch (error) {
+          return errorJson(res, 400, "invalid_request", error instanceof Error ? error.message : String(error));
+        }
+        return json(res, await store.renameSession(sessionId, title));
       }
       if (req.method === "DELETE" && parts.length === 2) {
         await store.deleteSession(sessionId);

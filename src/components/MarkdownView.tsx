@@ -1,6 +1,10 @@
+import katex from "katex";
+import "katex/dist/katex.min.css";
 import MarkdownIt from "markdown-it";
+import type StateBlock from "markdown-it/lib/rules_block/state_block.mjs";
+import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
 import type Token from "markdown-it/lib/token.mjs";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { parseMarkdownDocument, type FrontmatterMeta } from "../utils/markdown";
 
 interface MarkdownViewProps {
@@ -17,17 +21,31 @@ const markdown = new MarkdownIt({
 });
 
 installWikiLinks(markdown);
+installMath(markdown);
 installRendererRules(markdown);
 
 export function MarkdownView({ body, fallbackTitle, onWikiLink, showFrontmatter = true }: MarkdownViewProps) {
+  const bodyRef = useRef<HTMLDivElement>(null);
   const { html, meta, needsFallbackTitle } = useMemo(() => {
     const parsed = parseMarkdownDocument(body, { stripDuplicateTitle: false });
     return {
-      html: markdown.render(parsed.body),
+      html: renderMarkdown(parsed.body),
       meta: parsed.meta,
       needsFallbackTitle: Boolean(fallbackTitle && !hasTopHeading(parsed.body))
     };
   }, [body, fallbackTitle]);
+
+  useEffect(() => {
+    const root = bodyRef.current;
+    if (!root) {
+      return;
+    }
+    let cancelled = false;
+    void renderMermaidDiagrams(root, () => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [html]);
 
   function handleClick(event: React.MouseEvent<HTMLElement>) {
     const element = (event.target as HTMLElement).closest<HTMLElement>("[data-wiki-link]");
@@ -51,7 +69,7 @@ export function MarkdownView({ body, fallbackTitle, onWikiLink, showFrontmatter 
     <article className="markdown-view" onClick={handleClick}>
       {showFrontmatter ? <FrontmatterSummary meta={meta} /> : null}
       {needsFallbackTitle ? <h1 className="markdown-fallback-title">{fallbackTitle}</h1> : null}
-      <div className="markdown-body" dangerouslySetInnerHTML={{ __html: html }} />
+      <div ref={bodyRef} className="markdown-body" dangerouslySetInnerHTML={{ __html: html }} />
     </article>
   );
 }
@@ -131,6 +149,90 @@ function installWikiLinks(md: MarkdownIt) {
   };
 }
 
+function installMath(md: MarkdownIt) {
+  md.inline.ruler.before("escape", "math_inline", (state: StateInline, silent: boolean) => {
+    const start = state.pos;
+    if (state.src.charCodeAt(start) !== 0x24 || state.src.charCodeAt(start + 1) === 0x24) {
+      return false;
+    }
+    if (start > 0 && state.src.charCodeAt(start - 1) === 0x5c) {
+      return false;
+    }
+
+    let end = start + 1;
+    while ((end = state.src.indexOf("$", end)) >= 0) {
+      if (state.src.charCodeAt(end - 1) === 0x5c) {
+        end += 1;
+        continue;
+      }
+      const content = state.src.slice(start + 1, end);
+      if (!content || content.includes("\n")) {
+        return false;
+      }
+      if (!silent) {
+        const token = state.push("math_inline", "math", 0);
+        token.content = content.trim();
+      }
+      state.pos = end + 1;
+      return true;
+    }
+    return false;
+  });
+
+  md.block.ruler.before(
+    "fence",
+    "math_block",
+    (state: StateBlock, startLine: number, endLine: number, silent: boolean) => {
+      const start = state.bMarks[startLine] + state.tShift[startLine];
+      const max = state.eMarks[startLine];
+      if (state.src.slice(start, start + 2) !== "$$") {
+        return false;
+      }
+
+      const firstLine = state.src.slice(start + 2, max);
+      let content = "";
+      let nextLine = startLine;
+      const sameLineClose = firstLine.lastIndexOf("$$");
+      if (sameLineClose >= 0 && firstLine.slice(0, sameLineClose).trim().length > 0) {
+        content = firstLine.slice(0, sameLineClose);
+        nextLine = startLine + 1;
+      } else {
+        content = `${firstLine}\n`;
+        let found = false;
+        while (++nextLine < endLine) {
+          const lineStart = state.bMarks[nextLine] + state.tShift[nextLine];
+          const lineMax = state.eMarks[nextLine];
+          const line = state.src.slice(lineStart, lineMax);
+          const close = line.indexOf("$$");
+          if (close >= 0) {
+            content += line.slice(0, close);
+            found = true;
+            nextLine += 1;
+            break;
+          }
+          content += `${line}\n`;
+        }
+        if (!found) {
+          return false;
+        }
+      }
+
+      if (!silent) {
+        const token = state.push("math_block", "math", 0);
+        token.block = true;
+        token.content = content.trim();
+        token.map = [startLine, nextLine];
+      }
+      state.line = nextLine;
+      return true;
+    },
+    { alt: ["paragraph", "reference", "blockquote", "list"] }
+  );
+
+  md.renderer.rules.math_inline = (tokens, index) => renderMath(tokens[index].content, false);
+  md.renderer.rules.math_block = (tokens, index) => `${renderMath(tokens[index].content, true)}\n`;
+}
+
 function installRendererRules(md: MarkdownIt) {
   const defaultRender =
     md.renderer.rules.link_open ??
@@ -163,11 +265,207 @@ function installRendererRules(md: MarkdownIt) {
   const fenceRender = (tokens: Token[], index: number): string => {
     const token = tokens[index];
     const lang = token.info.trim().split(/\s+/)[0];
+    if (lang.toLowerCase() === "mermaid") {
+      return renderMermaidShell(token.content);
+    }
     const label = lang ? `<div class="code-label">${escapeHtml(lang)}</div>` : "";
     return `<div class="code-block">${label}<pre><code>${escapeHtml(token.content)}</code></pre></div>`;
   };
   md.renderer.rules.fence = fenceRender;
   md.renderer.rules.code_block = fenceRender;
+}
+
+function renderMarkdown(body: string): string {
+  const { markdownBody: bodyWithoutDetails, details } = extractSafeDetails(body);
+  const { markdownBody, tables } = extractSafeRawTables(bodyWithoutDetails);
+  const html = markdown.render(markdownBody, {});
+  return restoreSafeBlocks(restoreSafeRawTables(html, tables), details);
+}
+
+interface SafeRawTable {
+  placeholder: string;
+  html: string;
+}
+
+interface SafeRawBlock {
+  placeholder: string;
+  html: string;
+}
+
+const rawDetailsPattern = /<details\b([^>]*)>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/gi;
+const rawTablePattern = /<table\b[\s\S]*?<\/table>/gi;
+const allowedTableTags = new Set(["table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col", "br"]);
+const allowedTableAttributes = new Set(["align", "colspan", "rowspan", "scope"]);
+
+function extractSafeDetails(body: string): { markdownBody: string; details: SafeRawBlock[] } {
+  const details: SafeRawBlock[] = [];
+  const markdownBody = body.replace(rawDetailsPattern, (raw, attributes: string, summary: string, content: string) => {
+    const open = parseDetailsOpenAttribute(attributes);
+    if (open === null) {
+      return raw;
+    }
+
+    const placeholder = `DIKW_RAW_DETAILS_${details.length}`;
+    const renderedContent = renderMarkdown(content.trim());
+    details.push({
+      placeholder,
+      html: `<details class="markdown-details"${open ? " open" : ""}><summary>${escapeHtml(
+        summary.trim()
+      )}</summary><div class="markdown-details__body">${renderedContent}</div></details>`
+    });
+    return `\n\n${placeholder}\n\n`;
+  });
+
+  return { markdownBody, details };
+}
+
+function extractSafeRawTables(body: string): { markdownBody: string; tables: SafeRawTable[] } {
+  const tables: SafeRawTable[] = [];
+  const markdownBody = body.replace(rawTablePattern, (raw) => {
+    const html = sanitizeRawTable(raw);
+    if (!html) {
+      return raw;
+    }
+    const placeholder = `DIKW_RAW_TABLE_${tables.length}`;
+    tables.push({ placeholder, html });
+    return `\n\n${placeholder}\n\n`;
+  });
+
+  return { markdownBody, tables };
+}
+
+function restoreSafeBlocks(html: string, blocks: SafeRawBlock[]): string {
+  return blocks.reduce((current, block) => {
+    const paragraphPattern = new RegExp(`<p>\\s*${escapeRegExp(block.placeholder)}\\s*</p>`, "g");
+    return current.replace(paragraphPattern, block.html).replaceAll(block.placeholder, block.html);
+  }, html);
+}
+
+function restoreSafeRawTables(html: string, tables: SafeRawTable[]): string {
+  return tables.reduce((current, table) => {
+    const paragraphPattern = new RegExp(`<p>\\s*${escapeRegExp(table.placeholder)}\\s*</p>`, "g");
+    return current.replace(paragraphPattern, table.html).replaceAll(table.placeholder, table.html);
+  }, html);
+}
+
+function parseDetailsOpenAttribute(attributes: string): boolean | null {
+  const trimmed = attributes.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return /^open(?:\s*=\s*(?:"open"|'open'|open|""))?$/i.test(trimmed) ? true : null;
+}
+
+function sanitizeRawTable(raw: string): string | null {
+  if (typeof DOMParser === "undefined") {
+    return null;
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(raw, "text/html");
+  const table = doc.body.firstElementChild;
+  if (!(table instanceof HTMLTableElement)) {
+    return null;
+  }
+
+  sanitizeTableElement(table);
+  return `<div class="markdown-table-wrap">${table.outerHTML}</div>`;
+}
+
+function sanitizeTableElement(element: Element): void {
+  for (const child of Array.from(element.children)) {
+    const tagName = child.tagName.toLowerCase();
+    if (!allowedTableTags.has(tagName)) {
+      child.remove();
+      continue;
+    }
+    sanitizeTableElement(child);
+  }
+
+  for (const attribute of Array.from(element.attributes)) {
+    const name = attribute.name.toLowerCase();
+    if (name.startsWith("on") || !allowedTableAttributes.has(name)) {
+      element.removeAttribute(attribute.name);
+    }
+  }
+}
+
+function renderMath(content: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(content, {
+      displayMode,
+      output: "htmlAndMathml",
+      strict: false,
+      throwOnError: false,
+      trust: false
+    });
+  } catch {
+    const delimiter = displayMode ? "$$" : "$";
+    return escapeHtml(`${delimiter}${content}${delimiter}`);
+  }
+}
+
+function renderMermaidShell(source: string): string {
+  return `<div class="mermaid-diagram" data-state="pending" data-mermaid-source="${escapeAttribute(
+    encodeURIComponent(source)
+  )}"><div class="mermaid-diagram__loading">Rendering diagram...</div><pre class="mermaid-fallback" hidden><code>${escapeHtml(
+    source
+  )}</code></pre></div>`;
+}
+
+let mermaidRenderSequence = 0;
+
+async function renderMermaidDiagrams(root: HTMLElement, isCancelled: () => boolean): Promise<void> {
+  const diagrams = Array.from(root.querySelectorAll<HTMLElement>(".mermaid-diagram[data-state='pending']"));
+  if (!diagrams.length) {
+    return;
+  }
+
+  let mermaid: typeof import("mermaid").default;
+  try {
+    mermaid = (await import("mermaid")).default;
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: "strict",
+      theme: root.ownerDocument.documentElement.dataset.theme === "dark" ? "dark" : "default",
+      flowchart: { htmlLabels: false }
+    });
+  } catch {
+    diagrams.forEach((diagram) => renderMermaidFallback(diagram));
+    return;
+  }
+
+  for (const diagram of diagrams) {
+    const source = readMermaidSource(diagram);
+    try {
+      const id = `dikw-mermaid-${Date.now()}-${mermaidRenderSequence++}`;
+      const result = await mermaid.render(id, source);
+      if (isCancelled()) {
+        return;
+      }
+      diagram.dataset.state = "rendered";
+      diagram.innerHTML = result.svg;
+    } catch {
+      if (!isCancelled()) {
+        renderMermaidFallback(diagram, source);
+      }
+    }
+  }
+}
+
+function renderMermaidFallback(diagram: HTMLElement, source = readMermaidSource(diagram)): void {
+  diagram.dataset.state = "error";
+  diagram.innerHTML = `<div class="mermaid-diagram__error">Mermaid diagram could not be rendered.</div><pre class="code-block mermaid-fallback"><code>${escapeHtml(
+    source
+  )}</code></pre>`;
+}
+
+function readMermaidSource(diagram: HTMLElement): string {
+  try {
+    return decodeURIComponent(diagram.dataset.mermaidSource ?? "");
+  } catch {
+    return "";
+  }
 }
 
 function asList(value: string | string[] | undefined): string[] {
@@ -190,6 +488,10 @@ function escapeHtml(value: string): string {
 
 function escapeAttribute(value: string): string {
   return escapeHtml(value).replace(/'/g, "&#39;");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function uniqueHeadingSlug(env: Record<string, unknown>, value: string): string {

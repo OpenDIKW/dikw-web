@@ -75,6 +75,15 @@ Markdown internal anchor links stay inside the current Wiki view. They
 scroll the selected article instead of rewriting the application hash
 route away from `#wiki`.
 
+`PageReadResult.body` remains raw Markdown as returned by `dikw-core`.
+Rendering Markdown pipe tables, sanitized raw HTML tables, safe details
+blocks, Mermaid fenced diagrams, and KaTeX inline/block formulas is a
+web-only presentation concern; it does not change the
+`/v1/base/pages/{path}` response shape. The web reader does not enable
+arbitrary HTML. Only the safe table/details subset documented in the UI
+system is converted to live DOM; other HTML remains escaped or is
+removed during table sanitization.
+
 ## Graph View
 
 Graph View is read-only and does not require a core graph endpoint in
@@ -89,9 +98,9 @@ graph edges. Unresolved wikilinks are shown as counts and source-node
 detail, but they do not create ghost nodes. Default graph layer is
 `wiki`; `source` and `all` are client-side graph scopes.
 
-## Agent Chat
+## Chat
 
-Agent Chat is exposed to the browser as same-origin `/agent/*` routes
+Chat is exposed to the browser as same-origin `/agent/*` routes
 owned by `dikw-web`, not by `dikw-core`. The sidecar runs Pi Agent and
 uses the current Settings `Server URL` from each browser request to call
 these core endpoints as tools:
@@ -109,6 +118,11 @@ sent to the browser, stored in Settings, or persisted in session files.
 The core URL and optional core bearer token are request-scoped Agent
 inputs; if `coreUrl` is missing, the sidecar rejects the request instead
 of falling back to `.env.agent.local`.
+
+The canonical browser route is `#chat`. Legacy `#query` hashes redirect
+to `#chat` for compatibility only. Session titles are stored by the
+sidecar and can be renamed with `PATCH /agent/sessions/{id}`; this does
+not add or change any `dikw-core` endpoint.
 
 Maintenance endpoints such as `/v1/ingest`, `/v1/synth`,
 `/v1/distill`, and `/v1/lint/propose` may only be called after the

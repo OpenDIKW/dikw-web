@@ -23,14 +23,14 @@ import {
 } from "./i18n";
 import { OverviewPage } from "./pages/OverviewPage";
 import { GraphPage } from "./pages/GraphPage";
-import { QueryPage } from "./pages/QueryPage";
+import { ChatPage } from "./pages/ChatPage";
 import { RetrievePage } from "./pages/RetrievePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TasksPage } from "./pages/TasksPage";
 import { WikiPage } from "./pages/WikiPage";
 import { WisdomPage } from "./pages/WisdomPage";
 
-type ViewId = "overview" | "query" | "retrieve" | "wiki" | "graph" | "wisdom" | "tasks" | "settings";
+type ViewId = "overview" | "chat" | "retrieve" | "wiki" | "graph" | "wisdom" | "tasks" | "settings";
 type NavLabelKey = keyof (typeof translations)["en"]["nav"];
 
 const serverKey = "dikw-web.serverUrl";
@@ -47,7 +47,7 @@ const navGroups: Array<{ id: NavGroupId; items: NavItem[] }> = [
     id: "knowledge",
     items: [
       { id: "overview", labelKey: "overview", icon: LayoutDashboard },
-      { id: "query", labelKey: "query", icon: MessageSquareText },
+      { id: "chat", labelKey: "chat", icon: MessageSquareText },
       { id: "retrieve", labelKey: "retrieve", icon: Search },
       { id: "wiki", labelKey: "wiki", icon: BookOpen },
       { id: "graph", labelKey: "graph", icon: Network },
@@ -116,8 +116,14 @@ export function App() {
   }, [theme]);
 
   useEffect(() => {
+    normalizeLegacyHash(activeView);
+  }, [activeView]);
+
+  useEffect(() => {
     function syncFromHash() {
-      setActiveView(viewFromHash());
+      const nextView = viewFromHash();
+      setActiveView(nextView);
+      normalizeLegacyHash(nextView);
     }
     window.addEventListener("hashchange", syncFromHash);
     return () => window.removeEventListener("hashchange", syncFromHash);
@@ -200,7 +206,7 @@ export function App() {
 
         <main className="content">
           {activeView === "overview" ? <OverviewPage client={client} locale={locale} /> : null}
-          {activeView === "query" ? <QueryPage agentClient={agentClient} client={client} locale={locale} /> : null}
+          {activeView === "chat" ? <ChatPage agentClient={agentClient} client={client} locale={locale} /> : null}
           {activeView === "retrieve" ? <RetrievePage client={client} locale={locale} /> : null}
           {activeView === "wiki" ? <WikiPage client={client} initialPath={wikiInitialPath} locale={locale} /> : null}
           {activeView === "graph" ? <GraphPage client={client} onOpenWikiPath={openWikiPath} locale={locale} /> : null}
@@ -266,5 +272,14 @@ function resolveTheme(theme: ThemePreference): ResolvedTheme {
 
 function viewFromHash(): ViewId {
   const value = window.location.hash.replace(/^#\/?/, "");
+  if (value === "query") {
+    return "chat";
+  }
   return allViewIds.some((id) => id === value) ? (value as ViewId) : "overview";
+}
+
+function normalizeLegacyHash(view: ViewId) {
+  if (view === "chat" && window.location.hash.replace(/^#\/?/, "") === "query") {
+    window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#chat`);
+  }
 }

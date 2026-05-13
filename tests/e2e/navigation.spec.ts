@@ -12,6 +12,8 @@ test("loads overview and navigates with localized sidebar labels and settings", 
   await expect(page.getByText("dikw-core 0.2.0")).toBeVisible();
   const knowledgeNav = page.getByRole("navigation", { name: "Knowledge" });
   await expect(knowledgeNav.getByRole("button", { name: "Overview", exact: true })).toBeVisible();
+  await expect(knowledgeNav.getByRole("button", { name: "Chat", exact: true })).toBeVisible();
+  await expect(knowledgeNav.getByRole("button", { name: "Agent", exact: true })).toHaveCount(0);
   await expect(knowledgeNav.getByRole("button", { name: "概览", exact: true })).toHaveCount(0);
   await expect(page.getByPlaceholder("http://127.0.0.1:8765")).toHaveCount(0);
   await expect(page.getByPlaceholder("Bearer token")).toHaveCount(0);
@@ -21,6 +23,10 @@ test("loads overview and navigates with localized sidebar labels and settings", 
 
   await knowledgeNav.getByRole("button", { name: "Knowledge", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Knowledge" })).toBeVisible();
+
+  await knowledgeNav.getByRole("button", { name: "Chat", exact: true }).click();
+  await expect(page).toHaveURL(/#chat$/);
+  await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
 
   await knowledgeNav.getByRole("button", { name: "Graph", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Graph" })).toBeVisible();
@@ -51,7 +57,7 @@ test("loads overview and navigates with localized sidebar labels and settings", 
 test("major pages avoid horizontal overflow on desktop and mobile", async ({ page }) => {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const route of ["overview", "wiki", "graph", "tasks", "wisdom", "settings"]) {
+    for (const route of ["overview", "chat", "wiki", "graph", "tasks", "wisdom", "settings"]) {
       await page.goto(`/#${route}`);
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1))

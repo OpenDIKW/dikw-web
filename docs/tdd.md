@@ -62,25 +62,76 @@ Wiki reader changes should land as vertical UI slices:
    checks desktop/mobile overflow.
 
 This keeps the structured reading layer inside Wiki, where users already
-expect it, while leaving Tasks, Agent Chat, Retrieve, and Graph as their
+expect it, while leaving Tasks, Chat, Retrieve, and Graph as their
 own views.
+
+## Markdown Table and Math Slice Example
+
+Reader rendering fixes should be driven by narrow red-green slices:
+
+1. Add `MarkdownView` tests that prove raw `<table>...</table>` input
+   becomes a real table wrapped by `.markdown-table-wrap`, while
+   non-table HTML, scripts, and event attributes do not become live DOM.
+2. Add formula tests for inline `$...$` and block `$$...$$` input that
+   assert KaTeX DOM is rendered and the raw delimiter text is not shown.
+3. Extend the Wiki E2E fixture with a raw table and formulas, then assert
+   the browser sees `.markdown-table-wrap table` and `.katex` without
+   horizontal overflow.
+4. Only then implement the smallest renderer changes: keep
+   `markdown-it` HTML disabled, restore a sanitized table allow-list,
+   and route formulas through KaTeX with a text fallback on parse errors.
+5. Image asset loading is a separate future slice. Do not add image
+   tests to table/math work unless that future slice is explicitly in
+   scope.
+
+## Details and Mermaid Slice Example
+
+Markdown disclosure and diagram fixes should stay inside the same safe
+reader boundary:
+
+1. Add `MarkdownView` tests that prove safe
+   `<details><summary>...</summary>...</details>` input becomes real
+   disclosure DOM, preserves the `open` attribute, and still escapes
+   unrelated HTML.
+2. Add Mermaid fence tests before implementation: one success path with
+   a mocked renderer that produces SVG, and one failure path that keeps a
+   readable code fallback.
+3. Add a Wiki E2E page fixture with a source document containing details
+   plus a `mermaid` fenced block; assert literal `<details>` disappears,
+   the summary can be opened, and SVG is visible.
+4. Keep `markdown-it` HTML disabled. Restore only safe details/table
+   blocks before Markdown rendering, and render Mermaid asynchronously
+   with strict security settings.
+5. Dark reader E2E should include details and Mermaid surfaces so future
+   styling changes do not reintroduce near-white blocks or page-level
+   horizontal overflow.
 
 ## Pi Agent Slice Example
 
-Agent integration should land as separate red-green slices:
+Agent chat integration should land as separate red-green slices:
 
-1. App shell first: assert `#query` renders Agent Chat and no longer
-   calls `/v1/query`.
+1. App shell first: assert `#chat` renders Chat, `#query` redirects to
+   `#chat`, and the page no longer calls `/v1/query`.
 2. Sidecar configuration next: load `.env.agent.local`, require
    `DIKW_AGENT_API_KEY`, and assert errors do not leak secret values.
-3. Session store next: create, list, reopen, append, and delete
+3. Session store next: create, list, reopen, rename, append, and delete
    `.agent-sessions/*.json` sessions with atomic writes.
 4. DIKW tools next: test each tool against mocked core responses,
    especially `/v1/retrieve`, base pages, page links, and wisdom.
 5. HTTP protocol next: test `/agent/sessions` and streamed
    `/agent/sessions/{id}/messages` events through a real Node server.
-6. Page behavior next: verify history selection, new chat, streamed
-   answer deltas, sources, tool calls, stop, and delete.
+6. Page behavior next: verify history selection, new chat, manual
+   rename, streamed answer deltas, sources, tool calls, stop, and
+   delete.
+7. Turn context next: write store/protocol tests proving messages,
+   tool calls, and sources carry a shared `turnId`; then page tests
+   should verify the right rail defaults to the latest assistant reply,
+   switches when an older reply is selected, and does not reuse stale
+   sources for source-less replies.
+8. Layout behavior next: add a DOM/page test that `Sources` and
+   `Tool calls` sit inside the shared conversation scroll container
+   while the composer remains outside it, then lock the same behavior
+   with a Playwright smoke test.
 
 Do not put LLM keys in browser fixtures or screenshots. Agent tests use
 mocked sidecar/core behavior; real MiniMax smoke testing is manual.

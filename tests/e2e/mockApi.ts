@@ -12,62 +12,116 @@ import {
 } from "./fixtures";
 
 export async function mockDikwApi(page: Page) {
+  let hasAgentSession = false;
+  let agentSession = {
+    id: "session-1",
+    title: "New chat",
+    createdAt: "2026-05-13T00:00:00.000Z",
+    updatedAt: "2026-05-13T00:00:00.000Z",
+    messageCount: 0,
+    lastMessagePreview: "",
+    messages: [] as Array<{ id: string; role: string; content: string; createdAt: string; turnId?: string }>,
+    toolEvents: [] as Array<{ id: string; type: string; name: string; status: string; createdAt: string; turnId?: string }>,
+    sources: [] as Array<{ path: string; title: string; layer: string; turnId?: string }>,
+    proposals: [] as unknown[]
+  };
+
   await page.route("**/agent/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
 
     if (path === "/agent/sessions") {
       if (route.request().method() === "POST") {
+        hasAgentSession = true;
         await route.fulfill({
-          json: {
-            id: "session-1",
-            title: "New chat",
-            createdAt: "2026-05-13T00:00:00.000Z",
-            updatedAt: "2026-05-13T00:00:00.000Z",
-            messageCount: 0,
-            lastMessagePreview: "",
-            messages: [],
-            toolEvents: [],
-            sources: [],
-            proposals: []
-          }
+          json: agentSession
         });
         return;
       }
-      await route.fulfill({ json: [] });
+      await route.fulfill({ json: hasAgentSession ? [toSessionSummary(agentSession)] : [] });
       return;
     }
 
     if (path === "/agent/sessions/session-1") {
-      await route.fulfill({
-        json: {
-          id: "session-1",
+      if (route.request().method() === "DELETE") {
+        hasAgentSession = false;
+        await route.fulfill({ status: 204, body: "" });
+        return;
+      }
+      if (route.request().method() === "PATCH") {
+        const body = route.request().postDataJSON() as { title?: string };
+        agentSession = {
+          ...agentSession,
+          title: String(body.title ?? "").trim(),
+          updatedAt: "2026-05-13T00:00:02.000Z"
+        };
+      } else if (!hasAgentSession) {
+        hasAgentSession = true;
+        agentSession = {
+          ...agentSession,
           title: "What is DIKW?",
-          createdAt: "2026-05-13T00:00:00.000Z",
           updatedAt: "2026-05-13T00:00:01.000Z",
           messageCount: 2,
           lastMessagePreview: "Layered answer.",
           messages: [
-            { id: "m1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z" },
-            { id: "m2", role: "assistant", content: "Layered answer.", createdAt: "2026-05-13T00:00:01.000Z" }
+            { id: "m1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z", turnId: "turn-1" },
+            { id: "m2", role: "assistant", content: "Layered answer.", createdAt: "2026-05-13T00:00:01.000Z", turnId: "turn-1" }
           ],
-          toolEvents: [],
-          sources: [{ path: "wiki/concepts/architecture.md", title: "Architecture", layer: "wiki" }],
-          proposals: []
-        }
-      });
+          toolEvents: [
+            {
+              id: "tool-1",
+              type: "tool_call",
+              name: "retrieve_knowledge",
+              status: "succeeded",
+              createdAt: "2026-05-13T00:00:00.500Z",
+              turnId: "turn-1"
+            }
+          ],
+          sources: [{ path: "wiki/concepts/architecture.md", title: "Architecture", layer: "wiki", turnId: "turn-1" }]
+        };
+      }
+      await route.fulfill({ json: agentSession });
       return;
     }
 
     if (path === "/agent/sessions/session-1/messages") {
+      const body = route.request().postDataJSON() as { message?: string };
+      const userMessage = String(body.message ?? "What is DIKW?");
+      const turnNumber = Math.floor(agentSession.messages.length / 2) + 1;
+      const turnId = `turn-${turnNumber}`;
+      const assistantMessage = "Layered answer.";
+      const toolEvent = {
+        id: `tool-${turnNumber}`,
+        type: "tool_call",
+        name: "retrieve_knowledge",
+        status: "succeeded",
+        createdAt: "2026-05-13T00:00:00.500Z",
+        turnId
+      };
+      const source = { path: "wiki/concepts/architecture.md", title: "Architecture", layer: "wiki", turnId };
+      agentSession = {
+        ...agentSession,
+        title: agentSession.title === "New chat" ? userMessage.slice(0, 40) : agentSession.title,
+        updatedAt: "2026-05-13T00:00:03.000Z",
+        messageCount: agentSession.messages.length + 2,
+        lastMessagePreview: assistantMessage,
+        messages: [
+          ...agentSession.messages,
+          { id: `m${turnNumber * 2 - 1}`, role: "user", content: userMessage, createdAt: "2026-05-13T00:00:00.000Z", turnId },
+          { id: `m${turnNumber * 2}`, role: "assistant", content: assistantMessage, createdAt: "2026-05-13T00:00:01.000Z", turnId }
+        ],
+        toolEvents: [...agentSession.toolEvents, toolEvent],
+        sources: [...agentSession.sources, source]
+      };
       await route.fulfill({
         contentType: "application/x-ndjson",
         body: [
+          JSON.stringify({ type: "tool_event", sessionId: "session-1", event: toolEvent }),
           JSON.stringify({ type: "message_delta", sessionId: "session-1", delta: "Layered answer." }),
           JSON.stringify({
             type: "source",
             sessionId: "session-1",
-            source: { path: "wiki/concepts/architecture.md", title: "Architecture", layer: "wiki" }
+            source
           }),
           JSON.stringify({ type: "agent_end", sessionId: "session-1" })
         ].join("\n")
@@ -133,4 +187,22 @@ export async function mockDikwApi(page: Page) {
 
     await route.fulfill({ status: 404, body: `No mock for ${path}` });
   });
+}
+
+function toSessionSummary(session: {
+  id: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount: number;
+  lastMessagePreview: string;
+}) {
+  return {
+    id: session.id,
+    title: session.title,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    messageCount: session.messageCount,
+    lastMessagePreview: session.lastMessagePreview
+  };
 }

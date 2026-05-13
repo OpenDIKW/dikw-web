@@ -17,6 +17,10 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
   await expect(page.locator(".wiki-layout")).not.toHaveClass(/wiki-layout--preview-open/);
 
   const reader = page.getByRole("main", { name: "Wiki reader" });
+  await expect(reader.locator(".markdown-table-wrap table").filter({ hasText: "Hybrid studies" })).toBeVisible();
+  await expect(reader.locator(".katex").first()).toBeVisible();
+  await expect(reader).not.toContainText("<table>");
+
   await reader.getByRole("link", { name: "Jump to links" }).click();
   await expect(page).toHaveURL(/#wiki$/);
   await expect(reader.getByRole("heading", { name: "Architecture" })).toBeVisible();
@@ -57,4 +61,20 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
   await page.getByRole("tree", { name: "Base directory" }).getByRole("button", { name: "concepts", exact: true }).click();
   await expect(reader.getByText("Select a document to start reading")).toBeVisible();
   await expect(reader.getByRole("heading", { name: "Synthesis" })).toHaveCount(0);
+});
+
+test("renders source details blocks with Mermaid diagrams", async ({ page }) => {
+  await page.goto("/#wiki");
+
+  await page.getByLabel("Filter").fill("active-learning");
+  await page.getByRole("treeitem", { name: "Active Learning Medium" }).getByRole("button").click();
+  const reader = page.getByRole("main", { name: "Wiki reader" });
+
+  await expect(reader.getByRole("heading", { name: "Active Learning Medium" })).toBeVisible();
+  await expect(reader).not.toContainText("<details>");
+
+  await reader.getByText("flowchart").click();
+  await expect(reader.locator(".markdown-details")).toBeVisible();
+  await expect(reader.locator(".mermaid-diagram svg")).toBeVisible();
+  await expect(page).toHaveURL(/#wiki$/);
 });

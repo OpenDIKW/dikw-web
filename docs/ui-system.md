@@ -9,9 +9,15 @@ styled like a generic admin dashboard.
 - Primary routes live in the sidebar.
 - Settings is a separate sidebar footer item, not a primary knowledge
   route.
-- Agent Chat lives behind the existing `#query` route for compatibility,
-  but the visible product concept is Agent-driven conversation rather
-  than a raw query form.
+- Chat lives behind the canonical `#chat` route. Legacy `#query` links
+  should redirect to `#chat`, but new UI and docs must use Chat/会话.
+- Chat uses a two-zone workbench: the left history list scrolls
+  independently, while messages and the right context rail share one
+  conversation scroll container. The composer stays fixed at the bottom
+  of the Chat workspace.
+- Chat context is reply-scoped. By default the right rail shows sources
+  and tool calls for the latest assistant reply; selecting an older
+  assistant reply switches the rail to that turn.
 - The top bar is a read-only connection status strip. It shows the
   target server and whether a token is configured, but never displays
   the token value.
@@ -55,6 +61,22 @@ large near-white reader controls or article blocks. Browser E2E checks
 lock the reader contract with contrast thresholds: normal article text
 at least 4.5:1, large headings at least 3:1, and metadata/control text
 at least 3:1.
+
+Markdown rendering supports pipe tables, a sanitized raw HTML table
+subset, safe `<details><summary>...</summary>...</details>` blocks,
+Mermaid fenced code, and KaTeX math. The raw HTML allow-list is
+intentionally narrow: `table`, `thead`, `tbody`, `tfoot`, `tr`, `th`,
+`td`, `caption`, `colgroup`, `col`, and `br` for tables, plus
+`details`/`summary` as a structured disclosure wrapper. Event
+attributes, scripts, styles, and other non-table HTML must not become
+live DOM.
+
+Inline `$...$` and block `$$...$$` formulas render through KaTeX; parse
+failures fall back to the original formula text. Fenced `mermaid` code
+blocks render asynchronously with Mermaid using `securityLevel:
+"strict"` and `htmlLabels: false`; render failures keep a readable code
+fallback. Image asset loading is outside the current reader contract and
+should be handled by a later asset/proxy slice.
 
 Cards and controls should keep radii at 8px or less. Shadows should be
 subtle and used to separate work areas, not decorate the page.

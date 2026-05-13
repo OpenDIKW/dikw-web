@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { GraphPage } from "./GraphPage";
 import { OverviewPage } from "./OverviewPage";
-import { QueryPage } from "./QueryPage";
+import { ChatPage } from "./ChatPage";
 import { RetrievePage } from "./RetrievePage";
 import { TasksPage } from "./TasksPage";
 import { WikiPage } from "./WikiPage";
@@ -376,7 +376,7 @@ describe("read console pages", () => {
 
     render(<WikiPage client={client} />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Missing Concept" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Missing Concept" }, { timeout: 5_000 }));
 
     const preview = screen.getByRole("region", { name: "Wiki link preview" });
     expect(within(preview).getByRole("heading", { name: "Linked page not found" })).toBeInTheDocument();
@@ -670,7 +670,7 @@ describe("read console pages", () => {
     expect(within(detail).getByText("approved", { selector: ".status-pill" })).toBeInTheDocument();
   });
 
-  it("runs agent chat streams without calling the removed query endpoint", async () => {
+  it("runs chat streams without calling the removed query endpoint", async () => {
     const agentClient: AgentClientLike = {
       listSessions: vi.fn().mockResolvedValue([]),
       createSession: vi.fn().mockResolvedValue({
@@ -693,8 +693,14 @@ describe("read console pages", () => {
         messageCount: 2,
         lastMessagePreview: "Layered answer.",
         messages: [
-          { id: "m1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z" },
-          { id: "m2", role: "assistant", content: "## Layered answer\n\nUse **evidence**.", createdAt: "2026-05-13T00:00:01.000Z" }
+          { id: "m1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z", turnId: "turn-1" },
+          {
+            id: "m2",
+            role: "assistant",
+            content: "## Layered answer\n\nUse **evidence**.",
+            createdAt: "2026-05-13T00:00:01.000Z",
+            turnId: "turn-1"
+          }
         ],
         toolEvents: [
           {
@@ -702,12 +708,14 @@ describe("read console pages", () => {
             type: "tool_call",
             name: "retrieve_knowledge",
             status: "succeeded",
-            createdAt: "2026-05-13T00:00:00.500Z"
+            createdAt: "2026-05-13T00:00:00.500Z",
+            turnId: "turn-1"
           }
         ],
-        sources: [{ path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }],
+        sources: [{ path: "wiki/architecture.md", title: "Architecture", layer: "wiki", turnId: "turn-1" }],
         proposals: []
       }),
+      renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
       sendMessage: vi.fn(() =>
@@ -721,19 +729,20 @@ describe("read console pages", () => {
               type: "tool_call",
               name: "retrieve_knowledge",
               status: "succeeded",
-              createdAt: "2026-05-13T00:00:00.500Z"
+              createdAt: "2026-05-13T00:00:00.500Z",
+              turnId: "turn-1"
             }
           },
           {
             type: "source",
             sessionId: "session-1",
-            source: { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }
+            source: { path: "wiki/architecture.md", title: "Architecture", layer: "wiki", turnId: "turn-1" }
           },
           { type: "agent_end", sessionId: "session-1" }
         ] satisfies AgentStreamEvent[])
       )
     };
-    render(<QueryPage agentClient={agentClient} />);
+    render(<ChatPage agentClient={agentClient} />);
     await userEvent.type(await screen.findByLabelText("Message"), "What is DIKW?");
     await userEvent.click(screen.getByRole("button", { name: /Send/ }));
 
@@ -743,6 +752,301 @@ describe("read console pages", () => {
     expect(screen.getByTitle("Succeeded")).toHaveClass("tool-call--succeeded");
     expect(screen.getByText("wiki/architecture.md")).toBeInTheDocument();
     expect(agentClient.sendMessage).toHaveBeenCalledWith("session-1", "What is DIKW?", expect.any(AbortSignal));
+  });
+
+  it("uses chat terminology and renames sessions inline", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "New chat",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:00.000Z",
+      messageCount: 0,
+      lastMessagePreview: "",
+      messages: [],
+      toolEvents: [],
+      sources: [],
+      proposals: []
+    };
+    const renamedSession = {
+      ...activeSession,
+      title: "Project Review",
+      updatedAt: "2026-05-13T00:00:01.000Z"
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn().mockResolvedValue(renamedSession),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike & { renameSession: ReturnType<typeof vi.fn> };
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    expect(await screen.findByRole("heading", { name: "Chat" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Chat history" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Agent Chat" })).not.toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Rename chat New chat" }));
+    await userEvent.clear(screen.getByLabelText("Chat title"));
+    await userEvent.type(screen.getByLabelText("Chat title"), "Project Review");
+    await userEvent.click(screen.getByRole("button", { name: "Save title" }));
+
+    await waitFor(() => {
+      expect(agentClient.renameSession).toHaveBeenCalledWith("session-1", "Project Review");
+      expect(within(screen.getByRole("complementary", { name: "Chat history" })).getByText("Project Review", { selector: "strong" })).toBeInTheDocument();
+    });
+  });
+
+  it("filters chat sources and tool calls by the selected assistant turn", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "Turn context",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:04.000Z",
+      messageCount: 4,
+      lastMessagePreview: "Second answer",
+      messages: [
+        { id: "u1", role: "user", content: "First question", createdAt: "2026-05-13T00:00:00.000Z", turnId: "turn-1" },
+        { id: "a1", role: "assistant", content: "First answer", createdAt: "2026-05-13T00:00:01.000Z", turnId: "turn-1" },
+        { id: "u2", role: "user", content: "Second question", createdAt: "2026-05-13T00:00:03.000Z", turnId: "turn-2" },
+        { id: "a2", role: "assistant", content: "Second answer", createdAt: "2026-05-13T00:00:04.000Z", turnId: "turn-2" }
+      ],
+      toolEvents: [
+        {
+          id: "tool-1",
+          type: "tool_call" as const,
+          name: "read_page",
+          status: "succeeded" as const,
+          createdAt: "2026-05-13T00:00:00.500Z",
+          turnId: "turn-1"
+        },
+        {
+          id: "tool-2",
+          type: "tool_call" as const,
+          name: "retrieve_knowledge",
+          status: "succeeded" as const,
+          createdAt: "2026-05-13T00:00:03.500Z",
+          turnId: "turn-2"
+        }
+      ],
+      sources: [
+        { path: "wiki/first.md", title: "First", layer: "wiki", turnId: "turn-1" },
+        { path: "wiki/second.md", title: "Second", layer: "wiki", turnId: "turn-2" }
+      ],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    await waitFor(() => expect(screen.getAllByText("Second answer").length).toBeGreaterThan(0));
+    const context = screen.getByRole("complementary", { name: "Context for this reply" });
+    expect(within(context).getByText("wiki/second.md")).toBeInTheDocument();
+    expect(within(context).getByText("retrieve_knowledge")).toBeInTheDocument();
+    expect(within(context).queryByText("wiki/first.md")).not.toBeInTheDocument();
+    expect(within(context).queryByText("read_page")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /Agent: First answer/ }));
+
+    expect(within(context).getByText("wiki/first.md")).toBeInTheDocument();
+    expect(within(context).getByText("read_page")).toBeInTheDocument();
+    expect(within(context).queryByText("wiki/second.md")).not.toBeInTheDocument();
+  });
+
+  it("does not fall back to older turn context when the latest assistant reply has no turn id", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "Mixed history",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:04.000Z",
+      messageCount: 4,
+      lastMessagePreview: "Legacy answer",
+      messages: [
+        { id: "u1", role: "user", content: "First question", createdAt: "2026-05-13T00:00:00.000Z", turnId: "turn-1" },
+        { id: "a1", role: "assistant", content: "First answer", createdAt: "2026-05-13T00:00:01.000Z", turnId: "turn-1" },
+        { id: "u2", role: "user", content: "Legacy question", createdAt: "2026-05-13T00:00:03.000Z" },
+        { id: "a2", role: "assistant", content: "Legacy answer", createdAt: "2026-05-13T00:00:04.000Z" }
+      ],
+      toolEvents: [
+        {
+          id: "tool-1",
+          type: "tool_call" as const,
+          name: "retrieve_knowledge",
+          status: "succeeded" as const,
+          createdAt: "2026-05-13T00:00:00.500Z",
+          turnId: "turn-1"
+        }
+      ],
+      sources: [{ path: "wiki/first.md", title: "First", layer: "wiki", turnId: "turn-1" }],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    await waitFor(() => expect(screen.getAllByText("Legacy answer").length).toBeGreaterThan(0));
+    const context = screen.getByRole("complementary", { name: "Context for this reply" });
+    expect(within(context).queryByText("wiki/first.md")).not.toBeInTheDocument();
+    expect(within(context).queryByText("retrieve_knowledge")).not.toBeInTheDocument();
+    expect(within(context).getByText("No sources for this reply")).toBeInTheDocument();
+    expect(within(context).getByText("No tool calls for this reply")).toBeInTheDocument();
+  });
+
+  it("does not carry old sources or tool calls into a later reply without turn context", async () => {
+    const initialSession = {
+      id: "session-1",
+      title: "Health check",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:02.000Z",
+      messageCount: 2,
+      lastMessagePreview: "Layered answer.",
+      messages: [
+        { id: "u1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z", turnId: "turn-1" },
+        { id: "a1", role: "assistant", content: "Layered answer.", createdAt: "2026-05-13T00:00:01.000Z", turnId: "turn-1" }
+      ],
+      toolEvents: [
+        {
+          id: "tool-1",
+          type: "tool_call" as const,
+          name: "retrieve_knowledge",
+          status: "succeeded" as const,
+          createdAt: "2026-05-13T00:00:00.500Z",
+          turnId: "turn-1"
+        }
+      ],
+      sources: [{ path: "wiki/architecture.md", title: "Architecture", layer: "wiki", turnId: "turn-1" }],
+      proposals: []
+    };
+    const refreshedSession = {
+      ...initialSession,
+      updatedAt: "2026-05-13T00:00:04.000Z",
+      messageCount: 4,
+      lastMessagePreview: "Health failed.",
+      messages: [
+        ...initialSession.messages,
+        { id: "u2", role: "user", content: "Check health", createdAt: "2026-05-13T00:00:03.000Z", turnId: "turn-2" },
+        { id: "a2", role: "assistant", content: "Health failed.", createdAt: "2026-05-13T00:00:04.000Z", turnId: "turn-2" }
+      ]
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([initialSession]),
+      createSession: vi.fn().mockResolvedValue(initialSession),
+      getSession: vi.fn().mockResolvedValueOnce(initialSession).mockResolvedValueOnce(refreshedSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() =>
+        createAsyncEvents([
+          { type: "message_delta", sessionId: "session-1", delta: "Health failed." },
+          { type: "agent_end", sessionId: "session-1" }
+        ] satisfies AgentStreamEvent[])
+      )
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+    expect(await screen.findByText("wiki/architecture.md")).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText("Message"), "Check health");
+    await userEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    const context = screen.getByRole("complementary", { name: "Context for this reply" });
+    await waitFor(() => expect(screen.getAllByText("Health failed.").length).toBeGreaterThan(0));
+    expect(within(context).queryByText("wiki/architecture.md")).not.toBeInTheDocument();
+    expect(within(context).getByText("No sources for this reply")).toBeInTheDocument();
+    expect(within(context).getByText("No tool calls for this reply")).toBeInTheDocument();
+  });
+
+  it("uses a small header control for selecting a reply instead of making the whole assistant markdown a button", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "Accessible selection",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:02.000Z",
+      messageCount: 2,
+      lastMessagePreview: "First answer",
+      messages: [
+        { id: "u1", role: "user", content: "First question", createdAt: "2026-05-13T00:00:00.000Z", turnId: "turn-1" },
+        { id: "a1", role: "assistant", content: "First answer", createdAt: "2026-05-13T00:00:01.000Z", turnId: "turn-1" }
+      ],
+      toolEvents: [],
+      sources: [],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    await screen.findByRole("button", { name: /Agent: First answer/ });
+    const messageText = screen.getAllByText("First answer").find((node) => node.closest(".agent-message"));
+    const message = messageText?.closest(".agent-message");
+    expect(message).not.toHaveAttribute("role", "button");
+    expect(within(message as HTMLElement).getByRole("button", { name: /Agent: First answer/ })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+  });
+
+  it("keeps chat context inside the shared conversation scroll region while the composer stays fixed outside it", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "Layout",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: 2,
+      lastMessagePreview: "Answer",
+      messages: [
+        { id: "u1", role: "user", content: "Question", createdAt: "2026-05-13T00:00:00.000Z", turnId: "turn-1" },
+        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z", turnId: "turn-1" }
+      ],
+      toolEvents: [],
+      sources: [],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    const scrollRegion = await screen.findByTestId("agent-conversation-scroll");
+    const context = screen.getByRole("complementary", { name: "Context for this reply" });
+    expect(scrollRegion).toContainElement(context);
+    expect(within(scrollRegion).getByText("Sources")).toBeInTheDocument();
+    expect(within(scrollRegion).getByText("Tool calls")).toBeInTheDocument();
+    expect(scrollRegion).not.toContainElement(screen.getByLabelText("Message"));
+    expect(scrollRegion).not.toContainElement(screen.getByRole("button", { name: /Send/ }));
   });
 
   it("runs retrieve streams into chunks and page refs", async () => {
