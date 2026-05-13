@@ -48,7 +48,10 @@ export const translations = {
         sourcesTitle: "Sources",
         emptySources: "No sources yet",
         toolsTitle: "Tool calls",
-        emptyTools: "No tool calls yet"
+        emptyTools: "No tool calls yet",
+        toolStatusRunning: "Running",
+        toolStatusSucceeded: "Succeeded",
+        toolStatusFailed: "Failed"
       },
       retrieve: {
         title: "Retrieve",
@@ -203,7 +206,10 @@ export const translations = {
         sourcesTitle: "来源",
         emptySources: "暂无来源",
         toolsTitle: "工具调用",
-        emptyTools: "暂无工具调用"
+        emptyTools: "暂无工具调用",
+        toolStatusRunning: "运行中",
+        toolStatusSucceeded: "已完成",
+        toolStatusFailed: "失败"
       },
       retrieve: {
         title: "检索上下文",

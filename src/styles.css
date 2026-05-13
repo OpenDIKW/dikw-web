@@ -2993,3 +2993,142 @@ html[data-theme="dark"] .overview-grid {
   border-color: var(--line);
 }
 html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(--hairline); }
+
+
+/* ============================================================
+   PR4 · Agent chat: markdown rendering + iconic tool calls
+   ─ assistant bubble: markdown inline, tighter margins inside
+   ─ tool calls: icon-led list, spinning loader for running
+   ============================================================ */
+
+/* Streaming spinner inside the assistant role line */
+.agent-message__role { display: inline-flex; align-items: center; gap: 6px; }
+.agent-message__spinner {
+  color: var(--accent);
+  animation: pr4-spin 1.1s linear infinite;
+}
+@keyframes pr4-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Assistant bubble can now host real markdown — give it a sensible
+   inner type ramp without inheriting the full reader chrome */
+.agent-message--assistant .markdown-view {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+  max-width: none;
+  margin: 0;
+}
+.agent-message--assistant .markdown-body > :first-child { margin-top: 0; }
+.agent-message--assistant .markdown-body > :last-child { margin-bottom: 0; }
+.agent-message--assistant .markdown-body p { margin: 0.5em 0; }
+.agent-message--assistant .markdown-body h1,
+.agent-message--assistant .markdown-body h2,
+.agent-message--assistant .markdown-body h3,
+.agent-message--assistant .markdown-body h4 {
+  margin: 1em 0 0.4em;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.agent-message--assistant .markdown-body h1 { font-size: 19px; }
+.agent-message--assistant .markdown-body h2 { font-size: 16.5px; }
+.agent-message--assistant .markdown-body h3 { font-size: 14.5px; }
+.agent-message--assistant .markdown-body ul,
+.agent-message--assistant .markdown-body ol { margin: 0.55em 0; padding-left: 1.4em; }
+.agent-message--assistant .markdown-body li + li { margin-top: 0.18em; }
+.agent-message--assistant .markdown-body code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--accent-strong);
+}
+.agent-message--assistant .markdown-body pre,
+.agent-message--assistant .code-block {
+  margin: 8px 0;
+  border-radius: 6px;
+}
+.agent-message--assistant .markdown-body pre {
+  padding: 10px 12px;
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.agent-message--assistant .markdown-body blockquote {
+  margin: 0.6em 0;
+  padding: 6px 12px;
+  font-size: 13.5px;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-left: 3px solid var(--accent-line, var(--accent));
+}
+.agent-message--assistant .markdown-body hr {
+  margin: 14px 0;
+  border-top: 1px solid var(--hairline);
+}
+.agent-message--assistant .markdown-table-wrap {
+  margin: 8px 0;
+  font-size: 12.5px;
+}
+.agent-message--assistant .markdown-table-wrap th,
+.agent-message--assistant .markdown-table-wrap td {
+  padding: 6px 9px;
+}
+
+/* Tool call list — icon-led row, no more text status labels */
+.tool-call-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+}
+.tool-call {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+.tool-call:hover { background: var(--surface-2); }
+.tool-call__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px; height: 22px;
+  border-radius: 999px;
+}
+.tool-call__name {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+.tool-call__sr {
+  position: absolute;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.tool-call__spin { animation: pr4-spin 1.1s linear infinite; }
+
+.tool-call--running   .tool-call__icon { background: color-mix(in srgb, var(--blue)  14%, transparent); color: var(--blue); }
+.tool-call--succeeded .tool-call__icon { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
+.tool-call--failed    .tool-call__icon { background: color-mix(in srgb, var(--red)   14%, transparent); color: var(--red); }
+.tool-call--failed    .tool-call__name { color: var(--red); }
+.tool-call--running   .tool-call__name { color: var(--blue); }
+
+/* Old mini-table styling was tuned for the 70/70/1fr layout that no
+   longer applies to tool calls; leaving it intact for other call sites. */

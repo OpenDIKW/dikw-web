@@ -694,9 +694,17 @@ describe("read console pages", () => {
         lastMessagePreview: "Layered answer.",
         messages: [
           { id: "m1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z" },
-          { id: "m2", role: "assistant", content: "Layered answer.", createdAt: "2026-05-13T00:00:01.000Z" }
+          { id: "m2", role: "assistant", content: "## Layered answer\n\nUse **evidence**.", createdAt: "2026-05-13T00:00:01.000Z" }
         ],
-        toolEvents: [],
+        toolEvents: [
+          {
+            id: "tool-1",
+            type: "tool_call",
+            name: "retrieve_knowledge",
+            status: "succeeded",
+            createdAt: "2026-05-13T00:00:00.500Z"
+          }
+        ],
         sources: [{ path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }],
         proposals: []
       }),
@@ -704,7 +712,18 @@ describe("read console pages", () => {
       abort: vi.fn(),
       sendMessage: vi.fn(() =>
         createAsyncEvents([
-          { type: "message_delta", sessionId: "session-1", delta: "Layered answer." },
+          { type: "message_delta", sessionId: "session-1", delta: "## Layered answer\n\nUse **evidence**." },
+          {
+            type: "tool_event",
+            sessionId: "session-1",
+            event: {
+              id: "tool-1",
+              type: "tool_call",
+              name: "retrieve_knowledge",
+              status: "succeeded",
+              createdAt: "2026-05-13T00:00:00.500Z"
+            }
+          },
           {
             type: "source",
             sessionId: "session-1",
@@ -718,7 +737,10 @@ describe("read console pages", () => {
     await userEvent.type(await screen.findByLabelText("Message"), "What is DIKW?");
     await userEvent.click(screen.getByRole("button", { name: /Send/ }));
 
-    expect((await screen.findAllByText("Layered answer.")).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("heading", { name: "Layered answer" })).toBeInTheDocument();
+    expect(screen.getByText("evidence", { selector: "strong" })).toBeInTheDocument();
+    expect(screen.getByText("retrieve_knowledge")).toHaveClass("tool-call__name");
+    expect(screen.getByTitle("Succeeded")).toHaveClass("tool-call--succeeded");
     expect(screen.getByText("wiki/architecture.md")).toBeInTheDocument();
     expect(agentClient.sendMessage).toHaveBeenCalledWith("session-1", "What is DIKW?", expect.any(AbortSignal));
   });

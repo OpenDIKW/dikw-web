@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MessageSquareText, Plus, Send, Square, Trash2, Wrench } from "lucide-react";
+import { CheckCircle2, Loader2, MessageSquareText, Plus, Send, Square, Trash2, Wrench, XCircle } from "lucide-react";
 import type { DikwClient } from "../api/client";
 import { AgentClient } from "../api/agentClient";
 import { EmptyState } from "../components/EmptyState";
+import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
 import type { AgentClientLike } from "./agentTypes";
@@ -205,9 +206,12 @@ export function QueryPage({ agentClient, locale = "en" }: QueryPageProps) {
                   <MessageBubble assistantRole={copy.assistantRole} message={message} userRole={copy.userRole} key={message.id} />
                 ))}
                 {streamingAnswer ? (
-                  <article className="agent-message agent-message--assistant">
-                    <div className="agent-message__role">{copy.assistantRole}</div>
-                    <p>{streamingAnswer}</p>
+                  <article className="agent-message agent-message--assistant agent-message--streaming">
+                    <div className="agent-message__role">
+                      <Loader2 size={11} className="agent-message__spinner" aria-hidden="true" />
+                      {copy.assistantRole}
+                    </div>
+                    <MarkdownView body={streamingAnswer} showFrontmatter={false} />
                   </article>
                 ) : null}
               </>
@@ -269,14 +273,21 @@ export function QueryPage({ agentClient, locale = "en" }: QueryPageProps) {
               {copy.toolsTitle}
             </div>
             {toolEvents.length ? (
-              <div className="mini-table">
+              <ul className="tool-call-list" aria-label={copy.toolsTitle}>
                 {toolEvents.map((event) => (
-                  <div className="mini-table__row" key={event.id}>
-                    <span>{event.status}</span>
-                    <strong>{event.name}</strong>
-                  </div>
+                  <li
+                    className={`tool-call tool-call--${event.status}`}
+                    key={event.id}
+                    title={toolStatusLabel(event.status, copy)}
+                  >
+                    <span className="tool-call__icon" aria-hidden="true">
+                      <ToolStatusIcon status={event.status} />
+                    </span>
+                    <span className="tool-call__name">{event.name}</span>
+                    <span className="tool-call__sr">{toolStatusLabel(event.status, copy)}</span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             ) : (
               <EmptyState title={copy.emptyTools} />
             )}
@@ -299,9 +310,28 @@ function MessageBubble({ assistantRole, message, userRole }: { assistantRole: st
   return (
     <article className={`agent-message ${isUser ? "agent-message--user" : "agent-message--assistant"}`}>
       <div className="agent-message__role">{isUser ? userRole : assistantRole}</div>
-      <p>{message.content}</p>
+      {isUser ? <p>{message.content}</p> : <MarkdownView body={message.content} showFrontmatter={false} />}
     </article>
   );
+}
+
+function ToolStatusIcon({ status }: { status: AgentToolEvent["status"] }) {
+  if (status === "running") {
+    return <Loader2 size={14} className="tool-call__spin" aria-hidden="true" />;
+  }
+  if (status === "succeeded") {
+    return <CheckCircle2 size={14} aria-hidden="true" />;
+  }
+  return <XCircle size={14} aria-hidden="true" />;
+}
+
+function toolStatusLabel(
+  status: AgentToolEvent["status"],
+  copy: (typeof translations)[Locale]["pages"]["query"]
+): string {
+  if (status === "running") return copy.toolStatusRunning;
+  if (status === "succeeded") return copy.toolStatusSucceeded;
+  return copy.toolStatusFailed;
 }
 
 function localMessage(role: AgentMessage["role"], content: string): AgentMessage {
