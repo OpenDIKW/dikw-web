@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Loader2,
   MessageSquareText,
+  MoreHorizontal,
   PencilLine,
   Plus,
   Send,
@@ -35,6 +36,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   const [activeSession, setActiveSession] = useState<AgentSession | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [menuOpenSessionId, setMenuOpenSessionId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [streamingAnswer, setStreamingAnswer] = useState("");
   const [streamingTools, setStreamingTools] = useState<AgentToolEvent[]>([]);
@@ -83,6 +85,26 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedAgentClient]);
 
+  useEffect(() => {
+    if (!menuOpenSessionId) {
+      return;
+    }
+    function handleDocumentClick() {
+      setMenuOpenSessionId(null);
+    }
+    function handleDocumentKey(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpenSessionId(null);
+      }
+    }
+    document.addEventListener("click", handleDocumentClick);
+    document.addEventListener("keydown", handleDocumentKey);
+    return () => {
+      document.removeEventListener("click", handleDocumentClick);
+      document.removeEventListener("keydown", handleDocumentKey);
+    };
+  }, [menuOpenSessionId]);
+
   async function openSession(sessionId: string) {
     const session = await resolvedAgentClient.getSession(sessionId);
     setActiveSession(session);
@@ -114,6 +136,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
 
   function startRename(session: SessionSummary) {
     setError(null);
+    setMenuOpenSessionId(null);
     setEditingSessionId(session.id);
     setEditingTitle(session.title);
   }
@@ -233,7 +256,9 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
           <div className="agent-session-list">
             {sessions.map((session) => (
               <div
-                className={`agent-session-row ${activeSession?.id === session.id ? "is-active" : ""}`}
+                className={`agent-session-row ${activeSession?.id === session.id ? "is-active" : ""} ${
+                  menuOpenSessionId === session.id ? "has-menu-open" : ""
+                }`}
                 key={session.id}
               >
                 {editingSessionId === session.id ? (
@@ -272,13 +297,48 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                       <span>{session.lastMessagePreview || copy.emptySession}</span>
                     </button>
                     <button
-                      className="icon-button agent-session__rename"
+                      className="icon-button agent-session__menu-trigger"
                       type="button"
-                      aria-label={`${copy.renameSession} ${session.title}`}
-                      onClick={() => startRename(session)}
+                      aria-label={`${session.title} options`}
+                      aria-haspopup="menu"
+                      aria-expanded={menuOpenSessionId === session.id}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setMenuOpenSessionId((current) => (current === session.id ? null : session.id));
+                      }}
                     >
-                      <PencilLine size={14} />
+                      <MoreHorizontal size={14} />
                     </button>
+                    {menuOpenSessionId === session.id ? (
+                      <div
+                        className="agent-session-menu"
+                        role="menu"
+                        aria-label={`${session.title} menu`}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <button
+                          className="agent-session-menu__item"
+                          role="menuitem"
+                          type="button"
+                          onClick={() => startRename(session)}
+                        >
+                          <PencilLine size={13} />
+                          <span>{copy.renameSession}</span>
+                        </button>
+                        <button
+                          className="agent-session-menu__item agent-session-menu__item--danger"
+                          role="menuitem"
+                          type="button"
+                          onClick={() => {
+                            setMenuOpenSessionId(null);
+                            void deleteSession(session.id);
+                          }}
+                        >
+                          <Trash2 size={13} />
+                          <span>{copy.deleteSession}</span>
+                        </button>
+                      </div>
+                    ) : null}
                   </>
                 )}
               </div>
@@ -363,12 +423,6 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
               )}
             </section>
 
-            {activeSession ? (
-              <button className="secondary-button secondary-button--danger" type="button" onClick={() => deleteSession(activeSession.id)}>
-                <Trash2 size={16} />
-                {copy.deleteSession}
-              </button>
-            ) : null}
           </aside>
 
           <div className="agent-composer">

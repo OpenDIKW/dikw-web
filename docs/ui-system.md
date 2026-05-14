@@ -18,6 +18,16 @@ styled like a generic admin dashboard.
 - Chat context is session-scoped. The right rail keeps accumulated
   sources and tool calls for the open session instead of changing when a
   user clicks an assistant reply.
+- Chat history actions live in each session row's compact `...` menu.
+  Keep rename/delete there instead of adding destructive session actions
+  to the context rail.
+- Chat visual polish follows the PR6 patch language: active session rows
+  use a 2px leading marker, assistant messages read as quiet article
+  cards, user messages use a solid accent bubble, and the composer is one
+  focused input surface with icon actions.
+- Graph View includes an always-visible legend for Wiki and Source node
+  colors. The graph canvas owns visual layout; core/API data should remain
+  layout-free.
 - The top bar is a read-only connection status strip. It shows the
   target server and whether a token is configured, but never displays
   the token value.

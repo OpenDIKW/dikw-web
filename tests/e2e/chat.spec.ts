@@ -11,13 +11,14 @@ test("opens chat, renames a session, reopens history, and keeps legacy query red
   await expect(page).toHaveURL(/#chat$/);
   await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
   await expect(page.getByRole("complementary", { name: "Chat history" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Rename chat New chat" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "New chat options" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Rename chat New chat" }).click();
+  await page.getByRole("button", { name: "New chat options" }).click();
+  await page.getByRole("menuitem", { name: "Rename chat" }).click();
   await page.getByLabel("Chat title").fill("Project Review");
   await page.getByRole("button", { name: "Save title" }).click();
 
-  await expect(page.getByRole("button", { name: "Rename chat Project Review" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Project Review options" })).toBeVisible();
   await page.reload();
   await expect(page.getByText("Project Review")).toBeVisible();
 

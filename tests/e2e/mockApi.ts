@@ -12,6 +12,13 @@ import {
 } from "./fixtures";
 
 export async function mockDikwApi(page: Page) {
+  await page.route("https://fonts.googleapis.com/**", async (route) => {
+    await route.fulfill({ contentType: "text/css", body: "" });
+  });
+  await page.route("https://fonts.gstatic.com/**", async (route) => {
+    await route.fulfill({ status: 204, body: "" });
+  });
+
   let hasAgentSession = false;
   let agentSession = {
     id: "session-1",

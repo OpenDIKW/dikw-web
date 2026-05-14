@@ -12,6 +12,9 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   await expect(page.getByText("3 nodes")).toBeVisible();
   await expect(page.getByText("1 link")).toBeVisible();
   await expect(page.getByText("1 unresolved")).toBeVisible();
+  const legend = page.getByLabel("Graph legend");
+  await expect(legend.getByText("Wiki", { exact: true })).toBeVisible();
+  await expect(legend.getByText("Source", { exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
 
   await page.getByRole("button", { name: "Architecture graph node" }).click();

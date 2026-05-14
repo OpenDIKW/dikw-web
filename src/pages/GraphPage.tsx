@@ -219,6 +219,16 @@ export function GraphPage({
                 </button>
                 <span className="soft-label">{Math.round(zoom * 100)}%</span>
               </div>
+              <div className="graph-legend" aria-label="Graph legend">
+                <span className="graph-legend__chip">
+                  <span className="graph-legend__dot" aria-hidden="true" />
+                  Wiki
+                </span>
+                <span className="graph-legend__chip">
+                  <span className="graph-legend__dot graph-legend__dot--source" aria-hidden="true" />
+                  Source
+                </span>
+              </div>
             </div>
             {filteredGraph.nodes.length ? (
               <GraphSvg

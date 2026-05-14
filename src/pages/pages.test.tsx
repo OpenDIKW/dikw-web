@@ -751,7 +751,7 @@ describe("read console pages", () => {
     expect(agentClient.sendMessage).toHaveBeenCalledWith("session-1", "What is DIKW?", expect.any(AbortSignal));
   });
 
-  it("uses chat terminology and renames sessions inline", async () => {
+  it("uses chat terminology and renames sessions from the session menu", async () => {
     const activeSession = {
       id: "session-1",
       title: "New chat",
@@ -771,7 +771,11 @@ describe("read console pages", () => {
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
-      createSession: vi.fn().mockResolvedValue(activeSession),
+      createSession: vi.fn().mockResolvedValue({
+        ...activeSession,
+        id: "session-2",
+        title: "New chat"
+      }),
       getSession: vi.fn().mockResolvedValue(activeSession),
       renameSession: vi.fn().mockResolvedValue(renamedSession),
       deleteSession: vi.fn(),
@@ -785,7 +789,9 @@ describe("read console pages", () => {
     expect(screen.getByRole("complementary", { name: "Chat history" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Agent Chat" })).not.toBeInTheDocument();
 
-    await userEvent.click(await screen.findByRole("button", { name: "Rename chat New chat" }));
+    await userEvent.click(await screen.findByRole("button", { name: "New chat options" }));
+    const menu = screen.getByRole("menu", { name: "New chat menu" });
+    await userEvent.click(within(menu).getByRole("menuitem", { name: "Rename chat" }));
     await userEvent.clear(screen.getByLabelText("Chat title"));
     await userEvent.type(screen.getByLabelText("Chat title"), "Project Review");
     await userEvent.click(screen.getByRole("button", { name: "Save title" }));
@@ -793,6 +799,44 @@ describe("read console pages", () => {
     await waitFor(() => {
       expect(agentClient.renameSession).toHaveBeenCalledWith("session-1", "Project Review");
       expect(within(screen.getByRole("complementary", { name: "Chat history" })).getByText("Project Review", { selector: "strong" })).toBeInTheDocument();
+    });
+  });
+
+  it("deletes chat sessions from the session menu", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "Project Review",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:00.000Z",
+      messageCount: 0,
+      lastMessagePreview: "",
+      messages: [],
+      toolEvents: [],
+      sources: [],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue({
+        ...activeSession,
+        id: "session-2",
+        title: "New chat"
+      }),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike & { deleteSession: ReturnType<typeof vi.fn> };
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Project Review options" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Delete chat" }));
+
+    await waitFor(() => {
+      expect(agentClient.deleteSession).toHaveBeenCalledWith("session-1");
+      expect(screen.queryByText("Project Review", { selector: "strong" })).not.toBeInTheDocument();
     });
   });
 
