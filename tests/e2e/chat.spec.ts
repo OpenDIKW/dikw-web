@@ -99,3 +99,54 @@ test("keeps composer action icons visually centered", async ({ page }) => {
     expect(measurement.iconHeight, measurement.label).toBeGreaterThanOrEqual(14);
   }
 });
+
+test("keeps chat output panels pinned to the newest content by default", async ({ page }) => {
+  await page.goto("/#chat");
+
+  await page.getByLabel("Message").fill("auto-scroll stress");
+  await page.getByRole("button", { name: "Send" }).click();
+
+  await expect(page.getByText("Auto scroll line 1-48: evidence-backed chat output keeps growing.")).toBeVisible();
+  await expect(page.getByText("wiki/concepts/auto-scroll-source-24.md")).toBeVisible();
+  await expect(page.getByText("retrieve_knowledge_24")).toBeVisible();
+
+  await expect.poll(() => panelMetrics(page, ".agent-conversation-scroll")).toMatchObject({ hasOverflow: true, nearBottom: true });
+  await expect.poll(() => panelMetrics(page, ".citation-list")).toMatchObject({ hasOverflow: true, nearBottom: true });
+  await expect.poll(() => panelMetrics(page, ".tool-call-list")).toMatchObject({ hasOverflow: true, nearBottom: true });
+});
+
+test("resets chat output panels to sticky bottom on the next user message", async ({ page }) => {
+  await page.goto("/#chat");
+
+  await page.getByLabel("Message").fill("auto-scroll stress first");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Auto scroll line 1-48: evidence-backed chat output keeps growing.")).toBeVisible();
+  await expect.poll(() => panelMetrics(page, ".agent-conversation-scroll")).toMatchObject({ hasOverflow: true, nearBottom: true });
+
+  for (const selector of [".agent-conversation-scroll", ".citation-list", ".tool-call-list"]) {
+    await page.locator(selector).evaluate((element) => {
+      element.scrollTop = 0;
+      element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await expect.poll(() => panelMetrics(page, selector)).toMatchObject({ hasOverflow: true, nearBottom: false });
+  }
+
+  await page.getByLabel("Message").fill("auto-scroll stress second");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(page.getByText("Auto scroll line 2-48: evidence-backed chat output keeps growing.")).toBeVisible();
+
+  await expect.poll(() => panelMetrics(page, ".agent-conversation-scroll")).toMatchObject({ hasOverflow: true, nearBottom: true });
+  await expect.poll(() => panelMetrics(page, ".citation-list")).toMatchObject({ hasOverflow: true, nearBottom: true });
+  await expect.poll(() => panelMetrics(page, ".tool-call-list")).toMatchObject({ hasOverflow: true, nearBottom: true });
+});
+
+async function panelMetrics(page: import("@playwright/test").Page, selector: string) {
+  return page.locator(selector).evaluate((element) => {
+    const distanceToBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    return {
+      hasOverflow: element.scrollHeight > element.clientHeight + 4,
+      nearBottom: distanceToBottom <= 4,
+      distanceToBottom
+    };
+  });
+}

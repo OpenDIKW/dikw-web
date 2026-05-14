@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
   CheckCircle2,
@@ -29,6 +29,8 @@ interface ChatPageProps {
   locale?: Locale;
 }
 
+type ChatScrollPanel = "conversation" | "sources" | "tools";
+
 export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   const copy = translations[locale].pages.chat;
   const resolvedAgentClient = useMemo(() => agentClient ?? new AgentClient(), [agentClient]);
@@ -45,6 +47,14 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const controllerRef = useRef<AbortController | null>(null);
+  const conversationScrollRef = useRef<HTMLDivElement | null>(null);
+  const sourcesScrollRef = useRef<HTMLDivElement | null>(null);
+  const toolsScrollRef = useRef<HTMLUListElement | null>(null);
+  const stickToBottomRef = useRef<Record<ChatScrollPanel, boolean>>({
+    conversation: true,
+    sources: true,
+    tools: true
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -106,6 +116,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   }, [menuOpenSessionId]);
 
   async function openSession(sessionId: string) {
+    resetStickToBottom();
     const session = await resolvedAgentClient.getSession(sessionId);
     setActiveSession(session);
     setStreamingAnswer("");
@@ -115,6 +126,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
 
   async function createSession() {
     setError(null);
+    resetStickToBottom();
     const session = await resolvedAgentClient.createSession();
     setActiveSession(session);
     setSessions((items) => [toSummary(session), ...items]);
@@ -173,6 +185,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
       return;
     }
     const session = activeSession ?? (await resolvedAgentClient.createSession());
+    resetStickToBottom();
     if (!activeSession) {
       setActiveSession(session);
       setSessions((items) => [toSummary(session), ...items]);
@@ -233,6 +246,39 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   const messages = activeSession?.messages ?? [];
   const sources = [...(activeSession?.sources ?? []), ...streamingSources];
   const toolEvents = [...(activeSession?.toolEvents ?? []), ...streamingTools];
+
+  useLayoutEffect(() => {
+    if (stickToBottomRef.current.conversation) {
+      scrollToBottom(conversationScrollRef.current);
+    }
+  }, [activeSession?.id, messages.length, streamingAnswer, running]);
+
+  useLayoutEffect(() => {
+    if (stickToBottomRef.current.sources) {
+      scrollToBottom(sourcesScrollRef.current);
+    }
+  }, [activeSession?.id, sources.length]);
+
+  useLayoutEffect(() => {
+    if (stickToBottomRef.current.tools) {
+      scrollToBottom(toolsScrollRef.current);
+    }
+  }, [activeSession?.id, toolEvents.length]);
+
+  function resetStickToBottom() {
+    stickToBottomRef.current = {
+      conversation: true,
+      sources: true,
+      tools: true
+    };
+  }
+
+  function trackStickToBottom(panel: ChatScrollPanel, element: HTMLElement) {
+    stickToBottomRef.current = {
+      ...stickToBottomRef.current,
+      [panel]: isNearBottom(element)
+    };
+  }
 
   return (
     <div className="page-stack">
@@ -347,7 +393,12 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
         </aside>
 
         <main className="agent-workspace" aria-label={copy.chatRegion}>
-          <div className="agent-conversation-scroll" data-testid="agent-conversation-scroll">
+          <div
+            className="agent-conversation-scroll"
+            data-testid="agent-conversation-scroll"
+            ref={conversationScrollRef}
+            onScroll={(event) => trackStickToBottom("conversation", event.currentTarget)}
+          >
             <div className="agent-message-list">
               {messages.length || streamingAnswer ? (
                 <>
@@ -383,7 +434,11 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                 {copy.sourcesTitle}
               </div>
               {sources.length ? (
-                <div className="citation-list">
+                <div
+                  className="citation-list"
+                  ref={sourcesScrollRef}
+                  onScroll={(event) => trackStickToBottom("sources", event.currentTarget)}
+                >
                   {sources.map((source) => (
                     <article className="citation-item" key={`${source.path}-${source.title ?? ""}`}>
                       <div className="citation-item__meta">
@@ -407,7 +462,12 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                 {copy.toolsTitle}
               </div>
               {toolEvents.length ? (
-                <ul className="tool-call-list" aria-label={copy.toolsTitle}>
+                <ul
+                  className="tool-call-list"
+                  aria-label={copy.toolsTitle}
+                  ref={toolsScrollRef}
+                  onScroll={(event) => trackStickToBottom("tools", event.currentTarget)}
+                >
                   {toolEvents.map((event) => (
                     <li className={`tool-call tool-call--${event.status}`} key={event.id} title={toolStatusLabel(event.status, copy)}>
                       <span className="tool-call__icon" aria-hidden="true">
@@ -512,6 +572,17 @@ function mergeTools(items: AgentToolEvent[], next: AgentToolEvent): AgentToolEve
   const copy = [...items];
   copy[index] = next;
   return copy;
+}
+
+function isNearBottom(element: HTMLElement, threshold = 24): boolean {
+  return element.scrollHeight - element.scrollTop - element.clientHeight <= threshold;
+}
+
+function scrollToBottom(element: HTMLElement | null): void {
+  if (!element) {
+    return;
+  }
+  element.scrollTop = element.scrollHeight;
 }
 
 function mergeSummary(items: SessionSummary[], next: SessionSummary): SessionSummary[] {

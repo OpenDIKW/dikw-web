@@ -18,6 +18,11 @@ styled like a generic admin dashboard.
 - Chat context is session-scoped. The right rail keeps accumulated
   sources and tool calls for the open session instead of changing when a
   user clicks an assistant reply.
+- Chat output panels use smart bottom-stick scrolling: the message list,
+  Sources list, and Tool calls list default to the newest content while
+  streaming, but a panel stops auto-following when the user scrolls that
+  panel away from the bottom. Sending a new message resets all three
+  panels to bottom-stick mode.
 - Chat history actions live in each session row's compact `...` menu.
   Keep rename/delete there instead of adding destructive session actions
   to the context rail.

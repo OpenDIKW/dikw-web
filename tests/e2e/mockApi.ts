@@ -94,15 +94,37 @@ export async function mockDikwApi(page: Page) {
       const body = route.request().postDataJSON() as { message?: string };
       const userMessage = String(body.message ?? "What is DIKW?");
       const turnNumber = Math.floor(agentSession.messages.length / 2) + 1;
-      const assistantMessage = "Layered answer.";
-      const toolEvent = {
-        id: `tool-${turnNumber}`,
-        type: "tool_call",
-        name: "retrieve_knowledge",
-        status: "succeeded",
-        createdAt: "2026-05-13T00:00:00.500Z"
-      };
-      const source = { path: `wiki/concepts/architecture-${turnNumber}.md`, title: `Architecture ${turnNumber}`, layer: "wiki" };
+      const isAutoScrollStress = userMessage.toLowerCase().includes("auto-scroll stress");
+      const assistantMessage = isAutoScrollStress
+        ? Array.from(
+            { length: 48 },
+            (_, index) => `Auto scroll line ${turnNumber}-${index + 1}: evidence-backed chat output keeps growing.`
+          ).join("\n\n")
+        : "Layered answer.";
+      const toolEvents = isAutoScrollStress
+        ? Array.from({ length: 24 }, (_, index) => ({
+            id: `tool-${turnNumber}-${index + 1}`,
+            type: "tool_call",
+            name: `retrieve_knowledge_${index + 1}`,
+            status: "succeeded",
+            createdAt: "2026-05-13T00:00:00.500Z"
+          }))
+        : [
+            {
+              id: `tool-${turnNumber}`,
+              type: "tool_call",
+              name: "retrieve_knowledge",
+              status: "succeeded",
+              createdAt: "2026-05-13T00:00:00.500Z"
+            }
+          ];
+      const sources = isAutoScrollStress
+        ? Array.from({ length: 24 }, (_, index) => ({
+            path: `wiki/concepts/auto-scroll-source-${index + 1}.md`,
+            title: `Auto Scroll Source ${index + 1}`,
+            layer: "wiki"
+          }))
+        : [{ path: `wiki/concepts/architecture-${turnNumber}.md`, title: `Architecture ${turnNumber}`, layer: "wiki" }];
       agentSession = {
         ...agentSession,
         title: agentSession.title === "New chat" ? userMessage.slice(0, 40) : agentSession.title,
@@ -114,19 +136,21 @@ export async function mockDikwApi(page: Page) {
           { id: `m${turnNumber * 2 - 1}`, role: "user", content: userMessage, createdAt: "2026-05-13T00:00:00.000Z" },
           { id: `m${turnNumber * 2}`, role: "assistant", content: assistantMessage, createdAt: "2026-05-13T00:00:01.000Z" }
         ],
-        toolEvents: [...agentSession.toolEvents, toolEvent],
-        sources: [...agentSession.sources, source]
+        toolEvents: [...agentSession.toolEvents, ...toolEvents],
+        sources: [...agentSession.sources, ...sources]
       };
       await route.fulfill({
         contentType: "application/x-ndjson",
         body: [
-          JSON.stringify({ type: "tool_event", sessionId: "session-1", event: toolEvent }),
-          JSON.stringify({ type: "message_delta", sessionId: "session-1", delta: "Layered answer." }),
-          JSON.stringify({
-            type: "source",
-            sessionId: "session-1",
-            source
-          }),
+          ...toolEvents.map((event) => JSON.stringify({ type: "tool_event", sessionId: "session-1", event })),
+          JSON.stringify({ type: "message_delta", sessionId: "session-1", delta: assistantMessage }),
+          ...sources.map((source) =>
+            JSON.stringify({
+              type: "source",
+              sessionId: "session-1",
+              source
+            })
+          ),
           JSON.stringify({ type: "agent_end", sessionId: "session-1" })
         ].join("\n")
       });

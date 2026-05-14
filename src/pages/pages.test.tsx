@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { GraphPage } from "./GraphPage";
@@ -995,6 +995,57 @@ describe("read console pages", () => {
     expect(scrollRegion).not.toContainElement(screen.getByRole("button", { name: /Send/ }));
   });
 
+  it("keeps a user-scrolled conversation panel in place during streaming updates", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "Sticky scroll",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: 0,
+      lastMessagePreview: "",
+      messages: [],
+      toolEvents: [],
+      sources: [],
+      proposals: []
+    };
+    const controlledStream = createControlledAgentStream();
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => controlledStream.stream())
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    const scrollRegion = await screen.findByTestId("agent-conversation-scroll");
+    Object.defineProperties(scrollRegion, {
+      clientHeight: { configurable: true, value: 100 },
+      scrollHeight: { configurable: true, value: 1000 }
+    });
+
+    await userEvent.type(screen.getByLabelText("Message"), "Stream slowly");
+    await userEvent.click(screen.getByRole("button", { name: /Send/ }));
+    await waitFor(() => expect(scrollRegion.scrollTop).toBe(1000));
+
+    scrollRegion.scrollTop = 0;
+    fireEvent.scroll(scrollRegion);
+
+    controlledStream.push({ type: "message_delta", sessionId: "session-1", delta: "First streamed chunk." });
+    expect(await screen.findByText("First streamed chunk.")).toBeInTheDocument();
+    expect(scrollRegion.scrollTop).toBe(0);
+
+    scrollRegion.scrollTop = 1000;
+    fireEvent.scroll(scrollRegion);
+    controlledStream.push({ type: "message_delta", sessionId: "session-1", delta: " Second streamed chunk." });
+    await waitFor(() => expect(scrollRegion.scrollTop).toBe(1000));
+
+    controlledStream.finish();
+  });
+
   it("runs retrieve streams into chunks and page refs", async () => {
     const client = createMockClient();
     client.streamRetrieve.mockImplementation(() => createAsyncEvents(retrieveEventsFixture));
@@ -1253,4 +1304,34 @@ async function* createPendingEvents<T>(events: T[]): AsyncGenerator<T> {
     yield event;
   }
   await new Promise(() => undefined);
+}
+
+function createControlledAgentStream() {
+  const queue: AgentStreamEvent[] = [];
+  let finished = false;
+  let wake: (() => void) | null = null;
+
+  return {
+    push(event: AgentStreamEvent) {
+      queue.push(event);
+      wake?.();
+      wake = null;
+    },
+    finish() {
+      finished = true;
+      wake?.();
+      wake = null;
+    },
+    async *stream(): AsyncGenerator<AgentStreamEvent> {
+      while (!finished || queue.length > 0) {
+        if (queue.length > 0) {
+          yield queue.shift() as AgentStreamEvent;
+          continue;
+        }
+        await new Promise<void>((resolve) => {
+          wake = resolve;
+        });
+      }
+    }
+  };
 }
