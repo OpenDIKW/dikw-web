@@ -66,3 +66,36 @@ test("shows session-level sources and tool calls across replies", async ({ page 
   await expect(context.getByText("wiki/concepts/architecture-2.md")).toBeVisible();
   await expect(context.getByText("retrieve_knowledge")).toHaveCount(2);
 });
+
+test("keeps composer action icons visually centered", async ({ page }) => {
+  await page.goto("/#chat");
+  await page.getByLabel("Message").fill("Center the action icons");
+
+  const measurements = await page.evaluate(() => {
+    return Array.from(document.querySelectorAll<HTMLButtonElement>(".agent-composer > button")).map((button) => {
+      const svg = button.querySelector("svg");
+      const buttonBox = button.getBoundingClientRect();
+      const iconBox = svg?.getBoundingClientRect();
+      return {
+        label: button.textContent?.trim() ?? "",
+        buttonHeight: buttonBox.height,
+        buttonWidth: buttonBox.width,
+        centerDeltaX: iconBox ? Math.abs(buttonBox.left + buttonBox.width / 2 - (iconBox.left + iconBox.width / 2)) : null,
+        centerDeltaY: iconBox ? Math.abs(buttonBox.top + buttonBox.height / 2 - (iconBox.top + iconBox.height / 2)) : null,
+        iconHeight: iconBox?.height ?? 0,
+        iconWidth: iconBox?.width ?? 0
+      };
+    });
+  });
+
+  expect(measurements).toHaveLength(2);
+  for (const measurement of measurements) {
+    expect(Math.abs(measurement.buttonWidth - measurement.buttonHeight), measurement.label).toBeLessThanOrEqual(0.5);
+    expect(measurement.centerDeltaX, measurement.label).not.toBeNull();
+    expect(measurement.centerDeltaY, measurement.label).not.toBeNull();
+    expect(measurement.centerDeltaX ?? 99, measurement.label).toBeLessThanOrEqual(0.5);
+    expect(measurement.centerDeltaY ?? 99, measurement.label).toBeLessThanOrEqual(0.5);
+    expect(measurement.iconWidth, measurement.label).toBeGreaterThanOrEqual(14);
+    expect(measurement.iconHeight, measurement.label).toBeGreaterThanOrEqual(14);
+  }
+});

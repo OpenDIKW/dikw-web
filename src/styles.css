@@ -3850,7 +3850,10 @@ html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(
   align-items: center;
   justify-content: center;
   width: 28px;
+  height: 28px;
+  min-width: 28px;
   min-height: 28px;
+  gap: 0;
   padding: 0;
   border-radius: 999px;
   font-size: 0;
