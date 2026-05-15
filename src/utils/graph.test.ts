@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { DocumentRecord, PageReadResult } from "../types";
-import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph } from "./graph";
+import type { DocumentRecord, GraphResult, PageReadResult } from "../types";
+import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, toKnowledgeGraph } from "./graph";
 
 const pages: DocumentRecord[] = [
   {
@@ -81,6 +81,87 @@ const bodies: Record<string, PageReadResult> = {
 };
 
 describe("knowledge graph builder", () => {
+  it("adapts the core graph endpoint payload into the render graph", () => {
+    const coreGraph: GraphResult = {
+      base_revision: "graph-rev-1",
+      generated_at: "2026-05-14T10:00:00Z",
+      nodes: [
+        {
+          id: "wiki/architecture.md",
+          path: "wiki/architecture.md",
+          title: "Architecture",
+          layer: "wiki",
+          active: true,
+          mtime: 1777819200,
+          inbound: 0,
+          outbound: 1
+        },
+        {
+          id: "wiki/synthesis.md",
+          path: "wiki/synthesis.md",
+          title: "Synthesis",
+          layer: "wiki",
+          active: true,
+          mtime: 1777819300,
+          inbound: 1,
+          outbound: 0
+        }
+      ],
+      edges: [
+        {
+          id: "wiki/architecture.md->wiki/synthesis.md",
+          source: "wiki/architecture.md",
+          target: "wiki/synthesis.md",
+          type: "wikilink",
+          target_text: "Synthesis",
+          anchor: "Details",
+          weight: 3
+        }
+      ],
+      unresolved: [
+        {
+          source: "wiki/architecture.md",
+          target_text: "Missing Concept",
+          anchor: null,
+          count: 2
+        }
+      ],
+      stats: {
+        node_count: 2,
+        edge_count: 1,
+        unresolved_count: 2
+      }
+    };
+
+    const graph = toKnowledgeGraph(coreGraph);
+
+    expect(graph.stats).toEqual({ nodeCount: 2, edgeCount: 1, unresolvedCount: 2 });
+    expect(graph.nodes[0]).toMatchObject({
+      id: "wiki/architecture.md",
+      title: "Architecture",
+      path: "wiki/architecture.md",
+      layer: "wiki",
+      inbound: 0,
+      outbound: 1,
+      linkCount: 1
+    });
+    expect(graph.edges[0]).toMatchObject({
+      id: "wiki/architecture.md->wiki/synthesis.md",
+      source: "wiki/architecture.md",
+      target: "wiki/synthesis.md",
+      anchor: "Details",
+      weight: 3
+    });
+    expect(graph.unresolvedLinks).toEqual([
+      {
+        source: "wiki/architecture.md",
+        target: "Missing Concept",
+        anchor: null,
+        count: 2
+      }
+    ]);
+  });
+
   it("builds nodes and deduplicated resolved wikilink edges while retaining unresolved links", () => {
     const graph = buildKnowledgeGraph(pages, bodies);
 

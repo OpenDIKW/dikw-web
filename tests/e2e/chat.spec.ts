@@ -106,7 +106,9 @@ test("keeps chat output panels pinned to the newest content by default", async (
   await page.getByLabel("Message").fill("auto-scroll stress");
   await page.getByRole("button", { name: "Send" }).click();
 
-  await expect(page.getByText("Auto scroll line 1-48: evidence-backed chat output keeps growing.")).toBeVisible();
+  await expect(
+    page.getByTestId("agent-conversation-scroll").getByText("Auto scroll line 1-48: evidence-backed chat output keeps growing.")
+  ).toBeVisible();
   await expect(page.getByText("wiki/concepts/auto-scroll-source-24.md")).toBeVisible();
   await expect(page.getByText("retrieve_knowledge_24")).toBeVisible();
 
@@ -120,7 +122,9 @@ test("resets chat output panels to sticky bottom on the next user message", asyn
 
   await page.getByLabel("Message").fill("auto-scroll stress first");
   await page.getByRole("button", { name: "Send" }).click();
-  await expect(page.getByText("Auto scroll line 1-48: evidence-backed chat output keeps growing.")).toBeVisible();
+  await expect(
+    page.getByTestId("agent-conversation-scroll").getByText("Auto scroll line 1-48: evidence-backed chat output keeps growing.")
+  ).toBeVisible();
   await expect.poll(() => panelMetrics(page, ".agent-conversation-scroll")).toMatchObject({ hasOverflow: true, nearBottom: true });
 
   for (const selector of [".agent-conversation-scroll", ".citation-list", ".tool-call-list"]) {
@@ -133,7 +137,9 @@ test("resets chat output panels to sticky bottom on the next user message", asyn
 
   await page.getByLabel("Message").fill("auto-scroll stress second");
   await page.getByRole("button", { name: "Send" }).click();
-  await expect(page.getByText("Auto scroll line 2-48: evidence-backed chat output keeps growing.")).toBeVisible();
+  await expect(
+    page.getByTestId("agent-conversation-scroll").getByText("Auto scroll line 2-48: evidence-backed chat output keeps growing.")
+  ).toBeVisible();
 
   await expect.poll(() => panelMetrics(page, ".agent-conversation-scroll")).toMatchObject({ hasOverflow: true, nearBottom: true });
   await expect.poll(() => panelMetrics(page, ".citation-list")).toMatchObject({ hasOverflow: true, nearBottom: true });

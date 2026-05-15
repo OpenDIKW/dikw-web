@@ -16,9 +16,9 @@ them from scratch.
 - The Knowledge route uses `/v1/base/pages?active=true` and
   `/v1/base/pages/{path}`. The legacy `/v1/wiki/pages` endpoint is not
   part of the current contract.
-- Graph View currently builds graph data in the web layer from base
-  pages and markdown wikilinks. It does not depend on a core graph
-  endpoint yet.
+- Graph View consumes `GET /v1/base/graph?active=true` and applies
+  `wiki` / `source` / `all` scopes in the web layer. Do not reintroduce
+  browser-side body reads to build graph edges.
 
 ## Local Runtime
 

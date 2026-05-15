@@ -1,6 +1,6 @@
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation } from "d3-force";
 import type { SimulationLinkDatum, SimulationNodeDatum } from "d3-force";
-import type { DocumentRecord, Layer, PageReadResult } from "../types";
+import type { DocumentRecord, GraphResult, Layer, PageReadResult } from "../types";
 
 export interface GraphNode {
   id: string;
@@ -39,6 +39,7 @@ export interface GraphUnresolvedLink {
   source: string;
   target: string;
   anchor: string | null;
+  count: number;
 }
 
 export interface KnowledgeGraph {
@@ -78,6 +79,47 @@ interface ParsedWikiLink {
 
 const wikiLinkPattern = /\[\[([^\]\|\n]+?)(?:\|[^\]\n]+?)?\]\]/g;
 
+export function toKnowledgeGraph(result: GraphResult): KnowledgeGraph {
+  const usedEdgeIds = new Map<string, number>();
+  const nodes = result.nodes.map((node) => ({
+    id: node.id,
+    title: node.title || basename(node.path).replace(/\.md$/i, ""),
+    path: node.path,
+    layer: node.layer,
+    inbound: node.inbound,
+    outbound: node.outbound,
+    linkCount: node.inbound + node.outbound
+  }));
+  const edges = result.edges.map((edge) => {
+    const seen = usedEdgeIds.get(edge.id) ?? 0;
+    usedEdgeIds.set(edge.id, seen + 1);
+    return {
+      id: seen === 0 ? edge.id : `${edge.id}::${edge.target_text}::${edge.anchor ?? ""}::${seen}`,
+      source: edge.source,
+      target: edge.target,
+      anchor: edge.anchor,
+      weight: edge.weight
+    };
+  });
+  const unresolvedLinks = result.unresolved.map((link) => ({
+    source: link.source,
+    target: link.target_text,
+    anchor: link.anchor,
+    count: link.count
+  }));
+
+  return {
+    nodes,
+    edges,
+    unresolvedLinks,
+    stats: {
+      nodeCount: result.stats.node_count,
+      edgeCount: result.stats.edge_count,
+      unresolvedCount: result.stats.unresolved_count
+    }
+  };
+}
+
 export function buildKnowledgeGraph(pages: DocumentRecord[], bodies: Record<string, PageReadResult | undefined>): KnowledgeGraph {
   const nodeMap = new Map(
     pages.map((page) => [
@@ -103,7 +145,7 @@ export function buildKnowledgeGraph(pages: DocumentRecord[], bodies: Record<stri
     for (const link of links) {
       const target = findPageForTarget(link.target, pages);
       if (!target) {
-        unresolvedLinks.push({ source: page.path, target: link.target, anchor: link.anchor });
+        unresolvedLinks.push({ source: page.path, target: link.target, anchor: link.anchor, count: 1 });
         continue;
       }
       if (target.path === page.path) {
@@ -152,7 +194,7 @@ export function buildKnowledgeGraph(pages: DocumentRecord[], bodies: Record<stri
     stats: {
       nodeCount: nodes.length,
       edgeCount: edges.length,
-      unresolvedCount: unresolvedLinks.length
+      unresolvedCount: sumUnresolvedCounts(unresolvedLinks)
     }
   };
 }
@@ -198,7 +240,7 @@ export function filterKnowledgeGraph(graph: KnowledgeGraph, filters: GraphFilter
     stats: {
       nodeCount: nodes.length,
       edgeCount: edges.length,
-      unresolvedCount: graph.unresolvedLinks.filter((link) => visibleNodeIds.has(link.source)).length
+      unresolvedCount: sumUnresolvedCounts(graph.unresolvedLinks.filter((link) => visibleNodeIds.has(link.source)))
     }
   };
 }
@@ -293,6 +335,10 @@ function splitAnchor(target: string): [string, string | null] {
 
 function basename(path: string): string {
   return path.split("/").filter(Boolean).at(-1) ?? path;
+}
+
+function sumUnresolvedCounts(links: GraphUnresolvedLink[]): number {
+  return links.reduce((total, link) => total + link.count, 0);
 }
 
 function graphNodeRadius(node: GraphNode, scale: number): number {

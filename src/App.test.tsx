@@ -5,6 +5,7 @@ import { App } from "./App";
 import {
   healthFixture,
   infoFixture,
+  graphResultFixture,
   statusFixture,
   wikiPageBodiesFixture,
   wikiPagesFixture,
@@ -31,6 +32,9 @@ function stubApi() {
     }
     if (url.pathname === "/v1/status") {
       return jsonResponse(statusFixture);
+    }
+    if (url.pathname === "/v1/base/graph") {
+      return jsonResponse(graphResultFixture);
     }
     if (url.pathname === "/v1/base/pages") {
       return jsonResponse(wikiPagesFixture);

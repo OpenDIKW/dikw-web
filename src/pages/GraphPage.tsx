@@ -4,13 +4,12 @@ import type { DikwClient } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
-import type { DocumentRecord, Layer, PageReadResult } from "../types";
-import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, type KnowledgeGraph } from "../utils/graph";
+import type { GraphResult, Layer } from "../types";
+import { filterKnowledgeGraph, layoutKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "../utils/graph";
 
 interface GraphPageProps {
   client: DikwClient;
   onOpenWikiPath?: (path: string) => void;
-  pageReadTimeoutMs?: number;
   locale?: Locale;
 }
 
@@ -19,17 +18,8 @@ type GraphCopy = (typeof translations)["en"]["pages"]["graph"];
 
 interface GraphLoadState {
   loading: boolean;
-  loaded: number;
-  total: number;
-  skipped: GraphBodyReadIssue[];
   graph: KnowledgeGraph | null;
   error: unknown;
-}
-
-interface GraphBodyReadIssue {
-  path: string;
-  title: string;
-  message: string;
 }
 
 interface ForceSettings {
@@ -46,13 +36,9 @@ const defaultForceSettings: ForceSettings = {
   linkThicknessScale: 1
 };
 
-const graphReadConcurrency = 8;
-const defaultPageReadTimeoutMs = 15_000;
-
 export function GraphPage({
   client,
   onOpenWikiPath: _onOpenWikiPath,
-  pageReadTimeoutMs = defaultPageReadTimeoutMs,
   locale = "en"
 }: GraphPageProps) {
   const copy = translations[locale].pages.graph;
@@ -65,36 +51,24 @@ export function GraphPage({
   const [reloadId, setReloadId] = useState(0);
   const [state, setState] = useState<GraphLoadState>({
     loading: true,
-    loaded: 0,
-    total: 0,
-    skipped: [],
     graph: null,
     error: null
   });
 
   const loadGraph = useCallback(
     async (signal: AbortSignal) => {
-      setState((current) => ({ ...current, loading: true, loaded: 0, total: 0, skipped: [], error: null }));
-      const pages = await client.get<DocumentRecord[]>("/v1/base/pages", { signal, params: { active: true } });
-      const graphPages = pages.filter((page) => layer === "all" || page.layer === layer);
-      setState((current) => ({ ...current, total: graphPages.length }));
-
-      const { bodies, skipped } = await readPageBodies(client, graphPages, signal, pageReadTimeoutMs, () => {
-        setState((current) => ({ ...current, loaded: current.loaded + 1 }));
-      });
+      setState((current) => ({ ...current, loading: true, error: null }));
+      const graph = await client.get<GraphResult>("/v1/base/graph", { signal, params: { active: true } });
 
       if (!signal.aborted) {
         setState({
           loading: false,
-          loaded: graphPages.length,
-          total: graphPages.length,
-          skipped,
-          graph: buildKnowledgeGraph(graphPages, bodies),
+          graph: toKnowledgeGraph(graph),
           error: null
         });
       }
     },
-    [client, layer, pageReadTimeoutMs]
+    [client]
   );
 
   useEffect(() => {
@@ -171,21 +145,10 @@ export function GraphPage({
             {copy.resetFocus}
           </button>
         ) : null}
-        {state.loading ? <span className="soft-label">{formatReadingPages(copy, state.loaded, state.total)}</span> : null}
+        {state.loading ? <span className="soft-label">{copy.loadingGraph}</span> : null}
       </section>
 
       {state.error ? <Notice title={copy.errorTitle} error={state.error} /> : null}
-      {state.skipped.length ? (
-        <Notice title={copy.partialReadWarning} tone="warn">
-          <div>
-            {state.skipped.length} skipped: {state.skipped
-              .slice(0, 3)
-              .map((issue) => issue.path)
-              .join(", ")}
-            {state.skipped.length > 3 ? "..." : ""}
-          </div>
-        </Notice>
-      ) : null}
 
       {filteredGraph ? (
         <section className="graph-layout">
@@ -195,7 +158,6 @@ export function GraphPage({
                 <span className="soft-label">{filteredGraph.stats.nodeCount} nodes</span>
                 <span className="soft-label">{filteredGraph.stats.edgeCount} link</span>
                 <span className="soft-label">{filteredGraph.stats.unresolvedCount} unresolved</span>
-                {state.skipped.length ? <span className="soft-label">{state.skipped.length} skipped</span> : null}
               </div>
               <div className="graph-zoom" aria-label="Graph zoom controls">
                 <button
@@ -315,10 +277,6 @@ export function GraphPage({
       ) : null}
     </div>
   );
-}
-
-function formatReadingPages(copy: GraphCopy, loaded: number, total: number): string {
-  return `${copy.readingPages} ${loaded} / ${total} ${copy.pages}`;
 }
 
 function GraphSvg({
@@ -443,90 +401,6 @@ function ForceSlider({
   );
 }
 
-async function readPageBodies(
-  client: DikwClient,
-  pages: DocumentRecord[],
-  signal: AbortSignal,
-  timeoutMs: number,
-  onLoaded: () => void
-): Promise<{ bodies: Record<string, PageReadResult>; skipped: GraphBodyReadIssue[] }> {
-  const bodies: Record<string, PageReadResult> = {};
-  const skipped: GraphBodyReadIssue[] = [];
-  let nextIndex = 0;
-
-  async function worker() {
-    while (!signal.aborted) {
-      const page = pages[nextIndex];
-      nextIndex += 1;
-      if (!page) {
-        return;
-      }
-      const result = await readPageBody(client, page, signal, timeoutMs);
-      if (signal.aborted) {
-        return;
-      }
-      if (result.ok) {
-        bodies[page.path] = result.body;
-      } else {
-        skipped.push({
-          path: page.path,
-          title: page.title || page.path,
-          message: result.message
-        });
-      }
-      if (!signal.aborted) {
-        onLoaded();
-      }
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(graphReadConcurrency, pages.length) }, () => worker()));
-  return { bodies, skipped };
-}
-
-async function readPageBody(
-  client: DikwClient,
-  page: DocumentRecord,
-  parentSignal: AbortSignal,
-  timeoutMs: number
-): Promise<{ ok: true; body: PageReadResult } | { ok: false; message: string }> {
-  const controller = new AbortController();
-  const abortFromParent = () => controller.abort(parentSignal.reason);
-  if (parentSignal.aborted) {
-    return { ok: false, message: "request aborted" };
-  }
-  parentSignal.addEventListener("abort", abortFromParent, { once: true });
-
-  let timeoutId: number | undefined;
-  try {
-    const timeout = new Promise<never>((_resolve, reject) => {
-      timeoutId = window.setTimeout(() => {
-        controller.abort(new Error(`Timed out after ${timeoutMs}ms`));
-        reject(new Error(`Timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
-    });
-    const body = await Promise.race([
-      client.get<PageReadResult>(`/v1/base/pages/${encodePath(page.path)}`, { signal: controller.signal }),
-      timeout
-    ]);
-    return { ok: true, body };
-  } catch (error) {
-    if (parentSignal.aborted) {
-      throw error;
-    }
-    return { ok: false, message: getErrorMessage(error) };
-  } finally {
-    if (timeoutId !== undefined) {
-      window.clearTimeout(timeoutId);
-    }
-    parentSignal.removeEventListener("abort", abortFromParent);
-  }
-}
-
-function encodePath(path: string): string {
-  return path.split("/").map(encodeURIComponent).join("/");
-}
-
 function getFocusedNodeIds(graph: KnowledgeGraph, nodeId: string): Set<string> {
   const ids = new Set([nodeId]);
   for (const edge of graph.edges) {
@@ -542,11 +416,4 @@ function getFocusedNodeIds(graph: KnowledgeGraph, nodeId: string): Set<string> {
 
 function clampNumber(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return String(error);
 }

@@ -12,6 +12,7 @@ import type { AgentClientLike } from "./agentTypes";
 import type { AgentStreamEvent } from "../agent/types";
 import {
   createAsyncEvents,
+  graphResultFixture,
   healthFixture,
   infoFixture,
   ingestFileErrorEventsFixture,
@@ -492,28 +493,25 @@ describe("read console pages", () => {
     }
   });
 
-  it("loads base pages into a default wiki graph", async () => {
+  it("loads the core graph endpoint into a default wiki graph", async () => {
     const client = createMockClient();
     client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
-      if (path === "/v1/base/pages") {
+      if (path === "/v1/base/graph") {
         expect(options?.params).toEqual({ active: true });
-        return Promise.resolve([...wikiPagesFixture, ...sourcePagesFixture]);
-      }
-      if (path.startsWith("/v1/base/pages/")) {
-        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
+        return Promise.resolve(graphResultFixture);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
 
     render(<GraphPage client={client} />);
 
-    expect(await screen.findByText("2 nodes")).toBeInTheDocument();
+    expect(await screen.findByText("3 nodes")).toBeInTheDocument();
     expect(screen.getByText("1 link")).toBeInTheDocument();
-    expect(screen.getByText("0 unresolved")).toBeInTheDocument();
+    expect(screen.getByText("2 unresolved")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Knowledge graph" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Architecture graph node" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Synthesis graph node" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Architecture source graph node" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Reset zoom" })).toBeInTheDocument();
@@ -521,73 +519,44 @@ describe("read console pages", () => {
     expect(screen.getByLabelText("Link distance")).toBeInTheDocument();
     expect(screen.getByLabelText("Node size")).toBeInTheDocument();
     expect(screen.getByLabelText("Link thickness")).toBeInTheDocument();
-    expect(client.get).not.toHaveBeenCalledWith("/v1/base/pages/sources/architecture.md", expect.anything());
+
+    await userEvent.click(screen.getByRole("button", { name: "Sources" }));
+    expect(screen.getByText("1 nodes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Architecture source graph node" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "All" }));
+    expect(screen.getByText("4 nodes")).toBeInTheDocument();
+
+    expect(client.get).toHaveBeenCalledTimes(1);
+    expect(client.get).not.toHaveBeenCalledWith("/v1/base/pages", expect.anything());
   });
 
-  it("renders a partial graph when one page body times out", async () => {
+  it("shows graph endpoint loading and error states", async () => {
     const client = createMockClient();
-    client.get.mockImplementation((path: string, options?: { signal?: AbortSignal }) => {
-      if (path === "/v1/base/pages") {
-        return Promise.resolve(wikiPagesFixture);
-      }
-      if (path === "/v1/base/pages/wiki/architecture.md") {
-        return Promise.resolve(wikiPageBodiesFixture["wiki/architecture.md"]);
-      }
-      if (path === "/v1/base/pages/wiki/synthesis.md") {
-        return new Promise((_resolve, reject) => {
-          options?.signal?.addEventListener("abort", () => reject(new Error("request aborted")), { once: true });
-        });
-      }
-      return Promise.reject(new Error(`Unexpected path ${path}`));
-    });
+    client.get.mockReturnValue(new Promise(() => undefined));
 
-    render(<GraphPage client={client} pageReadTimeoutMs={5} />);
+    render(<GraphPage client={client} />);
 
-    expect(await screen.findByText("2 nodes")).toBeInTheDocument();
-    expect(screen.getByText("1 link")).toBeInTheDocument();
-    expect(screen.getByText("1 skipped")).toBeInTheDocument();
-    expect(screen.getByText("Some page bodies could not be read. The graph continues with returned pages.")).toBeInTheDocument();
+    expect(await screen.findByText("Loading graph")).toBeInTheDocument();
+    expect(screen.queryByText(/Reading \d+ \/ \d+ pages/)).not.toBeInTheDocument();
+  });
+
+  it("shows graph endpoint failures", async () => {
+    const client = createMockClient();
+    client.get.mockRejectedValue(new Error("graph unavailable"));
+
+    render(<GraphPage client={client} />);
+
+    expect(await screen.findByText("Could not build graph")).toBeInTheDocument();
+    expect(screen.getByText("graph unavailable")).toBeInTheDocument();
   });
 
   it("filters graph nodes, focuses neighbors, and opens the selected node in wiki", async () => {
     const client = createMockClient();
     const openedPaths: string[] = [];
-    const graphPages: DocumentRecord[] = [
-      ...wikiPagesFixture,
-      {
-        doc_id: "wiki-orphan",
-        path: "wiki/orphan.md",
-        path_key: "wiki/orphan.md",
-        title: "Orphan",
-        hash: "hash-o",
-        mtime: 1777819400,
-        layer: "wiki",
-        active: true
-      }
-    ];
     client.get.mockImplementation((path: string) => {
-      if (path === "/v1/base/pages") {
-        return Promise.resolve(graphPages);
-      }
-      if (path.startsWith("/v1/base/pages/")) {
-        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        if (selectedPath === "wiki/orphan.md") {
-          return Promise.resolve({
-            doc_id: "wiki-orphan",
-            path: "wiki/orphan.md",
-            layer: "wiki",
-            title: "Orphan",
-            body: "# Orphan\n\nNo links.",
-            anchors: []
-          } satisfies PageReadResult);
-        }
-        if (selectedPath === "wiki/architecture.md") {
-          return Promise.resolve({
-            ...wikiPageBodiesFixture["wiki/architecture.md"],
-            body: "# Architecture\n\nSee [[Synthesis]] and [[Missing Concept]]."
-          });
-        }
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
+      if (path === "/v1/base/graph") {
+        return Promise.resolve(graphResultFixture);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -595,7 +564,7 @@ describe("read console pages", () => {
     render(<GraphPage client={client} onOpenWikiPath={(path) => openedPaths.push(path)} />);
 
     expect(await screen.findByText("3 nodes")).toBeInTheDocument();
-    expect(screen.getByText("1 unresolved")).toBeInTheDocument();
+    expect(screen.getByText("2 unresolved")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Graph search"), "synth");
 

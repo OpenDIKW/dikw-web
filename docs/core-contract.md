@@ -86,17 +86,17 @@ removed during table sanitization.
 
 ## Graph View
 
-Graph View is read-only and does not require a core graph endpoint in
-v1:
+Graph View is read-only and consumes the core graph endpoint:
 
-- `GET /v1/base/pages?active=true` loads active page records.
-- `GET /v1/base/pages/{path}` loads bodies for the selected graph layer.
+- `GET /v1/base/graph?active=true` loads the full active base graph.
 
-The web layer parses markdown wikilinks from `body`, resolves them
-against active page records, and renders only resolved internal links as
-graph edges. Unresolved wikilinks are shown as counts and source-node
-detail, but they do not create ghost nodes. Default graph layer is
-`wiki`; `source` and `all` are client-side graph scopes.
+The response includes `base_revision`, `generated_at`, `nodes[]`,
+`edges[]`, `unresolved[]`, and `stats`. Core intentionally does not
+provide a `layer` query parameter in this endpoint; the web app requests
+the full active graph and applies `wiki`, `source`, and `all` scopes on
+the client. Unresolved wikilinks are shown as counts and source-node
+detail, but they do not create ghost nodes. Default graph scope is
+`wiki`.
 
 ## Chat
 

@@ -1,7 +1,7 @@
 # Graph View
 
 Graph View is a read-only knowledge map for `dikw-web`. It is inspired
-by Obsidian Global Graph: notes become nodes, internal wikilinks become
+by Obsidian Global Graph: notes become nodes, internal links become
 edges, and clicking a node focuses its one-hop neighborhood. It does not
 copy Obsidian behavior wholesale and does not modify base content.
 
@@ -10,33 +10,35 @@ copy Obsidian behavior wholesale and does not modify base content.
 - Route: `#graph`.
 - Default scope: `wiki`.
 - Alternate scopes: `source` and `all`.
-- Data source: existing Base Pages API only.
+- Data source: `GET /v1/base/graph?active=true`.
 - Rendering: React SVG with a d3-force layout.
-- Navigation: the detail panel button `在知识库打开` switches to `#wiki`
-  and passes the selected path directly to `WikiPage`.
+- Navigation: the detail panel button `Open in Knowledge` switches to
+  `#wiki` and passes the selected path directly to `WikiPage`.
 
-The page loads active page records from `GET /v1/base/pages?active=true`,
-then reads page bodies through `GET /v1/base/pages/{path}` for the
-selected scope. Body reads are capped at 8 concurrent requests so large
-knowledge bases do not start hundreds of fetches at once. Each body read
-also has a client-side timeout; a timed-out page is counted as `skipped`
-and the graph is built from the bodies that did return. This prevents a
-single stuck page request from leaving the graph page in a permanent
-`Reading x / y pages` loading state in the default English locale.
+`dikw-core` returns the complete active graph in one request:
+`base_revision`, `generated_at`, `nodes[]`, `edges[]`, `unresolved[]`,
+and `stats`. The endpoint deliberately does not support a `layer`
+parameter. `dikw-web` always requests the full active graph and applies
+the `wiki`, `source`, and `all` scopes client-side by filtering nodes,
+then keeping only edges whose endpoints remain visible.
 
-## Wikilink Resolution
+## Core Graph Contract
 
-The parser supports:
+Nodes use `id`, `path`, `title`, `layer`, `active`, `mtime`, `inbound`,
+and `outbound`. The web render model computes `linkCount` as
+`inbound + outbound` and uses it for node radius and orphan filtering.
 
-- `[[Target]]`
-- `[[Target|alias]]`
-- `[[Target#anchor]]`
+Edges use `source`, `target`, `target_text`, `anchor`, and `weight`.
+Repeated identical links are already aggregated by core, so the web
+preserves `weight` for link thickness.
 
-Targets resolve against title, path, basename, slug-like whitespace
-normalization, and unique token matches. Resolved links create directed
-edges. Duplicate links between the same source and target become one
-edge with higher weight. Unresolved links remain visible in counts and
-node detail, but v1 intentionally avoids ghost nodes.
+Unresolved links use `source`, `target_text`, `anchor`, and `count`.
+They are shown in stats and node detail, but v1 intentionally avoids
+ghost nodes. Filtered unresolved totals sum `count`, not entry count.
+
+`base_revision` is the cache key for future optimization. The current
+implementation refetches on refresh; it does not yet skip layout work
+when the revision is unchanged.
 
 ## Interaction Model
 
@@ -50,16 +52,9 @@ node detail, but v1 intentionally avoids ghost nodes.
 
 Tests lock the behavior at three layers:
 
-- `src/utils/graph.test.ts`: graph building, filtering, unresolved link
-  accounting, and bounded layout output.
-- Page/App tests: API calls, SVG nodes/links, focus/detail, and
-  open-in-Wiki behavior.
-- Playwright smoke: graph route, stats, node detail, and Wiki navigation.
-
-## Future Core Endpoint
-
-If `dikw-core` later exposes `/v1/base/graph`, the web page can switch
-the graph builder behind the same tests. Migration should keep the
-visible contract stable: nodes, edges, unresolved counts, filtering,
-focus, and open-in-Wiki must continue to pass before removing the
-client-side builder.
+- `src/utils/graph.test.ts`: core graph adaptation, filtering,
+  unresolved count accounting, and bounded layout output.
+- Page/App tests: `/v1/base/graph?active=true`, SVG nodes/links,
+  scope filtering, focus/detail, and open-in-Wiki behavior.
+- Playwright smoke: graph route, stats, node detail, absence of
+  `/v1/base/pages/{path}` graph body reads, and Wiki navigation.

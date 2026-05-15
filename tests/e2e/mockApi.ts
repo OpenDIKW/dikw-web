@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import {
+  graphResultFixture,
   healthFixture,
   infoFixture,
   retrieveEventsFixture,
@@ -179,6 +180,10 @@ export async function mockDikwApi(page: Page) {
     }
     if (path === "/v1/status") {
       await route.fulfill({ json: statusFixture });
+      return;
+    }
+    if (path === "/v1/base/graph") {
+      await route.fulfill({ json: graphResultFixture });
       return;
     }
     if (path === "/v1/base/pages") {

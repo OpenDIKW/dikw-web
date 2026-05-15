@@ -122,6 +122,49 @@ export interface PageReadResult {
   anchors: PageAnchor[];
 }
 
+export interface CoreGraphNode {
+  id: string;
+  path: string;
+  title: string | null;
+  layer: Layer;
+  active: boolean;
+  mtime: number;
+  inbound: number;
+  outbound: number;
+}
+
+export interface CoreGraphEdge {
+  id: string;
+  source: string;
+  target: string;
+  type: string;
+  target_text: string;
+  anchor: string | null;
+  weight: number;
+}
+
+export interface CoreGraphUnresolvedLink {
+  source: string;
+  target_text: string;
+  anchor: string | null;
+  count: number;
+}
+
+export interface CoreGraphStats {
+  node_count: number;
+  edge_count: number;
+  unresolved_count: number;
+}
+
+export interface GraphResult {
+  base_revision: string;
+  generated_at: string;
+  nodes: CoreGraphNode[];
+  edges: CoreGraphEdge[];
+  unresolved: CoreGraphUnresolvedLink[];
+  stats: CoreGraphStats;
+}
+
 export interface ChunkRecord {
   chunk_id: number | null;
   doc_id: string;

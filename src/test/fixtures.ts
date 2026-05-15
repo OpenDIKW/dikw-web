@@ -1,5 +1,6 @@
 import type {
   DocumentRecord,
+  GraphResult,
   HealthReport,
   Hit,
   InfoResponse,
@@ -111,6 +112,77 @@ export const sourcePagesFixture: DocumentRecord[] = [
     active: true
   }
 ];
+
+export const graphResultFixture: GraphResult = {
+  base_revision: "graph-rev-1",
+  generated_at: "2026-05-14T10:00:00Z",
+  nodes: [
+    {
+      id: "wiki/architecture.md",
+      path: "wiki/architecture.md",
+      title: "Architecture",
+      layer: "wiki",
+      active: true,
+      mtime: 1777819200,
+      inbound: 0,
+      outbound: 1
+    },
+    {
+      id: "wiki/synthesis.md",
+      path: "wiki/synthesis.md",
+      title: "Synthesis",
+      layer: "wiki",
+      active: true,
+      mtime: 1777819300,
+      inbound: 1,
+      outbound: 0
+    },
+    {
+      id: "wiki/orphan.md",
+      path: "wiki/orphan.md",
+      title: "Orphan",
+      layer: "wiki",
+      active: true,
+      mtime: 1777819400,
+      inbound: 0,
+      outbound: 0
+    },
+    {
+      id: "sources/architecture.md",
+      path: "sources/architecture.md",
+      title: "Architecture source",
+      layer: "source",
+      active: true,
+      mtime: 1777819100,
+      inbound: 0,
+      outbound: 0
+    }
+  ],
+  edges: [
+    {
+      id: "wiki/architecture.md->wiki/synthesis.md",
+      source: "wiki/architecture.md",
+      target: "wiki/synthesis.md",
+      type: "wikilink",
+      target_text: "Synthesis",
+      anchor: "Details",
+      weight: 2
+    }
+  ],
+  unresolved: [
+    {
+      source: "wiki/architecture.md",
+      target_text: "Missing Concept",
+      anchor: null,
+      count: 2
+    }
+  ],
+  stats: {
+    node_count: 4,
+    edge_count: 1,
+    unresolved_count: 2
+  }
+};
 
 export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
   "wiki/architecture.md": {

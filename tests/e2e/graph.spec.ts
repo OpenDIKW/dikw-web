@@ -6,6 +6,14 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("shows the global graph and opens a node in the wiki reader", async ({ page }) => {
+  const graphDataRequests: string[] = [];
+  page.on("request", (request) => {
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith("/v1/base/pages")) {
+      graphDataRequests.push(path);
+    }
+  });
+
   await page.goto("/#graph");
 
   await expect(page.getByRole("heading", { name: "Graph" })).toBeVisible();
@@ -16,6 +24,7 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   await expect(legend.getByText("Wiki", { exact: true })).toBeVisible();
   await expect(legend.getByText("Source", { exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
+  expect(graphDataRequests).toEqual([]);
 
   await page.getByRole("button", { name: "Architecture graph node" }).click();
   const detail = page.getByRole("region", { name: "Graph node detail" });

@@ -116,6 +116,77 @@ export const wikiPagesFixture = [
   }
 ];
 
+export const graphResultFixture = {
+  base_revision: "graph-rev-1",
+  generated_at: "2026-05-14T10:00:00Z",
+  nodes: [
+    {
+      id: "wiki/concepts/architecture.md",
+      path: "wiki/concepts/architecture.md",
+      title: "Architecture",
+      layer: "wiki",
+      active: true,
+      mtime: 1777819200,
+      inbound: 0,
+      outbound: 1
+    },
+    {
+      id: "wiki/concepts/synthesis.md",
+      path: "wiki/concepts/synthesis.md",
+      title: "Synthesis",
+      layer: "wiki",
+      active: true,
+      mtime: 1777819300,
+      inbound: 1,
+      outbound: 0
+    },
+    {
+      id: "wiki/concepts/orphan.md",
+      path: "wiki/concepts/orphan.md",
+      title: "Orphan",
+      layer: "wiki",
+      active: true,
+      mtime: 1777819400,
+      inbound: 0,
+      outbound: 0
+    },
+    {
+      id: "sources/architecture.md",
+      path: "sources/architecture.md",
+      title: "Architecture source",
+      layer: "source",
+      active: true,
+      mtime: 1777819100,
+      inbound: 0,
+      outbound: 0
+    }
+  ],
+  edges: [
+    {
+      id: "wiki/concepts/architecture.md->wiki/concepts/synthesis.md",
+      source: "wiki/concepts/architecture.md",
+      target: "wiki/concepts/synthesis.md",
+      type: "wikilink",
+      target_text: "Synthesis",
+      anchor: null,
+      weight: 1
+    }
+  ],
+  unresolved: [
+    {
+      source: "wiki/concepts/architecture.md",
+      target_text: "Missing Concept",
+      anchor: null,
+      count: 1
+    }
+  ],
+  stats: {
+    node_count: 4,
+    edge_count: 1,
+    unresolved_count: 1
+  }
+};
+
 export const wikiPageBodiesFixture = {
   "wiki/concepts/architecture.md": {
     doc_id: "wiki-architecture",

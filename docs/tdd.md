@@ -31,14 +31,16 @@ Graph View followed the same vertical loop:
 
 1. App shell test first: add the localized `Graph` navigation entry,
    click it, and assert `#graph` plus the current-locale page heading.
-2. Graph builder unit test next: feed page records and markdown bodies,
-   parse `[[Target]]`, `[[Target|alias]]`, and `[[Target#anchor]]`,
-   dedupe repeated edges, and record unresolved wikilinks.
+2. Graph adapter unit test next: feed a `GET /v1/base/graph` payload,
+   map it to the render graph, preserve edge weight, and sum unresolved
+   `count` values.
 3. Page test then covers the API boundary: load
-   `/v1/base/pages?active=true`, read page bodies, render SVG nodes and
-   links, then verify search, hide-orphans, focus, and open-in-Wiki.
+   `/v1/base/graph?active=true`, render SVG nodes and links, then verify
+   client-side `wiki` / `source` / `all` scopes, search, hide-orphans,
+   focus, and open-in-Wiki.
 4. E2E mock locks the user path: navigate to `#graph`, click a node,
-   inspect detail, and open it in the Wiki reader.
+   inspect detail, assert graph loading did not loop through
+   `/v1/base/pages/{path}`, and open it in the Wiki reader.
 
 This keeps implementation choices, such as SVG rendering and d3-force
 layout, replaceable while the visible graph behavior stays protected.
