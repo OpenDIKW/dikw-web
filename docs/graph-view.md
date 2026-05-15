@@ -48,8 +48,13 @@ The canvas uses a web-only render model derived from `KnowledgeGraph`:
 
 - Louvain-inspired deterministic community detection groups related
   pages into visual clusters. If clustering degenerates into too many
-  tiny communities, the renderer falls back to `layer + path segment`
-  groups.
+  tiny communities, or if a large graph collapses into too few giant
+  communities, the renderer falls back to `layer + path segment` groups.
+- Large graphs use an overview profile: compact node radii, thinner
+  edges, sunflower-style cluster placement, and no cross-cluster edge
+  attraction during layout. Cross-cluster edges remain visible as
+  relationships, but they do not pull every community into one central
+  hairball.
 - Cluster nebulae, edges, node halos, node bodies, and labels are drawn
   as separate Pixi layers. Bloom is applied only to halos and stays
   subtle so the graph remains part of the workbench rather than a

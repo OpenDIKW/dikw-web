@@ -41,6 +41,7 @@ interface RenderState {
 
 const defaultWidth = 900;
 const defaultHeight = 520;
+const LARGE_GRAPH_NODE_COUNT = 200;
 
 export function GraphCanvas({
   graph,
@@ -177,11 +178,12 @@ function drawFallbackCanvas(
   context.clearRect(0, 0, width, height);
   context.fillStyle = numberToRgba(state.palette.surface, 0.22);
   context.fillRect(0, 0, width, height);
+  const largeGraph = graph.nodes.length >= LARGE_GRAPH_NODE_COUNT;
 
   for (const cluster of graph.clusters) {
     context.beginPath();
-    context.ellipse(cluster.x, cluster.y, cluster.radius * 1.18, cluster.radius * 0.72, 0, 0, Math.PI * 2);
-    context.fillStyle = `${cluster.color}12`;
+    context.ellipse(cluster.x, cluster.y, cluster.radius * 0.96, cluster.radius * 0.58, 0, 0, Math.PI * 2);
+    context.fillStyle = `${cluster.color}${largeGraph ? "04" : "12"}`;
     context.fill();
   }
 
@@ -196,9 +198,10 @@ function drawFallbackCanvas(
     context.beginPath();
     context.moveTo(source.x, source.y);
     context.lineTo(target.x, target.y);
+    const idleAlpha = largeGraph ? 0.035 : 0.32;
     context.strokeStyle = numberToRgba(
       onPath ? state.palette.path : state.palette.line,
-      pathActive ? (onPath ? 0.82 : 0.08) : focused ? 0.58 : 0.32
+      pathActive ? (onPath ? 0.82 : 0.04) : focused ? (largeGraph ? 0.42 : 0.58) : idleAlpha
     );
     context.lineWidth = onPath ? Math.max(edge.thickness + 0.8, 2.2) : edge.thickness;
     context.lineCap = "round";
@@ -210,15 +213,18 @@ function drawFallbackCanvas(
     const color = node.layer === "source" ? state.palette.source : state.palette.accent;
     const selected = state.focusedNodeId === node.id || state.pathNodeIds.has(node.id);
     context.beginPath();
-    context.arc(node.x, node.y, node.radius + 11, 0, Math.PI * 2);
-    context.fillStyle = numberToRgba(selected ? state.palette.path : color, selected ? 0.25 : muted ? 0.03 : 0.1);
+    context.arc(node.x, node.y, node.radius + (largeGraph ? 4 : 11), 0, Math.PI * 2);
+    context.fillStyle = numberToRgba(
+      selected ? state.palette.path : color,
+      selected ? 0.24 : muted ? 0.015 : largeGraph ? 0.035 : 0.1
+    );
     context.fill();
     context.beginPath();
     context.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
     context.fillStyle = numberToRgba(color, muted ? 0.18 : 1);
     context.fill();
     context.strokeStyle = numberToRgba(state.palette.surface, selected ? 0.96 : 0.8);
-    context.lineWidth = selected ? 2.4 : 1.4;
+    context.lineWidth = selected ? (largeGraph ? 1.7 : 2.4) : largeGraph ? 0.75 : 1.4;
     context.stroke();
   }
 }
@@ -286,10 +292,12 @@ class PixiGraphEngine implements PixiEngine {
     this.labelLayer.removeChildren();
     this.nebulaLayer.removeChildren();
 
+    const largeGraph = graph.nodes.length >= LARGE_GRAPH_NODE_COUNT;
+
     for (const cluster of graph.clusters) {
       const nebula = new this.pixi.Graphics();
-      nebula.ellipse(cluster.x, cluster.y, cluster.radius * 1.18, cluster.radius * 0.72);
-      nebula.fill({ color: parseHex(cluster.color), alpha: 0.065 });
+      nebula.ellipse(cluster.x, cluster.y, cluster.radius * 0.96, cluster.radius * 0.58);
+      nebula.fill({ color: parseHex(cluster.color), alpha: largeGraph ? 0.012 : 0.065 });
       this.nebulaLayer.addChild(nebula);
     }
 
@@ -301,7 +309,22 @@ class PixiGraphEngine implements PixiEngine {
       const pathActive = state.pathEdgeIds.size > 0;
       const onPath = state.pathEdgeIds.has(edge.id);
       const focused = state.focusedNodeIds.size > 0 && state.focusedNodeIds.has(edge.source) && state.focusedNodeIds.has(edge.target);
-      const alpha = pathActive ? (onPath ? 0.82 : 0.08) : state.focusedNodeIds.size ? (focused ? 0.58 : 0.09) : 0.33;
+      const idleAlpha = largeGraph ? 0.035 : 0.33;
+      const alpha = pathActive
+        ? onPath
+          ? 0.82
+          : largeGraph
+            ? 0.035
+            : 0.08
+        : state.focusedNodeIds.size
+          ? focused
+            ? largeGraph
+              ? 0.42
+              : 0.58
+            : largeGraph
+              ? 0.035
+              : 0.09
+          : idleAlpha;
       const width = pathActive && onPath ? Math.max(edge.thickness + 0.8, 2.2) : edge.thickness;
       const color = pathActive && onPath ? state.palette.path : state.palette.line;
       this.edgeLayer.moveTo(source.x, source.y);
@@ -312,7 +335,7 @@ class PixiGraphEngine implements PixiEngine {
     const topLabels = new Set(
       [...graph.nodes]
         .sort((a, b) => b.labelPriority - a.labelPriority || a.id.localeCompare(b.id))
-        .slice(0, 18)
+        .slice(0, largeGraph ? 5 : 18)
         .map((node) => node.id)
     );
 
@@ -322,22 +345,26 @@ class PixiGraphEngine implements PixiEngine {
       const onPath = state.pathNodeIds.has(node.id);
       const selected = state.focusedNodeId === node.id || onPath;
       const alpha = muted ? 0.16 : 1;
-      const haloAlpha = selected ? 0.32 : muted ? 0.025 : 0.12;
+      const haloAlpha = selected ? 0.28 : muted ? 0.015 : largeGraph ? 0.034 : 0.12;
 
-      this.haloLayer.circle(node.x, node.y, node.radius + 12);
+      this.haloLayer.circle(node.x, node.y, node.radius + (largeGraph ? 4 : 12));
       this.haloLayer.fill({ color: selected ? state.palette.path : color, alpha: haloAlpha });
 
       this.nodeLayer.circle(node.x, node.y, node.radius);
       this.nodeLayer.fill({ color, alpha });
       this.nodeLayer.circle(node.x, node.y, node.radius);
-      this.nodeLayer.stroke({ color: state.palette.surface, width: selected ? 2.4 : 1.4, alpha: selected ? 0.95 : 0.82 });
+      this.nodeLayer.stroke({
+        color: state.palette.surface,
+        width: selected ? (largeGraph ? 1.7 : 2.4) : largeGraph ? 0.75 : 1.4,
+        alpha: selected ? 0.95 : 0.82
+      });
 
       if (selected || topLabels.has(node.id)) {
         const label = new this.pixi.Text({
           text: node.title,
           style: {
             fill: state.palette.text,
-            fontSize: selected ? 13 : 11,
+            fontSize: selected ? 12 : 10,
             fontWeight: selected ? "600" : "500",
             fontFamily: "Inter, ui-sans-serif, system-ui"
           }

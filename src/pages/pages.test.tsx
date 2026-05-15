@@ -512,6 +512,7 @@ describe("read console pages", () => {
     expect(screen.getByRole("button", { name: "Architecture graph node" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Synthesis graph node" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Architecture source graph node" })).toBeInTheDocument();
+    expect(document.querySelector(".graph-layout")).toHaveAttribute("data-has-detail", "false");
     expect(screen.queryByRole("button", { name: "Wiki" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sources" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "All" })).not.toBeInTheDocument();
@@ -572,6 +573,7 @@ describe("read console pages", () => {
     await userEvent.click(screen.getByRole("button", { name: "Architecture graph node" }));
 
     const detail = screen.getByRole("region", { name: "Graph node detail" });
+    expect(document.querySelector(".graph-layout")).toHaveAttribute("data-has-detail", "true");
     expect(within(detail).getByRole("heading", { name: "Architecture" })).toBeInTheDocument();
     expect(within(detail).getByText("0 inbound")).toBeInTheDocument();
     expect(within(detail).getByText("1 outbound")).toBeInTheDocument();

@@ -50,6 +50,11 @@ nodes without mutating inputs, and test shortest-path behavior. This
 keeps implementation choices replaceable while the visible graph
 behavior stays protected.
 
+Large-graph readability is also testable. Add unit tests that force a
+hub-heavy graph into the renderer and assert compact node/edge sizing,
+fallback communities when Louvain collapses, broad canvas span, and
+minimum cluster separation before tuning Pixi colors or layout forces.
+
 ## Wiki Reader Slice Example
 
 Wiki reader changes should land as vertical UI slices:

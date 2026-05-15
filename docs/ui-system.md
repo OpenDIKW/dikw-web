@@ -109,6 +109,11 @@ that labels, edges, and node hit targets remain readable in both light
 and dark themes. Cluster nebulae should be low-alpha context, not
 decorative blobs.
 
+When the graph is large, the default view should behave like an
+overview, not a literal full-detail diagram. Use small nodes, faint idle
+edges, very soft nebulae, and sparse labels. The detail panel, hover,
+focus, and path mode are where stronger edges, halos, and labels belong.
+
 The canvas must keep an accessible DOM overlay for graph nodes. Pixi may
 own pixels and camera interaction, but tests and keyboard users still
 need stable `button` targets for selecting nodes and opening details.

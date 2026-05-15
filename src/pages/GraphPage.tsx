@@ -205,7 +205,7 @@ export function GraphPage({
       {state.error ? <Notice title={copy.errorTitle} error={state.error} /> : null}
 
       {filteredGraph ? (
-        <section className="graph-layout">
+        <section className="graph-layout" data-has-detail={String(Boolean(focusedNode))}>
           <main className="graph-canvas panel">
             <div className="graph-canvas__header">
               <div className="graph-stats" aria-label="Graph stats">

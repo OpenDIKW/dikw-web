@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DocumentRecord, GraphResult, PageReadResult } from "../types";
-import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, toKnowledgeGraph } from "./graph";
+import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "./graph";
 import { findShortestPath, layoutGalaxyGraph, toGalaxyGraph } from "./galaxyGraph";
 
 const pages: DocumentRecord[] = [
@@ -285,6 +285,39 @@ describe("knowledge graph builder", () => {
     expect("x" in graph.nodes[0]).toBe(false);
   });
 
+  it("switches large graphs to compact visual sizing and readable fallback communities", () => {
+    const graph = toGalaxyGraph(makeLargeHubGraph(240, 6));
+
+    expect(graph.clusters.length).toBeGreaterThanOrEqual(6);
+    expect(Math.max(...graph.nodes.map((node) => node.radius))).toBeLessThanOrEqual(8.5);
+    expect(Math.min(...graph.nodes.map((node) => node.radius))).toBeLessThanOrEqual(3.5);
+    expect(Math.max(...graph.edges.map((edge) => edge.thickness))).toBeLessThanOrEqual(1.2);
+  });
+
+  it("spreads large graph clusters instead of collapsing them into one canvas blob", () => {
+    const graph = toGalaxyGraph(makeLargeHubGraph(240, 6));
+    const layout = layoutGalaxyGraph(graph, { width: 1000, height: 560 });
+
+    expect(layout.clusters.length).toBeGreaterThanOrEqual(6);
+    const centerX = 1000 / 2;
+    const centerY = 560 / 2;
+    const radialBands = new Set(
+      layout.clusters.map((cluster) => Math.round(Math.hypot(cluster.x - centerX, cluster.y - centerY) / 40))
+    );
+    expect(radialBands.size).toBeGreaterThanOrEqual(3);
+    const xs = layout.nodes.map((node) => node.x);
+    const ys = layout.nodes.map((node) => node.y);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThanOrEqual(620);
+    expect(Math.max(...ys) - Math.min(...ys)).toBeGreaterThanOrEqual(300);
+    const centerDistances: number[] = [];
+    for (let i = 0; i < layout.clusters.length; i += 1) {
+      for (let j = i + 1; j < layout.clusters.length; j += 1) {
+        centerDistances.push(Math.hypot(layout.clusters[i].x - layout.clusters[j].x, layout.clusters[i].y - layout.clusters[j].y));
+      }
+    }
+    expect(Math.min(...centerDistances)).toBeGreaterThanOrEqual(92);
+  });
+
   it("finds shortest paths for graph path mode", () => {
     const graph = buildKnowledgeGraph(pages, bodies);
 
@@ -305,3 +338,42 @@ describe("knowledge graph builder", () => {
     });
   });
 });
+
+function makeLargeHubGraph(nodeCount: number, groupCount: number): KnowledgeGraph {
+  const nodes = Array.from({ length: nodeCount }, (_, index) => {
+    const group = index % groupCount;
+    const layer = index % 7 === 0 ? ("source" as const) : ("wiki" as const);
+    const pathRoot = layer === "source" ? "sources" : "wiki";
+    const pathGroup = layer === "source" ? `corpus-${group}` : `topic-${group}`;
+    const id = `${pathRoot}/${pathGroup}/note-${index}.md`;
+    return {
+      id,
+      path: id,
+      title: `Note ${index}`,
+      layer,
+      inbound: index === 0 ? nodeCount - 1 : 1,
+      outbound: index === 0 ? 0 : 1,
+      linkCount: index === 0 ? nodeCount - 1 : 2
+    };
+  });
+
+  const hub = nodes[0];
+  const edges = nodes.slice(1).map((node, index) => ({
+    id: `${node.id}->${hub.id}`,
+    source: node.id,
+    target: hub.id,
+    anchor: null,
+    weight: index % 5 === 0 ? 3 : 1
+  }));
+
+  return {
+    nodes,
+    edges,
+    unresolvedLinks: [],
+    stats: {
+      nodeCount: nodes.length,
+      edgeCount: edges.length,
+      unresolvedCount: 0
+    }
+  };
+}

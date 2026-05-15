@@ -48,23 +48,25 @@ export interface PathResult {
 }
 
 const CLUSTER_COLORS = ["#0b6f66", "#6f7f86", "#8b795e", "#2f6f8f", "#7b6d8d", "#62715d", "#9a7355", "#4f7d77"];
+const LARGE_GRAPH_NODE_COUNT = 200;
 
 export function toGalaxyGraph(graph: KnowledgeGraph): GalaxyGraph {
   const communities = detectCommunities(graph);
+  const nodeCount = graph.nodes.length;
   const nodes = graph.nodes.map((node) => {
     const degree = node.inbound + node.outbound;
     return {
       ...node,
       degree,
       clusterId: communities.get(node.id) ?? 0,
-      radius: nodeRadius(degree),
+      radius: nodeRadius(degree, nodeCount),
       labelPriority: degree * 100 + titleScore(node.title)
     } satisfies GalaxyNode;
   });
 
   const edges = graph.edges.map((edge) => ({
     ...edge,
-    thickness: edgeThickness(edge.weight)
+    thickness: edgeThickness(edge.weight, nodeCount)
   }));
 
   return {
@@ -84,18 +86,28 @@ export function layoutGalaxyGraph(
   }
 
   const clusterCount = Math.max(graph.clusters.length, 1);
+  const isLargeGraph = graph.nodes.length >= LARGE_GRAPH_NODE_COUNT;
   const centerX = width / 2;
   const centerY = height / 2;
-  const maxRing = Math.max(120, Math.min(width, height) * 0.34);
+  const maxRing = Math.max(isLargeGraph ? 190 : 120, Math.min(width, height) * (isLargeGraph ? 0.42 : 0.34));
+  const maxRingX = isLargeGraph ? Math.max(240, width * 0.36) : maxRing;
+  const maxRingY = isLargeGraph ? Math.max(150, height * 0.34) : maxRing;
   const centroids = new Map<number, { x: number; y: number; radius: number }>();
+  const clusterRank = new Map(
+    [...graph.clusters]
+      .sort((a, b) => b.memberIds.length - a.memberIds.length || a.id - b.id)
+      .map((cluster, index) => [cluster.id, index])
+  );
+  const goldenAngle = 2.399963229728653;
 
   graph.clusters.forEach((cluster, index) => {
-    const angle = clusterCount === 1 ? 0 : (index / clusterCount) * Math.PI * 2 - Math.PI / 2;
-    const radius = 58 + Math.sqrt(cluster.memberIds.length) * 20;
-    const ring = clusterCount === 1 ? 0 : maxRing;
+    const rank = clusterRank.get(cluster.id) ?? index;
+    const angle = isLargeGraph ? rank * goldenAngle - Math.PI / 2 : clusterCount === 1 ? 0 : (index / clusterCount) * Math.PI * 2 - Math.PI / 2;
+    const radius = isLargeGraph ? 30 + Math.sqrt(cluster.memberIds.length) * 8.5 : 58 + Math.sqrt(cluster.memberIds.length) * 20;
+    const ringRatio = clusterCount === 1 ? 0 : isLargeGraph ? (rank === 0 ? 0 : 0.44 + 0.56 * Math.sqrt(rank / Math.max(clusterCount - 1, 1))) : 1;
     centroids.set(cluster.id, {
-      x: centerX + Math.cos(angle) * ring,
-      y: centerY + Math.sin(angle) * ring,
+      x: centerX + Math.cos(angle) * (isLargeGraph ? maxRingX * ringRatio : maxRing),
+      y: centerY + Math.sin(angle) * (isLargeGraph ? maxRingY * ringRatio : maxRing),
       radius
     });
   });
@@ -108,7 +120,6 @@ export function layoutGalaxyGraph(
   }
 
   const positions = new Map<string, { x: number; y: number; vx: number; vy: number }>();
-  const goldenAngle = 2.399963229728653;
 
   for (const [clusterId, nodes] of byCluster) {
     const centroid = centroids.get(clusterId) ?? { x: centerX, y: centerY, radius: 160 };
@@ -139,8 +150,8 @@ export function layoutGalaxyGraph(
       const force = forces.get(node.id);
       const centroid = centroids.get(node.clusterId);
       if (!position || !force || !centroid) continue;
-      force.x += (centroid.x - position.x) * 0.018;
-      force.y += (centroid.y - position.y) * 0.018;
+      force.x += (centroid.x - position.x) * (isLargeGraph ? 0.034 : 0.018);
+      force.y += (centroid.y - position.y) * (isLargeGraph ? 0.034 : 0.018);
     }
 
     for (let i = 0; i < nodeList.length; i += 1) {
@@ -157,7 +168,7 @@ export function layoutGalaxyGraph(
         const dy = pa.y - pb.y;
         const d2 = dx * dx + dy * dy + 4;
         const sameCluster = a.clusterId === b.clusterId;
-        const strength = sameCluster ? 760 : 420;
+        const strength = isLargeGraph ? (sameCluster ? 125 : 24) : sameCluster ? 760 : 420;
         const mag = strength / d2;
         const inv = 1 / Math.sqrt(d2);
         const fx = dx * inv * mag;
@@ -176,11 +187,15 @@ export function layoutGalaxyGraph(
       const source = graph.nodes.find((node) => node.id === edge.source);
       const target = graph.nodes.find((node) => node.id === edge.target);
       const sameCluster = source?.clusterId === target?.clusterId;
+      if (isLargeGraph && !sameCluster) {
+        continue;
+      }
       const dx = pb.x - pa.x;
       const dy = pb.y - pa.y;
       const distance = Math.sqrt(dx * dx + dy * dy) + 0.01;
-      const restLength = sameCluster ? 68 : 138;
-      const stretch = (distance - restLength) * (sameCluster ? 0.024 : 0.014);
+      const restLength = isLargeGraph ? (sameCluster ? 34 : 220) : sameCluster ? 68 : 138;
+      const stretch =
+        (distance - restLength) * (isLargeGraph ? (sameCluster ? 0.012 : 0.0025) : sameCluster ? 0.024 : 0.014);
       const fx = (dx / distance) * stretch;
       const fy = (dy / distance) * stretch;
       const sourceForce = forces.get(edge.source);
@@ -197,8 +212,8 @@ export function layoutGalaxyGraph(
       const position = positions.get(node.id);
       const force = forces.get(node.id);
       if (!position || !force) continue;
-      position.vx = (position.vx + force.x) * 0.72 * cooling;
-      position.vy = (position.vy + force.y) * 0.72 * cooling;
+      position.vx = (position.vx + force.x) * (isLargeGraph ? 0.62 : 0.72) * cooling;
+      position.vy = (position.vy + force.y) * (isLargeGraph ? 0.62 : 0.72) * cooling;
       position.x += position.vx;
       position.y += position.vy;
     }
@@ -218,7 +233,7 @@ export function layoutGalaxyGraph(
       64,
       ...members.map((node) => Math.hypot(node.x - cx, node.y - cy) + node.radius + 26)
     );
-    return { ...cluster, x: cx, y: cy, radius } satisfies PositionedGalaxyCluster;
+    return { ...cluster, x: cx, y: cy, radius: isLargeGraph ? Math.min(radius, 72) : radius } satisfies PositionedGalaxyCluster;
   });
 
   return {
@@ -324,6 +339,12 @@ function detectCommunities(graph: KnowledgeGraph): Map<string, number> {
 
   const renumbered = renumberCommunities(communities);
   const uniqueCount = new Set(renumbered.values()).size;
+  if (graph.nodes.length >= LARGE_GRAPH_NODE_COUNT && uniqueCount < Math.min(6, graph.nodes.length)) {
+    const fallback = fallbackCommunities(graph.nodes);
+    if (new Set(fallback.values()).size > uniqueCount) {
+      return fallback;
+    }
+  }
   if (uniqueCount > Math.max(8, Math.ceil(graph.nodes.length / 3))) {
     return fallbackCommunities(graph.nodes);
   }
@@ -407,11 +428,17 @@ function reconstructPath(
   return { status: "found", nodeIds, edgeIds };
 }
 
-function nodeRadius(degree: number): number {
+function nodeRadius(degree: number, nodeCount: number): number {
+  if (nodeCount >= LARGE_GRAPH_NODE_COUNT) {
+    return clamp(2.4 + Math.sqrt(Math.max(degree, 0)) * 0.55, 2.4, 8.5);
+  }
   return 8 + Math.sqrt(Math.max(degree, 0)) * 4.2;
 }
 
-function edgeThickness(weight: number): number {
+function edgeThickness(weight: number, nodeCount: number): number {
+  if (nodeCount >= LARGE_GRAPH_NODE_COUNT) {
+    return clamp(0.34 + Math.sqrt(Math.max(weight, 1)) * 0.2, 0.34, 1.2);
+  }
   return 0.8 + Math.sqrt(Math.max(weight, 1)) * 0.55;
 }
 
@@ -446,4 +473,8 @@ function fitPositions(
     });
   }
   return output;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
