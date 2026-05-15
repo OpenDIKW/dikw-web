@@ -36,3 +36,44 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   await expect(page).toHaveURL(/#wiki$/);
   await expect(page.getByRole("main", { name: "Wiki reader" }).getByRole("heading", { name: "Architecture" })).toBeVisible();
 });
+
+test("uses a single search focus ring and balanced graph mark styles", async ({ page }) => {
+  await page.goto("/#graph");
+
+  const search = page.getByLabel("Graph search");
+  await search.focus();
+
+  const styleContract = await page.evaluate(() => {
+    const searchBox = document.querySelector(".graph-search");
+    const input = document.querySelector(".graph-search input");
+    const circle = document.querySelector<SVGCircleElement>(".graph-svg__nodes circle");
+    const line = document.querySelector<SVGLineElement>(".graph-svg__edges line");
+    const label = document.querySelector<SVGTextElement>(".graph-svg__nodes text");
+    if (!searchBox || !input || !circle || !line || !label) {
+      throw new Error("Graph style fixtures were not rendered");
+    }
+    const searchStyle = getComputedStyle(searchBox);
+    const inputStyle = getComputedStyle(input);
+    const circleStyle = getComputedStyle(circle);
+    const lineStyle = getComputedStyle(line);
+    const labelStyle = getComputedStyle(label);
+    return {
+      searchBoxShadow: searchStyle.boxShadow,
+      inputBoxShadow: inputStyle.boxShadow,
+      circleRadius: Number.parseFloat(circle.getAttribute("r") ?? "0"),
+      circleStrokeWidth: Number.parseFloat(circleStyle.strokeWidth),
+      lineOpacity: Number.parseFloat(lineStyle.opacity),
+      lineStrokeWidth: Number.parseFloat(lineStyle.strokeWidth),
+      labelFontSize: labelStyle.fontSize
+    };
+  });
+
+  expect(styleContract.searchBoxShadow).not.toBe("none");
+  expect(styleContract.inputBoxShadow).toBe("none");
+  expect(styleContract.circleRadius).toBeGreaterThanOrEqual(9);
+  expect(styleContract.circleRadius).toBeLessThanOrEqual(12.5);
+  expect(styleContract.circleStrokeWidth).toBeLessThanOrEqual(2);
+  expect(styleContract.lineOpacity).toBeGreaterThanOrEqual(0.66);
+  expect(styleContract.lineStrokeWidth).toBeGreaterThanOrEqual(1.1);
+  expect(styleContract.labelFontSize).toBe("13px");
+});

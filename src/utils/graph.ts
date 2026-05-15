@@ -278,7 +278,7 @@ export function layoutKnowledgeGraph(graph: KnowledgeGraph, options: GraphLayout
     nodes: positioned,
     edges: graph.edges.map((edge) => ({
       ...edge,
-      thickness: Math.max(1, Math.sqrt(edge.weight) * options.linkThicknessScale)
+      thickness: Math.max(1.15, Math.sqrt(edge.weight) * options.linkThicknessScale)
     }))
   };
 }
@@ -342,7 +342,7 @@ function sumUnresolvedCounts(links: GraphUnresolvedLink[]): number {
 }
 
 function graphNodeRadius(node: GraphNode, scale: number): number {
-  return (9 + Math.sqrt(node.linkCount) * 5) * scale;
+  return (7 + Math.sqrt(node.linkCount) * 3.8) * scale;
 }
 
 function fitNodesToViewport<T extends SimulationNodeDatum>(nodes: T[], width: number, height: number): Array<T & { x: number; y: number }> {

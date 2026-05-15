@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
+import mermaid from "mermaid";
 import { MarkdownView } from "./MarkdownView";
 
 vi.mock("mermaid", () => ({
@@ -114,10 +115,17 @@ describe("MarkdownView", () => {
   });
 
   it("keeps a readable Mermaid fallback when rendering fails", async () => {
+    vi.mocked(mermaid.initialize).mockClear();
+
     render(<MarkdownView body={"```mermaid\nbroken graph\n```"} />);
 
     await waitFor(() => expect(screen.getByText("Mermaid diagram could not be rendered.")).toBeInTheDocument());
     expect(screen.getByText("broken graph")).toBeInTheDocument();
+    expect(mermaid.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({
+        suppressErrorRendering: true
+      })
+    );
   });
 
   it("turns wikilinks into buttons with the target callback", async () => {

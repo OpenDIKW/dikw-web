@@ -427,6 +427,7 @@ async function renderMermaidDiagrams(root: HTMLElement, isCancelled: () => boole
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: "strict",
+      suppressErrorRendering: true,
       theme: root.ownerDocument.documentElement.dataset.theme === "dark" ? "dark" : "default",
       flowchart: { htmlLabels: false }
     });
