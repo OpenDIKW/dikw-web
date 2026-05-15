@@ -42,7 +42,8 @@ Graph View followed the same vertical loop:
 4. E2E mock locks the user path: navigate to `#graph`, click a node,
    inspect detail, assert graph loading did not loop through
    `/v1/base/pages/{path}`, exercise path mode, and open it in the Wiki
-   reader.
+   reader. Include both wiki and source nodes so `WikiPage.initialPath`
+   cannot regress to the default page while the page list is loading.
 
 Pixi canvas work adds a pure utility slice before page integration:
 derive a deterministic galaxy graph, compute stable clusters, lay out
@@ -54,6 +55,9 @@ Large-graph readability is also testable. Add unit tests that force a
 hub-heavy graph into the renderer and assert compact node/edge sizing,
 fallback communities when Louvain collapses, broad canvas span, and
 minimum cluster separation before tuning Pixi colors or layout forces.
+Performance-sensitive visual decisions should be locked as contracts too:
+for example, assert the graph package does not reintroduce a Bloom/halo
+dependency when the product direction is a cheaper, cleaner overview.
 
 ## Wiki Reader Slice Example
 

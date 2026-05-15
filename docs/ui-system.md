@@ -104,15 +104,15 @@ surface. It should not become a separate black-space product mode. Use
 the same warm neutral background, petrol wiki nodes, muted source nodes,
 hairline borders, and small control radii as the rest of the app.
 
-Bloom is reserved for node halos and path emphasis. Keep it soft enough
-that labels, edges, and node hit targets remain readable in both light
-and dark themes. Cluster nebulae should be low-alpha context, not
-decorative blobs.
+Graph should not use Bloom or per-node halo effects. They add rendering
+cost and make dense graphs look less precise. Cluster nebulae should be
+low-alpha context, not decorative blobs; focus and path emphasis should
+come from stroke weight, opacity, and color.
 
 When the graph is large, the default view should behave like an
 overview, not a literal full-detail diagram. Use small nodes, faint idle
 edges, very soft nebulae, and sparse labels. The detail panel, hover,
-focus, and path mode are where stronger edges, halos, and labels belong.
+focus, and path mode are where stronger edges and labels belong.
 
 The canvas must keep an accessible DOM overlay for graph nodes. Pixi may
 own pixels and camera interaction, but tests and keyboard users still

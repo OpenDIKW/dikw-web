@@ -45,6 +45,22 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   await expect(page.getByRole("main", { name: "Wiki reader" }).getByRole("heading", { name: "Architecture" })).toBeVisible();
 });
 
+test("opens source graph nodes in the matching knowledge document", async ({ page }) => {
+  await page.goto("/#graph");
+
+  await page.getByRole("button", { name: "Architecture source graph node" }).click();
+  const detail = page.getByRole("region", { name: "Graph node detail" });
+  await expect(detail.getByRole("heading", { name: "Architecture source" })).toBeVisible();
+
+  await detail.getByRole("button", { name: "Open in Knowledge" }).click();
+
+  await expect(page).toHaveURL(/#wiki$/);
+  const reader = page.getByRole("main", { name: "Wiki reader" });
+  await expect(reader.getByText("sources/architecture.md")).toBeVisible();
+  await expect(reader.getByRole("heading", { name: "Architecture source" })).toBeVisible();
+  await expect(reader.getByText("Original source body.")).toBeVisible();
+});
+
 test("supports path mode and renders a nonblank Pixi graph canvas", async ({ page }) => {
   await page.goto("/#graph");
 

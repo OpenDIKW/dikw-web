@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { DocumentRecord, GraphResult, PageReadResult } from "../types";
 import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "./graph";
 import { findShortestPath, layoutGalaxyGraph, toGalaxyGraph } from "./galaxyGraph";
@@ -336,6 +338,14 @@ describe("knowledge graph builder", () => {
       nodeIds: [],
       edgeIds: []
     });
+  });
+
+  it("does not ship a Bloom filter dependency for graph glow effects", () => {
+    const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+      dependencies?: Record<string, string>;
+    };
+
+    expect(packageJson.dependencies).not.toHaveProperty("pixi-filters");
   });
 });
 

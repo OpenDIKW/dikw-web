@@ -55,10 +55,10 @@ The canvas uses a web-only render model derived from `KnowledgeGraph`:
   attraction during layout. Cross-cluster edges remain visible as
   relationships, but they do not pull every community into one central
   hairball.
-- Cluster nebulae, edges, node halos, node bodies, and labels are drawn
-  as separate Pixi layers. Bloom is applied only to halos and stays
-  subtle so the graph remains part of the workbench rather than a
-  separate immersive scene.
+- Cluster nebulae, edges, node bodies, and labels are drawn as separate
+  Pixi layers. The graph intentionally does not ship Bloom or node halo
+  effects; focus and path emphasis use stroke weight, opacity, and color
+  so large graphs stay cheaper to render.
 - DOM hit buttons are positioned over the canvas for keyboard access,
   Testing Library queries, and Playwright clicks.
 

@@ -213,13 +213,6 @@ function drawFallbackCanvas(
     const color = node.layer === "source" ? state.palette.source : state.palette.accent;
     const selected = state.focusedNodeId === node.id || state.pathNodeIds.has(node.id);
     context.beginPath();
-    context.arc(node.x, node.y, node.radius + (largeGraph ? 4 : 11), 0, Math.PI * 2);
-    context.fillStyle = numberToRgba(
-      selected ? state.palette.path : color,
-      selected ? 0.24 : muted ? 0.015 : largeGraph ? 0.035 : 0.1
-    );
-    context.fill();
-    context.beginPath();
     context.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
     context.fillStyle = numberToRgba(color, muted ? 0.18 : 1);
     context.fill();
@@ -234,7 +227,6 @@ async function createPixiGraphEngine(mount: HTMLElement): Promise<PixiEngine> {
     throw new Error("Pixi canvas is disabled in jsdom");
   }
   const pixi = await import("pixi.js");
-  const filters = await import("pixi-filters").catch(() => null);
   const app = new pixi.Application();
   await app.init({
     resizeTo: mount,
@@ -245,14 +237,13 @@ async function createPixiGraphEngine(mount: HTMLElement): Promise<PixiEngine> {
     powerPreference: "high-performance"
   });
   mount.replaceChildren(app.canvas);
-  return new PixiGraphEngine(app, pixi, filters);
+  return new PixiGraphEngine(app, pixi);
 }
 
 class PixiGraphEngine implements PixiEngine {
   private world: import("pixi.js").Container;
   private nebulaLayer: import("pixi.js").Container;
   private edgeLayer: import("pixi.js").Graphics;
-  private haloLayer: import("pixi.js").Graphics;
   private nodeLayer: import("pixi.js").Graphics;
   private labelLayer: import("pixi.js").Container;
   private scale = 1;
@@ -265,29 +256,24 @@ class PixiGraphEngine implements PixiEngine {
 
   constructor(
     private app: import("pixi.js").Application,
-    private pixi: typeof import("pixi.js"),
-    private filters: typeof import("pixi-filters") | null
+    private pixi: typeof import("pixi.js")
   ) {
     this.world = new pixi.Container();
     this.nebulaLayer = new pixi.Container();
     this.edgeLayer = new pixi.Graphics();
-    this.haloLayer = new pixi.Graphics();
     this.nodeLayer = new pixi.Graphics();
     this.labelLayer = new pixi.Container();
 
     this.world.addChild(this.nebulaLayer);
     this.world.addChild(this.edgeLayer);
-    this.world.addChild(this.haloLayer);
     this.world.addChild(this.nodeLayer);
     this.world.addChild(this.labelLayer);
     this.app.stage.addChild(this.world);
-    this.installBloom();
     this.installCamera();
   }
 
   render(graph: PositionedGalaxyGraph, state: RenderState): void {
     this.edgeLayer.clear();
-    this.haloLayer.clear();
     this.nodeLayer.clear();
     this.labelLayer.removeChildren();
     this.nebulaLayer.removeChildren();
@@ -345,10 +331,6 @@ class PixiGraphEngine implements PixiEngine {
       const onPath = state.pathNodeIds.has(node.id);
       const selected = state.focusedNodeId === node.id || onPath;
       const alpha = muted ? 0.16 : 1;
-      const haloAlpha = selected ? 0.28 : muted ? 0.015 : largeGraph ? 0.034 : 0.12;
-
-      this.haloLayer.circle(node.x, node.y, node.radius + (largeGraph ? 4 : 12));
-      this.haloLayer.fill({ color: selected ? state.palette.path : color, alpha: haloAlpha });
 
       this.nodeLayer.circle(node.x, node.y, node.radius);
       this.nodeLayer.fill({ color, alpha });
@@ -388,16 +370,6 @@ class PixiGraphEngine implements PixiEngine {
     }
     this.removeListeners = [];
     this.app.destroy(true, { children: true });
-  }
-
-  private installBloom(): void {
-    const Bloom = this.filters?.AdvancedBloomFilter;
-    if (!Bloom) return;
-    try {
-      this.haloLayer.filters = [new Bloom({ threshold: 0.28, bloomScale: 0.42, brightness: 1.02, blur: 5 })];
-    } catch {
-      this.haloLayer.filters = [];
-    }
   }
 
   private installCamera(): void {

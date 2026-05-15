@@ -140,6 +140,36 @@ describe("read console pages", () => {
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
   });
 
+  it("preserves an initial wiki path while the page list is still loading", async () => {
+    const client = createMockClient();
+    let resolvePages: (pages: DocumentRecord[]) => void = () => undefined;
+    const pagesPromise = new Promise<DocumentRecord[]>((resolve) => {
+      resolvePages = resolve;
+    });
+    const bodyReads: string[] = [];
+
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return pagesPromise;
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        bodyReads.push(selectedPath);
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} initialPath="wiki/synthesis.md" />);
+
+    resolvePages(wikiPagesFixture);
+
+    expect(await screen.findByText("Synthesis Body.")).toBeInTheDocument();
+    expect(screen.queryByText("Layered DIKW notes.")).not.toBeInTheDocument();
+    expect(bodyReads).toContain("wiki/synthesis.md");
+    expect(bodyReads).not.toContain("wiki/architecture.md");
+  });
+
   it("renders wiki pages as a directory tree and opens wikilinks in the preview panel", async () => {
     const client = createMockClient();
     const treePages: DocumentRecord[] = [

@@ -92,6 +92,9 @@ export function WikiPage({ client, initialPath, locale = "en" }: WikiPageProps) 
   }, [expandedDirs, filter, selectedPath, tree, visiblePages]);
 
   useEffect(() => {
+    if (!pages.data) {
+      return;
+    }
     const nextSelectedPath = pickDefaultPagePath(visiblePages);
     if (!nextSelectedPath) {
       setSelectedPath(null);
@@ -107,7 +110,7 @@ export function WikiPage({ client, initialPath, locale = "en" }: WikiPageProps) 
       setSelectedPath(nextSelectedPath);
       didAutoSelectRef.current = true;
     }
-  }, [selectedPath, visiblePages]);
+  }, [pages.data, selectedPath, visiblePages]);
 
   useEffect(() => {
     if (!selectedPath) {
