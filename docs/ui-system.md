@@ -32,7 +32,8 @@ styled like a generic admin dashboard.
   focused input surface with icon actions.
 - Graph View includes an always-visible legend for Wiki and Source node
   colors. The graph canvas owns visual layout; core/API data should remain
-  layout-free.
+  layout-free. Graph does not expose layer-scope toggles or force
+  parameter sliders; those choices are product defaults.
 - The top bar is a read-only connection status strip. It shows the
   target server and whether a token is configured, but never displays
   the token value.
@@ -95,6 +96,22 @@ should be handled by a later asset/proxy slice.
 
 Cards and controls should keep radii at 8px or less. Shadows should be
 subtle and used to separate work areas, not decorate the page.
+
+## Graph Canvas
+
+Graph uses PixiJS as a rendering detail inside the existing workbench
+surface. It should not become a separate black-space product mode. Use
+the same warm neutral background, petrol wiki nodes, muted source nodes,
+hairline borders, and small control radii as the rest of the app.
+
+Bloom is reserved for node halos and path emphasis. Keep it soft enough
+that labels, edges, and node hit targets remain readable in both light
+and dark themes. Cluster nebulae should be low-alpha context, not
+decorative blobs.
+
+The canvas must keep an accessible DOM overlay for graph nodes. Pixi may
+own pixels and camera interaction, but tests and keyboard users still
+need stable `button` targets for selecting nodes and opening details.
 
 ## Components
 

@@ -493,7 +493,7 @@ describe("read console pages", () => {
     }
   });
 
-  it("loads the core graph endpoint into a default wiki graph", async () => {
+  it("loads the complete core graph without scope or force controls", async () => {
     const client = createMockClient();
     client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
       if (path === "/v1/base/graph") {
@@ -505,27 +505,20 @@ describe("read console pages", () => {
 
     render(<GraphPage client={client} />);
 
-    expect(await screen.findByText("3 nodes")).toBeInTheDocument();
+    expect(await screen.findByText("4 nodes")).toBeInTheDocument();
     expect(screen.getByText("1 link")).toBeInTheDocument();
     expect(screen.getByText("2 unresolved")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Knowledge graph" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Architecture graph node" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Synthesis graph node" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Architecture source graph node" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Zoom in" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Zoom out" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Reset zoom" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Repel strength")).toBeInTheDocument();
-    expect(screen.getByLabelText("Link distance")).toBeInTheDocument();
-    expect(screen.getByLabelText("Node size")).toBeInTheDocument();
-    expect(screen.getByLabelText("Link thickness")).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Sources" }));
-    expect(screen.getByText("1 nodes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Architecture source graph node" })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "All" }));
-    expect(screen.getByText("4 nodes")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Wiki" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sources" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "All" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Repel strength")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Link distance")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Node size")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Link thickness")).not.toBeInTheDocument();
 
     expect(client.get).toHaveBeenCalledTimes(1);
     expect(client.get).not.toHaveBeenCalledWith("/v1/base/pages", expect.anything());
@@ -563,7 +556,7 @@ describe("read console pages", () => {
 
     render(<GraphPage client={client} onOpenWikiPath={(path) => openedPaths.push(path)} />);
 
-    expect(await screen.findByText("3 nodes")).toBeInTheDocument();
+    expect(await screen.findByText("4 nodes")).toBeInTheDocument();
     expect(screen.getByText("2 unresolved")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Graph search"), "synth");
@@ -589,6 +582,29 @@ describe("read console pages", () => {
     await userEvent.click(within(detail).getByRole("button", { name: "Open in Knowledge" }));
 
     expect(openedPaths).toEqual(["wiki/architecture.md"]);
+  });
+
+  it("supports path mode between two graph nodes", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/graph") {
+        return Promise.resolve(graphResultFixture);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<GraphPage client={client} />);
+
+    expect(await screen.findByText("4 nodes")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Path mode" }));
+    expect(screen.getByText("Select a source node")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Architecture graph node" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Architecture - select a target node");
+
+    await userEvent.click(screen.getByRole("button", { name: "Synthesis graph node" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Architecture -> Synthesis · 1 link");
   });
 
   it("loads wisdom items and refetches when filters change", async () => {

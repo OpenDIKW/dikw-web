@@ -35,15 +35,20 @@ Graph View followed the same vertical loop:
    map it to the render graph, preserve edge weight, and sum unresolved
    `count` values.
 3. Page test then covers the API boundary: load
-   `/v1/base/graph?active=true`, render SVG nodes and links, then verify
-   client-side `wiki` / `source` / `all` scopes, search, hide-orphans,
-   focus, and open-in-Wiki.
+   `/v1/base/graph?active=true`, render the complete active graph, then
+   verify search, hide-orphans, focus, path mode, and open-in-Wiki. The
+   page should also assert removed controls stay removed, such as
+   `wiki` / `source` / `all` scope toggles and force sliders.
 4. E2E mock locks the user path: navigate to `#graph`, click a node,
    inspect detail, assert graph loading did not loop through
-   `/v1/base/pages/{path}`, and open it in the Wiki reader.
+   `/v1/base/pages/{path}`, exercise path mode, and open it in the Wiki
+   reader.
 
-This keeps implementation choices, such as SVG rendering and d3-force
-layout, replaceable while the visible graph behavior stays protected.
+Pixi canvas work adds a pure utility slice before page integration:
+derive a deterministic galaxy graph, compute stable clusters, lay out
+nodes without mutating inputs, and test shortest-path behavior. This
+keeps implementation choices replaceable while the visible graph
+behavior stays protected.
 
 ## Wiki Reader Slice Example
 

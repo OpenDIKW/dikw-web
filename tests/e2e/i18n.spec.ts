@@ -87,7 +87,7 @@ test("default English locale keeps page-level chrome free of Chinese fallback te
   await expect(page.getByLabel("Kind")).toBeVisible();
 
   await page.goto("/#graph");
-  await expect(page.getByText("3 nodes")).toBeVisible();
+  await expect(page.getByText("4 nodes")).toBeVisible();
   await expect(page.getByText(/Reading \d+ \/ \d+ pages/)).toHaveCount(0);
 });
 

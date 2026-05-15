@@ -542,6 +542,12 @@ textarea:focus {
   background: var(--surface-soft);
 }
 
+.secondary-button.is-active {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--line-strong));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: var(--accent-strong);
+}
+
 .icon-button {
   width: 38px;
   border: 1px solid var(--line-strong);
@@ -4065,6 +4071,122 @@ html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(
 
 html[data-theme="dark"] .graph-legend {
   background: color-mix(in srgb, var(--surface) 90%, transparent);
+}
+
+.graph-pixi-stage {
+  position: relative;
+  min-height: 520px;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background:
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--surface) 92%, transparent) 0 36%, transparent 72%),
+    radial-gradient(circle, color-mix(in srgb, var(--line-strong) 46%, transparent) 1px, transparent 1.2px),
+    var(--surface-soft);
+  background-size:
+    100% 100%,
+    22px 22px,
+    100% 100%;
+}
+
+.graph-pixi-mount,
+.graph-pixi-mount canvas,
+.graph-fallback-canvas,
+.graph-fallback-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.graph-pixi-mount canvas {
+  display: block;
+  cursor: grab;
+}
+
+.graph-pixi-mount canvas:active {
+  cursor: grabbing;
+}
+
+.graph-fallback-svg {
+  pointer-events: none;
+}
+
+.graph-fallback-svg line {
+  stroke: color-mix(in srgb, var(--accent) 25%, var(--line-strong));
+  stroke-linecap: round;
+  stroke-width: 1.4px;
+  opacity: 0.38;
+}
+
+.graph-fallback-svg line[data-muted="true"] {
+  opacity: 0.09;
+}
+
+.graph-fallback-svg line[data-path="true"] {
+  stroke: #d69b2d;
+  stroke-width: 2.3px;
+  opacity: 0.82;
+}
+
+.graph-fallback-svg circle {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 3px 8px color-mix(in srgb, var(--accent) 16%, transparent));
+}
+
+.graph-fallback-svg circle[data-layer="source"] {
+  fill: #7f8888;
+}
+
+.graph-node-hit-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.graph-node-hit {
+  position: absolute;
+  z-index: 2;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+.graph-node-hit:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 4px;
+}
+
+.graph-node-hit[data-muted="true"] {
+  cursor: default;
+}
+
+.graph-path-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--hairline));
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+html[data-theme="dark"] .graph-pixi-stage {
+  background:
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--surface) 94%, transparent) 0 34%, transparent 72%),
+    radial-gradient(circle, color-mix(in srgb, var(--line-strong) 34%, transparent) 1px, transparent 1.2px),
+    var(--surface-soft);
 }
 
 @media (max-width: 1180px) {

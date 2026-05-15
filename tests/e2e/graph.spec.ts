@@ -17,13 +17,21 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   await page.goto("/#graph");
 
   await expect(page.getByRole("heading", { name: "Graph" })).toBeVisible();
-  await expect(page.getByText("3 nodes")).toBeVisible();
+  await expect(page.getByText("4 nodes")).toBeVisible();
   await expect(page.getByText("1 link")).toBeVisible();
   await expect(page.getByText("1 unresolved")).toBeVisible();
   const legend = page.getByLabel("Graph legend");
   await expect(legend.getByText("Wiki", { exact: true })).toBeVisible();
   await expect(legend.getByText("Source", { exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Architecture source graph node" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Wiki" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Sources" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "All" })).toHaveCount(0);
+  await expect(page.getByLabel("Repel strength")).toHaveCount(0);
+  await expect(page.getByLabel("Link distance")).toHaveCount(0);
+  await expect(page.getByLabel("Node size")).toHaveCount(0);
+  await expect(page.getByLabel("Link thickness")).toHaveCount(0);
   expect(graphDataRequests).toEqual([]);
 
   await page.getByRole("button", { name: "Architecture graph node" }).click();
@@ -37,43 +45,44 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   await expect(page.getByRole("main", { name: "Wiki reader" }).getByRole("heading", { name: "Architecture" })).toBeVisible();
 });
 
-test("uses a single search focus ring and balanced graph mark styles", async ({ page }) => {
+test("supports path mode and renders a nonblank Pixi graph canvas", async ({ page }) => {
   await page.goto("/#graph");
 
-  const search = page.getByLabel("Graph search");
-  await search.focus();
+  await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
+  await page.getByRole("button", { name: "Path mode" }).click();
+  await expect(page.getByText("Select a source node")).toBeVisible();
+  await page.getByRole("button", { name: "Architecture graph node" }).click();
+  await expect(page.getByText(/select a target node/i)).toBeVisible();
+  await page.getByRole("button", { name: "Synthesis graph node" }).click();
+  await expect(page.getByRole("status")).toContainText("Architecture -> Synthesis");
+  await expect(page.getByRole("status")).toContainText("1 link");
+  await page.getByLabel("Graph search").focus();
 
-  const styleContract = await page.evaluate(() => {
+  const canvasContract = await page.evaluate(() => {
+    const stage = document.querySelector<HTMLElement>(".graph-pixi-stage");
+    const canvas = document.querySelector<HTMLCanvasElement>(".graph-pixi-stage canvas");
     const searchBox = document.querySelector(".graph-search");
     const input = document.querySelector(".graph-search input");
-    const circle = document.querySelector<SVGCircleElement>(".graph-svg__nodes circle");
-    const line = document.querySelector<SVGLineElement>(".graph-svg__edges line");
-    const label = document.querySelector<SVGTextElement>(".graph-svg__nodes text");
-    if (!searchBox || !input || !circle || !line || !label) {
-      throw new Error("Graph style fixtures were not rendered");
+    if (!stage || !canvas || !searchBox || !input) {
+      throw new Error("Graph Pixi stage was not rendered");
     }
     const searchStyle = getComputedStyle(searchBox);
     const inputStyle = getComputedStyle(input);
-    const circleStyle = getComputedStyle(circle);
-    const lineStyle = getComputedStyle(line);
-    const labelStyle = getComputedStyle(label);
+    const rect = canvas.getBoundingClientRect();
     return {
       searchBoxShadow: searchStyle.boxShadow,
       inputBoxShadow: inputStyle.boxShadow,
-      circleRadius: Number.parseFloat(circle.getAttribute("r") ?? "0"),
-      circleStrokeWidth: Number.parseFloat(circleStyle.strokeWidth),
-      lineOpacity: Number.parseFloat(lineStyle.opacity),
-      lineStrokeWidth: Number.parseFloat(lineStyle.strokeWidth),
-      labelFontSize: labelStyle.fontSize
+      stageWidth: stage.getBoundingClientRect().width,
+      stageHeight: stage.getBoundingClientRect().height,
+      canvasWidth: rect.width,
+      canvasHeight: rect.height
     };
   });
 
-  expect(styleContract.searchBoxShadow).not.toBe("none");
-  expect(styleContract.inputBoxShadow).toBe("none");
-  expect(styleContract.circleRadius).toBeGreaterThanOrEqual(9);
-  expect(styleContract.circleRadius).toBeLessThanOrEqual(12.5);
-  expect(styleContract.circleStrokeWidth).toBeLessThanOrEqual(2);
-  expect(styleContract.lineOpacity).toBeGreaterThanOrEqual(0.66);
-  expect(styleContract.lineStrokeWidth).toBeGreaterThanOrEqual(1.1);
-  expect(styleContract.labelFontSize).toBe("13px");
+  expect(canvasContract.searchBoxShadow).not.toBe("none");
+  expect(canvasContract.inputBoxShadow).toBe("none");
+  expect(canvasContract.stageWidth).toBeGreaterThan(300);
+  expect(canvasContract.stageHeight).toBeGreaterThan(300);
+  expect(canvasContract.canvasWidth).toBeGreaterThan(300);
+  expect(canvasContract.canvasHeight).toBeGreaterThan(300);
 });

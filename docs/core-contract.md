@@ -93,10 +93,14 @@ Graph View is read-only and consumes the core graph endpoint:
 The response includes `base_revision`, `generated_at`, `nodes[]`,
 `edges[]`, `unresolved[]`, and `stats`. Core intentionally does not
 provide a `layer` query parameter in this endpoint; the web app requests
-the full active graph and applies `wiki`, `source`, and `all` scopes on
-the client. Unresolved wikilinks are shown as counts and source-node
-detail, but they do not create ghost nodes. Default graph scope is
-`wiki`.
+the full active graph. Graph page search and hide-orphans are
+client-side presentation filters, but the page no longer exposes
+`wiki`, `source`, or `all` scope toggles. Unresolved wikilinks are shown
+as counts and source-node detail, but they do not create ghost nodes.
+
+Pixi rendering, deterministic clustering, shortest-path highlighting,
+and Bloom styling are web-only presentation concerns. They do not add
+request parameters or change the `/v1/base/graph` response shape.
 
 ## Chat
 

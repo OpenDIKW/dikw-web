@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, RotateCcw, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { GitFork, RefreshCw, Search } from "lucide-react";
 import type { DikwClient } from "../api/client";
+import { GraphCanvas } from "../components/GraphCanvas";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
-import type { GraphResult, Layer } from "../types";
-import { filterKnowledgeGraph, layoutKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "../utils/graph";
+import type { GraphResult } from "../types";
+import { filterKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "../utils/graph";
+import { findShortestPath, toGalaxyGraph } from "../utils/galaxyGraph";
 
 interface GraphPageProps {
   client: DikwClient;
@@ -13,7 +15,6 @@ interface GraphPageProps {
   locale?: Locale;
 }
 
-type GraphLayer = Extract<Layer, "wiki" | "source"> | "all";
 type GraphCopy = (typeof translations)["en"]["pages"]["graph"];
 
 interface GraphLoadState {
@@ -22,19 +23,10 @@ interface GraphLoadState {
   error: unknown;
 }
 
-interface ForceSettings {
-  repelStrength: number;
-  linkDistance: number;
-  nodeSizeScale: number;
-  linkThicknessScale: number;
-}
-
-const defaultForceSettings: ForceSettings = {
-  repelStrength: -110,
-  linkDistance: 96,
-  nodeSizeScale: 1,
-  linkThicknessScale: 1
-};
+type PathState =
+  | { kind: "waiting"; sourceId: string; sourceLabel: string }
+  | { kind: "found"; fromLabel: string; toLabel: string; nodeIds: string[]; edgeIds: string[]; length: number }
+  | { kind: "unreachable"; fromLabel: string; toLabel: string };
 
 export function GraphPage({
   client,
@@ -42,12 +34,11 @@ export function GraphPage({
   locale = "en"
 }: GraphPageProps) {
   const copy = translations[locale].pages.graph;
-  const [layer, setLayer] = useState<GraphLayer>("wiki");
   const [query, setQuery] = useState("");
   const [hideOrphans, setHideOrphans] = useState(false);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-  const [forces, setForces] = useState<ForceSettings>(defaultForceSettings);
-  const [zoom, setZoom] = useState(1);
+  const [pathMode, setPathMode] = useState(false);
+  const [pathState, setPathState] = useState<PathState | null>(null);
   const [reloadId, setReloadId] = useState(0);
   const [state, setState] = useState<GraphLoadState>({
     loading: true,
@@ -82,15 +73,77 @@ export function GraphPage({
   }, [loadGraph, reloadId]);
 
   const filteredGraph = useMemo(
-    () => (state.graph ? filterKnowledgeGraph(state.graph, { layer, query, hideOrphans }) : null),
-    [hideOrphans, layer, query, state.graph]
+    () => (state.graph ? filterKnowledgeGraph(state.graph, { layer: "all", query, hideOrphans }) : null),
+    [hideOrphans, query, state.graph]
+  );
+  const galaxyGraph = useMemo(
+    () => (filteredGraph ? toGalaxyGraph(filteredGraph) : null),
+    [filteredGraph]
   );
   const focusedNodeIds = useMemo(
     () => (filteredGraph && focusedNodeId ? getFocusedNodeIds(filteredGraph, focusedNodeId) : new Set<string>()),
     [filteredGraph, focusedNodeId]
   );
+  const pathNodeIds = useMemo(() => {
+    if (!pathState) return new Set<string>();
+    if (pathState.kind === "waiting") return new Set([pathState.sourceId]);
+    if (pathState.kind === "found") return new Set(pathState.nodeIds);
+    return new Set<string>();
+  }, [pathState]);
+  const pathEdgeIds = useMemo(() => new Set(pathState?.kind === "found" ? pathState.edgeIds : []), [pathState]);
   const focusedNode = filteredGraph?.nodes.find((node) => node.id === focusedNodeId) ?? null;
   const focusedUnresolvedLinks = focusedNodeId ? state.graph?.unresolvedLinks.filter((link) => link.source === focusedNodeId) ?? [] : [];
+
+  const resetFocus = useCallback(() => {
+    setFocusedNodeId(null);
+    setPathState(null);
+  }, []);
+
+  const handleSelectNode = useCallback(
+    (nodeId: string) => {
+      if (!filteredGraph) return;
+      const node = filteredGraph.nodes.find((item) => item.id === nodeId);
+      if (!node) return;
+      setFocusedNodeId(nodeId);
+
+      if (!pathMode) {
+        setPathState(null);
+        return;
+      }
+
+      if (pathState?.kind === "waiting") {
+        if (pathState.sourceId === nodeId) {
+          setPathState(null);
+          return;
+        }
+        const result = findShortestPath(filteredGraph, pathState.sourceId, nodeId);
+        if (result.status === "found") {
+          setPathState({
+            kind: "found",
+            fromLabel: pathState.sourceLabel,
+            toLabel: node.title,
+            nodeIds: result.nodeIds,
+            edgeIds: result.edgeIds,
+            length: result.edgeIds.length
+          });
+        } else {
+          setPathState({
+            kind: "unreachable",
+            fromLabel: pathState.sourceLabel,
+            toLabel: node.title
+          });
+        }
+        return;
+      }
+
+      setPathState({
+        kind: "waiting",
+        sourceId: nodeId,
+        sourceLabel: node.title
+      });
+    },
+    [filteredGraph, pathMode, pathState]
+  );
 
   return (
     <div className="page-stack">
@@ -104,18 +157,6 @@ export function GraphPage({
       </header>
 
       <section className="graph-toolbar panel">
-        <div className="segmented-control" aria-label="Graph layer">
-          {(["wiki", "source", "all"] satisfies GraphLayer[]).map((value) => (
-            <button
-              className={layer === value ? "is-active" : ""}
-              key={value}
-              type="button"
-              onClick={() => setLayer(value)}
-            >
-              {value === "source" ? "Sources" : value === "wiki" ? "Wiki" : "All"}
-            </button>
-          ))}
-        </div>
         <label className="wiki-search graph-search">
           <Search aria-hidden="true" size={15} />
           <input
@@ -123,7 +164,7 @@ export function GraphPage({
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
-              setFocusedNodeId(null);
+              resetFocus();
             }}
             placeholder={copy.searchPlaceholder}
           />
@@ -135,13 +176,26 @@ export function GraphPage({
             type="checkbox"
             onChange={(event) => {
               setHideOrphans(event.target.checked);
-              setFocusedNodeId(null);
+              resetFocus();
             }}
           />
           <span>{copy.hideOrphans}</span>
         </label>
-        {focusedNodeId ? (
-          <button className="secondary-button" type="button" onClick={() => setFocusedNodeId(null)}>
+        <button
+          className={pathMode ? "secondary-button is-active" : "secondary-button"}
+          type="button"
+          aria-label={copy.pathMode}
+          aria-pressed={pathMode}
+          onClick={() => {
+            setPathMode((value) => !value);
+            setPathState(null);
+          }}
+        >
+          <GitFork size={14} />
+          {copy.pathMode}
+        </button>
+        {focusedNodeId || pathState ? (
+          <button className="secondary-button" type="button" onClick={resetFocus}>
             {copy.resetFocus}
           </button>
         ) : null}
@@ -159,28 +213,6 @@ export function GraphPage({
                 <span className="soft-label">{filteredGraph.stats.edgeCount} link</span>
                 <span className="soft-label">{filteredGraph.stats.unresolvedCount} unresolved</span>
               </div>
-              <div className="graph-zoom" aria-label="Graph zoom controls">
-                <button
-                  className="icon-button"
-                  type="button"
-                  aria-label="Zoom out"
-                  onClick={() => setZoom((value) => clampNumber(Number((value - 0.1).toFixed(2)), 0.65, 1.6))}
-                >
-                  <ZoomOut size={16} />
-                </button>
-                <button className="icon-button" type="button" aria-label="Reset zoom" onClick={() => setZoom(1)}>
-                  <RotateCcw size={16} />
-                </button>
-                <button
-                  className="icon-button"
-                  type="button"
-                  aria-label="Zoom in"
-                  onClick={() => setZoom((value) => clampNumber(Number((value + 0.1).toFixed(2)), 0.65, 1.6))}
-                >
-                  <ZoomIn size={16} />
-                </button>
-                <span className="soft-label">{Math.round(zoom * 100)}%</span>
-              </div>
               <div className="graph-legend" aria-label="Graph legend">
                 <span className="graph-legend__chip">
                   <span className="graph-legend__dot" aria-hidden="true" />
@@ -192,60 +224,19 @@ export function GraphPage({
                 </span>
               </div>
             </div>
-            {filteredGraph.nodes.length ? (
-              <GraphSvg
-                graph={filteredGraph}
+            {pathMode ? <GraphPathBanner copy={copy} pathState={pathState} /> : null}
+            {filteredGraph.nodes.length && galaxyGraph ? (
+              <GraphCanvas
+                graph={galaxyGraph}
                 focusedNodeIds={focusedNodeIds}
                 focusedNodeId={focusedNodeId}
-                forces={forces}
-                zoom={zoom}
-                onSelectNode={setFocusedNodeId}
+                pathNodeIds={pathNodeIds}
+                pathEdgeIds={pathEdgeIds}
+                onSelectNode={handleSelectNode}
               />
             ) : (
               <EmptyState title={copy.emptyGraph} />
             )}
-            <div className="graph-force-controls" aria-label="Graph force settings">
-              <ForceSlider
-                label="Repel"
-                ariaLabel="Repel strength"
-                min={-220}
-                max={-30}
-                step={10}
-                value={forces.repelStrength}
-                formatValue={(value) => value.toString()}
-                onChange={(value) => setForces((current) => ({ ...current, repelStrength: value }))}
-              />
-              <ForceSlider
-                label="Distance"
-                ariaLabel="Link distance"
-                min={56}
-                max={160}
-                step={4}
-                value={forces.linkDistance}
-                formatValue={(value) => `${value}px`}
-                onChange={(value) => setForces((current) => ({ ...current, linkDistance: value }))}
-              />
-              <ForceSlider
-                label="Nodes"
-                ariaLabel="Node size"
-                min={0.75}
-                max={1.4}
-                step={0.05}
-                value={forces.nodeSizeScale}
-                formatValue={(value) => `${Math.round(value * 100)}%`}
-                onChange={(value) => setForces((current) => ({ ...current, nodeSizeScale: value }))}
-              />
-              <ForceSlider
-                label="Links"
-                ariaLabel="Link thickness"
-                min={0.75}
-                max={2}
-                step={0.05}
-                value={forces.linkThicknessScale}
-                formatValue={(value) => `${Math.round(value * 100)}%`}
-                onChange={(value) => setForces((current) => ({ ...current, linkThicknessScale: value }))}
-              />
-            </div>
           </main>
           {focusedNode ? (
             <aside className="graph-detail panel" role="region" aria-label="Graph node detail">
@@ -279,125 +270,21 @@ export function GraphPage({
   );
 }
 
-function GraphSvg({
-  graph,
-  focusedNodeIds,
-  focusedNodeId,
-  forces,
-  zoom,
-  onSelectNode
-}: {
-  graph: KnowledgeGraph;
-  focusedNodeIds: Set<string>;
-  focusedNodeId: string | null;
-  forces: ForceSettings;
-  zoom: number;
-  onSelectNode: (nodeId: string) => void;
-}) {
-  const width = 720;
-  const height = 420;
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const positionedGraph = useMemo(
-    () =>
-      layoutKnowledgeGraph(graph, {
-        width,
-        height,
-        repelStrength: forces.repelStrength,
-        linkDistance: forces.linkDistance,
-        nodeSizeScale: forces.nodeSizeScale,
-        linkThicknessScale: forces.linkThicknessScale
-      }),
-    [forces.linkDistance, forces.linkThicknessScale, forces.nodeSizeScale, forces.repelStrength, graph]
-  );
-  const positions = new Map(positionedGraph.nodes.map((node) => [node.id, node]));
+function GraphPathBanner({ copy, pathState }: { copy: GraphCopy; pathState: PathState | null }) {
+  let text = copy.pathSelectSource;
+  if (pathState?.kind === "waiting") {
+    text = `${pathState.sourceLabel} - ${copy.pathSelectTarget}`;
+  } else if (pathState?.kind === "found") {
+    text = `${pathState.fromLabel} -> ${pathState.toLabel} · ${pathState.length} ${copy.pathLinkUnit}`;
+  } else if (pathState?.kind === "unreachable") {
+    text = `${pathState.fromLabel} -> ${pathState.toLabel} · ${copy.pathUnreachable}`;
+  }
 
   return (
-    <svg className="graph-svg" role="img" aria-label="Knowledge graph" viewBox={`0 0 ${width} ${height}`}>
-      <g transform={`translate(${centerX} ${centerY}) scale(${zoom}) translate(${-centerX} ${-centerY})`}>
-        <g className="graph-svg__edges">
-          {positionedGraph.edges.map((edge) => {
-            const source = positions.get(edge.source);
-            const target = positions.get(edge.target);
-            if (!source || !target) {
-              return null;
-            }
-            const muted = focusedNodeIds.size > 0 && (!focusedNodeIds.has(edge.source) || !focusedNodeIds.has(edge.target));
-            return (
-              <line
-                key={edge.id}
-                data-muted={String(muted)}
-                x1={source.x}
-                y1={source.y}
-                x2={target.x}
-                y2={target.y}
-                strokeWidth={edge.thickness}
-              />
-            );
-          })}
-        </g>
-        <g className="graph-svg__nodes">
-          {positionedGraph.nodes.map((node) => (
-            <g
-              key={node.id}
-              role="button"
-              tabIndex={0}
-              aria-label={`${node.title} graph node`}
-              aria-pressed={focusedNodeId === node.id}
-              data-layer={node.layer}
-              data-muted={String(focusedNodeIds.size > 0 && !focusedNodeIds.has(node.id))}
-              transform={`translate(${node.x} ${node.y})`}
-              onClick={() => onSelectNode(node.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelectNode(node.id);
-                }
-              }}
-            >
-              <circle r={node.radius} />
-              <text y={node.radius + 14}>{node.title}</text>
-            </g>
-          ))}
-        </g>
-      </g>
-    </svg>
-  );
-}
-
-function ForceSlider({
-  label,
-  ariaLabel,
-  min,
-  max,
-  step,
-  value,
-  formatValue,
-  onChange
-}: {
-  label: string;
-  ariaLabel: string;
-  min: number;
-  max: number;
-  step: number;
-  value: number;
-  formatValue: (value: number) => string;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="graph-force-control">
-      <span>{label}</span>
-      <input
-        aria-label={ariaLabel}
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-      <strong>{formatValue(value)}</strong>
-    </label>
+    <div className="graph-path-banner" role="status">
+      <GitFork size={13} aria-hidden="true" />
+      {text}
+    </div>
   );
 }
 
@@ -412,8 +299,4 @@ function getFocusedNodeIds(graph: KnowledgeGraph, nodeId: string): Set<string> {
     }
   }
   return ids;
-}
-
-function clampNumber(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }

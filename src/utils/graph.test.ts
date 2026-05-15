@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DocumentRecord, GraphResult, PageReadResult } from "../types";
 import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, toKnowledgeGraph } from "./graph";
+import { findShortestPath, layoutGalaxyGraph, toGalaxyGraph } from "./galaxyGraph";
 
 const pages: DocumentRecord[] = [
   {
@@ -236,5 +237,71 @@ describe("knowledge graph builder", () => {
       expect(node.y).toBeLessThanOrEqual(360);
     }
     expect("x" in graph.nodes[0]).toBe(false);
+  });
+
+  it("derives a deterministic galaxy graph with visual clusters from the render graph", () => {
+    const graph = buildKnowledgeGraph(pages, bodies);
+    const first = toGalaxyGraph(graph);
+    const second = toGalaxyGraph(graph);
+
+    expect(first).toEqual(second);
+    expect(first.nodes.find((node) => node.id === "wiki/architecture.md")).toMatchObject({
+      degree: 1,
+      layer: "wiki",
+      radius: expect.any(Number),
+      clusterId: expect.any(Number)
+    });
+    expect(first.nodes.find((node) => node.id === "sources/brief.md")).toMatchObject({
+      degree: 0,
+      layer: "source"
+    });
+    expect(first.edges[0]).toMatchObject({
+      source: "wiki/architecture.md",
+      target: "wiki/synthesis.md",
+      weight: 2,
+      thickness: expect.any(Number)
+    });
+    expect(first.clusters.length).toBeGreaterThanOrEqual(1);
+    expect(first.clusters[0]).toMatchObject({
+      id: expect.any(Number),
+      label: expect.any(String),
+      memberIds: expect.any(Array)
+    });
+  });
+
+  it("lays out galaxy clusters without mutating graph nodes", () => {
+    const graph = toGalaxyGraph(buildKnowledgeGraph(pages, bodies));
+    const layout = layoutGalaxyGraph(graph, { width: 900, height: 520 });
+
+    expect(layout.nodes.map((node) => node.id)).toEqual(graph.nodes.map((node) => node.id));
+    for (const node of layout.nodes) {
+      expect(Number.isFinite(node.x)).toBe(true);
+      expect(Number.isFinite(node.y)).toBe(true);
+      expect(node.x).toBeGreaterThanOrEqual(0);
+      expect(node.x).toBeLessThanOrEqual(900);
+      expect(node.y).toBeGreaterThanOrEqual(0);
+      expect(node.y).toBeLessThanOrEqual(520);
+    }
+    expect("x" in graph.nodes[0]).toBe(false);
+  });
+
+  it("finds shortest paths for graph path mode", () => {
+    const graph = buildKnowledgeGraph(pages, bodies);
+
+    expect(findShortestPath(graph, "wiki/architecture.md", "wiki/synthesis.md")).toEqual({
+      status: "found",
+      nodeIds: ["wiki/architecture.md", "wiki/synthesis.md"],
+      edgeIds: ["wiki/architecture.md->wiki/synthesis.md"]
+    });
+    expect(findShortestPath(graph, "wiki/architecture.md", "wiki/architecture.md")).toEqual({
+      status: "found",
+      nodeIds: ["wiki/architecture.md"],
+      edgeIds: []
+    });
+    expect(findShortestPath(graph, "wiki/architecture.md", "sources/brief.md")).toEqual({
+      status: "unreachable",
+      nodeIds: [],
+      edgeIds: []
+    });
   });
 });
