@@ -74,6 +74,70 @@ describe("FileSessionStore", () => {
     }
   });
 
+  it("keeps a core source and a web source even when path and title collide", async () => {
+    const root = await mkdtemp(join(tmpdir(), "dikw-agent-sessions-"));
+    try {
+      const store = new FileSessionStore(root);
+      const session = await store.createSession();
+
+      await store.recordSource(session.id, { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" });
+      await store.recordSource(session.id, {
+        path: "wiki/architecture.md",
+        title: "Architecture",
+        excerpt: "from web",
+        kind: "web"
+      });
+
+      const reopened = await new FileSessionStore(root).getSession(session.id);
+      expect(reopened.sources).toEqual([
+        expect.objectContaining({ path: "wiki/architecture.md", layer: "wiki" }),
+        expect.objectContaining({ path: "wiki/architecture.md", kind: "web", excerpt: "from web" })
+      ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("records web sources and de-duplicates them by path and title", async () => {
+    const root = await mkdtemp(join(tmpdir(), "dikw-agent-sessions-"));
+    try {
+      const store = new FileSessionStore(root);
+      const session = await store.createSession();
+
+      await store.recordSource(session.id, {
+        path: "https://example.com/a",
+        title: "Example A",
+        excerpt: "first",
+        kind: "web"
+      });
+      await store.recordSource(session.id, {
+        path: "https://example.com/a",
+        title: "Example A",
+        excerpt: "duplicate ignored",
+        kind: "web"
+      });
+      await store.recordSource(session.id, {
+        path: "https://example.com/b",
+        title: "Example B",
+        kind: "web"
+      });
+      await store.recordSource(session.id, {
+        path: "wiki/architecture.md",
+        title: "Architecture",
+        layer: "wiki"
+      });
+
+      const reopened = await new FileSessionStore(root).getSession(session.id);
+      expect(reopened.sources).toEqual([
+        expect.objectContaining({ path: "https://example.com/a", kind: "web", excerpt: "first" }),
+        expect.objectContaining({ path: "https://example.com/b", kind: "web" }),
+        expect.objectContaining({ path: "wiki/architecture.md", layer: "wiki" })
+      ]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   it("updates tool events with the same id in place", async () => {
     const root = await mkdtemp(join(tmpdir(), "dikw-agent-sessions-"));
     try {

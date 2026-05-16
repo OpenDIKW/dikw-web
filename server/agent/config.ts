@@ -7,6 +7,9 @@ export interface AgentConfig {
   apiKey: string;
   baseUrl: string;
   model: string;
+  braveApiKey?: string;
+  jinaApiKey?: string;
+  tavilyApiKey?: string;
 }
 
 export interface LoadAgentConfigOptions {
@@ -24,7 +27,10 @@ export async function loadAgentConfig(options: LoadAgentConfigOptions = {}): Pro
     api: readApi(env.DIKW_AGENT_API),
     apiKey,
     baseUrl: readRequired(env, "DIKW_AGENT_BASE_URL"),
-    model: readRequired(env, "DIKW_AGENT_MODEL")
+    model: readRequired(env, "DIKW_AGENT_MODEL"),
+    braveApiKey: readOptional(env, "DIKW_AGENT_BRAVE_API_KEY"),
+    jinaApiKey: readOptional(env, "DIKW_AGENT_JINA_API_KEY"),
+    tavilyApiKey: readOptional(env, "DIKW_AGENT_TAVILY_API_KEY")
   };
 }
 
@@ -66,6 +72,11 @@ function readRequired(env: Record<string, string | undefined>, key: string): str
     throw new Error(`${key} is required for dikw-web Agent sidecar`);
   }
   return value;
+}
+
+function readOptional(env: Record<string, string | undefined>, key: string): string | undefined {
+  const value = env[key]?.trim();
+  return value ? value : undefined;
 }
 
 function readApi(value: string | undefined): AgentConfig["api"] {

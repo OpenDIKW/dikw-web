@@ -77,7 +77,12 @@ export class FileSessionStore {
 
   async recordSource(id: string, source: AgentSource): Promise<AgentSession> {
     const session = await this.getSession(id);
-    if (!session.sources.some((item) => item.path === source.path && item.title === source.title)) {
+    const incomingKind = source.kind ?? "core";
+    if (
+      !session.sources.some(
+        (item) => item.path === source.path && item.title === source.title && (item.kind ?? "core") === incomingKind
+      )
+    ) {
       session.sources.push(source);
     }
     return this.touchAndWrite(session);

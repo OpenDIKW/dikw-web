@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=20.3.0"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4321 --strictPort",
     "build": "tsc --noEmit && vite build",

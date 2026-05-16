@@ -86,6 +86,14 @@ them from scratch.
 - Sessions are persisted as JSON files in `.agent-sessions/`.
 - Chat right-rail context is session-scoped accumulated sources/tool
   calls, not per-turn filtering.
+- The sidecar can also call Tavily (`web_search`) and Jina Reader
+  (`web_fetch`) as optional tools. Their keys live in `.env.agent.local`
+  as `DIKW_AGENT_TAVILY_API_KEY` / `DIKW_AGENT_JINA_API_KEY` and must
+  never enter session JSON, browser code, screenshots, or commits. The
+  Agent prefers core tools and falls back to web tools only when core
+  cannot answer. A Brave Search client is retained in
+  `WebToolClient.search` for future provider rotation but is not
+  currently exposed to the agent.
 - Maintenance actions must be proposed by the Agent and explicitly
   confirmed by the user before calling core maintenance endpoints.
 

@@ -30,7 +30,14 @@ export async function mockDikwApi(page: Page) {
     lastMessagePreview: "",
     messages: [] as Array<{ id: string; role: string; content: string; createdAt: string }>,
     toolEvents: [] as Array<{ id: string; type: string; name: string; status: string; createdAt: string }>,
-    sources: [] as Array<{ path: string; title: string; layer: string }>,
+    sources: [] as Array<{
+      path: string;
+      title: string;
+      layer?: string | null;
+      excerpt?: string | null;
+      score?: number | null;
+      kind?: "core" | "web";
+    }>,
     proposals: [] as unknown[]
   };
 
@@ -95,6 +102,78 @@ export async function mockDikwApi(page: Page) {
       const body = route.request().postDataJSON() as { message?: string };
       const userMessage = String(body.message ?? "What is DIKW?");
       const turnNumber = Math.floor(agentSession.messages.length / 2) + 1;
+      const isWebTools = userMessage.toLowerCase().includes("web tools demo");
+      if (isWebTools) {
+        const assistantMessage = "Found two web sources and fetched one page.";
+        const toolEvents = [
+          {
+            id: `tool-${turnNumber}-search`,
+            type: "tool_call",
+            name: "web_search",
+            status: "succeeded",
+            createdAt: "2026-05-13T00:00:00.500Z",
+            input: { q: "DIKW" },
+            output: {
+              query: "DIKW",
+              results: [
+                { title: "Example A", url: "https://example.com/a", description: "external snippet a" },
+                { title: "Example B", url: "https://example.com/b", description: "external snippet b" }
+              ]
+            }
+          },
+          {
+            id: `tool-${turnNumber}-fetch`,
+            type: "tool_call",
+            name: "web_fetch",
+            status: "succeeded",
+            createdAt: "2026-05-13T00:00:01.000Z",
+            input: { url: "https://example.com/a" },
+            output: { url: "https://example.com/a", content: "page body", truncated: false }
+          }
+        ];
+        const sources = [
+          {
+            path: "https://example.com/a",
+            title: "Example A",
+            excerpt: "external snippet a",
+            layer: null,
+            score: null,
+            kind: "web"
+          },
+          {
+            path: "https://example.com/b",
+            title: "Example B",
+            excerpt: "external snippet b",
+            layer: null,
+            score: null,
+            kind: "web"
+          }
+        ];
+        agentSession = {
+          ...agentSession,
+          title: agentSession.title === "New chat" ? userMessage.slice(0, 40) : agentSession.title,
+          updatedAt: "2026-05-13T00:00:03.000Z",
+          messageCount: agentSession.messages.length + 2,
+          lastMessagePreview: assistantMessage,
+          messages: [
+            ...agentSession.messages,
+            { id: `m${turnNumber * 2 - 1}`, role: "user", content: userMessage, createdAt: "2026-05-13T00:00:00.000Z" },
+            { id: `m${turnNumber * 2}`, role: "assistant", content: assistantMessage, createdAt: "2026-05-13T00:00:01.000Z" }
+          ],
+          toolEvents: [...agentSession.toolEvents, ...toolEvents],
+          sources: [...agentSession.sources, ...sources]
+        };
+        await route.fulfill({
+          contentType: "application/x-ndjson",
+          body: [
+            ...toolEvents.map((event) => JSON.stringify({ type: "tool_event", sessionId: "session-1", event })),
+            JSON.stringify({ type: "message_delta", sessionId: "session-1", delta: assistantMessage }),
+            ...sources.map((source) => JSON.stringify({ type: "source", sessionId: "session-1", source })),
+            JSON.stringify({ type: "agent_end", sessionId: "session-1" })
+          ].join("\n")
+        });
+        return;
+      }
       const isAutoScrollStress = userMessage.toLowerCase().includes("auto-scroll stress");
       const assistantMessage = isAutoScrollStress
         ? Array.from(

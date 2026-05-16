@@ -55,6 +55,59 @@ describe("agent config", () => {
     }
   });
 
+  it("treats web tool keys as optional and trims their values when present", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
+    try {
+      await writeFile(
+        join(cwd, ".env.agent.local"),
+        [
+          "DIKW_AGENT_PROVIDER=minimax",
+          "DIKW_AGENT_API=anthropic-messages",
+          "DIKW_AGENT_API_KEY=secret-minimax-key",
+          "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
+          "DIKW_AGENT_MODEL=MiniMax-M2.7",
+          "DIKW_AGENT_BRAVE_API_KEY=  brave-secret  ",
+          "DIKW_AGENT_JINA_API_KEY=jina-secret",
+          "DIKW_AGENT_TAVILY_API_KEY=  tavily-secret  "
+        ].join("\n"),
+        "utf8"
+      );
+
+      const config = await loadAgentConfig({ cwd, env: {} });
+
+      expect(config.braveApiKey).toBe("brave-secret");
+      expect(config.jinaApiKey).toBe("jina-secret");
+      expect(config.tavilyApiKey).toBe("tavily-secret");
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("leaves web tool keys undefined when not configured", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
+    try {
+      await writeFile(
+        join(cwd, ".env.agent.local"),
+        [
+          "DIKW_AGENT_PROVIDER=minimax",
+          "DIKW_AGENT_API=anthropic-messages",
+          "DIKW_AGENT_API_KEY=secret-minimax-key",
+          "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
+          "DIKW_AGENT_MODEL=MiniMax-M2.7"
+        ].join("\n"),
+        "utf8"
+      );
+
+      const config = await loadAgentConfig({ cwd, env: {} });
+
+      expect(config.braveApiKey).toBeUndefined();
+      expect(config.jinaApiKey).toBeUndefined();
+      expect(config.tavilyApiKey).toBeUndefined();
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("does not read dikw-core URL from the sidecar credential file", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
     try {

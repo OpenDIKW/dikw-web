@@ -21,6 +21,18 @@ The current MiniMax key can be copied from `../dikw-core/.env`
 `ANTHROPIC_API_KEY`, because the core configuration uses MiniMax through
 an Anthropic-compatible endpoint.
 
+`DIKW_AGENT_TAVILY_API_KEY`, `DIKW_AGENT_JINA_API_KEY`, and
+`DIKW_AGENT_BRAVE_API_KEY` are optional. The active web backends are
+Tavily for `web_search` (no proxy required) and Jina Reader for
+`web_fetch`. `DIKW_AGENT_BRAVE_API_KEY` is loaded into `AgentConfig` but
+not currently wired to any registered tool — the Brave client is
+retained in `WebToolClient.search` for future provider rotation.
+
+When a key is missing, `loadAgentConfig` still succeeds and the
+corresponding tool throws a clear "requires `DIKW_AGENT_*`" error on
+invocation, without echoing any configured value. Other tools are
+unaffected.
+
 Do not use `VITE_*` for these values. `VITE_*` variables are browser
 visible.
 
@@ -85,3 +97,45 @@ endpoint is not called.
 Maintenance tasks are not executed directly by the Agent. The Agent may
 create a proposal; the UI must get explicit user confirmation before
 calling core maintenance endpoints.
+
+## Tools
+
+All tools are defined in `server/agent/tools.ts`. They run inside the
+Node sidecar and never receive browser-side secrets.
+
+Core tools (call `dikw-core`):
+
+- `dikw_health` — `/v1/health` snapshot of provider/layer status.
+- `retrieve_knowledge` — `/v1/retrieve` chunks and page refs.
+- `list_pages` — `/v1/base/pages?active=true`, optional layer filter.
+- `read_page` — `/v1/base/pages/{path}` body.
+- `page_links` — `/v1/base/pages/{path}/links`, inbound/outbound.
+- `list_wisdom` — `/v1/wisdom` with optional status/kind filters.
+- `propose_maintenance_action` — emits a proposal event; never invokes
+  core. UI confirmation is required.
+
+Sidecar-only external tools (do not touch `dikw-core`):
+
+- `web_search` — Tavily (`POST https://api.tavily.com/search`).
+  Requires `DIKW_AGENT_TAVILY_API_KEY`. Descriptions are truncated to
+  500 characters and at most ten results are returned. Each result
+  becomes a session `source` with `kind: "web"`. Brave Search is
+  implemented in `WebToolClient.search` and unit-tested but **not**
+  registered in the agent's tool list, so the LLM does not see it.
+- `web_fetch` — Jina Reader (`r.jina.ai/<encoded url>`). Requires
+  `DIKW_AGENT_JINA_API_KEY`. Only `http(s)` URLs accepted. Markdown
+  body is truncated to 50 000 characters with `truncated: true` when
+  the page is larger.
+
+Both web tools wrap fetch with `AbortSignal.timeout(15_000)` and combine
+it with the per-request user abort signal via `AbortSignal.any`, so
+clicking Stop in the UI cancels in-flight Brave/Jina calls. API keys
+stay in `.env.agent.local` and are never written to session JSON files,
+streamed to the browser, or echoed in error messages.
+
+When `HTTPS_PROXY` / `HTTP_PROXY` is set in the sidecar process
+environment, the two web tools route through it via undici's
+`ProxyAgent`. The proxy is **only** applied to external Brave/Jina
+calls, not to `dikw-core` requests, so a local core on
+`127.0.0.1:8765` keeps working alongside an upstream proxy used to
+reach the public web.

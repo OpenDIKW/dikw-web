@@ -132,6 +132,23 @@ Maintenance endpoints such as `/v1/ingest`, `/v1/synth`,
 `/v1/distill`, and `/v1/lint/propose` may only be called after the
 Agent creates a proposal and the user confirms it in the UI.
 
+### Sidecar-only external tools
+
+The Agent also exposes two sidecar-only tools that do **not** touch
+`dikw-core`:
+
+- `web_search` calls Tavily (`https://api.tavily.com/search`) and requires
+  `DIKW_AGENT_TAVILY_API_KEY`. A Brave Search client is retained in
+  `WebToolClient.search` for future provider rotation but is not registered
+  as an agent tool.
+- `web_fetch` calls Jina Reader (`https://r.jina.ai/<url>`) and requires
+  `DIKW_AGENT_JINA_API_KEY`.
+
+These tools live entirely inside the sidecar. They do not add or change
+any `dikw-core` endpoint and they do not affect the core boundary above.
+Their results surface to the browser as `source` events with
+`kind: "web"`; the underlying API keys never leave `.env.agent.local`.
+
 ## Task Events
 
 Task events are NDJSON from `GET /v1/tasks/{id}/events`.

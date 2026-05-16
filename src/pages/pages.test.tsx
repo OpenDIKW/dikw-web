@@ -913,6 +913,87 @@ describe("read console pages", () => {
     expect(within(context).getByText("retrieve_knowledge")).toBeInTheDocument();
   });
 
+  it("renders web kind sources as external links with a Web badge", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "Web search",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: 2,
+      lastMessagePreview: "Web answer",
+      messages: [
+        { id: "u1", role: "user", content: "search the web", createdAt: "2026-05-13T00:00:00.000Z" },
+        { id: "a1", role: "assistant", content: "Web answer", createdAt: "2026-05-13T00:00:01.000Z" }
+      ],
+      toolEvents: [],
+      sources: [
+        { path: "https://example.com/a", title: "Example A", excerpt: "external snippet", kind: "web" as const },
+        { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }
+      ],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    const context = await screen.findByRole("complementary", { name: "Session context" });
+    const link = within(context).getByRole("link", { name: /example\.com\/a/ });
+    expect(link).toHaveAttribute("href", "https://example.com/a");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link.getAttribute("rel") ?? "").toMatch(/noopener/);
+    expect(within(context).getByText("Web")).toBeInTheDocument();
+    expect(within(context).getByText("external snippet")).toBeInTheDocument();
+
+    expect(within(context).getByText("wiki/architecture.md")).toBeInTheDocument();
+    expect(within(context).getByText("wiki")).toBeInTheDocument();
+  });
+
+  it("refuses to render a web source whose stored path is unsafe", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "Bad URLs",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: 0,
+      lastMessagePreview: "",
+      messages: [],
+      toolEvents: [],
+      sources: [
+        { path: "javascript:alert(1)", title: "xss", kind: "web" as const },
+        { path: "http://localhost/admin", title: "internal", kind: "web" as const },
+        { path: "https://example.com/ok", title: "good", kind: "web" as const }
+      ],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    const context = await screen.findByRole("complementary", { name: "Session context" });
+    expect(within(context).queryByRole("link", { name: /javascript:/ })).toBeNull();
+    expect(within(context).queryByRole("link", { name: /localhost/ })).toBeNull();
+    expect(within(context).getByText("javascript:alert(1)")).toBeInTheDocument();
+    expect(within(context).getByText("http://localhost/admin")).toBeInTheDocument();
+    const safeLink = within(context).getByRole("link", { name: /example\.com\/ok/ });
+    expect(safeLink).toHaveAttribute("href", "https://example.com/ok");
+  });
+
   it("keeps session sources and tool calls visible after a later reply without new context", async () => {
     const initialSession = {
       id: "session-1",

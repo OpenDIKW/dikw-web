@@ -439,17 +439,32 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                   ref={sourcesScrollRef}
                   onScroll={(event) => trackStickToBottom("sources", event.currentTarget)}
                 >
-                  {sources.map((source) => (
-                    <article className="citation-item" key={`${source.path}-${source.title ?? ""}`}>
-                      <div className="citation-item__meta">
-                        <span>{source.layer ?? "base"}</span>
-                        {typeof source.score === "number" ? <span>{source.score.toFixed(3)}</span> : null}
-                      </div>
-                      <div className="citation-item__path">{source.path}</div>
-                      {source.title ? <p>{source.title}</p> : null}
-                      {source.excerpt ? <p>{source.excerpt}</p> : null}
-                    </article>
-                  ))}
+                  {sources.map((source) => {
+                    const isWeb = source.kind === "web";
+                    const safeHref = isWeb && isSafeBrowserWebUrl(source.path) ? source.path : null;
+                    return (
+                      <article
+                        className={`citation-item${isWeb ? " citation-item--web" : ""}`}
+                        key={`${source.kind ?? "core"}-${source.path}-${source.title ?? ""}`}
+                      >
+                        <div className="citation-item__meta">
+                          <span>{isWeb ? copy.sourcesWebBadge : source.layer ?? "base"}</span>
+                          {typeof source.score === "number" ? <span>{source.score.toFixed(3)}</span> : null}
+                        </div>
+                        <div className="citation-item__path">
+                          {safeHref ? (
+                            <a href={safeHref} target="_blank" rel="noopener noreferrer">
+                              {safeHref}
+                            </a>
+                          ) : (
+                            source.path
+                          )}
+                        </div>
+                        {source.title ? <p>{source.title}</p> : null}
+                        {source.excerpt ? <p>{source.excerpt}</p> : null}
+                      </article>
+                    );
+                  })}
                 </div>
               ) : (
                 <EmptyState title={copy.emptySources} />
@@ -559,9 +574,41 @@ function localMessage(role: AgentMessage["role"], content: string): AgentMessage
 }
 
 function mergeSources(items: AgentSource[], next: AgentSource): AgentSource[] {
-  return items.some((item) => item.path === next.path && item.title === next.title)
+  const nextKind = next.kind ?? "core";
+  return items.some(
+    (item) => item.path === next.path && item.title === next.title && (item.kind ?? "core") === nextKind
+  )
     ? items
     : [...items, next];
+}
+
+export function isSafeBrowserWebUrl(value: unknown): value is string {
+  if (typeof value !== "string" || !value) return false;
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return false;
+  if (parsed.username || parsed.password) return false;
+  const host = parsed.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    host.endsWith(".local") ||
+    /^(127|10|0)\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+    host === "::1" ||
+    host === "::" ||
+    host.startsWith("[::ffff:") ||
+    host.startsWith("::ffff:")
+  ) {
+    return false;
+  }
+  return true;
 }
 
 function mergeTools(items: AgentToolEvent[], next: AgentToolEvent): AgentToolEvent[] {

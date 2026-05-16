@@ -3,7 +3,7 @@ import { Agent } from "@earendil-works/pi-agent-core";
 import type { AgentEvent, AgentMessage as PiAgentMessage } from "@earendil-works/pi-agent-core";
 import type { Model } from "@earendil-works/pi-ai";
 import type { AgentConfig } from "./config";
-import { createDikwTools } from "./tools";
+import { createDikwTools, validateAndNormalizeHttpUrl } from "./tools";
 import type { FileSessionStore } from "./sessionStore";
 import type { AgentProposal, AgentSource, AgentStreamEvent, AgentToolEvent } from "../../src/agent/types";
 
@@ -39,7 +39,14 @@ export class PiAgentRunner implements AgentRunner {
       initialState: {
         systemPrompt: systemPrompt(),
         model: createModel(this.options.config),
-        tools: createDikwTools({ coreUrl, token })
+        tools: createDikwTools({
+          coreUrl,
+          token,
+          braveApiKey: this.options.config.braveApiKey,
+          jinaApiKey: this.options.config.jinaApiKey,
+          tavilyApiKey: this.options.config.tavilyApiKey,
+          signal
+        })
       },
       getApiKey: () => this.options.config.apiKey,
       toolExecution: "sequential"
@@ -138,19 +145,64 @@ function mapPiEvent(sessionId: string, event: AgentEvent): { events: AgentStream
   return { events: [] };
 }
 
-function sourcesFromTool(toolName: string, details: unknown): AgentSource[] {
-  if (toolName !== "retrieve_knowledge" || !isRecord(details) || !Array.isArray(details.page_refs)) {
-    return [];
+export function sourcesFromTool(toolName: string, details: unknown): AgentSource[] {
+  if (toolName === "retrieve_knowledge") {
+    if (!isRecord(details) || !Array.isArray(details.page_refs)) {
+      return [];
+    }
+    return details.page_refs
+      .filter(isRecord)
+      .map((item) => ({
+        path: typeof item.path === "string" ? item.path : "",
+        title: typeof item.title === "string" ? item.title : null,
+        layer: typeof item.layer === "string" ? item.layer : null,
+        score: typeof item.score === "number" ? item.score : null
+      }))
+      .filter((source) => source.path);
   }
-  return details.page_refs
-    .filter(isRecord)
-    .map((item) => ({
-      path: typeof item.path === "string" ? item.path : "",
-      title: typeof item.title === "string" ? item.title : null,
-      layer: typeof item.layer === "string" ? item.layer : null,
-      score: typeof item.score === "number" ? item.score : null
-    }))
-    .filter((source) => source.path);
+  if (toolName === "web_search") {
+    if (!isRecord(details) || !Array.isArray(details.results)) {
+      return [];
+    }
+    return details.results.filter(isRecord).flatMap<AgentSource>((item) => {
+      const safeUrl = safeWebUrl(item.url);
+      if (!safeUrl) return [];
+      return [
+        {
+          path: safeUrl,
+          title: typeof item.title === "string" ? item.title : null,
+          excerpt: typeof item.description === "string" ? item.description : null,
+          layer: null,
+          score: null,
+          kind: "web"
+        }
+      ];
+    });
+  }
+  if (toolName === "web_fetch") {
+    if (!isRecord(details)) return [];
+    const safeUrl = safeWebUrl(details.url);
+    if (!safeUrl) return [];
+    return [
+      {
+        path: safeUrl,
+        title: typeof details.title === "string" ? details.title : null,
+        excerpt: null,
+        layer: null,
+        score: null,
+        kind: "web" as const
+      }
+    ];
+  }
+  return [];
+}
+
+function safeWebUrl(value: unknown): string | null {
+  try {
+    return validateAndNormalizeHttpUrl(value);
+  } catch {
+    return null;
+  }
 }
 
 function proposalFromTool(toolName: string, details: unknown): AgentProposal | null {
@@ -200,7 +252,8 @@ function createModel(config: AgentConfig): Model<"anthropic-messages" | "openai-
 function systemPrompt(): string {
   return [
     "You are the OpenDIKW web agent.",
-    "dikw-core is the source of truth. Use tools to retrieve pages, links, wisdom, and health.",
+    "dikw-core is the source of truth. Prefer retrieve_knowledge, read_page, page_links, list_wisdom, and dikw_health for any question core can answer.",
+    "Use web_search and web_fetch only when core retrieval cannot answer (current events, external references, or explicit user request). Pass full https URLs to web_fetch, ideally from web_search results.",
     "Do not claim that core generated the answer; core returns evidence and you compose the response.",
     "Maintenance actions must be proposed through the maintenance proposal tool and require user confirmation."
   ].join("\n");

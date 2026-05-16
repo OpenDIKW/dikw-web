@@ -11,12 +11,15 @@ export interface AgentMessage {
   createdAt: string;
 }
 
+export type AgentSourceKind = "core" | "web";
+
 export interface AgentSource {
   path: string;
   title?: string | null;
   layer?: Layer | string | null;
   excerpt?: string | null;
   score?: number | null;
+  kind?: AgentSourceKind;
 }
 
 export interface AgentToolEvent {
