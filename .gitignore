@@ -9,3 +9,4 @@ test-results/
 vite*.log
 *.local
 .agent-sessions/
+.claude/

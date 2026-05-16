@@ -55,11 +55,19 @@ The knowledge page uses the cross-layer page reader:
 - `GET /v1/base/pages/{path}` for the selected page body.
 
 `PageReadResult` includes `doc_id`, `path`, `layer`, `title`, `body`,
-and `anchors[]`. The reader displays path, layer, anchor count, update
-metadata, and the markdown body. The web app does not render a layer
-dropdown on the knowledge page; it shows the base tree directly and
-keeps wiki/source grouping visible through paths and metadata. The
-legacy `/v1/wiki/pages` endpoint is not used.
+`anchors[]`, and `assets[]`. The reader displays path, layer, anchor
+count, update metadata, and the markdown body. The web app does not
+render a layer dropdown on the knowledge page; it shows the base tree
+directly and keeps wiki/source grouping visible through paths and
+metadata. The legacy `/v1/wiki/pages` endpoint is not used.
+
+`assets[]` is the deduped union of every asset referenced by any chunk
+of the page. Each `PageAsset` carries `asset_id` (SHA-256 hex),
+`kind`, `mime`, `bytes`, `original_paths[]` (the literal strings the
+markdown used, useful for matching Obsidian `![[path]]` embeds back to
+the streamable URL), `media_meta`, and `url`. `url` is always
+server-relative — the wire-template is `/v1/assets/{asset_id}`. The
+list is empty for text-only pages.
 
 The Wiki middle pane derives all reading tabs from the selected
 `PageReadResult`:
@@ -77,12 +85,34 @@ route away from `#wiki`.
 
 `PageReadResult.body` remains raw Markdown as returned by `dikw-core`.
 Rendering Markdown pipe tables, sanitized raw HTML tables, safe details
-blocks, Mermaid fenced diagrams, and KaTeX inline/block formulas is a
-web-only presentation concern; it does not change the
-`/v1/base/pages/{path}` response shape. The web reader does not enable
-arbitrary HTML. Only the safe table/details subset documented in the UI
-system is converted to live DOM; other HTML remains escaped or is
-removed during table sanitization.
+blocks, Mermaid fenced diagrams, KaTeX inline/block formulas, Obsidian
+image embeds, and chart blocks is a web-only presentation concern; it
+does not change the `/v1/base/pages/{path}` response shape. The web
+reader does not enable arbitrary HTML. Only the safe table/details
+subset documented in the UI system is converted to live DOM; other HTML
+remains escaped or is removed during table sanitization.
+
+## Assets
+
+`GET /v1/assets/{asset_id}` streams a single content-addressed asset
+identified by its SHA-256 hex digest. The response carries a long
+`Cache-Control: public, max-age=31536000, immutable` plus an `ETag`
+matching `asset_id`, and the `Content-Type` is the asset's stored MIME.
+Failure modes (unknown id, malformed id, file gone, path escapes the
+asset root) collapse to a uniform `404` so the route cannot be used to
+probe which ids exist.
+
+The Wiki reader consumes this endpoint indirectly: it resolves an
+Obsidian-style `![[assets/images/<sha>.jpg]]` embed against the
+`PageReadResult.assets[]` entry (matching either `original_paths` or
+the SHA-256 segment of the filename) and uses that entry's `url`.
+Image fetches go through the Settings-owned base URL just like every
+other `/v1/*` call, so the default core URL stays on the same-origin
+Vite proxy and custom URLs are requested directly. When the current
+Settings token is non-empty, the reader fetches asset bytes with
+`Authorization: Bearer <token>` and rewrites the resulting `<img src>`
+to a `URL.createObjectURL` blob URL, because the bare `<img>` element
+cannot attach app-controlled headers.
 
 ## Graph View
 

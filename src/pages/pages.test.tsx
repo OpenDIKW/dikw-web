@@ -201,7 +201,8 @@ describe("read console pages", () => {
         layer: "wiki",
         title: "dikw-core",
         body: "# dikw-core\n\nRead about [[DIKW pyramid]].",
-        anchors: [{ chunk_id: 301, seq: 1, start: 0, end: 22 }]
+        anchors: [{ chunk_id: 301, seq: 1, start: 0, end: 22 }],
+        assets: []
       },
       "wiki/concepts/pyramid-diagram.md": {
         doc_id: "wiki-dikw-pyramid",
@@ -209,7 +210,8 @@ describe("read console pages", () => {
         layer: "wiki",
         title: "DIKW 金字塔",
         body: "# DIKW 金字塔\n\nPreview body for the pyramid concept.",
-        anchors: [{ chunk_id: 302, seq: 1, start: 0, end: 34 }]
+        anchors: [{ chunk_id: 302, seq: 1, start: 0, end: 34 }],
+        assets: []
       }
     };
     client.get.mockImplementation((path: string) => {
@@ -289,7 +291,8 @@ describe("read console pages", () => {
           layer: "wiki",
           title: selectedPath.includes("pyramid") ? "DIKW pyramid" : "dikw-core",
           body: selectedPath.includes("pyramid") ? "# DIKW pyramid\n\nPyramid body." : "# dikw-core\n\nCore body.",
-          anchors: []
+          anchors: [],
+          assets: []
         } satisfies PageReadResult);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -344,7 +347,8 @@ describe("read console pages", () => {
           layer: "wiki",
           title: selectedPath.includes("pyramid") ? "DIKW pyramid" : "dikw-core",
           body: selectedPath.includes("pyramid") ? "# DIKW pyramid\n\nPyramid body." : "# dikw-core\n\nCore body with [[DIKW pyramid]].",
-          anchors: []
+          anchors: [],
+          assets: []
         } satisfies PageReadResult);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -399,7 +403,8 @@ describe("read console pages", () => {
           layer: "wiki",
           title: "dikw-core",
           body: "# dikw-core\n\nSee [[Missing Concept]].",
-          anchors: []
+          anchors: [],
+          assets: []
         } satisfies PageReadResult);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));

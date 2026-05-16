@@ -191,7 +191,8 @@ export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
     layer: "wiki",
     title: "Architecture",
     body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\n---\n\n# Architecture\n\nLayered DIKW notes.\n\nSee [[Synthesis]].",
-    anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }]
+    anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }],
+    assets: []
   },
   "wiki/synthesis.md": {
     doc_id: "wiki-synthesis",
@@ -199,7 +200,8 @@ export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
     layer: "wiki",
     title: "Synthesis",
     body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body.",
-    anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }]
+    anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }],
+    assets: []
   },
   "sources/architecture.md": {
     doc_id: "source-architecture",
@@ -207,7 +209,8 @@ export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
     layer: "source",
     title: "Architecture source",
     body: "# Architecture source\n\nOriginal source body.",
-    anchors: [{ chunk_id: 201, seq: 1, start: 0, end: 38 }]
+    anchors: [{ chunk_id: 201, seq: 1, start: 0, end: 38 }],
+    assets: []
   }
 };
 

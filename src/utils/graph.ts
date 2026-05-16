@@ -1,6 +1,7 @@
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation } from "d3-force";
 import type { SimulationLinkDatum, SimulationNodeDatum } from "d3-force";
 import type { DocumentRecord, GraphResult, Layer, PageReadResult } from "../types";
+import { basename } from "./format";
 
 export interface GraphNode {
   id: string;
@@ -333,9 +334,6 @@ function splitAnchor(target: string): [string, string | null] {
   return [path.trim(), anchor?.trim() || null];
 }
 
-function basename(path: string): string {
-  return path.split("/").filter(Boolean).at(-1) ?? path;
-}
 
 function sumUnresolvedCounts(links: GraphUnresolvedLink[]): number {
   return links.reduce((total, link) => total + link.count, 0);

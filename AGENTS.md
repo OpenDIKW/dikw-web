@@ -71,11 +71,25 @@ them from scratch.
 ## Markdown Reader
 
 - Markdown rendering supports pipe tables, a sanitized raw HTML table
-  subset, safe `details/summary`, KaTeX math, and Mermaid fenced code.
+  subset, safe `details/summary`, KaTeX math, Mermaid fenced code,
+  Obsidian-style image embeds (`![[...]]`), and chart blocks
+  (`<details><summary>bar|line|scatter|heatmap</summary>` wrapping a
+  pipe-table data spec).
+- Image embeds resolve against `PageReadResult.assets[]` (matching either
+  `original_paths` or the SHA-256 segment of the filename) and are
+  fetched from `GET /v1/assets/{asset_id}` through the same Settings-owned
+  base URL the rest of the client uses. When a session token is
+  configured, images are hydrated via authenticated `fetch` + blob URL
+  so `<img src>` does not bypass `Authorization`. Missing assets render
+  a small `.md-broken-image` placeholder.
+- Charts are rendered through ECharts, lazy-imported on demand
+  (`echarts/core` + per-module charts/components/renderers). When the
+  document is in dark mode, charts are initialized with the `"dark"`
+  theme. If ECharts fails to load or a chart spec is malformed, the
+  placeholder falls back to a `<details>` block containing the source
+  table so the underlying data is never lost.
 - Do not enable arbitrary raw HTML. Scripts, event attributes, styles, and
   non-allow-listed HTML must not become live DOM.
-- Image asset loading is intentionally not solved yet. Treat it as a
-  separate future asset/proxy slice.
 
 ## Chat Sidecar
 

@@ -208,7 +208,15 @@ export function App() {
           {activeView === "overview" ? <OverviewPage client={client} locale={locale} /> : null}
           {activeView === "chat" ? <ChatPage agentClient={agentClient} client={client} locale={locale} /> : null}
           {activeView === "retrieve" ? <RetrievePage client={client} locale={locale} /> : null}
-          {activeView === "wiki" ? <WikiPage client={client} initialPath={wikiInitialPath} locale={locale} /> : null}
+          {activeView === "wiki" ? (
+            <WikiPage
+              client={client}
+              initialPath={wikiInitialPath}
+              locale={locale}
+              assetBaseUrl={clientBaseUrl}
+              assetToken={token}
+            />
+          ) : null}
           {activeView === "graph" ? <GraphPage client={client} onOpenWikiPath={openWikiPath} locale={locale} /> : null}
           {activeView === "wisdom" ? <WisdomPage client={client} locale={locale} /> : null}
           {activeView === "tasks" ? <TasksPage client={client} locale={locale} /> : null}
