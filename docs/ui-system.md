@@ -80,7 +80,8 @@ at least 3:1.
 
 Markdown rendering supports pipe tables, a sanitized raw HTML table
 subset, safe `<details><summary>...</summary>...</details>` blocks,
-Mermaid fenced code, and KaTeX math. The raw HTML allow-list is
+Mermaid fenced code, KaTeX math, Obsidian-style image embeds
+(`![[path]]`), and chart blocks. The raw HTML allow-list is
 intentionally narrow: `table`, `thead`, `tbody`, `tfoot`, `tr`, `th`,
 `td`, `caption`, `colgroup`, `col`, and `br` for tables, plus
 `details`/`summary` as a structured disclosure wrapper. Event
@@ -91,8 +92,35 @@ Inline `$...$` and block `$$...$$` formulas render through KaTeX; parse
 failures fall back to the original formula text. Fenced `mermaid` code
 blocks render asynchronously with Mermaid using `securityLevel:
 "strict"` and `htmlLabels: false`; render failures keep a readable code
-fallback. Image asset loading is outside the current reader contract and
-should be handled by a later asset/proxy slice.
+fallback.
+
+Obsidian image embeds resolve against `PageReadResult.assets[]` —
+either by exact match on `original_paths`, or by extracting the
+SHA-256 hex segment from the filename. Resolved embeds render as
+`<img class="markdown-image" loading="lazy">` pointing at the
+content-addressed `/v1/assets/{asset_id}` URL; the URL is stitched
+against the Settings-owned base URL so the default proxied core and a
+custom remote core both work. When the current session token is
+non-empty, images are hydrated through an authenticated `fetch` and a
+`URL.createObjectURL` blob URL, because the bare `<img>` element
+cannot attach app-controlled headers; the effect cleanup revokes the
+blob URL. Assets that cannot be resolved show a small
+`.md-broken-image` placeholder labeled with the original path.
+
+Chart blocks are written as `<details><summary>{bar|line|scatter|
+heatmap}</summary>` wrapping a markdown pipe table. The reader parses
+the table once at render time, encodes the spec into the placeholder's
+`data-chart-spec` attribute, and renders it with Apache ECharts via
+per-module dynamic imports (`echarts/core`, `echarts/charts`,
+`echarts/components`, `echarts/renderers`) so the chart code stays out
+of the main bundle. Dark mode passes the `"dark"` theme to
+`echarts.init` so axis labels remain readable. Cells with annotations
+or non-numeric content are coerced to the leading numeric token only —
+`"17 ± 2"` becomes `17`, `"N/A"` or empty cells become `null` (ECharts
+treats null as a gap). If the ECharts chunks fail to load, an
+individual chart fails to init, or the chart spec is malformed, the
+placeholder falls back to a `<details>` block containing the same
+source table so users never lose the underlying data.
 
 Cards and controls should keep radii at 8px or less. Shadows should be
 subtle and used to separate work areas, not decorate the page.

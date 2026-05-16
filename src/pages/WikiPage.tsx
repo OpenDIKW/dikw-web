@@ -10,12 +10,14 @@ import { translations, type Locale } from "../i18n";
 import type { DocumentRecord, PageReadResult } from "../types";
 import { findPageForTarget } from "../utils/graph";
 import { getMarkdownTitle, parseMarkdownDocument } from "../utils/markdown";
-import { formatUnixSeconds, truncateMiddle } from "../utils/format";
+import { basename, formatUnixSeconds, truncateMiddle } from "../utils/format";
 
 interface WikiPageProps {
   client: DikwClient;
   initialPath?: string | null;
   locale?: Locale;
+  assetBaseUrl?: string;
+  assetToken?: string;
 }
 
 interface WikiTreeNode {
@@ -35,7 +37,7 @@ type PreviewState =
 type WikiReaderTab = "read" | "info" | "outline" | "source";
 type WikiCopy = (typeof translations)["en"]["pages"]["wiki"];
 
-export function WikiPage({ client, initialPath, locale = "en" }: WikiPageProps) {
+export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = "", assetToken = "" }: WikiPageProps) {
   const copy = translations[locale].pages.wiki;
   const [filter, setFilter] = useState("");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -269,6 +271,8 @@ export function WikiPage({ client, initialPath, locale = "en" }: WikiPageProps) 
           error={pageError}
           onWikiLink={openWikiLink}
           copy={copy}
+          assetBaseUrl={assetBaseUrl}
+          assetToken={assetToken}
         />
 
         {preview.kind !== "idle" ? (
@@ -389,7 +393,9 @@ function WikiReader({
   loading,
   error,
   onWikiLink,
-  copy
+  copy,
+  assetBaseUrl,
+  assetToken
 }: {
   page: PageReadResult | null;
   doc: DocumentRecord | null;
@@ -397,6 +403,8 @@ function WikiReader({
   error: unknown;
   onWikiLink: (target: string) => void;
   copy: WikiCopy;
+  assetBaseUrl: string;
+  assetToken: string;
 }) {
   const [activeTab, setActiveTab] = useState<WikiReaderTab>("read");
   const parsed = useMemo(
@@ -431,6 +439,9 @@ function WikiReader({
                 fallbackTitle={page.title || getMarkdownTitle(page.body) || basename(page.path)}
                 onWikiLink={onWikiLink}
                 showFrontmatter={false}
+                assets={page.assets}
+                assetBaseUrl={assetBaseUrl}
+                assetToken={assetToken}
               />
             </section>
           ) : null}
@@ -803,10 +814,6 @@ function displayFileName(doc: DocumentRecord): string {
 
 function encodePath(path: string): string {
   return path.split("/").map(encodeURIComponent).join("/");
-}
-
-function basename(path: string): string {
-  return path.split("/").filter(Boolean).at(-1) ?? path;
 }
 
 function formatAnchorCount(count: number): string {

@@ -55,7 +55,8 @@ const bodies: Record<string, PageReadResult> = {
     layer: "wiki",
     title: "Architecture",
     body: "# Architecture\n\nSee [[Synthesis#Details|the synthesis page]] and again [[Synthesis#Details]]. Missing [[Missing Concept]].",
-    anchors: []
+    anchors: [],
+    assets: []
   },
   "wiki/synthesis.md": {
     doc_id: "wiki-synthesis",
@@ -63,7 +64,8 @@ const bodies: Record<string, PageReadResult> = {
     layer: "wiki",
     title: "Synthesis",
     body: "# Synthesis\n\nSynthesis Body.",
-    anchors: []
+    anchors: [],
+    assets: []
   },
   "wiki/orphan.md": {
     doc_id: "wiki-orphan",
@@ -71,7 +73,8 @@ const bodies: Record<string, PageReadResult> = {
     layer: "wiki",
     title: "Orphan",
     body: "# Orphan\n\nNo links.",
-    anchors: []
+    anchors: [],
+    assets: []
   },
   "sources/brief.md": {
     doc_id: "source-brief",
@@ -79,7 +82,8 @@ const bodies: Record<string, PageReadResult> = {
     layer: "source",
     title: "Source Brief",
     body: "# Source Brief\n\nSource-only page.",
-    anchors: []
+    anchors: [],
+    assets: []
   }
 };
 

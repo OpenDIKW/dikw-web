@@ -113,6 +113,24 @@ export interface PageAnchor {
   end: number;
 }
 
+export type AssetKind = "image" | "audio" | "video" | "document" | "other";
+
+export interface MediaMeta {
+  width?: number | null;
+  height?: number | null;
+  format?: string | null;
+}
+
+export interface PageAsset {
+  asset_id: string;
+  kind: AssetKind | string;
+  mime: string;
+  bytes: number;
+  original_paths: string[];
+  media_meta: MediaMeta | null;
+  url: string;
+}
+
 export interface PageReadResult {
   doc_id: string;
   path: string;
@@ -120,6 +138,7 @@ export interface PageReadResult {
   title: string | null;
   body: string;
   anchors: PageAnchor[];
+  assets: PageAsset[];
 }
 
 export interface CoreGraphNode {

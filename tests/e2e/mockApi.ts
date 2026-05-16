@@ -1,8 +1,10 @@
 import type { Page } from "@playwright/test";
 import {
+  choCqaAssetId,
   graphResultFixture,
   healthFixture,
   infoFixture,
+  onePxPngBase64,
   retrieveEventsFixture,
   statusFixture,
   taskEventsFixture,
@@ -272,6 +274,19 @@ export async function mockDikwApi(page: Page) {
     if (path.startsWith("/v1/base/pages/")) {
       const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
       await route.fulfill({ json: wikiPageBodiesFixture[selectedPath] });
+      return;
+    }
+    if (path.startsWith("/v1/assets/")) {
+      const assetId = path.replace("/v1/assets/", "");
+      if (assetId === choCqaAssetId) {
+        await route.fulfill({
+          contentType: "image/png",
+          headers: { "Cache-Control": "public, max-age=31536000, immutable" },
+          body: Buffer.from(onePxPngBase64, "base64")
+        });
+        return;
+      }
+      await route.fulfill({ status: 404, body: `unknown asset ${assetId}` });
       return;
     }
     if (path === "/v1/wisdom") {

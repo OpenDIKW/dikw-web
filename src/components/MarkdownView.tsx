@@ -6,12 +6,31 @@ import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
 import type Token from "markdown-it/lib/token.mjs";
 import { useEffect, useMemo, useRef } from "react";
 import { parseMarkdownDocument, type FrontmatterMeta } from "../utils/markdown";
+import type { PageAsset } from "../types";
+import {
+  buildChartOption,
+  isChartSpec,
+  isChartType,
+  parseChartFromDetails,
+  type ChartType
+} from "../utils/chart-spec";
+import { buildRequestUrl } from "../api/client";
+import { basename } from "../utils/format";
 
 interface MarkdownViewProps {
   body: string;
   fallbackTitle?: string | null;
   onWikiLink?: (target: string) => void;
   showFrontmatter?: boolean;
+  assets?: PageAsset[];
+  assetBaseUrl?: string;
+  assetToken?: string;
+}
+
+interface MarkdownContext {
+  assets: PageAsset[];
+  assetBaseUrl: string;
+  assetToken: string;
 }
 
 const markdown = new MarkdownIt({
@@ -22,18 +41,31 @@ const markdown = new MarkdownIt({
 
 installWikiLinks(markdown);
 installMath(markdown);
+installObsidianImages(markdown);
 installRendererRules(markdown);
 
-export function MarkdownView({ body, fallbackTitle, onWikiLink, showFrontmatter = true }: MarkdownViewProps) {
+export function MarkdownView({
+  body,
+  fallbackTitle,
+  onWikiLink,
+  showFrontmatter = true,
+  assets,
+  assetBaseUrl,
+  assetToken
+}: MarkdownViewProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  const ctx = useMemo<MarkdownContext>(
+    () => ({ assets: assets ?? [], assetBaseUrl: assetBaseUrl ?? "", assetToken: assetToken ?? "" }),
+    [assets, assetBaseUrl, assetToken]
+  );
   const { html, meta, needsFallbackTitle } = useMemo(() => {
     const parsed = parseMarkdownDocument(body, { stripDuplicateTitle: false });
     return {
-      html: renderMarkdown(parsed.body),
+      html: renderMarkdown(parsed.body, ctx),
       meta: parsed.meta,
       needsFallbackTitle: Boolean(fallbackTitle && !hasTopHeading(parsed.body))
     };
-  }, [body, fallbackTitle]);
+  }, [body, ctx, fallbackTitle]);
 
   useEffect(() => {
     const root = bodyRef.current;
@@ -42,10 +74,14 @@ export function MarkdownView({ body, fallbackTitle, onWikiLink, showFrontmatter 
     }
     let cancelled = false;
     void renderMermaidDiagrams(root, () => cancelled);
+    const disposeCharts = renderMarkdownCharts(root);
+    const disposeImages = hydrateAuthenticatedImages(root, ctx.assetToken);
     return () => {
       cancelled = true;
+      disposeCharts();
+      disposeImages();
     };
-  }, [html]);
+  }, [html, ctx.assetToken]);
 
   function handleClick(event: React.MouseEvent<HTMLElement>) {
     const element = (event.target as HTMLElement).closest<HTMLElement>("[data-wiki-link]");
@@ -147,6 +183,76 @@ function installWikiLinks(md: MarkdownIt) {
       target
     )}">${escapeHtml(token.content)}</button>`;
   };
+}
+
+function installObsidianImages(md: MarkdownIt) {
+  md.inline.ruler.before("emphasis", "obsidian_image", (state, silent) => {
+    const src = state.src;
+    const start = state.pos;
+    if (src.charCodeAt(start) !== 0x21) {
+      return false;
+    }
+    if (src.charCodeAt(start + 1) !== 0x5b || src.charCodeAt(start + 2) !== 0x5b) {
+      return false;
+    }
+    const close = src.indexOf("]]", start + 3);
+    if (close < 0) {
+      return false;
+    }
+    if (!silent) {
+      const raw = src.slice(start + 3, close).trim();
+      const [pathPart, altPart] = raw.split("|", 2);
+      const path = pathPart.trim();
+      const alt = (altPart ?? "").trim();
+      const token = state.push("obsidian_image", "", 0);
+      token.attrSet("data-path", path);
+      if (alt) {
+        token.attrSet("data-alt", alt);
+      }
+    }
+    state.pos = close + 2;
+    return true;
+  });
+
+  md.renderer.rules.obsidian_image = (tokens, index, _options, env) => {
+    const token = tokens[index];
+    const path = token.attrGet("data-path") ?? "";
+    const alt = token.attrGet("data-alt") ?? "";
+    const ctx = (env as { dikwContext?: MarkdownContext })?.dikwContext;
+    const resolved = resolveAssetUrl(path, ctx);
+    if (!resolved) {
+      return `<span class="md-broken-image" title="asset not found">⚠ ${escapeHtml(path)}</span>`;
+    }
+    const altText = alt || basename(path);
+    if (ctx?.assetToken) {
+      return `<img class="markdown-image" data-asset-src="${escapeAttribute(
+        resolved
+      )}" alt="${escapeAttribute(altText)}" loading="lazy" />`;
+    }
+    return `<img class="markdown-image" src="${escapeAttribute(resolved)}" alt="${escapeAttribute(
+      altText
+    )}" loading="lazy" />`;
+  };
+}
+
+const SHA256_IN_PATH = /(?:^|\/)([0-9a-f]{64})\.[a-z0-9]+$/i;
+
+function resolveAssetUrl(path: string, ctx: MarkdownContext | undefined): string | null {
+  if (!ctx || !ctx.assets.length) {
+    return null;
+  }
+  const direct = ctx.assets.find((asset) => asset.original_paths.includes(path));
+  if (direct) {
+    return buildRequestUrl(ctx.assetBaseUrl, direct.url);
+  }
+  const hashMatch = path.match(SHA256_IN_PATH);
+  if (hashMatch) {
+    const byId = ctx.assets.find((asset) => asset.asset_id === hashMatch[1]);
+    if (byId) {
+      return buildRequestUrl(ctx.assetBaseUrl, byId.url);
+    }
+  }
+  return null;
 }
 
 function installMath(md: MarkdownIt) {
@@ -275,10 +381,10 @@ function installRendererRules(md: MarkdownIt) {
   md.renderer.rules.code_block = fenceRender;
 }
 
-function renderMarkdown(body: string): string {
-  const { markdownBody: bodyWithoutDetails, details } = extractSafeDetails(body);
+function renderMarkdown(body: string, ctx: MarkdownContext): string {
+  const { markdownBody: bodyWithoutDetails, details } = extractSafeDetails(body, ctx);
   const { markdownBody, tables } = extractSafeRawTables(bodyWithoutDetails);
-  const html = markdown.render(markdownBody, {});
+  const html = markdown.render(markdownBody, { dikwContext: ctx });
   return restoreSafeBlocks(restoreSafeRawTables(html, tables), details);
 }
 
@@ -297,7 +403,10 @@ const rawTablePattern = /<table\b[\s\S]*?<\/table>/gi;
 const allowedTableTags = new Set(["table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col", "br"]);
 const allowedTableAttributes = new Set(["align", "colspan", "rowspan", "scope"]);
 
-function extractSafeDetails(body: string): { markdownBody: string; details: SafeRawBlock[] } {
+function extractSafeDetails(
+  body: string,
+  ctx: MarkdownContext
+): { markdownBody: string; details: SafeRawBlock[] } {
   const details: SafeRawBlock[] = [];
   const markdownBody = body.replace(rawDetailsPattern, (raw, attributes: string, summary: string, content: string) => {
     const open = parseDetailsOpenAttribute(attributes);
@@ -305,18 +414,60 @@ function extractSafeDetails(body: string): { markdownBody: string; details: Safe
       return raw;
     }
 
+    const summaryText = summary.trim();
+    const summaryLower = summaryText.toLowerCase();
+    const trimmedContent = content.trim();
     const placeholder = `DIKW_RAW_DETAILS_${details.length}`;
-    const renderedContent = renderMarkdown(content.trim());
+
+    if (isChartType(summaryLower)) {
+      const chartHtml = tryRenderChartPlaceholder(summaryLower as ChartType, trimmedContent);
+      if (chartHtml) {
+        details.push({ placeholder, html: chartHtml });
+        return `\n\n${placeholder}\n\n`;
+      }
+    }
+
+    const renderedContent = renderMarkdown(trimmedContent, ctx);
     details.push({
       placeholder,
       html: `<details class="markdown-details"${open ? " open" : ""}><summary>${escapeHtml(
-        summary.trim()
+        summaryText
       )}</summary><div class="markdown-details__body">${renderedContent}</div></details>`
     });
     return `\n\n${placeholder}\n\n`;
   });
 
   return { markdownBody, details };
+}
+
+function tryRenderChartPlaceholder(type: ChartType, content: string): string | null {
+  const spec = parseChartFromDetails(content, type);
+  if (!spec) {
+    return null;
+  }
+  const encoded = encodeChartSpec(spec);
+  const caption = spec.freeText.length
+    ? `<div class="markdown-chart__caption">${spec.freeText.map(escapeHtml).join("<br/>")}</div>`
+    : "";
+  return `<div class="markdown-chart" data-chart-type="${escapeAttribute(type)}" data-chart-spec="${escapeAttribute(
+    encoded
+  )}" role="img" aria-label="${escapeAttribute(type)} chart"><div class="markdown-chart__canvas"></div>${caption}</div>`;
+}
+
+function encodeChartSpec(spec: object): string {
+  const json = JSON.stringify(spec);
+  const bytes = new TextEncoder().encode(json);
+  let binary = "";
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+  return btoa(binary);
+}
+
+function decodeChartSpec(encoded: string): unknown {
+  const binary = atob(encoded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return JSON.parse(new TextDecoder().decode(bytes));
 }
 
 function extractSafeRawTables(body: string): { markdownBody: string; tables: SafeRawTable[] } {
@@ -452,6 +603,164 @@ async function renderMermaidDiagrams(root: HTMLElement, isCancelled: () => boole
       }
     }
   }
+}
+
+function renderMarkdownCharts(root: HTMLElement): () => void {
+  const placeholders = Array.from(root.querySelectorAll<HTMLElement>(".markdown-chart[data-chart-spec]"));
+  if (!placeholders.length) {
+    return () => {};
+  }
+
+  const instances: Array<{ dispose: () => void }> = [];
+  let cancelled = false;
+
+  void (async () => {
+    let echarts: typeof import("echarts/core");
+    try {
+      const [core, charts, components, renderers] = await Promise.all([
+        import("echarts/core"),
+        import("echarts/charts"),
+        import("echarts/components"),
+        import("echarts/renderers")
+      ]);
+      echarts = core;
+      echarts.use([
+        charts.BarChart,
+        charts.LineChart,
+        charts.ScatterChart,
+        charts.HeatmapChart,
+        components.GridComponent,
+        components.TooltipComponent,
+        components.TitleComponent,
+        components.VisualMapComponent,
+        renderers.CanvasRenderer
+      ]);
+    } catch {
+      for (const el of placeholders) {
+        renderChartFallback(el);
+      }
+      return;
+    }
+    if (cancelled) {
+      return;
+    }
+    const theme = root.ownerDocument.documentElement.dataset.theme === "dark" ? "dark" : undefined;
+    for (const el of placeholders) {
+      if (cancelled) {
+        return;
+      }
+      const encoded = el.dataset.chartSpec ?? "";
+      const type = el.dataset.chartType ?? "";
+      if (!encoded || !isChartType(type)) {
+        renderChartFallback(el);
+        continue;
+      }
+      const canvas = el.querySelector<HTMLElement>(".markdown-chart__canvas") ?? el;
+      try {
+        const decoded = decodeChartSpec(encoded);
+        if (!isChartSpec(decoded)) {
+          throw new Error("invalid chart spec");
+        }
+        const instance = echarts.init(canvas, theme);
+        instances.push(instance);
+        instance.setOption(buildChartOption(decoded));
+        el.dataset.state = "rendered";
+      } catch {
+        renderChartFallback(el);
+      }
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+    for (const instance of instances) {
+      try {
+        instance.dispose();
+      } catch {
+        //
+      }
+    }
+  };
+}
+
+function renderChartFallback(el: HTMLElement): void {
+  el.dataset.state = "error";
+  const encoded = el.dataset.chartSpec ?? "";
+  const type = el.dataset.chartType ?? "chart";
+  if (!encoded) {
+    return;
+  }
+  try {
+    const decoded = decodeChartSpec(encoded);
+    if (!isChartSpec(decoded)) {
+      return;
+    }
+    el.innerHTML = renderChartFallbackHtml(type, decoded);
+  } catch {
+    /* leave shell as-is */
+  }
+}
+
+function renderChartFallbackHtml(type: string, spec: { headers: string[]; rows: string[][] }): string {
+  const head = spec.headers
+    .map((cell) => `<th>${escapeHtml(cell)}</th>`)
+    .join("");
+  const body = spec.rows
+    .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
+    .join("");
+  const table = `<div class="markdown-table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+  return `<details class="markdown-details" open><summary>${escapeHtml(
+    type
+  )}</summary><div class="markdown-details__body">${table}</div></details>`;
+}
+
+function hydrateAuthenticatedImages(root: HTMLElement, token: string): () => void {
+  if (!token) {
+    return () => {};
+  }
+  const images = Array.from(root.querySelectorAll<HTMLImageElement>("img.markdown-image[data-asset-src]"));
+  if (!images.length) {
+    return () => {};
+  }
+  const blobUrls: string[] = [];
+  const controller = new AbortController();
+
+  void (async () => {
+    for (const img of images) {
+      if (controller.signal.aborted) {
+        return;
+      }
+      const url = img.dataset.assetSrc;
+      if (!url) {
+        continue;
+      }
+      try {
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal
+        });
+        if (!response.ok) {
+          throw new Error(`asset ${response.status}`);
+        }
+        const blob = await response.blob();
+        if (controller.signal.aborted) {
+          return;
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        blobUrls.push(objectUrl);
+        img.src = objectUrl;
+      } catch {
+        img.dataset.assetState = "error";
+      }
+    }
+  })();
+
+  return () => {
+    controller.abort();
+    for (const url of blobUrls) {
+      URL.revokeObjectURL(url);
+    }
+  };
 }
 
 function renderMermaidFallback(diagram: HTMLElement, source = readMermaidSource(diagram)): void {

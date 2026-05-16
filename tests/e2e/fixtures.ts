@@ -113,8 +113,25 @@ export const wikiPagesFixture = [
     mtime: 1777819500,
     layer: "source",
     active: true
+  },
+  {
+    doc_id: "source-cho-cqa",
+    path: "sources/cho-cqa/cho-cqa.md",
+    path_key: "sources/cho-cqa/cho-cqa.md",
+    title: "CHO CQA",
+    hash: "hash-src-cho-cqa",
+    mtime: 1777819600,
+    layer: "source",
+    active: true
   }
 ];
+
+export const choCqaAssetId = "1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72";
+export const choCqaMissingPath = "assets/images/deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.jpg";
+
+// 1×1 transparent PNG, base64-encoded.
+export const onePxPngBase64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
 
 export const graphResultFixture = {
   base_revision: "graph-rev-1",
@@ -194,7 +211,8 @@ export const wikiPageBodiesFixture = {
     layer: "wiki",
     title: "Architecture",
     body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\nstatus: draft\n---\n\n# Architecture\n\nLayered DIKW notes with `inline code`.\n\n> Evidence should stay readable in dark mode.\n\n| Layer | Purpose |\n| --- | --- |\n| Knowledge | Durable notes |\n\nInline chemistry $\\mathrm { C O } _ { 2 }$ stays readable.\n\n$$x^2 + y^2 = z^2$$\n\n<table><caption>Hybrid studies</caption><thead><tr><th>First principles</th><th>Training method</th></tr></thead><tbody><tr><td>Mass balance</td><td>FBA</td></tr></tbody></table>\n\n```ts\nconst layer = \"knowledge\";\n```\n\n[Jump to links](#links)\n\n## Links\n\nSee [[Synthesis]] and [[Missing Concept]].",
-    anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }]
+    anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }],
+    assets: []
   },
   "wiki/concepts/synthesis.md": {
     doc_id: "wiki-synthesis",
@@ -202,7 +220,8 @@ export const wikiPageBodiesFixture = {
     layer: "wiki",
     title: "Synthesis",
     body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body.",
-    anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }]
+    anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }],
+    assets: []
   },
   "wiki/concepts/orphan.md": {
     doc_id: "wiki-orphan",
@@ -210,7 +229,8 @@ export const wikiPageBodiesFixture = {
     layer: "wiki",
     title: "Orphan",
     body: "# Orphan\n\nNo graph links yet.",
-    anchors: []
+    anchors: [],
+    assets: []
   },
   "sources/architecture.md": {
     doc_id: "source-architecture",
@@ -218,7 +238,8 @@ export const wikiPageBodiesFixture = {
     layer: "source",
     title: "Architecture source",
     body: "# Architecture source\n\nOriginal source body.",
-    anchors: []
+    anchors: [],
+    assets: []
   },
   "sources/active-learning-medium/active-learning-medium.md": {
     doc_id: "source-active-learning-medium",
@@ -226,7 +247,48 @@ export const wikiPageBodiesFixture = {
     layer: "source",
     title: "Active Learning Medium",
     body: "# Active Learning Medium\n\n<details>\n<summary>flowchart</summary>\n\n```mermaid\ngraph LR\n    A[\"Vitamins Amino acids Metal salts etc.\"] --> B[\"Medium combinations\"]\n    B --> C[\"Incubation (37°C, 5% CO₂, 7 days)\"]\n    C --> D[\"Chemical assay, A450\"]\n```\n</details>\n\nAfter the diagram.",
-    anchors: []
+    anchors: [],
+    assets: []
+  },
+  "sources/cho-cqa/cho-cqa.md": {
+    doc_id: "source-cho-cqa",
+    path: "sources/cho-cqa/cho-cqa.md",
+    layer: "source",
+    title: "CHO CQA",
+    body:
+      "# CHO CQA\n\n" +
+      "Fig. 2 Charge variant profile.\n\n" +
+      `![[assets/images/${choCqaAssetId}.jpg]]\n\n` +
+      "<details>\n<summary>bar</summary>\n\n" +
+      "| Experimental runs | Acidic Variants (%) |\n" +
+      "| --- | --- |\n" +
+      "| Ctrl | 17 |\n" +
+      "| Innovator | 25 |\n" +
+      "</details>\n\n" +
+      "<details>\n<summary>heatmap</summary>\n\n" +
+      "| | Cu | Fe | Zn |\n" +
+      "| --- | --- | --- | --- |\n" +
+      "| Cu | 1.00 | 0.00 | 0.00 |\n" +
+      "| Fe | 0.00 | 1.00 | -0.00 |\n" +
+      "| Zn | 0.00 | -0.00 | 1.00 |\n" +
+      "</details>\n\n" +
+      "Missing asset:\n\n" +
+      `![[${choCqaMissingPath}]]\n\n` +
+      "<details>\n<summary>bar</summary>\n\n" +
+      "Not a table at all.\n" +
+      "</details>",
+    anchors: [],
+    assets: [
+      {
+        asset_id: choCqaAssetId,
+        kind: "image",
+        mime: "image/jpeg",
+        bytes: 1234,
+        original_paths: [`assets/images/${choCqaAssetId}.jpg`],
+        media_meta: null,
+        url: `/v1/assets/${choCqaAssetId}`
+      }
+    ]
   }
 };
 
