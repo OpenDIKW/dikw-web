@@ -95,15 +95,17 @@ export function GraphCanvas({
   }, []);
 
   useEffect(() => {
+    const stage = stageRef.current;
     const engine = engineRef.current;
-    if (!engine || !stageRef.current) return;
+    if (!engine || !stage) return;
     engine.resize(size.width, size.height);
     engine.render(positionedGraph, {
       focusedNodeIds,
       focusedNodeId,
-      palette: readPalette(stageRef.current)
+      palette: readPalette(stage)
     });
-  }, [focusedNodeId, focusedNodeIds, positionedGraph, size.height, size.width]);
+    stage.dataset.renderCount = String((Number(stage.dataset.renderCount) || 0) + 1);
+  }, [focusedNodeId, focusedNodeIds, positionedGraph, size.height, size.width, pixiReady]);
 
   return (
     <div ref={stageRef} className="graph-pixi-stage" role="img" aria-label="Knowledge graph">
