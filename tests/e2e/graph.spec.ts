@@ -61,6 +61,21 @@ test("opens source graph nodes in the matching knowledge document", async ({ pag
   await expect(reader.getByText("Original source body.")).toBeVisible();
 });
 
+test("graph canvas renders on first entry without manual refresh", async ({ page }) => {
+  await page.goto("/#graph");
+
+  await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
+  await expect(page.locator('.graph-pixi-mount[data-ready="true"]')).toBeVisible({ timeout: 15000 });
+
+  await expect
+    .poll(
+      async () =>
+        Number(await page.locator(".graph-pixi-stage").getAttribute("data-render-count")) || 0,
+      { timeout: 5000 }
+    )
+    .toBeGreaterThanOrEqual(1);
+});
+
 test("renders a nonblank Pixi graph canvas", async ({ page }) => {
   await page.goto("/#graph");
 
