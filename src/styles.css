@@ -542,12 +542,6 @@ textarea:focus {
   background: var(--surface-soft);
 }
 
-.secondary-button.is-active {
-  border-color: color-mix(in srgb, var(--accent) 58%, var(--line-strong));
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  color: var(--accent-strong);
-}
-
 .icon-button {
   width: 38px;
   border: 1px solid var(--line-strong);
@@ -1968,7 +1962,7 @@ textarea:focus {
 .graph-canvas {
   display: grid;
   gap: 12px;
-  min-height: 570px;
+  min-height: clamp(560px, calc(100vh - 240px), 1080px);
 }
 
 .graph-canvas__header,
@@ -4156,7 +4150,7 @@ html[data-theme="dark"] .graph-legend {
 
 .graph-pixi-stage {
   position: relative;
-  min-height: 520px;
+  min-height: clamp(520px, calc(100vh - 280px), 1040px);
   overflow: hidden;
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
@@ -4172,7 +4166,6 @@ html[data-theme="dark"] .graph-legend {
 
 .graph-pixi-mount,
 .graph-pixi-mount canvas,
-.graph-fallback-canvas,
 .graph-fallback-svg {
   position: absolute;
   inset: 0;
@@ -4246,21 +4239,6 @@ html[data-theme="dark"] .graph-legend {
 
 .graph-node-hit[data-muted="true"] {
   cursor: default;
-}
-
-.graph-path-banner {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  width: fit-content;
-  max-width: 100%;
-  padding: 7px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--hairline));
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  color: var(--accent-strong);
-  font-size: 12px;
-  font-weight: 600;
 }
 
 html[data-theme="dark"] .graph-pixi-stage {

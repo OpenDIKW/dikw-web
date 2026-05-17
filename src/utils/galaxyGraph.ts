@@ -41,12 +41,6 @@ export interface PositionedGalaxyGraph extends Omit<GalaxyGraph, "nodes" | "clus
   clusters: PositionedGalaxyCluster[];
 }
 
-export interface PathResult {
-  status: "found" | "unreachable";
-  nodeIds: string[];
-  edgeIds: string[];
-}
-
 const CLUSTER_COLORS = ["#0b6f66", "#6f7f86", "#8b795e", "#2f6f8f", "#7b6d8d", "#62715d", "#9a7355", "#4f7d77"];
 const LARGE_GRAPH_NODE_COUNT = 200;
 
@@ -243,41 +237,6 @@ export function layoutGalaxyGraph(
   };
 }
 
-export function findShortestPath(graph: KnowledgeGraph, from: string, to: string): PathResult {
-  if (from === to) {
-    return { status: "found", nodeIds: [from], edgeIds: [] };
-  }
-
-  const adjacency = new Map<string, Array<{ nodeId: string; edgeId: string }>>();
-  for (const edge of graph.edges) {
-    const sourceList = adjacency.get(edge.source) ?? [];
-    sourceList.push({ nodeId: edge.target, edgeId: edge.id });
-    adjacency.set(edge.source, sourceList);
-    const targetList = adjacency.get(edge.target) ?? [];
-    targetList.push({ nodeId: edge.source, edgeId: edge.id });
-    adjacency.set(edge.target, targetList);
-  }
-
-  const queue = [from];
-  const parent = new Map<string, { nodeId: string | null; edgeId: string | null }>([[from, { nodeId: null, edgeId: null }]]);
-
-  while (queue.length) {
-    const current = queue.shift();
-    if (!current) break;
-    const neighbors = [...(adjacency.get(current) ?? [])].sort((a, b) => a.nodeId.localeCompare(b.nodeId));
-    for (const next of neighbors) {
-      if (parent.has(next.nodeId)) continue;
-      parent.set(next.nodeId, { nodeId: current, edgeId: next.edgeId });
-      if (next.nodeId === to) {
-        return reconstructPath(parent, from, to);
-      }
-      queue.push(next.nodeId);
-    }
-  }
-
-  return { status: "unreachable", nodeIds: [], edgeIds: [] };
-}
-
 function detectCommunities(graph: KnowledgeGraph): Map<string, number> {
   if (!graph.edges.length) {
     return fallbackCommunities(graph.nodes);
@@ -402,30 +361,6 @@ function addWeight(adjacency: Map<string, Map<string, number>>, source: string, 
   const neighbors = adjacency.get(source) ?? new Map<string, number>();
   neighbors.set(target, (neighbors.get(target) ?? 0) + weight);
   adjacency.set(source, neighbors);
-}
-
-function reconstructPath(
-  parent: Map<string, { nodeId: string | null; edgeId: string | null }>,
-  from: string,
-  to: string
-): PathResult {
-  const nodeIds: string[] = [];
-  const edgeIds: string[] = [];
-  let current: string | null = to;
-  while (current) {
-    nodeIds.push(current);
-    const next = parent.get(current);
-    if (next?.edgeId) {
-      edgeIds.push(next.edgeId);
-    }
-    current = next?.nodeId ?? null;
-  }
-  nodeIds.reverse();
-  edgeIds.reverse();
-  if (nodeIds[0] !== from) {
-    return { status: "unreachable", nodeIds: [], edgeIds: [] };
-  }
-  return { status: "found", nodeIds, edgeIds };
 }
 
 function nodeRadius(degree: number, nodeCount: number): number {

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { DocumentRecord, GraphResult, PageReadResult } from "../types";
 import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "./graph";
-import { findShortestPath, layoutGalaxyGraph, toGalaxyGraph } from "./galaxyGraph";
+import { layoutGalaxyGraph, toGalaxyGraph } from "./galaxyGraph";
 
 const pages: DocumentRecord[] = [
   {
@@ -322,26 +322,6 @@ describe("knowledge graph builder", () => {
       }
     }
     expect(Math.min(...centerDistances)).toBeGreaterThanOrEqual(92);
-  });
-
-  it("finds shortest paths for graph path mode", () => {
-    const graph = buildKnowledgeGraph(pages, bodies);
-
-    expect(findShortestPath(graph, "wiki/architecture.md", "wiki/synthesis.md")).toEqual({
-      status: "found",
-      nodeIds: ["wiki/architecture.md", "wiki/synthesis.md"],
-      edgeIds: ["wiki/architecture.md->wiki/synthesis.md"]
-    });
-    expect(findShortestPath(graph, "wiki/architecture.md", "wiki/architecture.md")).toEqual({
-      status: "found",
-      nodeIds: ["wiki/architecture.md"],
-      edgeIds: []
-    });
-    expect(findShortestPath(graph, "wiki/architecture.md", "sources/brief.md")).toEqual({
-      status: "unreachable",
-      nodeIds: [],
-      edgeIds: []
-    });
   });
 
   it("does not ship a Bloom filter dependency for graph glow effects", () => {
