@@ -65,6 +65,7 @@ test("renders a nonblank Pixi graph canvas", async ({ page }) => {
   await page.goto("/#graph");
 
   await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
+  await expect(page.locator(".graph-pixi-mount canvas")).toBeVisible({ timeout: 15000 });
   await page.getByLabel("Graph search").focus();
 
   const canvasContract = await page.evaluate(() => {
