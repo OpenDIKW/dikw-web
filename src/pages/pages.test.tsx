@@ -485,8 +485,8 @@ describe("read console pages", () => {
 
     await userEvent.click(within(reader).getByRole("tab", { name: "Outline" }));
 
-    expect(within(reader).getByRole("heading", { name: "Architecture" })).toBeInTheDocument();
-    expect(within(reader).getByRole("heading", { name: "Data flow" })).toBeInTheDocument();
+    expect(within(reader).getByRole("button", { name: "Architecture" })).toBeInTheDocument();
+    expect(within(reader).getByRole("button", { name: "Data flow" })).toBeInTheDocument();
     await userEvent.click(within(reader).getByRole("button", { name: "Synthesis" }));
     expect(await screen.findByRole("region", { name: "Wiki link preview" })).toBeInTheDocument();
     expect(within(reader).queryByText("Synthesis Body.")).not.toBeInTheDocument();

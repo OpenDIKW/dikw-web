@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, X } from "lucide-react";
+import { ArrowUp, ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, X } from "lucide-react";
 import { DikwClient } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
@@ -9,7 +9,7 @@ import { useAsyncResource } from "../hooks/useAsyncResource";
 import { translations, type Locale } from "../i18n";
 import type { DocumentRecord, PageReadResult } from "../types";
 import { findPageForTarget } from "../utils/graph";
-import { getMarkdownTitle, parseMarkdownDocument } from "../utils/markdown";
+import { extractHeadingsWithSlugs, getMarkdownTitle, parseMarkdownDocument, type HeadingEntry } from "../utils/markdown";
 import { basename, formatUnixSeconds, truncateMiddle } from "../utils/format";
 
 interface WikiPageProps {
@@ -407,16 +407,53 @@ function WikiReader({
   assetToken: string;
 }) {
   const [activeTab, setActiveTab] = useState<WikiReaderTab>("read");
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const parsed = useMemo(
     () => (page ? parseMarkdownDocument(page.body, { stripDuplicateTitle: false }) : null),
     [page]
   );
-  const headings = useMemo(() => (parsed ? extractHeadings(parsed.body) : []), [parsed]);
+  const headings = useMemo(() => (parsed ? extractHeadingsWithSlugs(parsed.body) : []), [parsed]);
   const wikilinks = useMemo(() => (parsed ? extractWikiLinkTargets(parsed.body) : []), [parsed]);
 
   useEffect(() => {
     setActiveTab("read");
   }, [page?.path]);
+
+  useEffect(() => {
+    setShowBackToTop(false);
+  }, [page?.path]);
+
+  // The reader currently scrolls the window (`.wiki-reader` is overflow:hidden).
+  // If the reader ever switches to its own scroll container, this listener and
+  // the scroll targets below need to switch to that element.
+  useEffect(() => {
+    if (activeTab !== "read") {
+      setShowBackToTop(false);
+      return;
+    }
+    const onScroll = () => setShowBackToTop(window.scrollY > 600);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [activeTab, page?.path]);
+
+  const prefersReducedMotion = () =>
+    typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const handleJumpToHeading = useCallback((slug: string) => {
+    setActiveTab("read");
+    requestAnimationFrame(() => {
+      const el = document.getElementById(slug);
+      if (!el) {
+        return;
+      }
+      el.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "start" });
+    });
+  }, []);
+
+  const handleBackToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }, []);
 
   return (
     <main className="wiki-reader panel" aria-label="Wiki reader">
@@ -449,12 +486,30 @@ function WikiReader({
             <WikiInfoPanel page={page} doc={doc} meta={parsed.meta} copy={copy} />
           ) : null}
           {activeTab === "outline" ? (
-            <WikiOutlinePanel headings={headings} wikilinks={wikilinks} anchors={page.anchors.length} onWikiLink={onWikiLink} copy={copy} />
+            <WikiOutlinePanel
+              headings={headings}
+              wikilinks={wikilinks}
+              anchors={page.anchors.length}
+              onWikiLink={onWikiLink}
+              onJumpToHeading={handleJumpToHeading}
+              copy={copy}
+            />
           ) : null}
           {activeTab === "source" ? (
             <section className="wiki-reader-tab-panel" role="tabpanel" aria-label={copy.sourceTab}>
               <pre className="wiki-source-code">{page.body}</pre>
             </section>
+          ) : null}
+          {showBackToTop && activeTab === "read" ? (
+            <button
+              type="button"
+              className="reader-back-to-top"
+              aria-label={copy.backToTop}
+              title={copy.backToTop}
+              onClick={handleBackToTop}
+            >
+              <ArrowUp size={18} aria-hidden="true" />
+            </button>
           ) : null}
         </>
       ) : !loading && !error ? (
@@ -560,12 +615,14 @@ function WikiOutlinePanel({
   wikilinks,
   anchors,
   onWikiLink,
+  onJumpToHeading,
   copy
 }: {
-  headings: Array<{ level: number; title: string }>;
+  headings: HeadingEntry[];
   wikilinks: string[];
   anchors: number;
   onWikiLink: (target: string) => void;
+  onJumpToHeading: (slug: string) => void;
   copy: WikiCopy;
 }) {
   return (
@@ -579,13 +636,22 @@ function WikiOutlinePanel({
         <section>
           <h2>Headings</h2>
           {headings.length ? (
-            <ol className="wiki-outline-list">
-              {headings.map((heading, index) => (
-                <li key={`${heading.title}-${index}`} style={{ paddingLeft: `${Math.max(0, heading.level - 1) * 10}px` }}>
-                  <h3>{heading.title}</h3>
-                </li>
-              ))}
-            </ol>
+            <>
+              <p className="wiki-outline-hint soft-label">{copy.outlineJumpHint}</p>
+              <ol className="wiki-outline-list">
+                {headings.map((heading, index) => (
+                  <li key={`${heading.slug}-${index}`} style={{ paddingLeft: `${Math.max(0, heading.level - 1) * 10}px` }}>
+                    <button
+                      type="button"
+                      className="wiki-outline-jump"
+                      onClick={() => onJumpToHeading(heading.slug)}
+                    >
+                      {heading.title}
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </>
           ) : (
             <EmptyState title={copy.noHeadings} />
           )}
@@ -778,14 +844,6 @@ function summarizeMarkdown(body: string): string {
     .replace(/\s+/g, " ")
     .trim();
   return text ? truncateMiddle(text, 220) : "没有可预览的正文。";
-}
-
-function extractHeadings(body: string): Array<{ level: number; title: string }> {
-  return body
-    .split(/\r?\n/)
-    .map((line) => /^(#{1,6})\s+(.+)$/.exec(line.trim()))
-    .filter((match): match is RegExpExecArray => Boolean(match))
-    .map((match) => ({ level: match[1].length, title: match[2].trim() }));
 }
 
 function extractWikiLinkTargets(body: string): string[] {

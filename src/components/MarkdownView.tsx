@@ -5,7 +5,14 @@ import type StateBlock from "markdown-it/lib/rules_block/state_block.mjs";
 import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
 import type Token from "markdown-it/lib/token.mjs";
 import { useEffect, useMemo, useRef } from "react";
-import { parseMarkdownDocument, type FrontmatterMeta } from "../utils/markdown";
+import {
+  parseDetailsOpenAttribute,
+  parseMarkdownDocument,
+  rawDetailsPattern,
+  slugifyHeading,
+  uniqueHeadingSlug,
+  type FrontmatterMeta
+} from "../utils/markdown";
 import type { PageAsset } from "../types";
 import {
   buildChartOption,
@@ -398,7 +405,6 @@ interface SafeRawBlock {
   html: string;
 }
 
-const rawDetailsPattern = /<details\b([^>]*)>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/gi;
 const rawTablePattern = /<table\b[\s\S]*?<\/table>/gi;
 const allowedTableTags = new Set(["table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col", "br"]);
 const allowedTableAttributes = new Set(["align", "colspan", "rowspan", "scope"]);
@@ -497,14 +503,6 @@ function restoreSafeRawTables(html: string, tables: SafeRawTable[]): string {
     const paragraphPattern = new RegExp(`<p>\\s*${escapeRegExp(table.placeholder)}\\s*</p>`, "g");
     return current.replace(paragraphPattern, table.html).replaceAll(table.placeholder, table.html);
   }, html);
-}
-
-function parseDetailsOpenAttribute(attributes: string): boolean | null {
-  const trimmed = attributes.trim();
-  if (!trimmed) {
-    return false;
-  }
-  return /^open(?:\s*=\s*(?:"open"|'open'|open|""))?$/i.test(trimmed) ? true : null;
 }
 
 function sanitizeRawTable(raw: string): string | null {
@@ -804,21 +802,6 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function uniqueHeadingSlug(env: Record<string, unknown>, value: string): string {
-  const slug = slugifyHeading(value);
-  if (!slug) {
-    return "";
-  }
-  const counts =
-    env.headingSlugCounts instanceof Map
-      ? env.headingSlugCounts
-      : new Map<string, number>();
-  env.headingSlugCounts = counts;
-  const count = counts.get(slug) ?? 0;
-  counts.set(slug, count + 1);
-  return count === 0 ? slug : `${slug}-${count + 1}`;
-}
-
 function findDocumentAnchor(root: HTMLElement, rawTarget: string): HTMLElement | null {
   const target = decodeAnchorTarget(rawTarget);
   const exact = root.ownerDocument.getElementById(target);
@@ -844,14 +827,3 @@ function decodeAnchorTarget(value: string): string {
   }
 }
 
-function slugifyHeading(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\p{L}\p{N}\s_-]+/gu, "")
-    .replace(/[\s_]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
