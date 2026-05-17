@@ -2261,6 +2261,21 @@ textarea:focus {
   font-size: 12px;
 }
 
+.task-list__pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.task-list__pagination .secondary-button {
+  min-width: 72px;
+  justify-content: center;
+}
+
 .task-detail {
   display: grid;
   gap: 14px;
