@@ -70,10 +70,10 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
 
   useEffect(() => {
     if (!pagedTasks.length) return;
-    if (!selectedId || !visibleTasks.some((task) => task.task_id === selectedId)) {
+    if (!selectedId || !pagedTasks.some((task) => task.task_id === selectedId)) {
       setSelectedId(pagedTasks[0].task_id);
     }
-  }, [pagedTasks, selectedId, visibleTasks]);
+  }, [pagedTasks, selectedId]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
@@ -575,7 +575,7 @@ function PaginationBar({
     .replace("{current}", String(pageIndex + 1))
     .replace("{total}", String(pageCount));
   return (
-    <nav className="task-list__pagination" aria-label="task pagination">
+    <nav className="task-list__pagination" aria-label={copy.ariaLabel}>
       <button
         type="button"
         className="secondary-button"

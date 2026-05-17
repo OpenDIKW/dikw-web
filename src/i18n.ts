@@ -146,7 +146,8 @@ export const translations = {
         pagination: {
           prev: "Prev",
           next: "Next",
-          pageOf: "Page {current} / {total}"
+          pageOf: "Page {current} / {total}",
+          ariaLabel: "task pagination"
         }
       }
     },
@@ -316,7 +317,8 @@ export const translations = {
         pagination: {
           prev: "上一页",
           next: "下一页",
-          pageOf: "第 {current} 页 / 共 {total} 页"
+          pageOf: "第 {current} 页 / 共 {total} 页",
+          ariaLabel: "任务列表分页"
         }
       }
     },

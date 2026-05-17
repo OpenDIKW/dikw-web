@@ -1404,6 +1404,21 @@ describe("read console pages", () => {
     expect(client.streamTaskEvents).toHaveBeenLastCalledWith("ingest-done-1", undefined, expect.any(AbortSignal));
   });
 
+  it("分页 nav 的 aria-label 跟随 locale 本地化（CodeRabbit minor）", async () => {
+    const client = createMockClient();
+    client.get.mockResolvedValue(manyTaskRowsFixture);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    const { unmount } = render(<TasksPage client={client} locale="zh-CN" />);
+    await screen.findByText("bulk-task-01");
+    expect(screen.getByRole("navigation", { name: "任务列表分页" })).toBeInTheDocument();
+    unmount();
+
+    render(<TasksPage client={client} locale="en" />);
+    await screen.findByText("bulk-task-01");
+    expect(screen.getByRole("navigation", { name: "task pagination" })).toBeInTheDocument();
+  });
+
   it("默认渲染第 1 页 20 条，分页指示器显示 1/2", async () => {
     const client = createMockClient();
     client.get.mockResolvedValue(manyTaskRowsFixture);
@@ -1469,6 +1484,43 @@ describe("read console pages", () => {
       expect(screen.queryByText(/Page\s*2/i)).not.toBeInTheDocument();
     });
     expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
+  });
+
+  it("reload 后列表重排时，selectedId 跨页则改选当前页首项（CodeRabbit major）", async () => {
+    // 第一次返回 01..25 升序；第二次返回 25..01 降序
+    const initial = manyTaskRowsFixture;
+    const reversed = [...manyTaskRowsFixture].reverse();
+    let callCount = 0;
+    const client = createMockClient();
+    client.get.mockImplementation(() => {
+      callCount += 1;
+      return Promise.resolve(callCount === 1 ? initial : reversed);
+    });
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByText("bulk-task-01");
+
+    // 翻到 page 2 → selectedId = bulk-task-21
+    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("bulk-task-21");
+    });
+
+    // Refresh → 重排后 bulk-task-21 仍在 visibleTasks 内，但已落到 page 1（index 4）
+    // pagedTasks（page 2）现在是 bulk-task-05..01；selectedId 不在 pagedTasks 内，应改选 bulk-task-05
+    await userEvent.click(screen.getByRole("button", { name: "Refresh tasks" }));
+
+    await waitFor(() => {
+      const listPanel = document.querySelector(".panel.task-list-panel") as HTMLElement;
+      expect(within(listPanel).getByText("bulk-task-05")).toBeInTheDocument();
+      expect(within(listPanel).queryByText("bulk-task-21")).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("bulk-task-05");
+    });
   });
 
   it("reload 后选中任务消失时，auto-select 落在当前页可见首项而非 visibleTasks[0]", async () => {
