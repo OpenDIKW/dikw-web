@@ -2261,7 +2261,8 @@ textarea:focus {
   font-size: 12px;
 }
 
-.task-list__pagination {
+.task-list__pagination,
+.event-tape__pagination {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2271,7 +2272,8 @@ textarea:focus {
   border-top: 1px solid var(--line);
 }
 
-.task-list__pagination .secondary-button {
+.task-list__pagination .secondary-button,
+.event-tape__pagination .secondary-button {
   min-width: 72px;
   justify-content: center;
 }

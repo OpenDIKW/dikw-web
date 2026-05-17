@@ -370,6 +370,17 @@ export const taskRowsFixture = [
     params_digest: "5a516df64ddbc631",
     result: evalResultFixture,
     error: null
+  },
+  {
+    task_id: "events-bulk-1",
+    op: "ingest",
+    status: "succeeded",
+    created_at: "2026-05-17T10:00:00Z",
+    started_at: "2026-05-17T10:00:00Z",
+    finished_at: "2026-05-17T10:01:00Z",
+    params_digest: "bulk-evt",
+    result: { added: 24 },
+    error: null
   }
 ];
 
@@ -387,3 +398,27 @@ export const taskEventsFixture = [
   },
   { type: "final", seq: 4, ts: "2026-05-05T09:37:25Z", status: "succeeded", result: evalResultFixture, error: null }
 ];
+
+export const bulkTaskEventsFixture = (() => {
+  const total = 25;
+  const events: Array<Record<string, unknown>> = [];
+  for (let index = 0; index < total - 1; index += 1) {
+    events.push({
+      type: "progress",
+      seq: index + 1,
+      ts: `2026-05-17T10:00:${String(index % 60).padStart(2, "0")}Z`,
+      phase: "embed_chunks",
+      current: index + 1,
+      total: total - 1
+    });
+  }
+  events.push({
+    type: "final",
+    seq: total,
+    ts: "2026-05-17T10:01:00Z",
+    status: "succeeded",
+    result: { added: total - 1 },
+    error: null
+  });
+  return events;
+})();

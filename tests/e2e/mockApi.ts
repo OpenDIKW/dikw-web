@@ -1,5 +1,6 @@
 import type { Page } from "@playwright/test";
 import {
+  bulkTaskEventsFixture,
   choCqaAssetId,
   graphResultFixture,
   healthFixture,
@@ -311,6 +312,29 @@ export async function mockDikwApi(page: Page) {
       await route.fulfill({
         json: {
           task_id: "eval-task-1",
+          task_status: "succeeded",
+          events,
+          next_from_seq: lastSeq + 1,
+          has_more: false,
+          last_seq: lastSeq
+        }
+      });
+      return;
+    }
+    if (path === "/v1/tasks/events-bulk-1/events") {
+      const fromSeqRaw = url.searchParams.get("from_seq");
+      const fromSeqParsed = fromSeqRaw === null ? 0 : Number(fromSeqRaw);
+      const fromSeq = Number.isFinite(fromSeqParsed) && fromSeqParsed > 0 ? fromSeqParsed : 0;
+      const lastSeq = bulkTaskEventsFixture.reduce(
+        (max, event) => (typeof event.seq === "number" && event.seq > max ? event.seq : max),
+        0
+      );
+      const events = bulkTaskEventsFixture.filter(
+        (event) => typeof event.seq === "number" && event.seq >= fromSeq
+      );
+      await route.fulfill({
+        json: {
+          task_id: "events-bulk-1",
           task_status: "succeeded",
           events,
           next_from_seq: lastSeq + 1,
