@@ -310,6 +310,18 @@ export const taskRowsFixture: TaskRow[] = [
   }
 ];
 
+export const manyTaskRowsFixture: TaskRow[] = Array.from({ length: 25 }, (_, index) => ({
+  task_id: `bulk-task-${String(index + 1).padStart(2, "0")}`,
+  op: index % 2 === 0 ? "ingest" : "synth",
+  status: "succeeded",
+  created_at: `2026-05-${String(10 + (index % 20)).padStart(2, "0")}T09:00:00Z`,
+  started_at: `2026-05-${String(10 + (index % 20)).padStart(2, "0")}T09:00:01Z`,
+  finished_at: `2026-05-${String(10 + (index % 20)).padStart(2, "0")}T09:00:05Z`,
+  params_digest: `digest-${index + 1}`,
+  result: { added: index + 1 },
+  error: null
+}));
+
 export const taskEventsFixture: TaskEvent[] = [
   {
     type: "task_started",

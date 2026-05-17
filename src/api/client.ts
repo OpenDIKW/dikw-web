@@ -1,8 +1,10 @@
 import { decodeNdjsonStream } from "./ndjson";
 import type {
   ApiErrorEnvelope,
+  EventsPage,
   RetrieveStreamEvent,
-  TaskEvent
+  TaskEvent,
+  TaskStatus
 } from "../types";
 
 export interface DikwClientConfig {
@@ -90,15 +92,31 @@ export class DikwClient {
     });
   }
 
-  streamTaskEvents(
+  async *streamTaskEvents(
     taskId: string,
     fromSeq?: number,
     signal?: AbortSignal
   ): AsyncGenerator<TaskEvent> {
-    return this.streamNdjson<TaskEvent>(`/v1/tasks/${encodeURIComponent(taskId)}/events`, {
-      params: fromSeq ? { from_seq: fromSeq } : undefined,
-      signal
-    });
+    const path = `/v1/tasks/${encodeURIComponent(taskId)}/events`;
+    let cursor = fromSeq;
+
+    while (true) {
+      const page = await this.requestJson<EventsPage>(path, {
+        method: "GET",
+        params: { from_seq: cursor, wait: 30 },
+        signal
+      });
+
+      for (const event of page.events) {
+        yield event;
+      }
+
+      cursor = page.next_from_seq;
+
+      if (!page.has_more && isTerminalStatus(page.task_status)) {
+        return;
+      }
+    }
   }
 
   async *streamNdjson<T>(path: string, options: JsonRequestOptions = {}): AsyncGenerator<T> {
@@ -224,4 +242,8 @@ function parseErrorEnvelope(text: string): ApiErrorEnvelope | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isTerminalStatus(status: TaskStatus): boolean {
+  return status === "succeeded" || status === "failed" || status === "cancelled";
 }

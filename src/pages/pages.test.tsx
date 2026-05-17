@@ -16,6 +16,7 @@ import {
   healthFixture,
   infoFixture,
   ingestFileErrorEventsFixture,
+  manyTaskRowsFixture,
   retrieveEventsFixture,
   sourcePagesFixture,
   statusFixture,
@@ -1401,6 +1402,220 @@ describe("read console pages", () => {
 
     expect(await screen.findByText("2 events")).toBeInTheDocument();
     expect(client.streamTaskEvents).toHaveBeenLastCalledWith("ingest-done-1", undefined, expect.any(AbortSignal));
+  });
+
+  it("默认渲染第 1 页 20 条，分页指示器显示 1/2", async () => {
+    const client = createMockClient();
+    client.get.mockResolvedValue(manyTaskRowsFixture);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+
+    await screen.findByText("bulk-task-01");
+    expect(screen.getByText("bulk-task-20")).toBeInTheDocument();
+    expect(screen.queryByText("bulk-task-21")).not.toBeInTheDocument();
+    expect(screen.getByText(/Page\s*1\s*\/\s*2/i)).toBeInTheDocument();
+  });
+
+  it("点击下一页渲染 21-25 条，上一页回到第 1 页；首尾页对应按钮禁用", async () => {
+    const client = createMockClient();
+    client.get.mockResolvedValue(manyTaskRowsFixture);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+
+    const listPanel = (await screen.findByText("bulk-task-01")).closest(".panel.task-list-panel") as HTMLElement;
+    expect(screen.getByRole("button", { name: /Prev/i })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+
+    await waitFor(() => {
+      expect(within(listPanel).getByText("bulk-task-21")).toBeInTheDocument();
+    });
+    expect(within(listPanel).getByText("bulk-task-25")).toBeInTheDocument();
+    expect(within(listPanel).queryByText("bulk-task-20")).not.toBeInTheDocument();
+    expect(screen.getByText(/Page\s*2\s*\/\s*2/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Next/i })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole("button", { name: /Prev/i }));
+    await waitFor(() => {
+      expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
+    });
+    expect(within(listPanel).queryByText("bulk-task-21")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Prev/i })).toBeDisabled();
+  });
+
+  it("更改 Op 过滤后页码重置到第 1 页", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((_path: string, options?: { params?: Record<string, unknown> }) => {
+      const opFilter = options?.params?.op;
+      const rows = typeof opFilter === "string" && opFilter.trim().length > 0
+        ? manyTaskRowsFixture.slice(0, 3)
+        : manyTaskRowsFixture;
+      return Promise.resolve(rows);
+    });
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+
+    const listPanel = (await screen.findByText("bulk-task-01")).closest(".panel.task-list-panel") as HTMLElement;
+    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+    expect(await screen.findByText(/Page\s*2\s*\/\s*2/i)).toBeInTheDocument();
+
+    await userEvent.clear(screen.getByLabelText(/Op/));
+    await userEvent.type(screen.getByLabelText(/Op/), "ingest");
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Page\s*2/i)).not.toBeInTheDocument();
+    });
+    expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
+  });
+
+  it("reload 后选中任务消失时，auto-select 落在当前页可见首项而非 visibleTasks[0]", async () => {
+    // 25 条；翻到第 2 页（21-25），选中 bulk-task-25 后 reload 返回 22 条（删了 bulk-task-25，加 bulk-task-26~30）
+    const initial = manyTaskRowsFixture;
+    const reloaded: TaskRow[] = [
+      ...Array.from({ length: 22 }, (_, index) => ({
+        ...manyTaskRowsFixture[0],
+        task_id: `bulk-task-${String(index + 26).padStart(2, "0")}`,
+        op: "ingest"
+      }))
+    ];
+    let callCount = 0;
+    const client = createMockClient();
+    client.get.mockImplementation(() => {
+      callCount += 1;
+      return Promise.resolve(callCount === 1 ? initial : reloaded);
+    });
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByText("bulk-task-01");
+
+    // 翻到第 2 页
+    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("bulk-task-21");
+    });
+
+    // 点 Refresh tasks 触发 reload
+    await userEvent.click(screen.getByRole("button", { name: "Refresh tasks" }));
+
+    // reload 后用户仍在 page 2（pageCount=ceil(22/20)=2），可见 bulk-task-46（22 条中的第 21-22 条）
+    await waitFor(() => {
+      const listPanel = document.querySelector(".panel.task-list-panel") as HTMLElement;
+      expect(within(listPanel).getByText("bulk-task-46")).toBeInTheDocument();
+    });
+
+    // 详情应同步到当前页可见的首项 bulk-task-46，而不是 visibleTasks[0]=bulk-task-26
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("bulk-task-46");
+    });
+  });
+
+  it("筛选变化后页码回到 1 时，详情面板同步切到新首项", async () => {
+    const client = createMockClient();
+    // 初始全集 25 条；筛选 "succeeded" 后返回不同的窄集
+    const narrowSet: TaskRow[] = [
+      { ...manyTaskRowsFixture[0], task_id: "narrow-task-A", status: "succeeded" },
+      { ...manyTaskRowsFixture[1], task_id: "narrow-task-B", status: "succeeded" }
+    ];
+    client.get.mockImplementation((_path: string, options?: { params?: Record<string, unknown> }) => {
+      const statusFilter = options?.params?.status;
+      return Promise.resolve(typeof statusFilter === "string" && statusFilter ? narrowSet : manyTaskRowsFixture);
+    });
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+
+    await screen.findByText("bulk-task-01");
+    // 翻到第 2 页让 selectedId 指向 bulk-task-21
+    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("bulk-task-21");
+    });
+
+    // 改 status 过滤，触发新数据 + 页码回 1
+    await userEvent.selectOptions(screen.getByLabelText(/Status/), "succeeded");
+
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("narrow-task-A");
+    });
+
+    // 列表只剩 narrow-task-*, bulk-task-* 应不存在
+    expect(screen.queryByText("bulk-task-21")).not.toBeInTheDocument();
+  });
+
+  it("翻页时若 selectedId 不在新页内，自动改选新页第一项", async () => {
+    const client = createMockClient();
+    client.get.mockResolvedValue(manyTaskRowsFixture);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+
+    await screen.findByText("bulk-task-01");
+    // 默认选中第一条 bulk-task-01；详情面板应显示 bulk-task-01 在 reader-header__path
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("bulk-task-01");
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+
+    await waitFor(() => {
+      const updated = document.querySelector(".reader-header__path");
+      expect(updated?.textContent).toBe("bulk-task-21");
+    });
+
+    // 新页内的任务按钮应高亮（is-selected）
+    const listPanel = document.querySelector(".panel.task-list-panel") as HTMLElement;
+    const selectedBtn = listPanel.querySelector(".task-list__item.is-selected");
+    expect(selectedBtn?.textContent).toContain("bulk-task-21");
+  });
+
+  it("翻页时自动中止正在 Follow 的事件流", async () => {
+    const client = createMockClient();
+    const runningRow: TaskRow = {
+      ...manyTaskRowsFixture[0],
+      task_id: "bulk-task-01",
+      status: "running",
+      finished_at: null,
+      result: null
+    };
+    const rows: TaskRow[] = [runningRow, ...manyTaskRowsFixture.slice(1)];
+    client.get.mockResolvedValue(rows);
+    client.streamTaskEvents.mockImplementation(() =>
+      createPendingEvents([
+        {
+          type: "progress",
+          seq: 1,
+          ts: "2026-05-17T00:00:00Z",
+          phase: "ingest",
+          current: 1,
+          total: 10
+        } as TaskEvent
+      ])
+    );
+
+    render(<TasksPage client={client} />);
+
+    await screen.findByText("bulk-task-01");
+    await userEvent.click(await screen.findByRole("button", { name: /^Follow$/ }));
+    expect(await screen.findByText("1 events")).toBeInTheDocument();
+
+    const lastCall = client.streamTaskEvents.mock.calls.at(-1) as [string, number | undefined, AbortSignal];
+    const signal = lastCall[2];
+    expect(signal.aborted).toBe(false);
+
+    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+
+    await waitFor(() => {
+      expect(signal.aborted).toBe(true);
+    });
   });
 });
 

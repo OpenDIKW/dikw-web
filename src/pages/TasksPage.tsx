@@ -20,6 +20,7 @@ type TaskPatch = Pick<TaskRow, "status" | "finished_at" | "result" | "error">;
 type TasksCopy = (typeof translations)["en"]["pages"]["tasks"];
 
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
+const PAGE_SIZE = 20;
 
 export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const copy = translations[locale].pages.tasks;
@@ -40,7 +41,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         params: {
           status: status || undefined,
           op: op.trim() || undefined,
-          limit: 100
+          limit: 200
         }
       }),
     [client, op, status]
@@ -52,11 +53,27 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   );
   const selected = useMemo(() => visibleTasks.find((task) => task.task_id === selectedId) ?? null, [selectedId, visibleTasks]);
 
+  const [pageIndex, setPageIndex] = useState(0);
   useEffect(() => {
-    if (!selectedId && visibleTasks.length) {
-      setSelectedId(visibleTasks[0].task_id);
+    setPageIndex(0);
+  }, [status, op]);
+  const pageCount = Math.max(1, Math.ceil(visibleTasks.length / PAGE_SIZE));
+  useEffect(() => {
+    if (pageIndex > pageCount - 1) {
+      setPageIndex(pageCount - 1);
     }
-  }, [selectedId, visibleTasks]);
+  }, [pageCount, pageIndex]);
+  const pagedTasks = useMemo(
+    () => visibleTasks.slice(pageIndex * PAGE_SIZE, (pageIndex + 1) * PAGE_SIZE),
+    [pageIndex, visibleTasks]
+  );
+
+  useEffect(() => {
+    if (!pagedTasks.length) return;
+    if (!selectedId || !visibleTasks.some((task) => task.task_id === selectedId)) {
+      setSelectedId(pagedTasks[0].task_id);
+    }
+  }, [pagedTasks, selectedId, visibleTasks]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
@@ -64,6 +81,20 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     controllerRef.current?.abort();
     controllerRef.current = null;
     setFollowing(false);
+  }
+
+  function changePage(next: number) {
+    const clamped = Math.max(0, Math.min(pageCount - 1, next));
+    if (clamped === pageIndex) return;
+    cancelFollow();
+    eventTapeTaskIdRef.current = null;
+    setEvents([]);
+    setEventsError(null);
+    setPageIndex(clamped);
+    const newPage = visibleTasks.slice(clamped * PAGE_SIZE, (clamped + 1) * PAGE_SIZE);
+    if (newPage.length && !newPage.some((task) => task.task_id === selectedId)) {
+      setSelectedId(newPage[0].task_id);
+    }
   }
 
   function applyFinalEvent(taskId: string, event: FinalEvent) {
@@ -159,32 +190,40 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
       <section className="tasks-layout">
         <div className="panel task-list-panel">
           {(tasks.data ?? []).length ? (
-            <div className="task-list">
-              {visibleTasks.map((task) => (
-                <button
-                  className={`task-list__item ${selectedId === task.task_id ? "is-selected" : ""}`}
-                  key={task.task_id}
-                  type="button"
-                  onClick={() => {
-                    cancelFollow();
-                    eventTapeTaskIdRef.current = null;
-                    setSelectedId(task.task_id);
-                    setEvents([]);
-                    setEventsError(null);
-                  }}
-                >
-                  <span className="task-list__topline">
-                    <strong>{task.op}</strong>
-                    <StatusPill status={task.status} />
-                  </span>
-                  <span className="task-list__id">{task.task_id}</span>
-                  <span className="task-list__meta">
-                    <span>{formatIso(task.created_at)}</span>
-                    <span>{formatDuration(task.started_at, task.finished_at)}</span>
-                  </span>
-                </button>
-              ))}
-            </div>
+            <>
+              <div className="task-list">
+                {pagedTasks.map((task) => (
+                  <button
+                    className={`task-list__item ${selectedId === task.task_id ? "is-selected" : ""}`}
+                    key={task.task_id}
+                    type="button"
+                    onClick={() => {
+                      cancelFollow();
+                      eventTapeTaskIdRef.current = null;
+                      setSelectedId(task.task_id);
+                      setEvents([]);
+                      setEventsError(null);
+                    }}
+                  >
+                    <span className="task-list__topline">
+                      <strong>{task.op}</strong>
+                      <StatusPill status={task.status} />
+                    </span>
+                    <span className="task-list__id">{task.task_id}</span>
+                    <span className="task-list__meta">
+                      <span>{formatIso(task.created_at)}</span>
+                      <span>{formatDuration(task.started_at, task.finished_at)}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <PaginationBar
+                pageIndex={pageIndex}
+                pageCount={pageCount}
+                copy={copy.pagination}
+                onChange={changePage}
+              />
+            </>
           ) : (
             <EmptyState title={copy.taskListEmpty} />
           )}
@@ -518,6 +557,44 @@ function compactDetail(detail: Record<string, unknown>): string {
     return "";
   }
   return parts.join(" · ");
+}
+
+function PaginationBar({
+  pageIndex,
+  pageCount,
+  copy,
+  onChange
+}: {
+  pageIndex: number;
+  pageCount: number;
+  copy: TasksCopy["pagination"];
+  onChange: (next: number) => void;
+}) {
+  if (pageCount <= 1) return null;
+  const label = copy.pageOf
+    .replace("{current}", String(pageIndex + 1))
+    .replace("{total}", String(pageCount));
+  return (
+    <nav className="task-list__pagination" aria-label="task pagination">
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => onChange(pageIndex - 1)}
+        disabled={pageIndex === 0}
+      >
+        {copy.prev}
+      </button>
+      <span className="soft-label">{label}</span>
+      <button
+        type="button"
+        className="secondary-button"
+        onClick={() => onChange(pageIndex + 1)}
+        disabled={pageIndex >= pageCount - 1}
+      >
+        {copy.next}
+      </button>
+    </nav>
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

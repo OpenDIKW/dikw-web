@@ -142,7 +142,12 @@ export const translations = {
         waitingForCount: "Waiting for count",
         totalUnknown: "total unknown",
         scanned: "Scanned",
-        processed: "Processed"
+        processed: "Processed",
+        pagination: {
+          prev: "Prev",
+          next: "Next",
+          pageOf: "Page {current} / {total}"
+        }
       }
     },
     connection: {
@@ -307,7 +312,12 @@ export const translations = {
         waitingForCount: "等待统计",
         totalUnknown: "总量未知",
         scanned: "已扫描",
-        processed: "已处理"
+        processed: "已处理",
+        pagination: {
+          prev: "上一页",
+          next: "下一页",
+          pageOf: "第 {current} 页 / 共 {total} 页"
+        }
       }
     },
     connection: {
