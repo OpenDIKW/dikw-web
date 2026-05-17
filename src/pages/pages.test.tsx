@@ -1471,6 +1471,33 @@ describe("read console pages", () => {
     expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
   });
 
+  it("翻页时若 selectedId 不在新页内，自动改选新页第一项", async () => {
+    const client = createMockClient();
+    client.get.mockResolvedValue(manyTaskRowsFixture);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+
+    await screen.findByText("bulk-task-01");
+    // 默认选中第一条 bulk-task-01；详情面板应显示 bulk-task-01 在 reader-header__path
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("bulk-task-01");
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+
+    await waitFor(() => {
+      const updated = document.querySelector(".reader-header__path");
+      expect(updated?.textContent).toBe("bulk-task-21");
+    });
+
+    // 新页内的任务按钮应高亮（is-selected）
+    const listPanel = document.querySelector(".panel.task-list-panel") as HTMLElement;
+    const selectedBtn = listPanel.querySelector(".task-list__item.is-selected");
+    expect(selectedBtn?.textContent).toContain("bulk-task-21");
+  });
+
   it("翻页时自动中止正在 Follow 的事件流", async () => {
     const client = createMockClient();
     const runningRow: TaskRow = {
@@ -1498,7 +1525,7 @@ describe("read console pages", () => {
     render(<TasksPage client={client} />);
 
     await screen.findByText("bulk-task-01");
-    await userEvent.click(screen.getByRole("button", { name: /Follow/ }));
+    await userEvent.click(await screen.findByRole("button", { name: /^Follow$/ }));
     expect(await screen.findByText("1 events")).toBeInTheDocument();
 
     const lastCall = client.streamTaskEvents.mock.calls.at(-1) as [string, number | undefined, AbortSignal];

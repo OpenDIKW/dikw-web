@@ -90,6 +90,10 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     setEvents([]);
     setEventsError(null);
     setPageIndex(clamped);
+    const newPage = visibleTasks.slice(clamped * PAGE_SIZE, (clamped + 1) * PAGE_SIZE);
+    if (newPage.length && !newPage.some((task) => task.task_id === selectedId)) {
+      setSelectedId(newPage[0].task_id);
+    }
   }
 
   function applyFinalEvent(taskId: string, event: FinalEvent) {
