@@ -73,4 +73,61 @@ describe("DikwClient.streamTaskEvents (cursor-paged)", () => {
     expect(url.searchParams.get("wait")).toBe("30");
     expect(url.searchParams.get("from_seq")).toBeNull();
   });
+
+  it("在 has_more=false 但 task_status=running 时继续请求，直到看到终态", async () => {
+    const page1: EventsPage = {
+      task_id: "t-2",
+      task_status: "running",
+      events: [
+        { type: "task_started", seq: 1, ts: "2026-05-17T00:00:00Z", task_id: "t-2", op: "ingest" } as TaskEvent
+      ],
+      next_from_seq: 2,
+      has_more: false,
+      last_seq: 1
+    };
+    const page2Empty: EventsPage = {
+      task_id: "t-2",
+      task_status: "running",
+      events: [],
+      next_from_seq: 2,
+      has_more: false,
+      last_seq: 1
+    };
+    const page3: EventsPage = {
+      task_id: "t-2",
+      task_status: "succeeded",
+      events: [
+        {
+          type: "final",
+          seq: 2,
+          ts: "2026-05-17T00:00:05Z",
+          status: "succeeded",
+          result: { added: 1 },
+          error: null
+        } as TaskEvent
+      ],
+      next_from_seq: 3,
+      has_more: false,
+      last_seq: 2
+    };
+
+    fetchSpy
+      .mockResolvedValueOnce(jsonResponse(page1))
+      .mockResolvedValueOnce(jsonResponse(page2Empty))
+      .mockResolvedValueOnce(jsonResponse(page3));
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const seen: TaskEvent[] = [];
+    for await (const event of client.streamTaskEvents("t-2")) {
+      seen.push(event);
+    }
+
+    expect(seen.map((event) => event.type)).toEqual(["task_started", "final"]);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+
+    const cursors = fetchSpy.mock.calls.map(([input]) =>
+      new URL(String(input)).searchParams.get("from_seq")
+    );
+    expect(cursors).toEqual([null, "2", "2"]);
+  });
 });
