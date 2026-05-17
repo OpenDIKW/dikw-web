@@ -98,7 +98,15 @@ export function GraphPage({
         <div>
           <h1>{copy.title}</h1>
         </div>
-        <button className="icon-button" type="button" aria-label={copy.refresh} onClick={() => setReloadId((value) => value + 1)}>
+        <button
+          className="icon-button"
+          type="button"
+          aria-label={copy.refresh}
+          onClick={() => {
+            resetFocus();
+            setReloadId((value) => value + 1);
+          }}
+        >
           <RefreshCw size={18} />
         </button>
       </header>
@@ -128,11 +136,6 @@ export function GraphPage({
           />
           <span>{copy.hideOrphans}</span>
         </label>
-        {focusedNodeId ? (
-          <button className="secondary-button" type="button" onClick={resetFocus}>
-            {copy.resetFocus}
-          </button>
-        ) : null}
         {state.loading ? <span className="soft-label">{copy.loadingGraph}</span> : null}
       </section>
 

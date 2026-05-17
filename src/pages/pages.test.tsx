@@ -621,6 +621,32 @@ describe("read console pages", () => {
     expect(openedPaths).toEqual(["wiki/architecture.md"]);
   });
 
+  it("Refresh button clears focus and refetches; no separate Reset focus button", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) =>
+      path === "/v1/base/graph"
+        ? Promise.resolve(graphResultFixture)
+        : Promise.reject(new Error(`Unexpected path ${path}`))
+    );
+
+    render(<GraphPage client={client} />);
+
+    expect(await screen.findByText("4 nodes")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reset focus" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Architecture graph node" }));
+    expect(screen.getByRole("region", { name: "Graph node detail" })).toBeInTheDocument();
+    // Reset focus must not appear in the toolbar even when a node is focused.
+    expect(screen.queryByRole("button", { name: "Reset focus" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Refresh graph" }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("region", { name: "Graph node detail" })).not.toBeInTheDocument();
+    });
+    expect(client.get).toHaveBeenCalledTimes(2);
+  });
+
   it("loads wisdom items and refetches when filters change", async () => {
     const client = createMockClient();
     client.get.mockResolvedValue(wisdomItemsFixture);
