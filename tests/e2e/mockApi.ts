@@ -298,9 +298,19 @@ export async function mockDikwApi(page: Page) {
       return;
     }
     if (path === "/v1/tasks/eval-task-1/events") {
+      const lastSeq = taskEventsFixture.reduce(
+        (max, event) => (typeof event.seq === "number" && event.seq > max ? event.seq : max),
+        0
+      );
       await route.fulfill({
-        contentType: "application/x-ndjson",
-        body: taskEventsFixture.map((event) => JSON.stringify(event)).join("\n")
+        json: {
+          task_id: "eval-task-1",
+          task_status: "succeeded",
+          events: taskEventsFixture,
+          next_from_seq: lastSeq + 1,
+          has_more: false,
+          last_seq: lastSeq
+        }
       });
       return;
     }
