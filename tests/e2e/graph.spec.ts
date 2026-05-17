@@ -80,7 +80,10 @@ test("renders a nonblank Pixi graph canvas", async ({ page }) => {
   await page.goto("/#graph");
 
   await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
-  await expect(page.locator(".graph-pixi-mount canvas")).toBeVisible({ timeout: 15000 });
+  // Wait for Pixi to finish async init (data-ready flips to "true" after engineRef is set
+  // and setPixiReady(true) fires). Avoids racing the brief 0x0 canvas window where
+  // Playwright's toBeVisible can return false even though the element is attached.
+  await expect(page.locator('.graph-pixi-mount[data-ready="true"]')).toBeVisible({ timeout: 15000 });
   await page.getByLabel("Graph search").focus();
 
   const canvasContract = await page.evaluate(() => {
