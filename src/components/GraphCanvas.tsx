@@ -111,7 +111,12 @@ export function GraphCanvas({
     <div ref={stageRef} className="graph-pixi-stage" role="img" aria-label="Knowledge graph">
       <div ref={mountRef} className="graph-pixi-mount" data-ready={String(pixiReady)} />
       {!pixiReady ? (
-        <FallbackGraphSvg graph={positionedGraph} focusedNodeIds={focusedNodeIds} />
+        <FallbackGraphSvg
+          graph={positionedGraph}
+          focusedNodeIds={focusedNodeIds}
+          width={size.width}
+          height={size.height}
+        />
       ) : null}
       <div className="graph-node-hit-layer" aria-hidden={false}>
         {positionedGraph.nodes.map((node) => (
@@ -338,14 +343,18 @@ class PixiGraphEngine implements PixiEngine {
 
 function FallbackGraphSvg({
   graph,
-  focusedNodeIds
+  focusedNodeIds,
+  width,
+  height
 }: {
   graph: PositionedGalaxyGraph;
   focusedNodeIds: Set<string>;
+  width: number;
+  height: number;
 }) {
   const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
   return (
-    <svg className="graph-fallback-svg" viewBox={`0 0 ${defaultWidth} ${defaultHeight}`} aria-hidden="true">
+    <svg className="graph-fallback-svg" viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
       <g>
         {graph.edges.map((edge) => {
           const source = nodes.get(edge.source);
