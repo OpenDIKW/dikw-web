@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { join } from "node:path";
 import { loadAgentConfig } from "./config";
-import { FileSessionStore, validateSessionTitle } from "./sessionStore";
+import { FileSessionStore, parseSessionTitle, SESSION_TITLE_ERROR_MESSAGES } from "./sessionStore";
 import { PiAgentRunner, type AgentRunner } from "./runtime";
 import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types";
 
@@ -51,13 +51,11 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       }
       if (req.method === "PATCH" && parts.length === 2) {
         const body = await readJsonBody(req);
-        let title: string;
-        try {
-          title = validateSessionTitle(isRecord(body) ? body.title : undefined);
-        } catch (error) {
-          return errorJson(res, 400, "invalid_request", error instanceof Error ? error.message : String(error));
+        const parsed = parseSessionTitle(isRecord(body) ? body.title : undefined);
+        if (!parsed.ok) {
+          return errorJson(res, 400, "invalid_request", SESSION_TITLE_ERROR_MESSAGES[parsed.reason]);
         }
-        return json(res, await store.renameSession(sessionId, title));
+        return json(res, await store.renameSession(sessionId, parsed.title));
       }
       if (req.method === "DELETE" && parts.length === 2) {
         await store.deleteSession(sessionId);
@@ -133,7 +131,8 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         next(error);
         return;
       }
-      return errorJson(res, 500, "agent_http_error", error instanceof Error ? error.message : String(error));
+      console.error("[agent] unhandled handler error", error);
+      return errorJson(res, 500, "agent_http_error", "internal agent error");
     }
   };
 }
