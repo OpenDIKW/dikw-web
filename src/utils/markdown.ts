@@ -1,3 +1,5 @@
+import MarkdownIt from "markdown-it";
+
 export interface FrontmatterMeta {
   title?: string;
   id?: string;
@@ -14,6 +16,12 @@ export interface FrontmatterMeta {
 export interface ParsedMarkdownDocument {
   body: string;
   meta: FrontmatterMeta;
+}
+
+export interface HeadingEntry {
+  level: number;
+  title: string;
+  slug: string;
 }
 
 interface ParseMarkdownOptions {
@@ -127,4 +135,95 @@ function stripDuplicateTopHeading(body: string, title: string | undefined): stri
 
 function normalizeHeading(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+export function slugifyHeading(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s_-]+/gu, "")
+    .replace(/[\s_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export function uniqueHeadingSlug(env: Record<string, unknown>, value: string): string {
+  const slug = slugifyHeading(value);
+  if (!slug) {
+    return "";
+  }
+  const counts =
+    env.headingSlugCounts instanceof Map
+      ? (env.headingSlugCounts as Map<string, number>)
+      : new Map<string, number>();
+  env.headingSlugCounts = counts;
+  const count = counts.get(slug) ?? 0;
+  counts.set(slug, count + 1);
+  return count === 0 ? slug : `${slug}-${count + 1}`;
+}
+
+// Shared with MarkdownView. Both files use these to identify the same set of
+// <details>...</details> blocks. Keep them here as the single source of truth
+// so heading slug extraction stays aligned with how MarkdownView renders.
+export const rawDetailsPattern = /<details\b([^>]*)>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/gi;
+
+export function parseDetailsOpenAttribute(attributes: string): boolean | null {
+  const trimmed = attributes.trim();
+  if (!trimmed) {
+    return false;
+  }
+  return /^open(?:\s*=\s*(?:"open"|'open'|open|""))?$/i.test(trimmed) ? true : null;
+}
+
+// Minimal markdown-it parser used only to enumerate headings. Mirrors the
+// parser config used by MarkdownView so the slugs produced here match the
+// `id` attributes that MarkdownView writes onto the rendered DOM.
+const headingParser = new MarkdownIt({ html: false, linkify: true, typographer: true });
+
+// MarkdownView renders any details block whose `open` attribute parses as
+// safe inside its own recursive renderMarkdown() call with a fresh slug
+// counter. If extractHeadingsWithSlugs included headings from those blocks in
+// the same env as the main body, a heading that shares text with one outside
+// would silently collide on the produced slug — outline jumps to "intro-2"
+// would never find an element because the in-details heading is rendered with
+// id="intro". Drop those blocks here so this extractor only enumerates
+// headings that share an env with the main render pass.
+function stripPreprocessedDetails(body: string): string {
+  return body.replace(rawDetailsPattern, (raw, attributes: string) => {
+    const open = parseDetailsOpenAttribute(attributes);
+    if (open === null) {
+      return raw;
+    }
+    return "\n\n";
+  });
+}
+
+export function extractHeadingsWithSlugs(body: string): HeadingEntry[] {
+  const stripped = stripPreprocessedDetails(body);
+  const env: Record<string, unknown> = {};
+  const tokens = headingParser.parse(stripped, env);
+  const headings: HeadingEntry[] = [];
+  for (let i = 0; i < tokens.length; i += 1) {
+    const token = tokens[i];
+    if (token.type !== "heading_open") {
+      continue;
+    }
+    const level = Number(token.tag.slice(1));
+    const inline = tokens[i + 1];
+    if (!inline || inline.type !== "inline") {
+      continue;
+    }
+    const title = (inline.content ?? "").trim();
+    if (!title) {
+      continue;
+    }
+    const slug = uniqueHeadingSlug(env, title);
+    if (!slug) {
+      continue;
+    }
+    headings.push({ level, title, slug });
+  }
+  return headings;
 }

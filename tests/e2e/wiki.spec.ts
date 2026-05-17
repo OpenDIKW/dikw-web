@@ -33,8 +33,8 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
   await expect(infoPanel.getByText("source/a.md")).toBeVisible();
 
   await page.getByRole("tab", { name: "Outline" }).click();
-  await expect(reader.getByRole("heading", { name: "Architecture" })).toBeVisible();
-  await expect(reader.getByRole("heading", { name: "Links", exact: true })).toBeVisible();
+  await expect(reader.getByRole("button", { name: "Architecture", exact: true })).toBeVisible();
+  await expect(reader.getByRole("button", { name: "Links", exact: true })).toBeVisible();
 
   await page.getByRole("tab", { name: "Source" }).click();
   await expect(reader.getByText(/title: Architecture/)).toBeVisible();
@@ -61,6 +61,52 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
   await page.getByRole("tree", { name: "Base directory" }).getByRole("button", { name: "concepts", exact: true }).click();
   await expect(reader.getByText("Select a document to start reading")).toBeVisible();
   await expect(reader.getByRole("heading", { name: "Synthesis" })).toHaveCount(0);
+});
+
+test("jumps to a heading via the Outline tab and exposes a back-to-top button", async ({ page }) => {
+  await page.goto("/#wiki");
+
+  const reader = page.getByRole("main", { name: "Wiki reader" });
+  await expect(reader.getByText(/Layered DIKW notes/)).toBeVisible();
+
+  // Instrument Element.scrollIntoView so we can verify the outline button calls it
+  // on the target heading. Fixture docs are short and can't always produce a
+  // measurable scroll delta on small viewports, so we assert the API contract
+  // instead of the visual side effect.
+  await page.evaluate(() => {
+    const original = Element.prototype.scrollIntoView;
+    (window as unknown as { __scrolledIds: string[] }).__scrolledIds = [];
+    Element.prototype.scrollIntoView = function patched(this: Element, ...args: unknown[]) {
+      (window as unknown as { __scrolledIds: string[] }).__scrolledIds.push(this.id || "");
+      return original.apply(this, args as []);
+    };
+  });
+
+  // Jump from Outline → Read tab → triggers scrollIntoView on the "links" heading.
+  await page.getByRole("tab", { name: "Outline" }).click();
+  await reader.getByRole("button", { name: "Links", exact: true }).click();
+  await expect(reader.getByRole("tab", { name: "Read" })).toHaveAttribute("aria-selected", "true");
+  await expect(reader.locator("#links")).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __scrolledIds: string[] }).__scrolledIds))
+    .toContain("links");
+
+  // Back-to-top button: hidden until user scrolls past the threshold.
+  await expect(reader.getByRole("button", { name: "Back to top" })).toHaveCount(0);
+  // Fixture body is short. Inject a spacer so the document is tall enough to scroll.
+  await page.evaluate(() => {
+    const spacer = document.createElement("div");
+    spacer.id = "__e2e-scroll-spacer";
+    spacer.style.height = "2000px";
+    document.body.appendChild(spacer);
+    window.scrollTo(0, 1200);
+  });
+  await expect(reader.getByRole("button", { name: "Back to top" })).toBeVisible();
+
+  // Clicking it scrolls back to the top and hides the button again.
+  await reader.getByRole("button", { name: "Back to top" }).click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(50);
+  await expect(reader.getByRole("button", { name: "Back to top" })).toHaveCount(0);
 });
 
 test("renders source details blocks with Mermaid diagrams", async ({ page }) => {
