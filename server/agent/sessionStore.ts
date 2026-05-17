@@ -194,15 +194,32 @@ function preview(value: string, max: number): string {
   return compact.length > max ? `${compact.slice(0, max - 1)}…` : compact;
 }
 
-export function validateSessionTitle(value: unknown): string {
+export type SessionTitleParseResult =
+  | { ok: true; title: string }
+  | { ok: false; reason: "required" | "too_long" };
+
+export function parseSessionTitle(value: unknown): SessionTitleParseResult {
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error("session title is required");
+    return { ok: false, reason: "required" };
   }
   const title = value.trim();
   if (title.length > 80) {
-    throw new Error("session title is too long");
+    return { ok: false, reason: "too_long" };
   }
-  return title;
+  return { ok: true, title };
+}
+
+export const SESSION_TITLE_ERROR_MESSAGES: Record<"required" | "too_long", string> = {
+  required: "session title is required",
+  too_long: "session title is too long"
+};
+
+export function validateSessionTitle(value: unknown): string {
+  const result = parseSessionTitle(value);
+  if (!result.ok) {
+    throw new Error(SESSION_TITLE_ERROR_MESSAGES[result.reason]);
+  }
+  return result.title;
 }
 
 function safeId(id: string): string {
