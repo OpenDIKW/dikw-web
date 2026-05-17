@@ -10,8 +10,6 @@ interface GraphCanvasProps {
   graph: GalaxyGraph;
   focusedNodeIds: Set<string>;
   focusedNodeId: string | null;
-  pathNodeIds: Set<string>;
-  pathEdgeIds: Set<string>;
   onSelectNode: (nodeId: string) => void;
 }
 
@@ -22,7 +20,6 @@ interface GraphPalette {
   muted: number;
   surface: number;
   line: number;
-  path: number;
 }
 
 interface PixiEngine {
@@ -34,8 +31,6 @@ interface PixiEngine {
 interface RenderState {
   focusedNodeIds: Set<string>;
   focusedNodeId: string | null;
-  pathNodeIds: Set<string>;
-  pathEdgeIds: Set<string>;
   palette: GraphPalette;
 }
 
@@ -47,8 +42,6 @@ export function GraphCanvas({
   graph,
   focusedNodeIds,
   focusedNodeId,
-  pathNodeIds,
-  pathEdgeIds,
   onSelectNode
 }: GraphCanvasProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -109,11 +102,9 @@ export function GraphCanvas({
     engine.render(positionedGraph, {
       focusedNodeIds,
       focusedNodeId,
-      pathNodeIds,
-      pathEdgeIds,
       palette: readPalette(stageRef.current)
     });
-  }, [focusedNodeId, focusedNodeIds, pathEdgeIds, pathNodeIds, positionedGraph, size.height, size.width]);
+  }, [focusedNodeId, focusedNodeIds, positionedGraph, size.height, size.width]);
 
   useEffect(() => {
     if (navigator.userAgent.toLowerCase().includes("jsdom") || !stageRef.current) return;
@@ -130,18 +121,16 @@ export function GraphCanvas({
     drawFallbackCanvas(context, positionedGraph, {
       focusedNodeIds,
       focusedNodeId,
-      pathNodeIds,
-      pathEdgeIds,
       palette: readPalette(stageRef.current)
     });
-  }, [focusedNodeId, focusedNodeIds, pathEdgeIds, pathNodeIds, positionedGraph, size.height, size.width]);
+  }, [focusedNodeId, focusedNodeIds, positionedGraph, size.height, size.width]);
 
   return (
     <div ref={stageRef} className="graph-pixi-stage" role="img" aria-label="Knowledge graph">
       <canvas ref={fallbackCanvasRef} className="graph-fallback-canvas" aria-hidden="true" />
       <div ref={mountRef} className="graph-pixi-mount" data-ready={String(pixiReady)} />
       {!pixiReady ? (
-        <FallbackGraphSvg graph={positionedGraph} focusedNodeIds={focusedNodeIds} pathEdgeIds={pathEdgeIds} />
+        <FallbackGraphSvg graph={positionedGraph} focusedNodeIds={focusedNodeIds} />
       ) : null}
       <div className="graph-node-hit-layer" aria-hidden={false}>
         {positionedGraph.nodes.map((node) => (
@@ -151,7 +140,7 @@ export function GraphCanvas({
             type="button"
             aria-label={`${node.title} graph node`}
             aria-pressed={focusedNodeId === node.id}
-            data-muted={String(isNodeMuted(node.id, focusedNodeIds, pathNodeIds))}
+            data-muted={String(isNodeMuted(node.id, focusedNodeIds))}
             data-layer={node.layer}
             style={{
               left: `${node.x}px`,
@@ -192,26 +181,24 @@ function drawFallbackCanvas(
     const source = nodes.get(edge.source);
     const target = nodes.get(edge.target);
     if (!source || !target) continue;
-    const pathActive = state.pathEdgeIds.size > 0;
-    const onPath = state.pathEdgeIds.has(edge.id);
     const focused = state.focusedNodeIds.size > 0 && state.focusedNodeIds.has(edge.source) && state.focusedNodeIds.has(edge.target);
     context.beginPath();
     context.moveTo(source.x, source.y);
     context.lineTo(target.x, target.y);
     const idleAlpha = largeGraph ? 0.035 : 0.32;
     context.strokeStyle = numberToRgba(
-      onPath ? state.palette.path : state.palette.line,
-      pathActive ? (onPath ? 0.82 : 0.04) : focused ? (largeGraph ? 0.42 : 0.58) : idleAlpha
+      state.palette.line,
+      state.focusedNodeIds.size ? (focused ? (largeGraph ? 0.42 : 0.58) : largeGraph ? 0.035 : 0.09) : idleAlpha
     );
-    context.lineWidth = onPath ? Math.max(edge.thickness + 0.8, 2.2) : edge.thickness;
+    context.lineWidth = edge.thickness;
     context.lineCap = "round";
     context.stroke();
   }
 
   for (const node of graph.nodes) {
-    const muted = isNodeMuted(node.id, state.focusedNodeIds, state.pathNodeIds);
+    const muted = isNodeMuted(node.id, state.focusedNodeIds);
     const color = node.layer === "source" ? state.palette.source : state.palette.accent;
-    const selected = state.focusedNodeId === node.id || state.pathNodeIds.has(node.id);
+    const selected = state.focusedNodeId === node.id;
     context.beginPath();
     context.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
     context.fillStyle = numberToRgba(color, muted ? 0.18 : 1);
@@ -292,30 +279,20 @@ class PixiGraphEngine implements PixiEngine {
       const source = nodeById.get(edge.source);
       const target = nodeById.get(edge.target);
       if (!source || !target) continue;
-      const pathActive = state.pathEdgeIds.size > 0;
-      const onPath = state.pathEdgeIds.has(edge.id);
       const focused = state.focusedNodeIds.size > 0 && state.focusedNodeIds.has(edge.source) && state.focusedNodeIds.has(edge.target);
       const idleAlpha = largeGraph ? 0.035 : 0.33;
-      const alpha = pathActive
-        ? onPath
-          ? 0.82
+      const alpha = state.focusedNodeIds.size
+        ? focused
+          ? largeGraph
+            ? 0.42
+            : 0.58
           : largeGraph
             ? 0.035
-            : 0.08
-        : state.focusedNodeIds.size
-          ? focused
-            ? largeGraph
-              ? 0.42
-              : 0.58
-            : largeGraph
-              ? 0.035
-              : 0.09
-          : idleAlpha;
-      const width = pathActive && onPath ? Math.max(edge.thickness + 0.8, 2.2) : edge.thickness;
-      const color = pathActive && onPath ? state.palette.path : state.palette.line;
+            : 0.09
+        : idleAlpha;
       this.edgeLayer.moveTo(source.x, source.y);
       this.edgeLayer.lineTo(target.x, target.y);
-      this.edgeLayer.stroke({ color, width, alpha });
+      this.edgeLayer.stroke({ color: state.palette.line, width: edge.thickness, alpha });
     }
 
     const topLabels = new Set(
@@ -326,10 +303,9 @@ class PixiGraphEngine implements PixiEngine {
     );
 
     for (const node of graph.nodes) {
-      const muted = isNodeMuted(node.id, state.focusedNodeIds, state.pathNodeIds);
+      const muted = isNodeMuted(node.id, state.focusedNodeIds);
       const color = node.layer === "source" ? state.palette.source : state.palette.accent;
-      const onPath = state.pathNodeIds.has(node.id);
-      const selected = state.focusedNodeId === node.id || onPath;
+      const selected = state.focusedNodeId === node.id;
       const alpha = muted ? 0.16 : 1;
 
       this.nodeLayer.circle(node.x, node.y, node.radius);
@@ -434,12 +410,10 @@ class PixiGraphEngine implements PixiEngine {
 
 function FallbackGraphSvg({
   graph,
-  focusedNodeIds,
-  pathEdgeIds
+  focusedNodeIds
 }: {
   graph: PositionedGalaxyGraph;
   focusedNodeIds: Set<string>;
-  pathEdgeIds: Set<string>;
 }) {
   const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
   return (
@@ -457,7 +431,6 @@ function FallbackGraphSvg({
               y1={source.y}
               x2={target.x}
               y2={target.y}
-              data-path={String(pathEdgeIds.has(edge.id))}
               data-muted={String(muted)}
             />
           );
@@ -480,8 +453,7 @@ function readPalette(element: HTMLElement): GraphPalette {
     text: cssColorToNumber(style.getPropertyValue("--text") || "#18211f"),
     muted: cssColorToNumber(style.getPropertyValue("--muted") || "#66736f"),
     surface: cssColorToNumber(style.getPropertyValue("--surface") || "#fbfaf6"),
-    line: cssColorToNumber(style.getPropertyValue("--line-strong") || "#b9c7c2"),
-    path: cssColorToNumber("#d69b2d")
+    line: cssColorToNumber(style.getPropertyValue("--line-strong") || "#b9c7c2")
   };
 }
 
@@ -512,10 +484,7 @@ function numberToRgba(value: number, alpha: number): string {
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
-function isNodeMuted(nodeId: string, focusedNodeIds: Set<string>, pathNodeIds: Set<string>): boolean {
-  if (pathNodeIds.size > 0) {
-    return !pathNodeIds.has(nodeId);
-  }
+function isNodeMuted(nodeId: string, focusedNodeIds: Set<string>): boolean {
   if (focusedNodeIds.size > 0) {
     return !focusedNodeIds.has(nodeId);
   }

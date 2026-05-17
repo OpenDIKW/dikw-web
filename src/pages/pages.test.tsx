@@ -621,29 +621,6 @@ describe("read console pages", () => {
     expect(openedPaths).toEqual(["wiki/architecture.md"]);
   });
 
-  it("supports path mode between two graph nodes", async () => {
-    const client = createMockClient();
-    client.get.mockImplementation((path: string) => {
-      if (path === "/v1/base/graph") {
-        return Promise.resolve(graphResultFixture);
-      }
-      return Promise.reject(new Error(`Unexpected path ${path}`));
-    });
-
-    render(<GraphPage client={client} />);
-
-    expect(await screen.findByText("4 nodes")).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Path mode" }));
-    expect(screen.getByText("Select a source node")).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "Architecture graph node" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Architecture - select a target node");
-
-    await userEvent.click(screen.getByRole("button", { name: "Synthesis graph node" }));
-    expect(screen.getByRole("status")).toHaveTextContent("Architecture -> Synthesis · 1 link");
-  });
-
   it("loads wisdom items and refetches when filters change", async () => {
     const client = createMockClient();
     client.get.mockResolvedValue(wisdomItemsFixture);

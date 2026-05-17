@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { GitFork, RefreshCw, Search } from "lucide-react";
+import { RefreshCw, Search } from "lucide-react";
 import type { DikwClient } from "../api/client";
 import { GraphCanvas } from "../components/GraphCanvas";
 import { EmptyState } from "../components/EmptyState";
@@ -7,7 +7,7 @@ import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
 import type { GraphResult } from "../types";
 import { filterKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "../utils/graph";
-import { findShortestPath, toGalaxyGraph } from "../utils/galaxyGraph";
+import { toGalaxyGraph } from "../utils/galaxyGraph";
 
 interface GraphPageProps {
   client: DikwClient;
@@ -15,18 +15,11 @@ interface GraphPageProps {
   locale?: Locale;
 }
 
-type GraphCopy = (typeof translations)["en"]["pages"]["graph"];
-
 interface GraphLoadState {
   loading: boolean;
   graph: KnowledgeGraph | null;
   error: unknown;
 }
-
-type PathState =
-  | { kind: "waiting"; sourceId: string; sourceLabel: string }
-  | { kind: "found"; fromLabel: string; toLabel: string; nodeIds: string[]; edgeIds: string[]; length: number }
-  | { kind: "unreachable"; fromLabel: string; toLabel: string };
 
 export function GraphPage({
   client,
@@ -37,8 +30,6 @@ export function GraphPage({
   const [query, setQuery] = useState("");
   const [hideOrphans, setHideOrphans] = useState(false);
   const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
-  const [pathMode, setPathMode] = useState(false);
-  const [pathState, setPathState] = useState<PathState | null>(null);
   const [reloadId, setReloadId] = useState(0);
   const [state, setState] = useState<GraphLoadState>({
     loading: true,
@@ -84,19 +75,11 @@ export function GraphPage({
     () => (filteredGraph && focusedNodeId ? getFocusedNodeIds(filteredGraph, focusedNodeId) : new Set<string>()),
     [filteredGraph, focusedNodeId]
   );
-  const pathNodeIds = useMemo(() => {
-    if (!pathState) return new Set<string>();
-    if (pathState.kind === "waiting") return new Set([pathState.sourceId]);
-    if (pathState.kind === "found") return new Set(pathState.nodeIds);
-    return new Set<string>();
-  }, [pathState]);
-  const pathEdgeIds = useMemo(() => new Set(pathState?.kind === "found" ? pathState.edgeIds : []), [pathState]);
   const focusedNode = filteredGraph?.nodes.find((node) => node.id === focusedNodeId) ?? null;
   const focusedUnresolvedLinks = focusedNodeId ? state.graph?.unresolvedLinks.filter((link) => link.source === focusedNodeId) ?? [] : [];
 
   const resetFocus = useCallback(() => {
     setFocusedNodeId(null);
-    setPathState(null);
   }, []);
 
   const handleSelectNode = useCallback(
@@ -105,44 +88,8 @@ export function GraphPage({
       const node = filteredGraph.nodes.find((item) => item.id === nodeId);
       if (!node) return;
       setFocusedNodeId(nodeId);
-
-      if (!pathMode) {
-        setPathState(null);
-        return;
-      }
-
-      if (pathState?.kind === "waiting") {
-        if (pathState.sourceId === nodeId) {
-          setPathState(null);
-          return;
-        }
-        const result = findShortestPath(filteredGraph, pathState.sourceId, nodeId);
-        if (result.status === "found") {
-          setPathState({
-            kind: "found",
-            fromLabel: pathState.sourceLabel,
-            toLabel: node.title,
-            nodeIds: result.nodeIds,
-            edgeIds: result.edgeIds,
-            length: result.edgeIds.length
-          });
-        } else {
-          setPathState({
-            kind: "unreachable",
-            fromLabel: pathState.sourceLabel,
-            toLabel: node.title
-          });
-        }
-        return;
-      }
-
-      setPathState({
-        kind: "waiting",
-        sourceId: nodeId,
-        sourceLabel: node.title
-      });
     },
-    [filteredGraph, pathMode, pathState]
+    [filteredGraph]
   );
 
   return (
@@ -181,20 +128,7 @@ export function GraphPage({
           />
           <span>{copy.hideOrphans}</span>
         </label>
-        <button
-          className={pathMode ? "secondary-button is-active" : "secondary-button"}
-          type="button"
-          aria-label={copy.pathMode}
-          aria-pressed={pathMode}
-          onClick={() => {
-            setPathMode((value) => !value);
-            setPathState(null);
-          }}
-        >
-          <GitFork size={14} />
-          {copy.pathMode}
-        </button>
-        {focusedNodeId || pathState ? (
+        {focusedNodeId ? (
           <button className="secondary-button" type="button" onClick={resetFocus}>
             {copy.resetFocus}
           </button>
@@ -224,14 +158,11 @@ export function GraphPage({
                 </span>
               </div>
             </div>
-            {pathMode ? <GraphPathBanner copy={copy} pathState={pathState} /> : null}
             {filteredGraph.nodes.length && galaxyGraph ? (
               <GraphCanvas
                 graph={galaxyGraph}
                 focusedNodeIds={focusedNodeIds}
                 focusedNodeId={focusedNodeId}
-                pathNodeIds={pathNodeIds}
-                pathEdgeIds={pathEdgeIds}
                 onSelectNode={handleSelectNode}
               />
             ) : (
@@ -266,24 +197,6 @@ export function GraphPage({
       ) : !state.loading && !state.error ? (
         <EmptyState title={copy.emptyGraph} />
       ) : null}
-    </div>
-  );
-}
-
-function GraphPathBanner({ copy, pathState }: { copy: GraphCopy; pathState: PathState | null }) {
-  let text = copy.pathSelectSource;
-  if (pathState?.kind === "waiting") {
-    text = `${pathState.sourceLabel} - ${copy.pathSelectTarget}`;
-  } else if (pathState?.kind === "found") {
-    text = `${pathState.fromLabel} -> ${pathState.toLabel} · ${pathState.length} ${copy.pathLinkUnit}`;
-  } else if (pathState?.kind === "unreachable") {
-    text = `${pathState.fromLabel} -> ${pathState.toLabel} · ${copy.pathUnreachable}`;
-  }
-
-  return (
-    <div className="graph-path-banner" role="status">
-      <GitFork size={13} aria-hidden="true" />
-      {text}
     </div>
   );
 }

@@ -61,17 +61,10 @@ test("opens source graph nodes in the matching knowledge document", async ({ pag
   await expect(reader.getByText("Original source body.")).toBeVisible();
 });
 
-test("supports path mode and renders a nonblank Pixi graph canvas", async ({ page }) => {
+test("renders a nonblank Pixi graph canvas", async ({ page }) => {
   await page.goto("/#graph");
 
   await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
-  await page.getByRole("button", { name: "Path mode" }).click();
-  await expect(page.getByText("Select a source node")).toBeVisible();
-  await page.getByRole("button", { name: "Architecture graph node" }).click();
-  await expect(page.getByText(/select a target node/i)).toBeVisible();
-  await page.getByRole("button", { name: "Synthesis graph node" }).click();
-  await expect(page.getByRole("status")).toContainText("Architecture -> Synthesis");
-  await expect(page.getByRole("status")).toContainText("1 link");
   await page.getByLabel("Graph search").focus();
 
   const canvasContract = await page.evaluate(() => {

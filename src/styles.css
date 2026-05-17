@@ -542,12 +542,6 @@ textarea:focus {
   background: var(--surface-soft);
 }
 
-.secondary-button.is-active {
-  border-color: color-mix(in srgb, var(--accent) 58%, var(--line-strong));
-  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
-  color: var(--accent-strong);
-}
-
 .icon-button {
   width: 38px;
   border: 1px solid var(--line-strong);
@@ -4246,21 +4240,6 @@ html[data-theme="dark"] .graph-legend {
 
 .graph-node-hit[data-muted="true"] {
   cursor: default;
-}
-
-.graph-path-banner {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  width: fit-content;
-  max-width: 100%;
-  padding: 7px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--hairline));
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
-  color: var(--accent-strong);
-  font-size: 12px;
-  font-weight: 600;
 }
 
 html[data-theme="dark"] .graph-pixi-stage {
