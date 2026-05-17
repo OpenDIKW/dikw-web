@@ -1471,6 +1471,41 @@ describe("read console pages", () => {
     expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
   });
 
+  it("筛选变化后页码回到 1 时，详情面板同步切到新首项", async () => {
+    const client = createMockClient();
+    // 初始全集 25 条；筛选 "succeeded" 后返回不同的窄集
+    const narrowSet: TaskRow[] = [
+      { ...manyTaskRowsFixture[0], task_id: "narrow-task-A", status: "succeeded" },
+      { ...manyTaskRowsFixture[1], task_id: "narrow-task-B", status: "succeeded" }
+    ];
+    client.get.mockImplementation((_path: string, options?: { params?: Record<string, unknown> }) => {
+      const statusFilter = options?.params?.status;
+      return Promise.resolve(typeof statusFilter === "string" && statusFilter ? narrowSet : manyTaskRowsFixture);
+    });
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+
+    await screen.findByText("bulk-task-01");
+    // 翻到第 2 页让 selectedId 指向 bulk-task-21
+    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("bulk-task-21");
+    });
+
+    // 改 status 过滤，触发新数据 + 页码回 1
+    await userEvent.selectOptions(screen.getByLabelText(/Status/), "succeeded");
+
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("narrow-task-A");
+    });
+
+    // 列表只剩 narrow-task-*, bulk-task-* 应不存在
+    expect(screen.queryByText("bulk-task-21")).not.toBeInTheDocument();
+  });
+
   it("翻页时若 selectedId 不在新页内，自动改选新页第一项", async () => {
     const client = createMockClient();
     client.get.mockResolvedValue(manyTaskRowsFixture);

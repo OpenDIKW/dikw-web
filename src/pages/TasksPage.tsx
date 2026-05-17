@@ -69,7 +69,8 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   );
 
   useEffect(() => {
-    if (!selectedId && visibleTasks.length) {
+    if (!visibleTasks.length) return;
+    if (!selectedId || !visibleTasks.some((task) => task.task_id === selectedId)) {
       setSelectedId(visibleTasks[0].task_id);
     }
   }, [selectedId, visibleTasks]);
