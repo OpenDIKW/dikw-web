@@ -125,7 +125,7 @@ describe("DikwClient.streamTaskEvents (cursor-paged)", () => {
     expect(seen.map((event) => event.type)).toEqual(["task_started", "final"]);
     expect(fetchSpy).toHaveBeenCalledTimes(3);
 
-    const cursors = fetchSpy.mock.calls.map(([input]) =>
+    const cursors = fetchSpy.mock.calls.map(([input]: [RequestInfo | URL, ...unknown[]]) =>
       new URL(String(input)).searchParams.get("from_seq")
     );
     expect(cursors).toEqual([null, "2", "2"]);
@@ -142,7 +142,7 @@ describe("DikwClient.streamTaskEvents (cursor-paged)", () => {
       last_seq: 0
     };
 
-    fetchSpy.mockImplementation(async (_input, init: RequestInit = {}) => {
+    fetchSpy.mockImplementation(async (_input: RequestInfo | URL, init: RequestInit = {}) => {
       if (init.signal?.aborted) {
         throw new DOMException("Aborted", "AbortError");
       }
