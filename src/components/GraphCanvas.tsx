@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   layoutGalaxyGraph,
   type GalaxyGraph,
@@ -54,16 +54,6 @@ export function GraphCanvas({
     () => layoutGalaxyGraph(graph, { width: size.width, height: size.height }),
     [graph, size.height, size.width]
   );
-
-  useLayoutEffect(() => {
-    const element = stageRef.current;
-    if (!element) return;
-    const rect = element.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return;
-    const width = Math.max(Math.round(rect.width), 320);
-    const height = Math.max(Math.round(rect.height), 360);
-    setSize((current) => (current.width === width && current.height === height ? current : { width, height }));
-  }, []);
 
   useEffect(() => {
     const element = stageRef.current;
