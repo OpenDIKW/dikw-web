@@ -46,7 +46,6 @@ export function GraphCanvas({
 }: GraphCanvasProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const fallbackCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const engineRef = useRef<PixiEngine | null>(null);
   const [size, setSize] = useState({ width: defaultWidth, height: defaultHeight });
   const [pixiReady, setPixiReady] = useState(false);
@@ -106,28 +105,8 @@ export function GraphCanvas({
     });
   }, [focusedNodeId, focusedNodeIds, positionedGraph, size.height, size.width]);
 
-  useEffect(() => {
-    if (navigator.userAgent.toLowerCase().includes("jsdom") || !stageRef.current) return;
-    const canvas = fallbackCanvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext("2d");
-    if (!context) return;
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(size.width * ratio);
-    canvas.height = Math.round(size.height * ratio);
-    canvas.style.width = `${size.width}px`;
-    canvas.style.height = `${size.height}px`;
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    drawFallbackCanvas(context, positionedGraph, {
-      focusedNodeIds,
-      focusedNodeId,
-      palette: readPalette(stageRef.current)
-    });
-  }, [focusedNodeId, focusedNodeIds, positionedGraph, size.height, size.width]);
-
   return (
     <div ref={stageRef} className="graph-pixi-stage" role="img" aria-label="Knowledge graph">
-      <canvas ref={fallbackCanvasRef} className="graph-fallback-canvas" aria-hidden="true" />
       <div ref={mountRef} className="graph-pixi-mount" data-ready={String(pixiReady)} />
       {!pixiReady ? (
         <FallbackGraphSvg graph={positionedGraph} focusedNodeIds={focusedNodeIds} />
@@ -154,59 +133,6 @@ export function GraphCanvas({
       </div>
     </div>
   );
-}
-
-function drawFallbackCanvas(
-  context: CanvasRenderingContext2D,
-  graph: PositionedGalaxyGraph,
-  state: RenderState
-): void {
-  const ratio = Math.min(window.devicePixelRatio || 1, 2);
-  const width = context.canvas.width / ratio;
-  const height = context.canvas.height / ratio;
-  context.clearRect(0, 0, width, height);
-  context.fillStyle = numberToRgba(state.palette.surface, 0.22);
-  context.fillRect(0, 0, width, height);
-  const largeGraph = graph.nodes.length >= LARGE_GRAPH_NODE_COUNT;
-
-  for (const cluster of graph.clusters) {
-    context.beginPath();
-    context.ellipse(cluster.x, cluster.y, cluster.radius * 0.96, cluster.radius * 0.58, 0, 0, Math.PI * 2);
-    context.fillStyle = `${cluster.color}${largeGraph ? "04" : "12"}`;
-    context.fill();
-  }
-
-  const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
-  for (const edge of graph.edges) {
-    const source = nodes.get(edge.source);
-    const target = nodes.get(edge.target);
-    if (!source || !target) continue;
-    const focused = state.focusedNodeIds.size > 0 && state.focusedNodeIds.has(edge.source) && state.focusedNodeIds.has(edge.target);
-    context.beginPath();
-    context.moveTo(source.x, source.y);
-    context.lineTo(target.x, target.y);
-    const idleAlpha = largeGraph ? 0.035 : 0.32;
-    context.strokeStyle = numberToRgba(
-      state.palette.line,
-      state.focusedNodeIds.size ? (focused ? (largeGraph ? 0.42 : 0.58) : largeGraph ? 0.035 : 0.09) : idleAlpha
-    );
-    context.lineWidth = edge.thickness;
-    context.lineCap = "round";
-    context.stroke();
-  }
-
-  for (const node of graph.nodes) {
-    const muted = isNodeMuted(node.id, state.focusedNodeIds);
-    const color = node.layer === "source" ? state.palette.source : state.palette.accent;
-    const selected = state.focusedNodeId === node.id;
-    context.beginPath();
-    context.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
-    context.fillStyle = numberToRgba(color, muted ? 0.18 : 1);
-    context.fill();
-    context.strokeStyle = numberToRgba(state.palette.surface, selected ? 0.96 : 0.8);
-    context.lineWidth = selected ? (largeGraph ? 1.7 : 2.4) : largeGraph ? 0.75 : 1.4;
-    context.stroke();
-  }
 }
 
 async function createPixiGraphEngine(mount: HTMLElement): Promise<PixiEngine> {
@@ -475,13 +401,6 @@ function parseHex(value: string): number {
     return Number.parseInt(hex.split("").map((char) => char + char).join(""), 16);
   }
   return Number.parseInt(hex.slice(0, 6), 16);
-}
-
-function numberToRgba(value: number, alpha: number): string {
-  const red = (value >> 16) & 0xff;
-  const green = (value >> 8) & 0xff;
-  const blue = value & 0xff;
-  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
 }
 
 function isNodeMuted(nodeId: string, focusedNodeIds: Set<string>): boolean {

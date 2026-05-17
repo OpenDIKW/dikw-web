@@ -4166,7 +4166,6 @@ html[data-theme="dark"] .graph-legend {
 
 .graph-pixi-mount,
 .graph-pixi-mount canvas,
-.graph-fallback-canvas,
 .graph-fallback-svg {
   position: absolute;
   inset: 0;
