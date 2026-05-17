@@ -298,6 +298,15 @@ export type TaskEvent =
       message: string;
     };
 
+export interface EventsPage {
+  task_id: string;
+  task_status: TaskStatus;
+  events: TaskEvent[];
+  next_from_seq: number;
+  has_more: boolean;
+  last_seq: number;
+}
+
 export type RetrieveStreamEvent =
   | { type: "retrieve_started"; ts: string; q: string; limit: number }
   | { type: "retrieval_done"; ts: string; hits: Hit[] }
