@@ -69,11 +69,11 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   );
 
   useEffect(() => {
-    if (!visibleTasks.length) return;
+    if (!pagedTasks.length) return;
     if (!selectedId || !visibleTasks.some((task) => task.task_id === selectedId)) {
-      setSelectedId(visibleTasks[0].task_id);
+      setSelectedId(pagedTasks[0].task_id);
     }
-  }, [selectedId, visibleTasks]);
+  }, [pagedTasks, selectedId, visibleTasks]);
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 

@@ -1471,6 +1471,50 @@ describe("read console pages", () => {
     expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
   });
 
+  it("reload 后选中任务消失时，auto-select 落在当前页可见首项而非 visibleTasks[0]", async () => {
+    // 25 条；翻到第 2 页（21-25），选中 bulk-task-25 后 reload 返回 22 条（删了 bulk-task-25，加 bulk-task-26~30）
+    const initial = manyTaskRowsFixture;
+    const reloaded: TaskRow[] = [
+      ...Array.from({ length: 22 }, (_, index) => ({
+        ...manyTaskRowsFixture[0],
+        task_id: `bulk-task-${String(index + 26).padStart(2, "0")}`,
+        op: "ingest"
+      }))
+    ];
+    let callCount = 0;
+    const client = createMockClient();
+    client.get.mockImplementation(() => {
+      callCount += 1;
+      return Promise.resolve(callCount === 1 ? initial : reloaded);
+    });
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByText("bulk-task-01");
+
+    // 翻到第 2 页
+    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("bulk-task-21");
+    });
+
+    // 点 Refresh tasks 触发 reload
+    await userEvent.click(screen.getByRole("button", { name: "Refresh tasks" }));
+
+    // reload 后用户仍在 page 2（pageCount=ceil(22/20)=2），可见 bulk-task-46（22 条中的第 21-22 条）
+    await waitFor(() => {
+      const listPanel = document.querySelector(".panel.task-list-panel") as HTMLElement;
+      expect(within(listPanel).getByText("bulk-task-46")).toBeInTheDocument();
+    });
+
+    // 详情应同步到当前页可见的首项 bulk-task-46，而不是 visibleTasks[0]=bulk-task-26
+    await waitFor(() => {
+      const headerPath = document.querySelector(".reader-header__path");
+      expect(headerPath?.textContent).toBe("bulk-task-46");
+    });
+  });
+
   it("筛选变化后页码回到 1 时，详情面板同步切到新首项", async () => {
     const client = createMockClient();
     // 初始全集 25 条；筛选 "succeeded" 后返回不同的窄集
