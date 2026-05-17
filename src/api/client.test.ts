@@ -130,4 +130,33 @@ describe("DikwClient.streamTaskEvents (cursor-paged)", () => {
     );
     expect(cursors).toEqual([null, "2", "2"]);
   });
+
+  it("AbortSignal 透传至 fetch 并停止生成器", async () => {
+    const controller = new AbortController();
+    const runningPage: EventsPage = {
+      task_id: "t-3",
+      task_status: "running",
+      events: [],
+      next_from_seq: 1,
+      has_more: false,
+      last_seq: 0
+    };
+
+    fetchSpy.mockImplementation(async (_input, init: RequestInit = {}) => {
+      if (init.signal?.aborted) {
+        throw new DOMException("Aborted", "AbortError");
+      }
+      queueMicrotask(() => controller.abort());
+      return jsonResponse(runningPage);
+    });
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const generator = client.streamTaskEvents("t-3", undefined, controller.signal);
+
+    await expect(async () => {
+      for await (const _event of generator) {
+        // 第二次循环时 signal.aborted=true，fetch 抛出 AbortError
+      }
+    }).rejects.toThrowError(/abort/i);
+  });
 });
