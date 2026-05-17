@@ -91,7 +91,7 @@ test("renders a nonblank Pixi graph canvas", async ({ page }) => {
   expect(canvasContract.searchBoxShadow).not.toBe("none");
   expect(canvasContract.inputBoxShadow).toBe("none");
   expect(canvasContract.stageWidth).toBeGreaterThan(300);
-  expect(canvasContract.stageHeight).toBeGreaterThan(300);
+  expect(canvasContract.stageHeight).toBeGreaterThan(500);
   expect(canvasContract.canvasWidth).toBeGreaterThan(300);
-  expect(canvasContract.canvasHeight).toBeGreaterThan(300);
+  expect(canvasContract.canvasHeight).toBeGreaterThan(500);
 });

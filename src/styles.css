@@ -1962,7 +1962,7 @@ textarea:focus {
 .graph-canvas {
   display: grid;
   gap: 12px;
-  min-height: 570px;
+  min-height: clamp(560px, calc(100vh - 240px), 1080px);
 }
 
 .graph-canvas__header,
@@ -4150,7 +4150,7 @@ html[data-theme="dark"] .graph-legend {
 
 .graph-pixi-stage {
   position: relative;
-  min-height: 520px;
+  min-height: clamp(520px, calc(100vh - 280px), 1040px);
   overflow: hidden;
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
