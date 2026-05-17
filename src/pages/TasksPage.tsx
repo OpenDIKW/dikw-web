@@ -21,6 +21,7 @@ type TasksCopy = (typeof translations)["en"]["pages"]["tasks"];
 
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
 const PAGE_SIZE = 20;
+const EVENT_PAGE_SIZE = 20;
 
 export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const copy = translations[locale].pages.tasks;
@@ -30,6 +31,8 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const [events, setEvents] = useState<TaskEvent[]>([]);
   const [eventsError, setEventsError] = useState<unknown>(null);
   const [following, setFollowing] = useState(false);
+  const [eventPageIndex, setEventPageIndex] = useState(0);
+  const [eventStickTail, setEventStickTail] = useState(true);
   const [taskPatches, setTaskPatches] = useState<Record<string, TaskPatch>>({});
   const controllerRef = useRef<AbortController | null>(null);
   const eventTapeTaskIdRef = useRef<string | null>(null);
@@ -75,6 +78,26 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     }
   }, [pagedTasks, selectedId]);
 
+  const eventPageCount = Math.max(1, Math.ceil(events.length / EVENT_PAGE_SIZE));
+  const pagedEvents = useMemo(
+    () => events.slice(eventPageIndex * EVENT_PAGE_SIZE, (eventPageIndex + 1) * EVENT_PAGE_SIZE),
+    [events, eventPageIndex]
+  );
+
+  useEffect(() => {
+    if (eventStickTail && eventPageIndex !== eventPageCount - 1) {
+      setEventPageIndex(eventPageCount - 1);
+    } else if (eventPageIndex > eventPageCount - 1) {
+      setEventPageIndex(eventPageCount - 1);
+    }
+  }, [eventPageCount, eventPageIndex, eventStickTail]);
+
+  function changeEventPage(next: number) {
+    const clamped = Math.max(0, Math.min(eventPageCount - 1, next));
+    setEventPageIndex(clamped);
+    setEventStickTail(clamped === eventPageCount - 1);
+  }
+
   useEffect(() => () => controllerRef.current?.abort(), []);
 
   function cancelFollow() {
@@ -90,6 +113,8 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     eventTapeTaskIdRef.current = null;
     setEvents([]);
     setEventsError(null);
+    setEventPageIndex(0);
+    setEventStickTail(true);
     setPageIndex(clamped);
     const newPage = visibleTasks.slice(clamped * PAGE_SIZE, (clamped + 1) * PAGE_SIZE);
     if (newPage.length && !newPage.some((task) => task.task_id === selectedId)) {
@@ -117,6 +142,8 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     setSelectedId(row.task_id);
     setEvents([]);
     setEventsError(null);
+    setEventPageIndex(0);
+    setEventStickTail(!isTerminalTask(row.status));
     setFollowing(true);
     let sawFinalEvent = false;
     try {
@@ -203,6 +230,8 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
                       setSelectedId(task.task_id);
                       setEvents([]);
                       setEventsError(null);
+                      setEventPageIndex(0);
+                      setEventStickTail(true);
                     }}
                   >
                     <span className="task-list__topline">
@@ -266,7 +295,16 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
                 </button>
               </div>
               {eventsError ? <Notice title={copy.eventsErrorTitle} error={eventsError} /> : null}
-              <EventTape events={events} following={following} selected={selected} copy={copy} />
+              <EventTape
+                events={events}
+                pagedEvents={pagedEvents}
+                eventPageIndex={eventPageIndex}
+                eventPageCount={eventPageCount}
+                onChangeEventPage={changeEventPage}
+                following={following}
+                selected={selected}
+                copy={copy}
+              />
             </>
           ) : (
             <EmptyState title={copy.selectTask} />
@@ -279,11 +317,19 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
 
 function EventTape({
   events,
+  pagedEvents,
+  eventPageIndex,
+  eventPageCount,
+  onChangeEventPage,
   following,
   selected,
   copy
 }: {
   events: TaskEvent[];
+  pagedEvents: TaskEvent[];
+  eventPageIndex: number;
+  eventPageCount: number;
+  onChangeEventPage: (next: number) => void;
   following: boolean;
   selected: TaskRow;
   copy: TasksCopy;
@@ -305,7 +351,7 @@ function EventTape({
         <span className="soft-label">{events.length} events</span>
       </div>
       <div className="event-tape">
-        {events.map((event) => (
+        {pagedEvents.map((event) => (
           <article className={`event-tape__item event-tape__item--${event.type}`} key={`${event.seq}-${event.type}-${event.ts}`}>
             <div className="event-tape__meta">
               <span>#{event.seq}</span>
@@ -316,6 +362,13 @@ function EventTape({
           </article>
         ))}
       </div>
+      <PaginationBar
+        pageIndex={eventPageIndex}
+        pageCount={eventPageCount}
+        copy={copy.eventPagination}
+        onChange={onChangeEventPage}
+        className="event-tape__pagination"
+      />
     </section>
   );
 }
@@ -563,19 +616,21 @@ function PaginationBar({
   pageIndex,
   pageCount,
   copy,
-  onChange
+  onChange,
+  className = "task-list__pagination"
 }: {
   pageIndex: number;
   pageCount: number;
   copy: TasksCopy["pagination"];
   onChange: (next: number) => void;
+  className?: string;
 }) {
   if (pageCount <= 1) return null;
   const label = copy.pageOf
     .replace("{current}", String(pageIndex + 1))
     .replace("{total}", String(pageCount));
   return (
-    <nav className="task-list__pagination" aria-label={copy.ariaLabel}>
+    <nav className={className} aria-label={copy.ariaLabel}>
       <button
         type="button"
         className="secondary-button"

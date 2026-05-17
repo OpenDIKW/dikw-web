@@ -16,6 +16,7 @@ import {
   healthFixture,
   infoFixture,
   ingestFileErrorEventsFixture,
+  manyTaskEventsFixture,
   manyTaskRowsFixture,
   retrieveEventsFixture,
   sourcePagesFixture,
@@ -1629,6 +1630,269 @@ describe("read console pages", () => {
     expect(selectedBtn?.textContent).toContain("bulk-task-21");
   });
 
+  it("事件区：终止态任务 Load 25 个事件后默认在第 1 页，aria-label 与分页指示器到位", async () => {
+    const client = createMockClient();
+    const events = manyTaskEventsFixture(25);
+    const terminalRow: TaskRow = {
+      task_id: "bulk-events-1",
+      op: "ingest",
+      status: "succeeded",
+      created_at: "2026-05-17T10:00:00Z",
+      started_at: "2026-05-17T10:00:00Z",
+      finished_at: "2026-05-17T10:01:00Z",
+      params_digest: "evt",
+      result: null,
+      error: null
+    };
+    client.get.mockResolvedValue([terminalRow]);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
+
+    render(<TasksPage client={client} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /Load events/ }));
+
+    expect(await screen.findByText("25 events")).toBeInTheDocument();
+
+    const tape = screen.getByText("Event tape").closest("section") as HTMLElement;
+    expect(within(tape).getByText("#1")).toBeInTheDocument();
+    expect(within(tape).queryByText("#21")).not.toBeInTheDocument();
+    expect(within(tape).getByText(/Page\s*1\s*\/\s*2/i)).toBeInTheDocument();
+    expect(within(tape).getByRole("navigation", { name: "event pagination" })).toBeInTheDocument();
+  });
+
+  it("事件区：终止态任务点 Next 渲染 21-25 + final；首尾页按钮禁用", async () => {
+    const client = createMockClient();
+    const events = manyTaskEventsFixture(25);
+    const terminalRow: TaskRow = {
+      task_id: "bulk-events-1",
+      op: "ingest",
+      status: "succeeded",
+      created_at: "2026-05-17T10:00:00Z",
+      started_at: "2026-05-17T10:00:00Z",
+      finished_at: "2026-05-17T10:01:00Z",
+      params_digest: "evt",
+      result: null,
+      error: null
+    };
+    client.get.mockResolvedValue([terminalRow]);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
+
+    render(<TasksPage client={client} />);
+    await userEvent.click(await screen.findByRole("button", { name: /Load events/ }));
+    await screen.findByText("25 events");
+
+    const tape = screen.getByText("Event tape").closest("section") as HTMLElement;
+    expect(within(tape).getByRole("button", { name: /Prev/i })).toBeDisabled();
+    expect(within(tape).getByRole("button", { name: /Next/i })).toBeEnabled();
+
+    await userEvent.click(within(tape).getByRole("button", { name: /Next/i }));
+
+    await waitFor(() => {
+      expect(within(tape).getByText("#21")).toBeInTheDocument();
+    });
+    expect(within(tape).getByText("#25")).toBeInTheDocument();
+    expect(within(tape).queryByText("#1")).not.toBeInTheDocument();
+    expect(within(tape).queryByText("#20")).not.toBeInTheDocument();
+    expect(within(tape).getByText(/Page\s*2\s*\/\s*2/i)).toBeInTheDocument();
+    expect(within(tape).getByRole("button", { name: /Next/i })).toBeDisabled();
+
+    await userEvent.click(within(tape).getByRole("button", { name: /Prev/i }));
+    await waitFor(() => {
+      expect(within(tape).getByText("#1")).toBeInTheDocument();
+    });
+    expect(within(tape).queryByText("#21")).not.toBeInTheDocument();
+    expect(within(tape).getByRole("button", { name: /Prev/i })).toBeDisabled();
+  });
+
+  it("事件区：Follow 运行中任务默认贴尾，事件越过页边界后自动跳到末页", async () => {
+    const client = createMockClient();
+    const runningRow: TaskRow = {
+      task_id: "bulk-events-2",
+      op: "ingest",
+      status: "running",
+      created_at: "2026-05-17T10:00:00Z",
+      started_at: "2026-05-17T10:00:00Z",
+      finished_at: null,
+      params_digest: "evt",
+      result: null,
+      error: null
+    };
+    const controlled = createControlledTaskEventStream();
+    client.get.mockResolvedValue([runningRow]);
+    client.streamTaskEvents.mockImplementation(() => controlled.stream());
+
+    render(<TasksPage client={client} />);
+    await userEvent.click(await screen.findByRole("button", { name: /^Follow$/ }));
+
+    // 推 5 个事件 -> 仍是 1 页
+    for (let seq = 1; seq <= 5; seq += 1) {
+      controlled.push(makeProgressEvent(seq, 30));
+    }
+    expect(await screen.findByText("5 events")).toBeInTheDocument();
+    const tape = screen.getByText("Event tape").closest("section") as HTMLElement;
+    // pageCount=1, PaginationBar 不渲染
+    expect(within(tape).queryByRole("navigation", { name: "event pagination" })).not.toBeInTheDocument();
+    expect(within(tape).getByText("#5")).toBeInTheDocument();
+
+    // 推到 21 个事件 -> pageCount=2，stick=true 应自动跳到第 2 页
+    for (let seq = 6; seq <= 21; seq += 1) {
+      controlled.push(makeProgressEvent(seq, 30));
+    }
+    await waitFor(() => {
+      expect(within(tape).getByText(/Page\s*2\s*\/\s*2/i)).toBeInTheDocument();
+    });
+    expect(within(tape).getByText("#21")).toBeInTheDocument();
+    expect(within(tape).queryByText("#1")).not.toBeInTheDocument();
+
+    controlled.finish();
+  });
+
+  it("事件区：Follow 中点 Prev 后断开贴尾；翻回末页恢复贴尾", async () => {
+    const client = createMockClient();
+    const runningRow: TaskRow = {
+      task_id: "bulk-events-3",
+      op: "ingest",
+      status: "running",
+      created_at: "2026-05-17T10:00:00Z",
+      started_at: "2026-05-17T10:00:00Z",
+      finished_at: null,
+      params_digest: "evt",
+      result: null,
+      error: null
+    };
+    const controlled = createControlledTaskEventStream();
+    client.get.mockResolvedValue([runningRow]);
+    client.streamTaskEvents.mockImplementation(() => controlled.stream());
+
+    render(<TasksPage client={client} />);
+    await userEvent.click(await screen.findByRole("button", { name: /^Follow$/ }));
+
+    // 推 21 个 -> Page 2/2
+    for (let seq = 1; seq <= 21; seq += 1) {
+      controlled.push(makeProgressEvent(seq, 80));
+    }
+    expect(await screen.findByText("21 events")).toBeInTheDocument();
+    const tape = screen.getByText("Event tape").closest("section") as HTMLElement;
+    await waitFor(() => {
+      expect(within(tape).getByText(/Page\s*2\s*\/\s*2/i)).toBeInTheDocument();
+    });
+
+    // 点 Prev 回到 Page 1/2 -> 断开 stick
+    await userEvent.click(within(tape).getByRole("button", { name: /Prev/i }));
+    await waitFor(() => {
+      expect(within(tape).getByText(/Page\s*1\s*\/\s*2/i)).toBeInTheDocument();
+    });
+
+    // 继续推到 41 个 -> pageCount=3，stick 已断 -> 仍在 Page 1/3
+    for (let seq = 22; seq <= 41; seq += 1) {
+      controlled.push(makeProgressEvent(seq, 80));
+    }
+    expect(await screen.findByText("41 events")).toBeInTheDocument();
+    expect(within(tape).getByText(/Page\s*1\s*\/\s*3/i)).toBeInTheDocument();
+    expect(within(tape).getByText("#1")).toBeInTheDocument();
+    expect(within(tape).queryByText("#41")).not.toBeInTheDocument();
+
+    // 点 Next 两次回到末页 Page 3/3 -> 恢复 stick
+    await userEvent.click(within(tape).getByRole("button", { name: /Next/i }));
+    await userEvent.click(within(tape).getByRole("button", { name: /Next/i }));
+    await waitFor(() => {
+      expect(within(tape).getByText(/Page\s*3\s*\/\s*3/i)).toBeInTheDocument();
+    });
+
+    // 再推 1 个事件越过页边界 -> pageCount=3 不变（41+1=42 仍 3 页）；推到 61 个让 pageCount=4
+    for (let seq = 42; seq <= 61; seq += 1) {
+      controlled.push(makeProgressEvent(seq, 80));
+    }
+    await waitFor(() => {
+      expect(within(tape).getByText(/Page\s*4\s*\/\s*4/i)).toBeInTheDocument();
+    });
+    expect(within(tape).getByText("#61")).toBeInTheDocument();
+
+    controlled.finish();
+  });
+
+  it("事件区：切换任务时事件页重置回第 1 页", async () => {
+    const client = createMockClient();
+    const events = manyTaskEventsFixture(25);
+    const rows: TaskRow[] = [
+      {
+        task_id: "bulk-events-A",
+        op: "ingest",
+        status: "succeeded",
+        created_at: "2026-05-17T10:00:00Z",
+        started_at: "2026-05-17T10:00:00Z",
+        finished_at: "2026-05-17T10:01:00Z",
+        params_digest: "evt-a",
+        result: null,
+        error: null
+      },
+      {
+        task_id: "bulk-events-B",
+        op: "ingest",
+        status: "succeeded",
+        created_at: "2026-05-17T11:00:00Z",
+        started_at: "2026-05-17T11:00:00Z",
+        finished_at: "2026-05-17T11:01:00Z",
+        params_digest: "evt-b",
+        result: null,
+        error: null
+      }
+    ];
+    client.get.mockResolvedValue(rows);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
+
+    render(<TasksPage client={client} />);
+    await userEvent.click(await screen.findByRole("button", { name: /Load events/ }));
+    await screen.findByText("25 events");
+    const tape = screen.getByText("Event tape").closest("section") as HTMLElement;
+    await userEvent.click(within(tape).getByRole("button", { name: /Next/i }));
+    await waitFor(() => {
+      expect(within(tape).getByText(/Page\s*2\s*\/\s*2/i)).toBeInTheDocument();
+    });
+
+    // 切到任务 B：事件清空 + 页码重置；再加载事件应回到 Page 1
+    await userEvent.click(screen.getByText("bulk-events-B").closest("button") as HTMLElement);
+    await waitFor(() => {
+      expect(screen.queryByText("Event tape")).not.toBeInTheDocument();
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: /Load events/ }));
+    await screen.findByText("25 events");
+    const tapeB = screen.getByText("Event tape").closest("section") as HTMLElement;
+    expect(within(tapeB).getByText(/Page\s*1\s*\/\s*2/i)).toBeInTheDocument();
+    expect(within(tapeB).getByText("#1")).toBeInTheDocument();
+  });
+
+  it("事件区：分页 nav aria-label 跟随 locale 本地化", async () => {
+    const client = createMockClient();
+    const events = manyTaskEventsFixture(25);
+    const terminalRow: TaskRow = {
+      task_id: "bulk-events-loc",
+      op: "ingest",
+      status: "succeeded",
+      created_at: "2026-05-17T10:00:00Z",
+      started_at: "2026-05-17T10:00:00Z",
+      finished_at: "2026-05-17T10:01:00Z",
+      params_digest: "evt",
+      result: null,
+      error: null
+    };
+    client.get.mockResolvedValue([terminalRow]);
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
+
+    const { unmount } = render(<TasksPage client={client} locale="zh-CN" />);
+    await userEvent.click(await screen.findByRole("button", { name: /Load events/ }));
+    await screen.findByText("25 events");
+    expect(screen.getByRole("navigation", { name: "事件分页" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "下一页" })).toBeInTheDocument();
+    unmount();
+
+    render(<TasksPage client={client} locale="en" />);
+    await userEvent.click(await screen.findByRole("button", { name: /Load events/ }));
+    await screen.findByText("25 events");
+    expect(screen.getByRole("navigation", { name: "event pagination" })).toBeInTheDocument();
+  });
+
   it("翻页时自动中止正在 Follow 的事件流", async () => {
     const client = createMockClient();
     const runningRow: TaskRow = {
@@ -1706,5 +1970,46 @@ function createControlledAgentStream() {
         });
       }
     }
+  };
+}
+
+function createControlledTaskEventStream() {
+  const queue: TaskEvent[] = [];
+  let finished = false;
+  let wake: (() => void) | null = null;
+
+  return {
+    push(event: TaskEvent) {
+      queue.push(event);
+      wake?.();
+      wake = null;
+    },
+    finish() {
+      finished = true;
+      wake?.();
+      wake = null;
+    },
+    async *stream(): AsyncGenerator<TaskEvent> {
+      while (!finished || queue.length > 0) {
+        if (queue.length > 0) {
+          yield queue.shift() as TaskEvent;
+          continue;
+        }
+        await new Promise<void>((resolve) => {
+          wake = resolve;
+        });
+      }
+    }
+  };
+}
+
+function makeProgressEvent(seq: number, total: number): TaskEvent {
+  return {
+    type: "progress",
+    seq,
+    ts: `2026-05-17T10:00:${String(seq % 60).padStart(2, "0")}Z`,
+    phase: "embed_chunks",
+    current: seq,
+    total
   };
 }

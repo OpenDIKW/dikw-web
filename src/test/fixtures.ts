@@ -406,3 +406,27 @@ export async function* createAsyncEvents<T>(events: T[]): AsyncGenerator<T> {
     yield event;
   }
 }
+
+export function manyTaskEventsFixture(count: number): TaskEvent[] {
+  const total = Math.max(1, count);
+  const events: TaskEvent[] = [];
+  for (let index = 0; index < total - 1; index += 1) {
+    events.push({
+      type: "progress",
+      seq: index + 1,
+      ts: `2026-05-17T10:00:${String(index % 60).padStart(2, "0")}Z`,
+      phase: "embed_chunks",
+      current: index + 1,
+      total: total - 1
+    });
+  }
+  events.push({
+    type: "final",
+    seq: total,
+    ts: "2026-05-17T10:01:00Z",
+    status: "succeeded",
+    result: { added: total - 1 },
+    error: null
+  });
+  return events;
+}
