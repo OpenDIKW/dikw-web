@@ -143,11 +143,28 @@ chart fixtures via `tests/e2e/mockApi.ts`), chat layout, and graph
 interactions. Coverage thresholds live in `vite.config.ts`; don't
 lower them to make a feature pass.
 
+## Deployment
+
+For production, build and run as a single self-contained Node service that
+serves the SPA plus the same-origin `/agent/*` sidecar. LLM credentials are
+injected via env; users still pick the external dikw-core URL in Settings.
+
+```powershell
+npm.cmd run build   # produces dist/ and dist-server/
+npm.cmd start       # node dist-server/standalone.mjs
+```
+
+A Docker image is the recommended deployment form. See
+[`docs/deployment.md`](docs/deployment.md) for required env vars, the
+`docker run` / `docker compose` recipes, and notes on connecting to an
+external dikw-core (host networking + CORS).
+
 ## Where canonical docs live
 
 - `AGENTS.md` — short operational guide for Codex/agent sessions.
 - `CLAUDE.md` — equivalent guide for Claude Code; defers to `AGENTS.md`
   where they conflict.
+- `docs/deployment.md` — production deploy (Docker, env vars, networking).
 - `docs/core-contract.md` — the `dikw-core` HTTP subset this app
   consumes (Settings, Overview, Base Pages, Assets, Graph, Chat, Tasks).
 - `docs/ui-system.md` — visual tokens, markdown reader contract,

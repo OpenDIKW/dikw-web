@@ -1,0 +1,32 @@
+# docker-compose 示例：仅启动 dikw-web。
+# dikw-core 由用户自备（本机进程、另一个容器、或远端服务）。
+# 浏览器在 Settings 中填的 core URL 由浏览器直接 fetch，core 必须允许跨域；
+# 容器里 127.0.0.1 不是宿主机，请使用 host.docker.internal 或宿主机内网 IP。
+
+services:
+  dikw-web:
+    build: .
+    image: dikw-web:local
+    container_name: dikw-web
+    ports:
+      - "4321:4321"
+    environment:
+      # 必填：LLM 凭证
+      DIKW_AGENT_PROVIDER: "${DIKW_AGENT_PROVIDER:-minimax}"
+      DIKW_AGENT_API: "${DIKW_AGENT_API:-anthropic-messages}"
+      DIKW_AGENT_API_KEY: "${DIKW_AGENT_API_KEY:?set DIKW_AGENT_API_KEY in .env or shell}"
+      DIKW_AGENT_BASE_URL: "${DIKW_AGENT_BASE_URL:?set DIKW_AGENT_BASE_URL in .env or shell}"
+      DIKW_AGENT_MODEL: "${DIKW_AGENT_MODEL:?set DIKW_AGENT_MODEL in .env or shell}"
+      # 可选：联网工具
+      DIKW_AGENT_TAVILY_API_KEY: "${DIKW_AGENT_TAVILY_API_KEY:-}"
+      DIKW_AGENT_JINA_API_KEY: "${DIKW_AGENT_JINA_API_KEY:-}"
+    volumes:
+      - dikw-agent-sessions:/data/agent-sessions
+    restart: unless-stopped
+    # 允许容器访问宿主机上的 dikw-core（Linux 上需要显式声明 extra_hosts）
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  dikw-agent-sessions:
+    name: dikw-agent-sessions

@@ -2,10 +2,10 @@ import { randomUUID } from "node:crypto";
 import { Agent } from "@earendil-works/pi-agent-core";
 import type { AgentEvent, AgentMessage as PiAgentMessage } from "@earendil-works/pi-agent-core";
 import type { Model } from "@earendil-works/pi-ai";
-import type { AgentConfig } from "./config";
-import { createDikwTools, validateAndNormalizeHttpUrl } from "./tools";
-import type { FileSessionStore } from "./sessionStore";
-import type { AgentProposal, AgentSource, AgentStreamEvent, AgentToolEvent } from "../../src/agent/types";
+import type { AgentConfig } from "./config.js";
+import { createDikwTools, validateAndNormalizeHttpUrl } from "./tools.js";
+import type { FileSessionStore } from "./sessionStore.js";
+import type { AgentProposal, AgentSource, AgentStreamEvent, AgentToolEvent } from "../../src/agent/types.js";
 
 export interface RunAgentMessageOptions {
   sessionId: string;

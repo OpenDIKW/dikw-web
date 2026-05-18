@@ -1,19 +1,28 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { join } from "node:path";
-import { loadAgentConfig } from "./config";
-import { FileSessionStore, parseSessionTitle, SESSION_TITLE_ERROR_MESSAGES } from "./sessionStore";
-import { PiAgentRunner, type AgentRunner } from "./runtime";
-import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types";
+import { isAbsolute, join } from "node:path";
+import { loadAgentConfig } from "./config.js";
+import { FileSessionStore, parseSessionTitle, SESSION_TITLE_ERROR_MESSAGES } from "./sessionStore.js";
+import { PiAgentRunner, type AgentRunner } from "./runtime.js";
+import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types.js";
 
 export interface AgentHandlerOptions {
   cwd?: string;
   store?: FileSessionStore;
   runner?: AgentRunner;
+  sessionsDir?: string;
 }
 
-export async function createDefaultAgentHandler(cwd = process.cwd()) {
+export function resolveSessionsDir(cwd: string, override?: string): string {
+  const raw = (override ?? process.env.DIKW_AGENT_SESSIONS_DIR ?? "").trim();
+  if (raw) {
+    return isAbsolute(raw) ? raw : join(cwd, raw);
+  }
+  return join(cwd, ".agent-sessions");
+}
+
+export async function createDefaultAgentHandler(cwd = process.cwd(), options: { sessionsDir?: string } = {}) {
   const config = await loadAgentConfig({ cwd });
-  const store = new FileSessionStore(join(cwd, ".agent-sessions"));
+  const store = new FileSessionStore(resolveSessionsDir(cwd, options.sessionsDir));
   return createAgentHandler({
     cwd,
     store,
@@ -23,7 +32,7 @@ export async function createDefaultAgentHandler(cwd = process.cwd()) {
 
 export function createAgentHandler(options: AgentHandlerOptions = {}) {
   const cwd = options.cwd ?? process.cwd();
-  const store = options.store ?? new FileSessionStore(join(cwd, ".agent-sessions"));
+  const store = options.store ?? new FileSessionStore(resolveSessionsDir(cwd, options.sessionsDir));
   const runnerPromise =
     options.runner ??
     loadAgentConfig({ cwd }).then((config) => new PiAgentRunner({ config, store }) satisfies AgentRunner);
