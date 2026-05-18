@@ -2318,6 +2318,7 @@ textarea:focus {
 
 .result-summary {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
   border: 1px solid var(--line);
@@ -2334,6 +2335,11 @@ textarea:focus {
 .result-summary--error {
   border-color: color-mix(in srgb, var(--red) 56%, var(--line));
   background: color-mix(in srgb, var(--red) 9%, var(--surface));
+}
+
+.result-summary p {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .section-title {
@@ -2462,6 +2468,8 @@ textarea:focus {
   border-right: 0;
   border-bottom: 0;
   border-left: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .event-empty {
