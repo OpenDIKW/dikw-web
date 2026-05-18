@@ -151,7 +151,7 @@ injected via env; users still pick the external dikw-core URL in Settings.
 
 ```powershell
 npm.cmd run build   # produces dist/ and dist-server/
-npm.cmd start       # node dist-server/server/agent/standalone.js
+npm.cmd start       # node dist-server/standalone.mjs
 ```
 
 A Docker image is the recommended deployment form. See

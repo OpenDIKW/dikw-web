@@ -4,7 +4,7 @@
 
 ## 架构速览
 
-```
+```text
 浏览器
   │  http://<host>:4321/
   ├──▶ /agent/*   →  容器内 sidecar  →  调用 core / Tavily / Jina / LLM
@@ -94,7 +94,7 @@ docker compose logs -f dikw-web
 
 镜像内置：
 
-```
+```dockerfile
 HEALTHCHECK CMD wget -qO- http://127.0.0.1:4321/agent/sessions
 ```
 
