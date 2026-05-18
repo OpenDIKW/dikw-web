@@ -120,3 +120,36 @@ jobs:
 
       - name: Scan repository history for secrets
         run: gitleaks detect --source . --redact --verbose --exit-code 1
+
+  trivy:
+    name: Container scan (trivy)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TRIVY_VERSION: "0.57.0"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build image for scanning
+        run: docker build -t dikw-web:ci .
+
+      - name: Scan image for OS/library CVEs (HIGH,CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: dikw-web:ci
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          version: v${{ env.TRIVY_VERSION }}
+
+      - name: Scan Dockerfile and compose for misconfig (HIGH,CRITICAL)
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: .
+          format: table
+          exit-code: "1"
+          severity: HIGH,CRITICAL
+          version: v${{ env.TRIVY_VERSION }}
