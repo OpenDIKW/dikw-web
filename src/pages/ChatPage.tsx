@@ -209,6 +209,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
 
     let receivedAssistantDelta = false;
     let receivedError = false;
+    const assistantRepliesBefore = countAssistantReplies(session);
     try {
       for await (const event of resolvedAgentClient.sendMessage(session.id, message, controller.signal)) {
         if (event.type === "message_delta") {
@@ -229,7 +230,11 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
       setStreamingAnswer("");
       setStreamingSources([]);
       setStreamingTools([]);
-      if (!receivedError && !receivedAssistantDelta && !hasAssistantReply(refreshed)) {
+      if (
+        !receivedError &&
+        !receivedAssistantDelta &&
+        countAssistantReplies(refreshed) <= assistantRepliesBefore
+      ) {
         setError(new Error(copy.noResponseError));
       }
     } catch (nextError) {
@@ -643,8 +648,8 @@ function mergeSummary(items: SessionSummary[], next: SessionSummary): SessionSum
   return [next, ...items.filter((item) => item.id !== next.id)];
 }
 
-function hasAssistantReply(session: AgentSession): boolean {
-  return (session.messages ?? []).some((message) => message.role === "assistant");
+function countAssistantReplies(session: AgentSession): number {
+  return (session.messages ?? []).filter((message) => message.role === "assistant").length;
 }
 
 function toSummary(session: AgentSession): SessionSummary {

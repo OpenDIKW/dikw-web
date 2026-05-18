@@ -1240,6 +1240,53 @@ describe("read console pages", () => {
     expect(await screen.findByText(/no response/i)).toBeInTheDocument();
   });
 
+  it("warns when a follow-up turn silently ends even though the chat already has prior assistant replies", async () => {
+    const priorMessages = [
+      { id: "m1", role: "user" as const, content: "first", createdAt: "2026-05-13T00:00:00.000Z" },
+      { id: "m2", role: "assistant" as const, content: "old answer", createdAt: "2026-05-13T00:00:01.000Z" }
+    ];
+    const activeSession = {
+      id: "session-1",
+      title: "Existing chat",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: priorMessages.length,
+      lastMessagePreview: "old answer",
+      messages: priorMessages,
+      toolEvents: [],
+      sources: [],
+      proposals: []
+    };
+    const refreshed = {
+      ...activeSession,
+      messages: [
+        ...priorMessages,
+        { id: "m3", role: "user" as const, content: "follow-up", createdAt: "2026-05-13T00:00:02.000Z" }
+      ]
+    };
+    const agentClient: AgentClientLike = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValueOnce(activeSession).mockResolvedValue(refreshed),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() =>
+        createAsyncEvents([
+          { type: "agent_start", sessionId: "session-1" },
+          { type: "agent_end", sessionId: "session-1" }
+        ] satisfies AgentStreamEvent[])
+      )
+    };
+
+    render(<ChatPage agentClient={agentClient} />);
+    await userEvent.type(await screen.findByLabelText("Message"), "follow-up");
+    await userEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    expect(await screen.findByText("Agent failed")).toBeInTheDocument();
+    expect(await screen.findByText(/no response/i)).toBeInTheDocument();
+  });
+
   it("runs retrieve streams into chunks and page refs", async () => {
     const client = createMockClient();
     client.streamRetrieve.mockImplementation(() => createAsyncEvents(retrieveEventsFixture));
