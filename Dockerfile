@@ -21,7 +21,12 @@ ENV NODE_ENV=production \
     DIKW_AGENT_SESSIONS_DIR=/data/agent-sessions
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/dist-server/standalone.mjs ./dist-server/standalone.mjs
-RUN mkdir -p /data/agent-sessions && chown -R node:node /data/agent-sessions /app
+# Runtime does not invoke npm; the server is a single esbuild bundle. Removing
+# the global npm tree drops ~10MB and eliminates CVEs that ship with the base
+# image's bundled package manager (e.g. picomatch ReDoS in npm@latest).
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+ && mkdir -p /data/agent-sessions \
+ && chown -R node:node /data/agent-sessions /app
 USER node
 EXPOSE 4321
 VOLUME ["/data/agent-sessions"]
