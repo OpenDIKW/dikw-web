@@ -1154,6 +1154,92 @@ describe("read console pages", () => {
     controlledStream.finish();
   });
 
+  it("surfaces the error message when the agent stream emits an error event", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "New chat",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:00.000Z",
+      messageCount: 0,
+      lastMessagePreview: "",
+      messages: [],
+      toolEvents: [],
+      sources: [],
+      proposals: []
+    };
+    const refreshed = {
+      ...activeSession,
+      messages: [{ id: "m1", role: "user" as const, content: "ping", createdAt: "2026-05-13T00:00:00.500Z" }]
+    };
+    const agentClient: AgentClientLike = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValueOnce(activeSession).mockResolvedValue(refreshed),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() =>
+        createAsyncEvents([
+          { type: "agent_start", sessionId: "session-1" },
+          {
+            type: "error",
+            sessionId: "session-1",
+            code: "agent_error",
+            message: "Codex refresh token was already consumed"
+          },
+          { type: "agent_end", sessionId: "session-1" }
+        ] satisfies AgentStreamEvent[])
+      )
+    };
+
+    render(<ChatPage agentClient={agentClient} />);
+    await userEvent.type(await screen.findByLabelText("Message"), "ping");
+    await userEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    expect(await screen.findByText("Agent failed")).toBeInTheDocument();
+    expect(await screen.findByText(/Codex refresh token was already consumed/)).toBeInTheDocument();
+  });
+
+  it("warns when the agent stream ends without any assistant response", async () => {
+    const activeSession = {
+      id: "session-1",
+      title: "New chat",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:00.000Z",
+      messageCount: 0,
+      lastMessagePreview: "",
+      messages: [],
+      toolEvents: [],
+      sources: [],
+      proposals: []
+    };
+    const refreshed = {
+      ...activeSession,
+      messages: [{ id: "m1", role: "user" as const, content: "ping", createdAt: "2026-05-13T00:00:00.500Z" }]
+    };
+    const agentClient: AgentClientLike = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValueOnce(activeSession).mockResolvedValue(refreshed),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() =>
+        createAsyncEvents([
+          { type: "agent_start", sessionId: "session-1" },
+          { type: "agent_end", sessionId: "session-1" }
+        ] satisfies AgentStreamEvent[])
+      )
+    };
+
+    render(<ChatPage agentClient={agentClient} />);
+    await userEvent.type(await screen.findByLabelText("Message"), "ping");
+    await userEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+    expect(await screen.findByText("Agent failed")).toBeInTheDocument();
+    expect(await screen.findByText(/no response/i)).toBeInTheDocument();
+  });
+
   it("runs retrieve streams into chunks and page refs", async () => {
     const client = createMockClient();
     client.streamRetrieve.mockImplementation(() => createAsyncEvents(retrieveEventsFixture));
