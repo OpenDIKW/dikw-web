@@ -1,5 +1,5 @@
 import type { Plugin } from "vite";
-import { createDefaultAgentHandler } from "./http";
+import { createDefaultAgentHandler } from "./http.js";
 
 export function agentSidecarPlugin(): Plugin {
   return {

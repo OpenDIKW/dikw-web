@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import type { AgentMessage, AgentProposal, AgentSession, AgentSource, AgentToolEvent, SessionSummary } from "../../src/agent/types";
+import type { AgentMessage, AgentProposal, AgentSession, AgentSource, AgentToolEvent, SessionSummary } from "../../src/agent/types.js";
 
 export class FileSessionStore {
   constructor(private readonly root: string) {}
