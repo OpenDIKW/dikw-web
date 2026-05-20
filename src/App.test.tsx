@@ -47,7 +47,7 @@ function stubApi() {
       return jsonResponse(wisdomItemsFixture);
     }
     if (url.pathname === "/v1/tasks") {
-      return jsonResponse([]);
+      return jsonResponse({ tasks: [], next_cursor: null, has_more: false });
     }
     if (url.pathname === "/agent/sessions") {
       if (init?.method === "POST") {

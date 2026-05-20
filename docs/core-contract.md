@@ -179,6 +179,34 @@ any `dikw-core` endpoint and they do not affect the core boundary above.
 Their results surface to the browser as `source` events with
 `kind: "web"`; the underlying API keys never leave `.env.agent.local`.
 
+## Task list
+
+`GET /v1/tasks` returns a `TaskListPage` envelope (not a bare array):
+`{ tasks: TaskRowSummary[], next_cursor: string | null, has_more: boolean }`.
+
+Rows are **summary** projections (`TaskRowSummary`): `task_id`, `op`,
+`status`, `created_at`, `started_at`, `finished_at`, `params_digest`. They
+deliberately omit `result` and `error` — the list exists to *find* tasks,
+not to read their bodies. Full `result`/`error` come from
+`GET /v1/tasks/{id}` (whole `TaskRow`) or `GET /v1/tasks/{id}/result`
+(terminal payload). `TasksPage` therefore hydrates the detail pane by
+fetching the full row (`DikwClient.getTask`) when a terminal task is
+selected, and from the `final` event payload when following a live task.
+
+Pagination is forward-only keyset: pass the prior `next_cursor` back as
+`?cursor=` to fetch the next page; stop when `has_more` is `false`. The
+cursor is an opaque base64url token — never parse it, just replay it
+verbatim. A tampered or stale cursor surfaces as `400 invalid_cursor`;
+the web layer treats that as "restart from the first page". Filters
+`status` / `op` / `limit` compose with `cursor`. The web list uses a
+"Load more" interaction (`DikwClient.listTasks`), not numbered paging,
+because the cursor is one-directional and carries no total count.
+
+Note: the list `cursor` and the event `from_seq`
+(`GET /v1/tasks/{id}/events`) are **two distinct cursor mechanisms** —
+keyset-by-`(created_at, task_id)` vs. sequence-by-`seq`. Do not
+interchange them.
+
 ## Task Events
 
 Task events are NDJSON from `GET /v1/tasks/{id}/events`.

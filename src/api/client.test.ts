@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DikwClient, buildRequestUrl, normalizeBaseUrl } from "./client";
-import type { EventsPage, TaskEvent } from "../types";
+import type { EventsPage, TaskEvent, TaskListPage, TaskRow } from "../types";
 
 describe("DikwClient URL helpers", () => {
   it("normalizes a trailing slash", () => {
@@ -158,5 +158,95 @@ describe("DikwClient.streamTaskEvents (cursor-paged)", () => {
         // 第二次循环时 signal.aborted=true，fetch 抛出 AbortError
       }
     }).rejects.toThrowError(/abort/i);
+  });
+});
+
+describe("DikwClient.listTasks (cursor envelope)", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it("把 status/op/limit/cursor 拼进 query 并返回 TaskListPage 信封", async () => {
+    const page: TaskListPage = {
+      tasks: [
+        {
+          task_id: "t-1",
+          op: "ingest",
+          status: "succeeded",
+          created_at: "2026-05-20T00:00:00Z",
+          started_at: "2026-05-20T00:00:01Z",
+          finished_at: "2026-05-20T00:00:05Z",
+          params_digest: "d1"
+        }
+      ],
+      next_cursor: "next-1",
+      has_more: true
+    };
+    fetchSpy.mockResolvedValueOnce(jsonResponse(page));
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const result = await client.listTasks({ status: "succeeded", op: "ingest", limit: 50, cursor: "c0" });
+
+    expect(result).toEqual(page);
+    const url = new URL(String(fetchSpy.mock.calls[0][0]));
+    expect(url.pathname).toBe("/v1/tasks");
+    expect(url.searchParams.get("status")).toBe("succeeded");
+    expect(url.searchParams.get("op")).toBe("ingest");
+    expect(url.searchParams.get("limit")).toBe("50");
+    expect(url.searchParams.get("cursor")).toBe("c0");
+  });
+
+  it("省略的参数不出现在 query 中", async () => {
+    const page: TaskListPage = { tasks: [], next_cursor: null, has_more: false };
+    fetchSpy.mockResolvedValueOnce(jsonResponse(page));
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    await client.listTasks({ limit: 50 });
+
+    const url = new URL(String(fetchSpy.mock.calls[0][0]));
+    expect(url.searchParams.get("cursor")).toBeNull();
+    expect(url.searchParams.get("status")).toBeNull();
+    expect(url.searchParams.get("op")).toBeNull();
+    expect(url.searchParams.get("limit")).toBe("50");
+  });
+});
+
+describe("DikwClient.getTask (full row)", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it("请求 /v1/tasks/{id} 并返回含 result/error 的整行", async () => {
+    const row: TaskRow = {
+      task_id: "eval-1",
+      op: "eval",
+      status: "succeeded",
+      created_at: "2026-05-20T00:00:00Z",
+      started_at: "2026-05-20T00:00:01Z",
+      finished_at: "2026-05-20T00:00:05Z",
+      params_digest: "d1",
+      result: { passed: true },
+      error: null
+    };
+    fetchSpy.mockResolvedValueOnce(jsonResponse(row));
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const result = await client.getTask("eval-1");
+
+    expect(result).toEqual(row);
+    const url = new URL(String(fetchSpy.mock.calls[0][0]));
+    expect(url.pathname).toBe("/v1/tasks/eval-1");
   });
 });

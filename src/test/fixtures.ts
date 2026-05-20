@@ -8,7 +8,9 @@ import type {
   RetrieveStreamEvent,
   StorageCounts,
   TaskEvent,
+  TaskListPage,
   TaskRow,
+  TaskRowSummary,
   WisdomItem
 } from "../types";
 
@@ -321,6 +323,36 @@ export const manyTaskRowsFixture: TaskRow[] = Array.from({ length: 25 }, (_, ind
   result: { added: index + 1 },
   error: null
 }));
+
+export function toTaskSummary(row: TaskRowSummary): TaskRowSummary {
+  return {
+    task_id: row.task_id,
+    op: row.op,
+    status: row.status,
+    created_at: row.created_at,
+    started_at: row.started_at,
+    finished_at: row.finished_at,
+    params_digest: row.params_digest
+  };
+}
+
+export function toTaskListPage(
+  tasks: TaskRowSummary[],
+  opts: { nextCursor?: string | null; hasMore?: boolean } = {}
+): TaskListPage {
+  return {
+    tasks: tasks.map(toTaskSummary),
+    next_cursor: opts.nextCursor ?? null,
+    has_more: opts.hasMore ?? false
+  };
+}
+
+// Summary projections (no result/error) — what GET /v1/tasks now returns.
+export const taskSummariesFixture: TaskRowSummary[] = taskRowsFixture.map(toTaskSummary);
+export const manyTaskSummariesFixture: TaskRowSummary[] = manyTaskRowsFixture.map(toTaskSummary);
+
+// Single-page envelope for the common case (everything fits, no next page).
+export const taskListPageFixture: TaskListPage = toTaskListPage(taskSummariesFixture);
 
 export const taskEventsFixture: TaskEvent[] = [
   {

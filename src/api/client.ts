@@ -4,6 +4,8 @@ import type {
   EventsPage,
   RetrieveStreamEvent,
   TaskEvent,
+  TaskListPage,
+  TaskRow,
   TaskStatus
 } from "../types";
 
@@ -60,6 +62,29 @@ export class DikwClient {
     options: Omit<JsonRequestOptions, "method" | "body"> = {}
   ): Promise<T> {
     return this.requestJson<T>(path, { ...options, method: "POST", body });
+  }
+
+  listTasks(
+    params: { status?: TaskStatus; op?: string; limit?: number; cursor?: string } = {},
+    signal?: AbortSignal
+  ): Promise<TaskListPage> {
+    return this.requestJson<TaskListPage>("/v1/tasks", {
+      method: "GET",
+      params: {
+        status: params.status,
+        op: params.op,
+        limit: params.limit,
+        cursor: params.cursor
+      },
+      signal
+    });
+  }
+
+  getTask(taskId: string, signal?: AbortSignal): Promise<TaskRow> {
+    return this.requestJson<TaskRow>(`/v1/tasks/${encodeURIComponent(taskId)}`, {
+      method: "GET",
+      signal
+    });
   }
 
   async requestJson<T>(path: string, options: JsonRequestOptions = {}): Promise<T> {

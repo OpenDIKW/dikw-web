@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pause, Play, RefreshCw } from "lucide-react";
-import { DikwClient } from "../api/client";
+import { DikwClient, DikwClientError } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
-import { useAsyncResource } from "../hooks/useAsyncResource";
 import { translations, type Locale } from "../i18n";
-import type { IngestError, TaskEvent, TaskRow, TaskStatus } from "../types";
+import type { IngestError, TaskEvent, TaskRow, TaskRowSummary, TaskStatus } from "../types";
 import { formatDuration, formatIso, formatNumber, formatScore, isTerminalTask } from "../utils/format";
 
 interface TasksPageProps {
@@ -17,10 +16,14 @@ interface TasksPageProps {
 type ProgressEvent = Extract<TaskEvent, { type: "progress" }>;
 type FinalEvent = Extract<TaskEvent, { type: "final" }>;
 type TaskPatch = Pick<TaskRow, "status" | "finished_at" | "result" | "error">;
+type TaskListItem = TaskRowSummary & {
+  result?: Record<string, unknown> | null;
+  error?: Record<string, unknown> | null;
+};
 type TasksCopy = (typeof translations)["en"]["pages"]["tasks"];
 
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
-const PAGE_SIZE = 20;
+const PAGE_LIMIT = 50;
 const EVENT_PAGE_SIZE = 20;
 
 export function TasksPage({ client, locale = "en" }: TasksPageProps) {
@@ -37,46 +40,127 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const controllerRef = useRef<AbortController | null>(null);
   const eventTapeTaskIdRef = useRef<string | null>(null);
 
-  const load = useCallback(
-    (signal: AbortSignal) =>
-      client.get<TaskRow[]>("/v1/tasks", {
-        signal,
-        params: {
-          status: status || undefined,
-          op: op.trim() || undefined,
-          limit: 200
-        }
-      }),
+  const hydratedRef = useRef<Set<string>>(new Set());
+  // Bumped on every list reset (filter change or Refresh). In-flight page
+  // requests capture the value and bail if a newer reset superseded them.
+  const listGenRef = useRef(0);
+  const [rows, setRows] = useState<TaskRowSummary[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [listError, setListError] = useState<unknown>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const loadFirstPage = useCallback(
+    async (signal?: AbortSignal) => {
+      const gen = ++listGenRef.current;
+      setListError(null);
+      try {
+        const page = await client.listTasks(
+          { status: status || undefined, op: op.trim() || undefined, limit: PAGE_LIMIT },
+          signal
+        );
+        // A newer list reset (filter change or Refresh) superseded this load.
+        if (signal?.aborted || listGenRef.current !== gen) return;
+        setRows(page.tasks);
+        setNextCursor(page.next_cursor);
+        setHasMore(page.has_more);
+      } catch (error) {
+        if (signal?.aborted || listGenRef.current !== gen) return;
+        setListError(error);
+        setRows([]);
+        setNextCursor(null);
+        setHasMore(false);
+      }
+    },
     [client, op, status]
   );
-  const tasks = useAsyncResource(load, [client, op, status]);
-  const visibleTasks = useMemo(
-    () => (tasks.data ?? []).map((task) => (taskPatches[task.task_id] ? { ...task, ...taskPatches[task.task_id] } : task)),
-    [taskPatches, tasks.data]
-  );
-  const selected = useMemo(() => visibleTasks.find((task) => task.task_id === selectedId) ?? null, [selectedId, visibleTasks]);
-
-  const [pageIndex, setPageIndex] = useState(0);
-  useEffect(() => {
-    setPageIndex(0);
-  }, [status, op]);
-  const pageCount = Math.max(1, Math.ceil(visibleTasks.length / PAGE_SIZE));
-  useEffect(() => {
-    if (pageIndex > pageCount - 1) {
-      setPageIndex(pageCount - 1);
-    }
-  }, [pageCount, pageIndex]);
-  const pagedTasks = useMemo(
-    () => visibleTasks.slice(pageIndex * PAGE_SIZE, (pageIndex + 1) * PAGE_SIZE),
-    [pageIndex, visibleTasks]
-  );
 
   useEffect(() => {
-    if (!pagedTasks.length) return;
-    if (!selectedId || !pagedTasks.some((task) => task.task_id === selectedId)) {
-      setSelectedId(pagedTasks[0].task_id);
+    const controller = new AbortController();
+    void loadFirstPage(controller.signal);
+    return () => controller.abort();
+  }, [loadFirstPage]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore || !nextCursor) return;
+    const gen = listGenRef.current;
+    setLoadingMore(true);
+    setListError(null);
+    try {
+      const page = await client.listTasks({
+        status: status || undefined,
+        op: op.trim() || undefined,
+        limit: PAGE_LIMIT,
+        cursor: nextCursor
+      });
+      // A list reset (filter change or Refresh) happened while this page was
+      // in flight — discard so we neither append a stale page nor clobber the
+      // refreshed cursor.
+      if (listGenRef.current !== gen) return;
+      setRows((prev) => [...prev, ...page.tasks]);
+      setNextCursor(page.next_cursor);
+      setHasMore(page.has_more);
+    } catch (error) {
+      if (listGenRef.current !== gen) return;
+      if (error instanceof DikwClientError && error.code === "invalid_cursor") {
+        void loadFirstPage();
+        return;
+      }
+      setListError(error);
+    } finally {
+      setLoadingMore(false);
     }
-  }, [pagedTasks, selectedId]);
+  }, [client, op, status, nextCursor, hasMore, loadingMore, loadFirstPage]);
+
+  const visibleTasks = useMemo<TaskListItem[]>(
+    () =>
+      rows.map((row) => {
+        const patch = taskPatches[row.task_id];
+        return patch ? { ...row, ...patch } : row;
+      }),
+    [rows, taskPatches]
+  );
+  const selected = useMemo(
+    () => visibleTasks.find((task) => task.task_id === selectedId) ?? null,
+    [selectedId, visibleTasks]
+  );
+
+  useEffect(() => {
+    if (!rows.length) {
+      if (selectedId !== null) setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !rows.some((task) => task.task_id === selectedId)) {
+      setSelectedId(rows[0].task_id);
+    }
+  }, [rows, selectedId]);
+
+  useEffect(() => {
+    if (!selected || !isTerminalTask(selected.status)) return;
+    if (selected.result !== undefined || hydratedRef.current.has(selected.task_id)) return;
+    const taskId = selected.task_id;
+    hydratedRef.current.add(taskId);
+    client
+      .getTask(taskId)
+      .then((full) => {
+        if (!full) {
+          hydratedRef.current.delete(taskId);
+          return;
+        }
+        setTaskPatches((value) => ({
+          ...value,
+          [full.task_id]: {
+            status: full.status,
+            finished_at: full.finished_at,
+            result: full.result,
+            error: full.error
+          }
+        }));
+      })
+      .catch(() => {
+        hydratedRef.current.delete(taskId);
+      });
+  }, [selected, client]);
 
   const eventPageCount = Math.max(1, Math.ceil(events.length / EVENT_PAGE_SIZE));
   const pagedEvents = useMemo(
@@ -106,22 +190,6 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     setFollowing(false);
   }
 
-  function changePage(next: number) {
-    const clamped = Math.max(0, Math.min(pageCount - 1, next));
-    if (clamped === pageIndex) return;
-    cancelFollow();
-    eventTapeTaskIdRef.current = null;
-    setEvents([]);
-    setEventsError(null);
-    setEventPageIndex(0);
-    setEventStickTail(true);
-    setPageIndex(clamped);
-    const newPage = visibleTasks.slice(clamped * PAGE_SIZE, (clamped + 1) * PAGE_SIZE);
-    if (newPage.length && !newPage.some((task) => task.task_id === selectedId)) {
-      setSelectedId(newPage[0].task_id);
-    }
-  }
-
   function applyFinalEvent(taskId: string, event: FinalEvent) {
     setTaskPatches((value) => ({
       ...value,
@@ -134,7 +202,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     }));
   }
 
-  async function follow(row: TaskRow) {
+  async function follow(row: TaskListItem) {
     cancelFollow();
     const controller = new AbortController();
     controllerRef.current = controller;
@@ -145,7 +213,6 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     setEventPageIndex(0);
     setEventStickTail(!isTerminalTask(row.status));
     setFollowing(true);
-    let sawFinalEvent = false;
     try {
       for await (const event of client.streamTaskEvents(row.task_id, undefined, controller.signal)) {
         if (controllerRef.current !== controller) {
@@ -153,7 +220,6 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         }
         setEvents((value) => [...value, event]);
         if (event.type === "final") {
-          sawFinalEvent = true;
           applyFinalEvent(row.task_id, event);
           break;
         }
@@ -166,9 +232,6 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
       if (controllerRef.current === controller) {
         controllerRef.current = null;
         setFollowing(false);
-        if (sawFinalEvent) {
-          tasks.reload();
-        }
       }
     }
   }
@@ -178,7 +241,9 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   }
 
   function refreshTasks() {
-    tasks.reload();
+    hydratedRef.current.clear();
+    setTaskPatches({});
+    void loadFirstPage();
     if (selected && isTerminalTask(selected.status) && eventTapeTaskIdRef.current === selected.task_id) {
       void follow(selected);
     }
@@ -212,14 +277,14 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         </label>
       </section>
 
-      {tasks.error ? <Notice title={copy.listErrorTitle} error={tasks.error} /> : null}
+      {listError ? <Notice title={copy.listErrorTitle} error={listError} /> : null}
 
       <section className="tasks-layout">
         <div className="panel task-list-panel">
-          {(tasks.data ?? []).length ? (
+          {visibleTasks.length ? (
             <>
               <div className="task-list">
-                {pagedTasks.map((task) => (
+                {visibleTasks.map((task) => (
                   <button
                     className={`task-list__item ${selectedId === task.task_id ? "is-selected" : ""}`}
                     key={task.task_id}
@@ -246,12 +311,18 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
                   </button>
                 ))}
               </div>
-              <PaginationBar
-                pageIndex={pageIndex}
-                pageCount={pageCount}
-                copy={copy.pagination}
-                onChange={changePage}
-              />
+              {hasMore ? (
+                <div className="task-list__more">
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => void loadMore()}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? copy.loadingMore : copy.loadMore}
+                  </button>
+                </div>
+              ) : null}
             </>
           ) : (
             <EmptyState title={copy.taskListEmpty} />
@@ -331,7 +402,7 @@ function EventTape({
   eventPageCount: number;
   onChangeEventPage: (next: number) => void;
   following: boolean;
-  selected: TaskRow;
+  selected: TaskListItem;
   copy: TasksCopy;
 }) {
   if (!events.length) {
@@ -621,7 +692,7 @@ function PaginationBar({
 }: {
   pageIndex: number;
   pageCount: number;
-  copy: TasksCopy["pagination"];
+  copy: TasksCopy["eventPagination"];
   onChange: (next: number) => void;
   className?: string;
 }) {
