@@ -23,7 +23,7 @@ type TaskListItem = TaskRowSummary & {
 type TasksCopy = (typeof translations)["en"]["pages"]["tasks"];
 
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
-const PAGE_LIMIT = 50;
+const PAGE_LIMIT = 20;
 const EVENT_PAGE_SIZE = 20;
 
 export function TasksPage({ client, locale = "en" }: TasksPageProps) {
