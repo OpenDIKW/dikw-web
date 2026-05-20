@@ -295,7 +295,27 @@ export async function mockDikwApi(page: Page) {
       return;
     }
     if (path === "/v1/tasks") {
-      await route.fulfill({ json: taskRowsFixture });
+      await route.fulfill({
+        json: {
+          tasks: taskRowsFixture.map((row) => ({
+            task_id: row.task_id,
+            op: row.op,
+            status: row.status,
+            created_at: row.created_at,
+            started_at: row.started_at,
+            finished_at: row.finished_at,
+            params_digest: row.params_digest
+          })),
+          next_cursor: null,
+          has_more: false
+        }
+      });
+      return;
+    }
+    const taskDetailMatch = /^\/v1\/tasks\/([^/]+)$/.exec(path);
+    if (taskDetailMatch) {
+      const row = taskRowsFixture.find((task) => task.task_id === decodeURIComponent(taskDetailMatch[1]));
+      await route.fulfill(row ? { json: row } : { status: 404, body: `unknown task ${taskDetailMatch[1]}` });
       return;
     }
     if (path === "/v1/tasks/eval-task-1/events") {

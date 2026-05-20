@@ -239,7 +239,7 @@ export interface IngestError {
   message: string;
 }
 
-export interface TaskRow {
+export interface TaskRowSummary {
   task_id: string;
   op: string;
   status: TaskStatus;
@@ -247,8 +247,17 @@ export interface TaskRow {
   started_at: string | null;
   finished_at: string | null;
   params_digest: string;
+}
+
+export interface TaskRow extends TaskRowSummary {
   result: Record<string, unknown> | null;
   error: Record<string, unknown> | null;
+}
+
+export interface TaskListPage {
+  tasks: TaskRowSummary[];
+  next_cursor: string | null;
+  has_more: boolean;
 }
 
 export type TaskEvent =

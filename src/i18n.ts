@@ -146,12 +146,8 @@ export const translations = {
         totalUnknown: "total unknown",
         scanned: "Scanned",
         processed: "Processed",
-        pagination: {
-          prev: "Prev",
-          next: "Next",
-          pageOf: "Page {current} / {total}",
-          ariaLabel: "task pagination"
-        },
+        loadMore: "Load more",
+        loadingMore: "Loading…",
         eventPagination: {
           prev: "Prev",
           next: "Next",
@@ -326,12 +322,8 @@ export const translations = {
         totalUnknown: "总量未知",
         scanned: "已扫描",
         processed: "已处理",
-        pagination: {
-          prev: "上一页",
-          next: "下一页",
-          pageOf: "第 {current} 页 / 共 {total} 页",
-          ariaLabel: "任务列表分页"
-        },
+        loadMore: "加载更多",
+        loadingMore: "加载中…",
         eventPagination: {
           prev: "上一页",
           next: "下一页",

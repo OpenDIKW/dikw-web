@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { GraphPage } from "./GraphPage";
@@ -18,17 +18,22 @@ import {
   ingestFileErrorEventsFixture,
   manyTaskEventsFixture,
   manyTaskRowsFixture,
+  manyTaskSummariesFixture,
   retrieveEventsFixture,
   sourcePagesFixture,
   statusFixture,
   taskEventsFixture,
+  taskListPageFixture,
   taskRowsFixture,
+  toTaskListPage,
+  toTaskSummary,
   wikiPageBodiesFixture,
   wikiPagesFixture,
   wisdomItemsFixture
 } from "../test/fixtures";
 import { createMockClient } from "../test/mockClient";
-import type { DocumentRecord, PageReadResult, TaskEvent, TaskRow } from "../types";
+import { DikwClientError } from "../api/client";
+import type { DocumentRecord, PageReadResult, TaskEvent, TaskListPage, TaskRow } from "../types";
 
 describe("read console pages", () => {
   it("loads overview status from the client", async () => {
@@ -1302,14 +1307,15 @@ describe("read console pages", () => {
 
   it("summarizes eval tasks and loads event timelines without expanding raw JSON", async () => {
     const client = createMockClient();
-    client.get.mockResolvedValue(taskRowsFixture);
+    client.listTasks.mockResolvedValue(taskListPageFixture);
+    client.getTask.mockResolvedValue(taskRowsFixture[0]);
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(taskEventsFixture));
 
     render(<TasksPage client={client} />);
 
     const detail = await screen.findByRole("heading", { name: "eval" });
     expect(detail).toBeInTheDocument();
-    expect(screen.getByText("synthetic-diverse-v1")).toBeInTheDocument();
+    expect(await screen.findByText("synthetic-diverse-v1")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /Load events/ }));
 
@@ -1338,13 +1344,14 @@ describe("read console pages", () => {
         error: null
       }
     ];
-    client.get.mockResolvedValue(ingestRows);
+    client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(ingestRows[0])]));
+    client.getTask.mockResolvedValue(ingestRows[0]);
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(ingestFileErrorEventsFixture));
 
     render(<TasksPage client={client} />);
 
     expect(await screen.findByRole("heading", { name: "ingest" })).toBeInTheDocument();
-    expect(screen.getByText("1 file error")).toBeInTheDocument();
+    expect(await screen.findByText("1 file error")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /Load events/ }));
 
@@ -1367,7 +1374,8 @@ describe("read console pages", () => {
       },
       { ...taskEventsFixture[taskEventsFixture.length - 1], seq: 5 }
     ];
-    client.get.mockResolvedValue(taskRowsFixture);
+    client.listTasks.mockResolvedValue(taskListPageFixture);
+    client.getTask.mockResolvedValue(taskRowsFixture[0]);
     client.streamTaskEvents
       .mockImplementationOnce(() => createAsyncEvents(taskEventsFixture))
       .mockImplementationOnce(() => createAsyncEvents(refreshedEvents));
@@ -1411,7 +1419,7 @@ describe("read console pages", () => {
         error: null
       }
     ];
-    client.get.mockResolvedValue([runningTask]);
+    client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(runningTask)]));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(completedEvents));
 
     render(<TasksPage client={client} />);
@@ -1451,7 +1459,7 @@ describe("read console pages", () => {
         detail: { path: "sources/architecture.md" }
       }
     ];
-    client.get.mockResolvedValue(taskRowsFixture);
+    client.listTasks.mockResolvedValue(taskListPageFixture);
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(zeroTotalScanEvents));
 
     render(<TasksPage client={client} />);
@@ -1518,7 +1526,8 @@ describe("read console pages", () => {
         error: null
       }
     ];
-    client.get.mockResolvedValue(mixedRows);
+    client.listTasks.mockResolvedValue(toTaskListPage(mixedRows.map(toTaskSummary)));
+    client.getTask.mockImplementation((id: string) => Promise.resolve(mixedRows.find((row) => row.task_id === id)));
     client.streamTaskEvents.mockImplementation((taskId: string) =>
       taskId === "synth-running-1" ? createPendingEvents(runningEvents) : createAsyncEvents(doneEvents)
     );
@@ -1538,24 +1547,28 @@ describe("read console pages", () => {
     expect(client.streamTaskEvents).toHaveBeenLastCalledWith("ingest-done-1", undefined, expect.any(AbortSignal));
   });
 
-  it("分页 nav 的 aria-label 跟随 locale 本地化（CodeRabbit minor）", async () => {
+  it("Load more 按钮文案随 locale 本地化", async () => {
     const client = createMockClient();
-    client.get.mockResolvedValue(manyTaskRowsFixture);
+    client.listTasks.mockResolvedValue(
+      toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+    );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     const { unmount } = render(<TasksPage client={client} locale="zh-CN" />);
     await screen.findByText("bulk-task-01");
-    expect(screen.getByRole("navigation", { name: "任务列表分页" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "加载更多" })).toBeInTheDocument();
     unmount();
 
     render(<TasksPage client={client} locale="en" />);
     await screen.findByText("bulk-task-01");
-    expect(screen.getByRole("navigation", { name: "task pagination" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load more" })).toBeInTheDocument();
   });
 
-  it("默认渲染第 1 页 20 条，分页指示器显示 1/2", async () => {
+  it("首屏渲染服务端首页，has_more 时显示 Load more", async () => {
     const client = createMockClient();
-    client.get.mockResolvedValue(manyTaskRowsFixture);
+    client.listTasks.mockResolvedValue(
+      toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+    );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
@@ -1563,204 +1576,308 @@ describe("read console pages", () => {
     await screen.findByText("bulk-task-01");
     expect(screen.getByText("bulk-task-20")).toBeInTheDocument();
     expect(screen.queryByText("bulk-task-21")).not.toBeInTheDocument();
-    expect(screen.getByText(/Page\s*1\s*\/\s*2/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Load more" })).toBeInTheDocument();
   });
 
-  it("点击下一页渲染 21-25 条，上一页回到第 1 页；首尾页对应按钮禁用", async () => {
+  it("点击 Load more 带上 next_cursor 追加下一页；到底后按钮消失", async () => {
     const client = createMockClient();
-    client.get.mockResolvedValue(manyTaskRowsFixture);
+    client.listTasks
+      .mockResolvedValueOnce(
+        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+      )
+      .mockResolvedValueOnce(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
-
     const listPanel = (await screen.findByText("bulk-task-01")).closest(".panel.task-list-panel") as HTMLElement;
-    expect(screen.getByRole("button", { name: /Prev/i })).toBeDisabled();
+    expect(within(listPanel).queryByText("bulk-task-21")).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
 
     await waitFor(() => {
       expect(within(listPanel).getByText("bulk-task-21")).toBeInTheDocument();
     });
     expect(within(listPanel).getByText("bulk-task-25")).toBeInTheDocument();
-    expect(within(listPanel).queryByText("bulk-task-20")).not.toBeInTheDocument();
-    expect(screen.getByText(/Page\s*2\s*\/\s*2/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Next/i })).toBeDisabled();
-
-    await userEvent.click(screen.getByRole("button", { name: /Prev/i }));
-    await waitFor(() => {
-      expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
-    });
-    expect(within(listPanel).queryByText("bulk-task-21")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Prev/i })).toBeDisabled();
+    expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Load more/ })).not.toBeInTheDocument();
+    expect(client.listTasks).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "cursor-2" }));
   });
 
-  it("更改 Op 过滤后页码重置到第 1 页", async () => {
+  it("更改 Op 过滤后重新拉取首页（带 op、不带 cursor）", async () => {
     const client = createMockClient();
-    client.get.mockImplementation((_path: string, options?: { params?: Record<string, unknown> }) => {
-      const opFilter = options?.params?.op;
-      const rows = typeof opFilter === "string" && opFilter.trim().length > 0
-        ? manyTaskRowsFixture.slice(0, 3)
-        : manyTaskRowsFixture;
-      return Promise.resolve(rows);
+    client.listTasks.mockImplementation((params: { op?: string; cursor?: string }) => {
+      const tasks = params.op ? manyTaskSummariesFixture.slice(0, 3) : manyTaskSummariesFixture.slice(0, 20);
+      return Promise.resolve(toTaskListPage(tasks, { hasMore: !params.op, nextCursor: params.op ? null : "cursor-2" }));
     });
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
-
     const listPanel = (await screen.findByText("bulk-task-01")).closest(".panel.task-list-panel") as HTMLElement;
-    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
-    expect(await screen.findByText(/Page\s*2\s*\/\s*2/i)).toBeInTheDocument();
+    expect(within(listPanel).getByText("bulk-task-20")).toBeInTheDocument();
 
-    await userEvent.clear(screen.getByLabelText(/Op/));
     await userEvent.type(screen.getByLabelText(/Op/), "ingest");
 
     await waitFor(() => {
-      expect(screen.queryByText(/Page\s*2/i)).not.toBeInTheDocument();
+      expect(within(listPanel).queryByText("bulk-task-20")).not.toBeInTheDocument();
     });
-    expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
+    expect(within(listPanel).getByText("bulk-task-03")).toBeInTheDocument();
+    expect(within(listPanel).queryByText("bulk-task-04")).not.toBeInTheDocument();
+
+    const lastArgs = client.listTasks.mock.calls.at(-1)?.[0] as { op?: string; cursor?: string };
+    expect(lastArgs.op).toBe("ingest");
+    expect(lastArgs.cursor).toBeUndefined();
   });
 
-  it("reload 后列表重排时，selectedId 跨页则改选当前页首项（CodeRabbit major）", async () => {
-    // 第一次返回 01..25 升序；第二次返回 25..01 降序
-    const initial = manyTaskRowsFixture;
-    const reversed = [...manyTaskRowsFixture].reverse();
+  it("refresh 后选中任务消失时自动改选首项", async () => {
+    const initial = manyTaskSummariesFixture.slice(0, 5); // bulk-task-01..05
+    const reloaded = manyTaskSummariesFixture.slice(5, 10); // bulk-task-06..10
     let callCount = 0;
     const client = createMockClient();
-    client.get.mockImplementation(() => {
+    client.listTasks.mockImplementation(() => {
       callCount += 1;
-      return Promise.resolve(callCount === 1 ? initial : reversed);
+      return Promise.resolve(toTaskListPage(callCount === 1 ? initial : reloaded));
     });
+    client.getTask.mockImplementation((id: string) =>
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+    );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
     await screen.findByText("bulk-task-01");
 
-    // 翻到 page 2 → selectedId = bulk-task-21
-    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await userEvent.click(screen.getByText("bulk-task-03").closest("button") as HTMLElement);
     await waitFor(() => {
-      const headerPath = document.querySelector(".reader-header__path");
-      expect(headerPath?.textContent).toBe("bulk-task-21");
+      expect(document.querySelector(".reader-header__path")?.textContent).toBe("bulk-task-03");
     });
 
-    // Refresh → 重排后 bulk-task-21 仍在 visibleTasks 内，但已落到 page 1（index 4）
-    // pagedTasks（page 2）现在是 bulk-task-05..01；selectedId 不在 pagedTasks 内，应改选 bulk-task-05
     await userEvent.click(screen.getByRole("button", { name: "Refresh tasks" }));
-
     await waitFor(() => {
-      const listPanel = document.querySelector(".panel.task-list-panel") as HTMLElement;
-      expect(within(listPanel).getByText("bulk-task-05")).toBeInTheDocument();
-      expect(within(listPanel).queryByText("bulk-task-21")).not.toBeInTheDocument();
+      expect(document.querySelector(".reader-header__path")?.textContent).toBe("bulk-task-06");
     });
-    await waitFor(() => {
-      const headerPath = document.querySelector(".reader-header__path");
-      expect(headerPath?.textContent).toBe("bulk-task-05");
-    });
+    expect(screen.queryByText("bulk-task-03")).not.toBeInTheDocument();
   });
 
-  it("reload 后选中任务消失时，auto-select 落在当前页可见首项而非 visibleTasks[0]", async () => {
-    // 25 条；翻到第 2 页（21-25），选中 bulk-task-25 后 reload 返回 22 条（删了 bulk-task-25，加 bulk-task-26~30）
-    const initial = manyTaskRowsFixture;
-    const reloaded: TaskRow[] = [
-      ...Array.from({ length: 22 }, (_, index) => ({
-        ...manyTaskRowsFixture[0],
-        task_id: `bulk-task-${String(index + 26).padStart(2, "0")}`,
-        op: "ingest"
-      }))
-    ];
-    let callCount = 0;
+  it("筛选变化后详情面板同步切到新首项", async () => {
     const client = createMockClient();
-    client.get.mockImplementation(() => {
-      callCount += 1;
-      return Promise.resolve(callCount === 1 ? initial : reloaded);
-    });
+    const narrow = [
+      toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "narrow-task-A", status: "succeeded" }),
+      toTaskSummary({ ...manyTaskRowsFixture[1], task_id: "narrow-task-B", status: "succeeded" })
+    ];
+    client.listTasks.mockImplementation((params: { status?: string }) =>
+      Promise.resolve(toTaskListPage(params.status ? narrow : manyTaskSummariesFixture.slice(0, 20)))
+    );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
     await screen.findByText("bulk-task-01");
 
-    // 翻到第 2 页
-    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
-    await waitFor(() => {
-      const headerPath = document.querySelector(".reader-header__path");
-      expect(headerPath?.textContent).toBe("bulk-task-21");
-    });
-
-    // 点 Refresh tasks 触发 reload
-    await userEvent.click(screen.getByRole("button", { name: "Refresh tasks" }));
-
-    // reload 后用户仍在 page 2（pageCount=ceil(22/20)=2），可见 bulk-task-46（22 条中的第 21-22 条）
-    await waitFor(() => {
-      const listPanel = document.querySelector(".panel.task-list-panel") as HTMLElement;
-      expect(within(listPanel).getByText("bulk-task-46")).toBeInTheDocument();
-    });
-
-    // 详情应同步到当前页可见的首项 bulk-task-46，而不是 visibleTasks[0]=bulk-task-26
-    await waitFor(() => {
-      const headerPath = document.querySelector(".reader-header__path");
-      expect(headerPath?.textContent).toBe("bulk-task-46");
-    });
-  });
-
-  it("筛选变化后页码回到 1 时，详情面板同步切到新首项", async () => {
-    const client = createMockClient();
-    // 初始全集 25 条；筛选 "succeeded" 后返回不同的窄集
-    const narrowSet: TaskRow[] = [
-      { ...manyTaskRowsFixture[0], task_id: "narrow-task-A", status: "succeeded" },
-      { ...manyTaskRowsFixture[1], task_id: "narrow-task-B", status: "succeeded" }
-    ];
-    client.get.mockImplementation((_path: string, options?: { params?: Record<string, unknown> }) => {
-      const statusFilter = options?.params?.status;
-      return Promise.resolve(typeof statusFilter === "string" && statusFilter ? narrowSet : manyTaskRowsFixture);
-    });
-    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
-
-    render(<TasksPage client={client} />);
-
-    await screen.findByText("bulk-task-01");
-    // 翻到第 2 页让 selectedId 指向 bulk-task-21
-    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
-    await waitFor(() => {
-      const headerPath = document.querySelector(".reader-header__path");
-      expect(headerPath?.textContent).toBe("bulk-task-21");
-    });
-
-    // 改 status 过滤，触发新数据 + 页码回 1
     await userEvent.selectOptions(screen.getByLabelText(/Status/), "succeeded");
-
     await waitFor(() => {
-      const headerPath = document.querySelector(".reader-header__path");
-      expect(headerPath?.textContent).toBe("narrow-task-A");
+      expect(document.querySelector(".reader-header__path")?.textContent).toBe("narrow-task-A");
     });
-
-    // 列表只剩 narrow-task-*, bulk-task-* 应不存在
-    expect(screen.queryByText("bulk-task-21")).not.toBeInTheDocument();
+    expect(screen.queryByText("bulk-task-01")).not.toBeInTheDocument();
   });
 
-  it("翻页时若 selectedId 不在新页内，自动改选新页第一项", async () => {
+  it("Load more 追加后保持当前选中项", async () => {
     const client = createMockClient();
-    client.get.mockResolvedValue(manyTaskRowsFixture);
+    client.listTasks
+      .mockResolvedValueOnce(
+        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+      )
+      .mockResolvedValueOnce(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+    client.getTask.mockImplementation((id: string) =>
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+    );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
-
     await screen.findByText("bulk-task-01");
-    // 默认选中第一条 bulk-task-01；详情面板应显示 bulk-task-01 在 reader-header__path
+    await userEvent.click(screen.getByText("bulk-task-05").closest("button") as HTMLElement);
     await waitFor(() => {
-      const headerPath = document.querySelector(".reader-header__path");
-      expect(headerPath?.textContent).toBe("bulk-task-01");
+      expect(document.querySelector(".reader-header__path")?.textContent).toBe("bulk-task-05");
     });
 
-    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await screen.findByText("bulk-task-25");
+
+    expect(document.querySelector(".reader-header__path")?.textContent).toBe("bulk-task-05");
+  });
+
+  it("Load more 命中 invalid_cursor 时回落到首页", async () => {
+    const client = createMockClient();
+    client.listTasks
+      .mockResolvedValueOnce(
+        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "stale", hasMore: true })
+      )
+      .mockRejectedValueOnce(new DikwClientError({ status: 400, code: "invalid_cursor", message: "invalid cursor" }))
+      .mockResolvedValueOnce(
+        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+      );
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByText("bulk-task-01");
+
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
 
     await waitFor(() => {
-      const updated = document.querySelector(".reader-header__path");
-      expect(updated?.textContent).toBe("bulk-task-21");
+      expect(client.listTasks).toHaveBeenCalledTimes(3);
+    });
+    const lastArgs = client.listTasks.mock.calls.at(-1)?.[0] as { cursor?: string };
+    expect(lastArgs.cursor).toBeUndefined();
+    expect(screen.getAllByText("bulk-task-01").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Could not read task list")).not.toBeInTheDocument();
+  });
+
+  it("Load more 失败后重试成功时清除错误提示", async () => {
+    const client = createMockClient();
+    client.listTasks
+      .mockResolvedValueOnce(
+        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+      )
+      .mockRejectedValueOnce(new DikwClientError({ status: 500, code: "internal", message: "boom" }))
+      .mockResolvedValueOnce(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByText("bulk-task-01");
+
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(await screen.findByText("Could not read task list")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await screen.findByText("bulk-task-25");
+    expect(screen.queryByText("Could not read task list")).not.toBeInTheDocument();
+  });
+
+  it("Load more 进行中切换筛选时丢弃过期追加结果", async () => {
+    const client = createMockClient();
+    let resolveStale: (() => void) | null = null;
+    client.listTasks.mockImplementation((params: { status?: string; cursor?: string }) => {
+      if (params.cursor) {
+        return new Promise<TaskListPage>((resolve) => {
+          resolveStale = () => resolve(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+        });
+      }
+      if (params.status) {
+        return Promise.resolve(
+          toTaskListPage([toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "filtered-1", status: "succeeded" })])
+        );
+      }
+      return Promise.resolve(
+        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+      );
+    });
+    client.getTask.mockImplementation((id: string) =>
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+    );
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByText("bulk-task-01");
+
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await waitFor(() => expect(resolveStale).not.toBeNull());
+
+    await userEvent.selectOptions(screen.getByLabelText(/Status/), "succeeded");
+    await screen.findAllByText("filtered-1");
+
+    await act(async () => {
+      resolveStale?.();
+      await Promise.resolve();
     });
 
-    // 新页内的任务按钮应高亮（is-selected）
-    const listPanel = document.querySelector(".panel.task-list-panel") as HTMLElement;
-    const selectedBtn = listPanel.querySelector(".task-list__item.is-selected");
-    expect(selectedBtn?.textContent).toContain("bulk-task-21");
+    expect(screen.queryByText("bulk-task-21")).not.toBeInTheDocument();
+    expect(screen.getAllByText("filtered-1").length).toBeGreaterThan(0);
+  });
+
+  it("Refresh 首页请求进行中切换筛选时丢弃过期结果", async () => {
+    const client = createMockClient();
+    let initialDone = false;
+    let resolveStaleRefresh: (() => void) | null = null;
+    client.listTasks.mockImplementation((params: { status?: string; cursor?: string }) => {
+      if (params.status === "succeeded") {
+        return Promise.resolve(
+          toTaskListPage([toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "filtered-1", status: "succeeded" })])
+        );
+      }
+      if (!initialDone) {
+        initialDone = true;
+        return Promise.resolve(toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { hasMore: false }));
+      }
+      // The signal-less Refresh request: held open until after the filter switch.
+      return new Promise<TaskListPage>((resolve) => {
+        resolveStaleRefresh = () =>
+          resolve(toTaskListPage([toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "stale-refresh" })]));
+      });
+    });
+    client.getTask.mockImplementation((id: string) =>
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+    );
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByText("bulk-task-01");
+
+    await userEvent.click(screen.getByRole("button", { name: "Refresh tasks" }));
+    await waitFor(() => expect(resolveStaleRefresh).not.toBeNull());
+
+    await userEvent.selectOptions(screen.getByLabelText(/Status/), "succeeded");
+    await screen.findAllByText("filtered-1");
+
+    await act(async () => {
+      resolveStaleRefresh?.();
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText("stale-refresh")).not.toBeInTheDocument();
+    expect(screen.getAllByText("filtered-1").length).toBeGreaterThan(0);
+  });
+
+  it("Load more 进行中点击 Refresh 时丢弃过期追加页", async () => {
+    const client = createMockClient();
+    let resolveStaleMore: (() => void) | null = null;
+    let initialDone = false;
+    client.listTasks.mockImplementation((params: { status?: string; cursor?: string }) => {
+      if (params.cursor) {
+        // The in-flight Load more — held open until after Refresh resets the list.
+        return new Promise<TaskListPage>((resolve) => {
+          resolveStaleMore = () => resolve(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+        });
+      }
+      if (!initialDone) {
+        initialDone = true;
+        return Promise.resolve(
+          toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+        );
+      }
+      // Refresh response: a fresh first page with a new cursor.
+      return Promise.resolve(
+        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-fresh", hasMore: true })
+      );
+    });
+    client.getTask.mockImplementation((id: string) =>
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+    );
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByText("bulk-task-01");
+
+    await userEvent.click(screen.getByRole("button", { name: "Load more" }));
+    await waitFor(() => expect(resolveStaleMore).not.toBeNull());
+
+    await userEvent.click(screen.getByRole("button", { name: "Refresh tasks" }));
+    await waitFor(() => expect(client.listTasks).toHaveBeenCalledTimes(3));
+
+    await act(async () => {
+      resolveStaleMore?.();
+      await Promise.resolve();
+    });
+
+    // The stale Load-more page (bulk-task-21+) must not be appended after Refresh.
+    expect(screen.queryByText("bulk-task-21")).not.toBeInTheDocument();
+    expect(screen.getAllByText("bulk-task-01").length).toBeGreaterThan(0);
   });
 
   it("事件区：终止态任务 Load 25 个事件后默认在第 1 页，aria-label 与分页指示器到位", async () => {
@@ -1777,7 +1894,7 @@ describe("read console pages", () => {
       result: null,
       error: null
     };
-    client.get.mockResolvedValue([terminalRow]);
+    client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(terminalRow)]));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
 
     render(<TasksPage client={client} />);
@@ -1807,7 +1924,7 @@ describe("read console pages", () => {
       result: null,
       error: null
     };
-    client.get.mockResolvedValue([terminalRow]);
+    client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(terminalRow)]));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
 
     render(<TasksPage client={client} />);
@@ -1851,7 +1968,7 @@ describe("read console pages", () => {
       error: null
     };
     const controlled = createControlledTaskEventStream();
-    client.get.mockResolvedValue([runningRow]);
+    client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(runningRow)]));
     client.streamTaskEvents.mockImplementation(() => controlled.stream());
 
     render(<TasksPage client={client} />);
@@ -1894,7 +2011,7 @@ describe("read console pages", () => {
       error: null
     };
     const controlled = createControlledTaskEventStream();
-    client.get.mockResolvedValue([runningRow]);
+    client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(runningRow)]));
     client.streamTaskEvents.mockImplementation(() => controlled.stream());
 
     render(<TasksPage client={client} />);
@@ -1971,7 +2088,7 @@ describe("read console pages", () => {
         error: null
       }
     ];
-    client.get.mockResolvedValue(rows);
+    client.listTasks.mockResolvedValue(toTaskListPage(rows.map(toTaskSummary)));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
 
     render(<TasksPage client={client} />);
@@ -2010,7 +2127,7 @@ describe("read console pages", () => {
       result: null,
       error: null
     };
-    client.get.mockResolvedValue([terminalRow]);
+    client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(terminalRow)]));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
 
     const { unmount } = render(<TasksPage client={client} locale="zh-CN" />);
@@ -2026,7 +2143,7 @@ describe("read console pages", () => {
     expect(screen.getByRole("navigation", { name: "event pagination" })).toBeInTheDocument();
   });
 
-  it("翻页时自动中止正在 Follow 的事件流", async () => {
+  it("选择其它任务时中止正在 Follow 的事件流", async () => {
     const client = createMockClient();
     const runningRow: TaskRow = {
       ...manyTaskRowsFixture[0],
@@ -2036,7 +2153,10 @@ describe("read console pages", () => {
       result: null
     };
     const rows: TaskRow[] = [runningRow, ...manyTaskRowsFixture.slice(1)];
-    client.get.mockResolvedValue(rows);
+    client.listTasks.mockResolvedValue(toTaskListPage(rows.map(toTaskSummary)));
+    client.getTask.mockImplementation((id: string) =>
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+    );
     client.streamTaskEvents.mockImplementation(() =>
       createPendingEvents([
         {
@@ -2060,7 +2180,7 @@ describe("read console pages", () => {
     const signal = lastCall[2];
     expect(signal.aborted).toBe(false);
 
-    await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+    await userEvent.click(screen.getByText("bulk-task-02").closest("button") as HTMLElement);
 
     await waitFor(() => {
       expect(signal.aborted).toBe(true);
