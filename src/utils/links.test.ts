@@ -39,9 +39,10 @@ describe("resolveBacklinks", () => {
     expect(refs).toEqual([{ path: "wiki/a.md", title: "a", layer: "wiki" }]);
   });
 
-  it("skips incoming links whose src_path is not an active page", () => {
-    const refs = resolveBacklinks([incoming("wiki/ghost.md")], pages);
-    expect(refs).toEqual([]);
+  it("skips incoming links whose src_path is missing or points to an inactive page", () => {
+    expect(resolveBacklinks([incoming("wiki/ghost.md")], pages)).toEqual([]);
+    const inactive: DocumentRecord[] = [{ ...doc("wiki/stale.md", "wiki", "Stale"), active: false }];
+    expect(resolveBacklinks([incoming("wiki/stale.md")], inactive)).toEqual([]);
   });
 
   it("dedupes multiple incoming edges from the same source page", () => {

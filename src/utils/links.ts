@@ -29,7 +29,7 @@ export function resolveBacklinks(
       continue;
     }
     const doc = byPath.get(link.src_path);
-    if (!doc) {
+    if (!doc || !doc.active) {
       continue;
     }
     if (opts?.layers && !opts.layers.includes(doc.layer)) {
