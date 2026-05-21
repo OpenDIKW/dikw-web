@@ -1582,6 +1582,41 @@ textarea:focus {
   font-size: 14px;
 }
 
+.wiki-backlinks {
+  max-width: 860px;
+  margin: 28px auto 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--reader-border);
+}
+
+.wiki-backlinks__title {
+  margin: 0 0 12px;
+  color: var(--reader-muted, var(--text-2));
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.wiki-backlinks__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wiki-backlinks__item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.wiki-backlinks__layer {
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
 .wiki-source-code {
   overflow: auto;
   max-height: calc(100vh - 260px);

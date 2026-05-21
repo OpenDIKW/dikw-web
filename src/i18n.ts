@@ -104,7 +104,8 @@ export const translations = {
         previewNotFound: "Linked page not found",
         previewFilter: "Filter directory by target",
         previewErrorTitle: "Could not read linked page",
-        noMatches: "No matching pages"
+        noMatches: "No matching pages",
+        linkedRefsTitle: "Linked references"
       },
       graph: {
         title: "Graph",
@@ -280,7 +281,8 @@ export const translations = {
         previewNotFound: "未找到引用页面",
         previewFilter: "用目标过滤目录",
         previewErrorTitle: "无法读取引用页面",
-        noMatches: "没有匹配页面"
+        noMatches: "没有匹配页面",
+        linkedRefsTitle: "关联页面"
       },
       graph: {
         title: "知识图谱",

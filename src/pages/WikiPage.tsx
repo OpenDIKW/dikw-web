@@ -7,10 +7,11 @@ import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { translations, type Locale } from "../i18n";
-import type { DocumentRecord, PageReadResult } from "../types";
+import type { DocumentRecord, PageLinksResult, PageReadResult } from "../types";
 import { findPageForTarget } from "../utils/graph";
+import { resolveBacklinks, type BacklinkRef } from "../utils/links";
 import { extractHeadingsWithSlugs, getMarkdownTitle, parseMarkdownDocument, type HeadingEntry } from "../utils/markdown";
-import { basename, formatUnixSeconds, truncateMiddle } from "../utils/format";
+import { basename, displayTitle, formatUnixSeconds, truncateMiddle } from "../utils/format";
 
 interface WikiPageProps {
   client: DikwClient;
@@ -47,6 +48,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   const [pageReloadId, setPageReloadId] = useState(0);
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(() => new Set());
   const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
+  const [backlinks, setBacklinks] = useState<PageLinksResult | null>(null);
   const previewRequestIdRef = useRef(0);
   const didAutoSelectRef = useRef(false);
 
@@ -143,6 +145,35 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     return () => controller.abort();
   }, [client, pageReloadId, selectedPath]);
 
+  // Source pages carry no `[[...]]` of their own (the curated links live in the
+  // K/W layer pointing down at them), so surface their backlinks instead. Only
+  // fetch for source pages; other layers already render their links inline.
+  const loadedPath = page?.path;
+  const loadedLayer = page?.layer;
+  useEffect(() => {
+    if (!loadedPath || loadedLayer !== "source") {
+      setBacklinks(null);
+      return;
+    }
+    const controller = new AbortController();
+    client
+      .get<PageLinksResult>(`/v1/base/pages/${encodePath(loadedPath)}/links`, {
+        signal: controller.signal,
+        params: { direction: "in" }
+      })
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setBacklinks(result);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setBacklinks(null);
+        }
+      });
+    return () => controller.abort();
+  }, [client, loadedPath, loadedLayer, pageReloadId]);
+
   function refreshWiki() {
     pages.reload();
     if (selectedPath) {
@@ -179,21 +210,15 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     setSelectedPath(path);
   }
 
-  function openWikiLink(target: string) {
-    const match = findPageForTarget(target, pages.data ?? []);
-    if (!match) {
-      setPreview({ kind: "not-found", target });
-      return;
-    }
-
+  function previewDoc(doc: DocumentRecord, target: string = doc.title || doc.path) {
     const requestId = previewRequestIdRef.current + 1;
     previewRequestIdRef.current = requestId;
-    setPreview({ kind: "loading", target, doc: match });
+    setPreview({ kind: "loading", target, doc });
     client
-      .get<PageReadResult>(`/v1/base/pages/${encodePath(match.path)}`)
+      .get<PageReadResult>(`/v1/base/pages/${encodePath(doc.path)}`)
       .then((nextPage) => {
         if (previewRequestIdRef.current === requestId) {
-          setPreview({ kind: "ready", target, doc: match, page: nextPage });
+          setPreview({ kind: "ready", target, doc, page: nextPage });
         }
       })
       .catch((nextError: unknown) => {
@@ -201,6 +226,22 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
           setPreview({ kind: "error", target, error: nextError });
         }
       });
+  }
+
+  function openWikiLink(target: string) {
+    const match = findPageForTarget(target, pages.data ?? []);
+    if (!match) {
+      setPreview({ kind: "not-found", target });
+      return;
+    }
+    previewDoc(match, target);
+  }
+
+  function openBacklink(path: string) {
+    const doc = pages.data?.find((entry) => entry.path === path);
+    if (doc) {
+      previewDoc(doc);
+    }
   }
 
   function filterByPreviewTarget(target: string) {
@@ -218,6 +259,12 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   }
 
   const selectedDoc = pages.data?.find((doc) => doc.path === page?.path) ?? null;
+  const backlinkRefs = useMemo(
+    // Only trust backlinks whose response is for the page on screen now; a
+    // source→source switch updates `page` before the new /links call settles.
+    () => (backlinks && backlinks.path === page?.path ? resolveBacklinks(backlinks.incoming, pages.data ?? []) : []),
+    [backlinks, page?.path, pages.data]
+  );
 
   return (
     <div className="page-stack">
@@ -270,6 +317,8 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
           loading={pageLoading}
           error={pageError}
           onWikiLink={openWikiLink}
+          backlinks={backlinkRefs}
+          onOpenBacklink={openBacklink}
           copy={copy}
           assetBaseUrl={assetBaseUrl}
           assetToken={assetToken}
@@ -393,6 +442,8 @@ function WikiReader({
   loading,
   error,
   onWikiLink,
+  backlinks,
+  onOpenBacklink,
   copy,
   assetBaseUrl,
   assetToken
@@ -402,6 +453,8 @@ function WikiReader({
   loading: boolean;
   error: unknown;
   onWikiLink: (target: string) => void;
+  backlinks: BacklinkRef[];
+  onOpenBacklink: (path: string) => void;
   copy: WikiCopy;
   assetBaseUrl: string;
   assetToken: string;
@@ -480,6 +533,9 @@ function WikiReader({
                 assetBaseUrl={assetBaseUrl}
                 assetToken={assetToken}
               />
+              {backlinks.length > 0 ? (
+                <WikiBacklinksSection backlinks={backlinks} onOpenBacklink={onOpenBacklink} copy={copy} />
+              ) : null}
             </section>
           ) : null}
           {activeTab === "info" && parsed ? (
@@ -671,6 +727,32 @@ function WikiOutlinePanel({
           )}
         </section>
       </div>
+    </section>
+  );
+}
+
+function WikiBacklinksSection({
+  backlinks,
+  onOpenBacklink,
+  copy
+}: {
+  backlinks: BacklinkRef[];
+  onOpenBacklink: (path: string) => void;
+  copy: WikiCopy;
+}) {
+  return (
+    <section className="wiki-backlinks" aria-label={copy.linkedRefsTitle}>
+      <h2 className="wiki-backlinks__title">{copy.linkedRefsTitle}</h2>
+      <ul className="wiki-backlinks__list">
+        {backlinks.map((ref) => (
+          <li className="wiki-backlinks__item" key={ref.path}>
+            <button type="button" className="inline-wikilink" onClick={() => onOpenBacklink(ref.path)}>
+              {ref.title}
+            </button>
+            <span className="soft-label wiki-backlinks__layer">{ref.layer}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -867,7 +949,7 @@ function asStringList(value: string | string[] | undefined): string[] {
 }
 
 function displayFileName(doc: DocumentRecord): string {
-  return doc.title || basename(doc.path).replace(/\.md$/i, "");
+  return displayTitle(doc);
 }
 
 function encodePath(path: string): string {
