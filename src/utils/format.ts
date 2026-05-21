@@ -90,6 +90,10 @@ export function basename(path: string): string {
   return path.split("/").filter(Boolean).at(-1) ?? path;
 }
 
+export function displayTitle(doc: { title: string | null; path: string }): string {
+  return doc.title || basename(doc.path).replace(/\.md$/i, "");
+}
+
 export function truncateMiddle(value: string, max = 56): string {
   if (value.length <= max) {
     return value;

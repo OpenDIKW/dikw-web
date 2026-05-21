@@ -33,7 +33,7 @@ import {
 } from "../test/fixtures";
 import { createMockClient } from "../test/mockClient";
 import { DikwClientError } from "../api/client";
-import type { DocumentRecord, PageReadResult, TaskEvent, TaskListPage, TaskRow } from "../types";
+import type { DocumentRecord, PageLinksResult, PageReadResult, TaskEvent, TaskListPage, TaskRow } from "../types";
 
 describe("read console pages", () => {
   it("loads overview status from the client", async () => {
@@ -121,6 +121,51 @@ describe("read console pages", () => {
     expect(screen.getByText("wiki · 1 anchor")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Synthesis" }));
     expect(await screen.findByText("Synthesis Body.")).toBeInTheDocument();
+  });
+
+  it("surfaces source-page backlinks and opens them in the preview panel", async () => {
+    const client = createMockClient();
+    const linksCalls: string[] = [];
+    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.endsWith("/links")) {
+        linksCalls.push(path);
+        expect(options?.params).toEqual({ direction: "in" });
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          outgoing: [],
+          incoming: [
+            { src_doc_id: "wiki-architecture", src_path: "wiki/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
+          ]
+        } satisfies PageLinksResult);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    // Default selection is a wiki page: no /links request, no backlinks region.
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    expect(linksCalls).toHaveLength(0);
+    expect(screen.queryByRole("region", { name: "Linked references" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "sources" }));
+    await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
+
+    const backlinks = await screen.findByRole("region", { name: "Linked references" });
+    await waitFor(() => expect(linksCalls).toHaveLength(1));
+    const backlinkButton = within(backlinks).getByRole("button", { name: "Architecture" });
+    expect(backlinkButton).toBeInTheDocument();
+
+    await userEvent.click(backlinkButton);
+    const preview = await screen.findByRole("region", { name: "Wiki link preview" });
+    expect(within(preview).getByText("wiki/architecture.md")).toBeInTheDocument();
   });
 
   it("loads base pages without a layer selector and shows the base directory tree", async () => {

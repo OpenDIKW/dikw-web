@@ -1,7 +1,7 @@
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation } from "d3-force";
 import type { SimulationLinkDatum, SimulationNodeDatum } from "d3-force";
 import type { DocumentRecord, GraphResult, Layer, PageReadResult } from "../types";
-import { basename } from "./format";
+import { basename, displayTitle } from "./format";
 
 export interface GraphNode {
   id: string;
@@ -84,7 +84,7 @@ export function toKnowledgeGraph(result: GraphResult): KnowledgeGraph {
   const usedEdgeIds = new Map<string, number>();
   const nodes = result.nodes.map((node) => ({
     id: node.id,
-    title: node.title || basename(node.path).replace(/\.md$/i, ""),
+    title: displayTitle(node),
     path: node.path,
     layer: node.layer,
     inbound: node.inbound,
@@ -127,7 +127,7 @@ export function buildKnowledgeGraph(pages: DocumentRecord[], bodies: Record<stri
       page.path,
       {
         id: page.path,
-        title: page.title || basename(page.path).replace(/\.md$/i, ""),
+        title: displayTitle(page),
         path: page.path,
         layer: page.layer,
         inbound: 0,

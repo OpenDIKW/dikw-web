@@ -141,6 +141,30 @@ export interface PageReadResult {
   assets: PageAsset[];
 }
 
+export type LinkType = "wikilink" | "markdown" | "url";
+export type LinkDirection = "in" | "out" | "both";
+
+export interface OutgoingLink {
+  dst_path: string;
+  link_type: LinkType;
+  anchor: string | null;
+  line: number;
+}
+
+export interface IncomingLink {
+  src_doc_id: string;
+  src_path: string;
+  link_type: LinkType;
+  anchor: string | null;
+  line: number;
+}
+
+export interface PageLinksResult {
+  path: string;
+  outgoing: OutgoingLink[];
+  incoming: IncomingLink[];
+}
+
 export interface CoreGraphNode {
   id: string;
   path: string;
