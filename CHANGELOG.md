@@ -45,7 +45,10 @@ file format introduced in `[0.0.1.0]` was dropped.
   loop: `openBacklink` now previews-by-path when the entry is not yet
   in `pages.data`, so the cache-lag fallback never ships a dead
   button. `previewDoc` and the new `previewByPath` share the same
-  request lifecycle.
+  request lifecycle. The preview's `Open as main document` button is
+  also hidden for cache-lag stub previews — the selection effect would
+  otherwise round-trip the unknown path back to the default page,
+  silently dropping the click.
 - `mergeSourceReferences` is now pure-functional (no in-place
   mutation of map entries) and sorts `sourced`-only above `linked`-
   only inside the single-evidence tier so the two evidence channels

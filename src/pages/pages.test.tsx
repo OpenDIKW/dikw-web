@@ -296,6 +296,11 @@ describe("read console pages", () => {
 
     const preview = await screen.findByRole("region", { name: "Wiki link preview" });
     expect(within(preview).getByText("wiki/fresh-k.md")).toBeInTheDocument();
+    // The selection-effect at L114 (WikiPage) forces any selectedPath
+    // outside visiblePages back to the default page, so the "Open as
+    // main document" button would silently fail for a cache-lag stub.
+    // Hide it instead of shipping a dead button.
+    expect(within(preview).queryByRole("button", { name: "Open as main document" })).not.toBeInTheDocument();
   });
 
   it("silently degrades when /provenance returns 404", async () => {

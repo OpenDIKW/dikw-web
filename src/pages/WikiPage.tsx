@@ -896,9 +896,14 @@ function WikiLinkPreview({
               <span className="soft-label">{formatAnchorCount(preview.page.anchors.length)}</span>
             </div>
             <p>{summarizeMarkdown(preview.page.body)}</p>
-            <button className="secondary-button" type="button" onClick={() => onOpen(preview.page.path)}>
-              {copy.previewOpen}
-            </button>
+            {/* Hide "Open as main document" for cache-lag stub docs (doc_id === "") —
+                the selection effect would round-trip the unknown path back to the
+                default page since visiblePages doesn't contain it yet. */}
+            {preview.doc.doc_id ? (
+              <button className="secondary-button" type="button" onClick={() => onOpen(preview.page.path)}>
+                {copy.previewOpen}
+              </button>
+            ) : null}
           </article>
         </PreviewFrame>
       ) : null}
