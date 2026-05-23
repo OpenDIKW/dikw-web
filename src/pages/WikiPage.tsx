@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ArrowUp, ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, X } from "lucide-react";
-import { DikwClient } from "../api/client";
+import { DikwClient, DikwClientError } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
@@ -181,8 +181,10 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   }, [client, loadedPath, loadedLayer, pageReloadId]);
 
   // K-page frontmatter `sources:` is a second, independent reverse-edge channel
-  // alongside body wikilinks; pre-0.2.6 cores return 404, so swallow errors and
-  // let the merged panel degrade to /links-only.
+  // alongside body wikilinks. Pre-0.2.6 cores have no /provenance endpoint and
+  // return 404 — silently degrade to /links-only. Other failures (5xx, network)
+  // also clear the channel but surface a warning so the user / dev sees that
+  // provenance is missing, instead of guessing at a quiet UI.
   useEffect(() => {
     if (!loadedPath || loadedLayer !== "source") {
       setDerived(null);
@@ -195,17 +197,46 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
         params: { direction: "in" }
       })
       .then((result) => {
-        if (!controller.signal.aborted) {
-          setDerived(result);
+        if (controller.signal.aborted) {
+          return;
         }
+        // Layer-safety invariant the core contract documents: a source page's
+        // `derived_from` should be empty (provenance points outward, not into
+        // a source). Warn instead of silently dropping, so a future regression
+        // in core is visible in dev tooling.
+        if (result.derived_from.length > 0 && typeof console !== "undefined") {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[wiki] /provenance for source page ${loadedPath} returned ${result.derived_from.length} derived_from entries; core contract says this should be empty.`
+          );
+        }
+        setDerived(result);
       })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setDerived(null);
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setDerived(null);
+        // 404 / 405 are the documented pre-0.2.6 fallback path — silent on
+        // purpose. Anything else (5xx, network, parse error) leaves a console
+        // warning so the disappearance is debuggable.
+        const status = error instanceof DikwClientError ? error.status : null;
+        if (status !== 404 && status !== 405 && typeof console !== "undefined") {
+          // eslint-disable-next-line no-console
+          console.warn(`[wiki] /provenance for ${loadedPath} failed:`, error);
         }
       });
     return () => controller.abort();
   }, [client, loadedPath, loadedLayer, pageReloadId]);
+
+  // Source→source navigation: clear the prior page's reverse-edge state up
+  // front so the merged panel never shows stale chips during the body-fetch
+  // → setPage → effects-rerun window. Race guards in the memo still protect
+  // against late-arriving in-flight responses.
+  useEffect(() => {
+    setBacklinks(null);
+    setDerived(null);
+  }, [selectedPath]);
 
   function refreshWiki() {
     pages.reload();
@@ -788,10 +819,20 @@ function WikiBacklinksSection({
             </button>
             <span className="soft-label wiki-backlinks__layer">{ref.layer}</span>
             {ref.sources.includes("linked") ? (
-              <span className="frontmatter-chip">{copy.referenceSourceLinked}</span>
+              <span
+                className="soft-label wiki-backlinks__source wiki-backlinks__source--linked"
+                aria-label={copy.referenceSourceLinkedAria}
+              >
+                {copy.referenceSourceLinked}
+              </span>
             ) : null}
             {ref.sources.includes("sourced") ? (
-              <span className="frontmatter-chip frontmatter-chip--source">{copy.referenceSourceSourced}</span>
+              <span
+                className="soft-label wiki-backlinks__source wiki-backlinks__source--sourced"
+                aria-label={copy.referenceSourceSourcedAria}
+              >
+                {copy.referenceSourceSourced}
+              </span>
             ) : null}
           </li>
         ))}

@@ -107,7 +107,9 @@ export const translations = {
         noMatches: "No matching pages",
         linkedRefsTitle: "Linked references",
         referenceSourceLinked: "linked",
-        referenceSourceSourced: "sourced"
+        referenceSourceSourced: "sourced",
+        referenceSourceLinkedAria: "Linked via body wikilink",
+        referenceSourceSourcedAria: "Linked via frontmatter source"
       },
       graph: {
         title: "Graph",
@@ -286,7 +288,9 @@ export const translations = {
         noMatches: "没有匹配页面",
         linkedRefsTitle: "关联页面",
         referenceSourceLinked: "链接",
-        referenceSourceSourced: "出处"
+        referenceSourceSourced: "出处",
+        referenceSourceLinkedAria: "通过正文双链关联",
+        referenceSourceSourcedAria: "通过 frontmatter 出处关联"
       },
       graph: {
         title: "知识图谱",
