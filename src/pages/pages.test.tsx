@@ -168,6 +168,192 @@ describe("read console pages", () => {
     expect(within(preview).getByText("wiki/architecture.md")).toBeInTheDocument();
   });
 
+  it("merges body backlinks and frontmatter provenance into the source linked references panel", async () => {
+    const client = createMockClient();
+    const provenanceCalls: string[] = [];
+    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.endsWith("/links")) {
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          outgoing: [],
+          incoming: [
+            { src_doc_id: "wiki-architecture", src_path: "wiki/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
+          ]
+        } satisfies PageLinksResult);
+      }
+      if (path.endsWith("/provenance")) {
+        provenanceCalls.push(path);
+        expect(options?.params).toEqual({ direction: "in" });
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          derived_from: [],
+          derived_pages: [
+            { doc_id: "wiki-architecture", path: "wiki/architecture.md", title: "Architecture" },
+            { doc_id: "wiki-synthesis", path: "wiki/synthesis.md", title: "Synthesis" }
+          ]
+        });
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "sources" }));
+    await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
+
+    const refs = await screen.findByRole("region", { name: "Linked references" });
+    await waitFor(() => expect(provenanceCalls).toHaveLength(1));
+
+    // Both K pages should be listed; Architecture has both linked and sourced
+    // evidence (body wikilink + frontmatter source); Synthesis only sourced.
+    const architectureItem = within(refs).getByRole("button", { name: "Architecture" }).closest("li") as HTMLElement;
+    const synthesisItem = within(refs).getByRole("button", { name: "Synthesis" }).closest("li") as HTMLElement;
+    expect(within(architectureItem).getByText("linked")).toBeInTheDocument();
+    expect(within(architectureItem).getByText("sourced")).toBeInTheDocument();
+    expect(within(synthesisItem).queryByText("linked")).not.toBeInTheDocument();
+    expect(within(synthesisItem).getByText("sourced")).toBeInTheDocument();
+
+    // Double-evidence Architecture sorts above sourced-only Synthesis.
+    const items = within(refs).getAllByRole("listitem");
+    expect(items[0]).toBe(architectureItem);
+  });
+
+  it("silently degrades when /provenance returns 404", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.endsWith("/links")) {
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          outgoing: [],
+          incoming: [
+            { src_doc_id: "wiki-architecture", src_path: "wiki/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
+          ]
+        } satisfies PageLinksResult);
+      }
+      if (path.endsWith("/provenance")) {
+        return Promise.reject(new DikwClientError({ status: 404, code: "not_found", message: "endpoint unavailable" }));
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "sources" }));
+    await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
+
+    const refs = await screen.findByRole("region", { name: "Linked references" });
+    const architectureItem = within(refs).getByRole("button", { name: "Architecture" }).closest("li") as HTMLElement;
+    expect(within(architectureItem).getByText("linked")).toBeInTheDocument();
+    expect(within(architectureItem).queryByText("sourced")).not.toBeInTheDocument();
+    expect(within(refs).queryByRole("button", { name: "Synthesis" })).not.toBeInTheDocument();
+    // No top-level error notice was rendered for the 404.
+    expect(screen.queryByText(/endpoint unavailable/)).not.toBeInTheDocument();
+  });
+
+  it("treats stale /provenance responses for a different source path as no-op", async () => {
+    const client = createMockClient();
+    const secondSource: DocumentRecord = {
+      doc_id: "source-synthesis-notes",
+      path: "sources/synthesis-notes.md",
+      path_key: "sources/synthesis-notes.md",
+      title: "Synthesis notes",
+      hash: "hash-src-sn",
+      mtime: 1777819000,
+      layer: "source",
+      active: true
+    };
+    const sourceBodies: Record<string, PageReadResult> = {
+      "sources/architecture.md": {
+        doc_id: "source-architecture",
+        path: "sources/architecture.md",
+        layer: "source",
+        title: "Architecture source",
+        body: "Body of architecture source.",
+        anchors: [],
+        assets: []
+      },
+      "sources/synthesis-notes.md": {
+        doc_id: "source-synthesis-notes",
+        path: "sources/synthesis-notes.md",
+        layer: "source",
+        title: "Synthesis notes",
+        body: "Body of synthesis notes source.",
+        anchors: [],
+        assets: []
+      }
+    };
+    let resolveStaleProvenance: ((value: unknown) => void) | null = null;
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve([secondSource, ...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.endsWith("/links")) {
+        const target = decodeURIComponent(path.replace("/v1/base/pages/", "").replace(/\/links$/, ""));
+        return Promise.resolve({ path: target, outgoing: [], incoming: [] } satisfies PageLinksResult);
+      }
+      if (path.endsWith("/provenance")) {
+        const target = decodeURIComponent(path.replace("/v1/base/pages/", "").replace(/\/provenance$/, ""));
+        if (target === "sources/architecture.md") {
+          // Park this response until after we've switched to the other source.
+          return new Promise((resolve) => {
+            resolveStaleProvenance = resolve;
+          });
+        }
+        return Promise.resolve({
+          path: target,
+          derived_from: [],
+          derived_pages: [{ doc_id: "wiki-synthesis", path: "wiki/synthesis.md", title: "Synthesis" }]
+        });
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(sourceBodies[selectedPath] ?? wikiPageBodiesFixture[selectedPath]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "sources" }));
+    await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
+    await waitFor(() => expect(screen.getByText("Body of architecture source.")).toBeInTheDocument());
+
+    // Switch to a different source while the first /provenance is still pending.
+    await userEvent.click(screen.getByRole("button", { name: /Synthesis notes/ }));
+    await waitFor(() => expect(screen.getByText("Body of synthesis notes source.")).toBeInTheDocument());
+
+    const refs = await screen.findByRole("region", { name: "Linked references" });
+    expect(within(refs).getByRole("button", { name: "Synthesis" })).toBeInTheDocument();
+
+    // Now resolve the stale architecture provenance — it must not pollute the
+    // synthesis-notes panel with Architecture or extra entries.
+    await act(async () => {
+      resolveStaleProvenance?.({
+        path: "sources/architecture.md",
+        derived_from: [],
+        derived_pages: [{ doc_id: "wiki-architecture", path: "wiki/architecture.md", title: "Architecture" }]
+      });
+    });
+
+    expect(within(refs).queryByRole("button", { name: "Architecture" })).not.toBeInTheDocument();
+  });
+
   it("loads base pages without a layer selector and shows the base directory tree", async () => {
     const client = createMockClient();
     client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
