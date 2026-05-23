@@ -161,9 +161,8 @@ external dikw-core (host networking + CORS).
 
 ## Where canonical docs live
 
-- `AGENTS.md` — short operational guide for Codex/agent sessions.
-- `CLAUDE.md` — equivalent guide for Claude Code; defers to `AGENTS.md`
-  where they conflict.
+- `CLAUDE.md` — operational guide for Claude Code sessions (working
+  principles, architecture, testing, patch intake).
 - `docs/deployment.md` — production deploy (Docker, env vars, networking).
 - `docs/core-contract.md` — the `dikw-core` HTTP subset this app
   consumes (Settings, Overview, Base Pages, Assets, Graph, Chat, Tasks).
