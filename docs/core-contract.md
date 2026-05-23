@@ -106,10 +106,14 @@ merges them in a single `Linked references` panel.
 - `GET /v1/base/pages/{path}/provenance?direction=in` (dikw-core
   `0.2.6+`) returns `PageProvenanceResult` whose `derived_pages[]`
   lists K-pages that name this path in their frontmatter `sources:`
-  list (`doc_id`, `path`, `title`). The layer-safe contract: for a
-  source page, `derived_from` is always `[]`; for a wiki page,
-  `derived_pages` is always `[]`. Pre-`0.2.6` cores return 404 — the
-  reader catches this silently and degrades to `/links`-only.
+  list (`doc_id`, `path`, `title`). The layer-safe contract that
+  core enforces: for a source page, `derived_from` is expected to be
+  empty; for a wiki page, `derived_pages` is expected to be empty.
+  The reader emits a dev-mode `console.warn` if it observes a
+  violation, but does not crash. Pre-`0.2.6` cores return 404 / 405
+  — the reader catches these silently and degrades to `/links`-only;
+  other failures (5xx, network) still clear the channel but log a
+  warning so the missing data is debuggable.
 
 `linked` (body wikilink) and `sourced` (frontmatter provenance) are
 two evidence channels for the same K↔Source relationship; a given K

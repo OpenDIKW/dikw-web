@@ -9,15 +9,23 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
-## [0.0.3] - 2026-05-23
+## [0.0.3] - 2026-05-24
 
 ### Added
 
 - Source reader merges body `[[wikilink]]` backlinks and frontmatter
   `sources:` provenance into a single `Linked references` panel with
-  `linked` / `sourced` chips. Consumes `GET /v1/base/pages/{path}/provenance?direction=in`
-  from `dikw-core 0.2.6+`; pre-`0.2.6` cores 404 and the panel
-  degrades silently to `/links`-only behavior.
+  `linked` / `sourced` labels. Consumes `GET /v1/base/pages/{path}/provenance?direction=in`
+  from `dikw-core 0.2.6+`; pre-`0.2.6` cores 404 (or 405) and the
+  panel degrades silently to `/links`-only behavior. Other
+  `/provenance` failures (5xx, network, parse) also clear the
+  sourced channel but log a `console.warn` so the disappearance is
+  debuggable. A dev-mode `console.warn` also fires when the core
+  contract's layer-safety invariant is violated (non-empty
+  `derived_from` on a source page).
+- Source labels carry `aria-label` (`Linked via body wikilink` /
+  `Linked via frontmatter source`) so screen readers announce the
+  evidence channel, not just the chip text.
 
 ### Fixed
 
@@ -30,6 +38,18 @@ file format introduced in `[0.0.1.0]` was dropped.
   wrapper is now memoized on `html`. This was latent before but
   surfaced when the new source-reader effect started firing a second
   `setState` after page load.
+- `resolveDerivedPages` no longer silently drops a `/provenance`
+  entry when the cached `pages` list lags behind core — it falls back
+  to the wire `title` so a just-synthesized K-page is visible in the
+  source reader without a manual refresh.
+- `mergeSourceReferences` is now pure-functional (no in-place
+  mutation of map entries) and sorts `sourced`-only above `linked`-
+  only inside the single-evidence tier so the two evidence channels
+  read as contiguous visual blocks instead of interleaving by title.
+- Switching between source pages clears the prior page's
+  `Linked references` content synchronously, so the panel never
+  shows stale chips during the body-fetch window. Existing race
+  guards in the merge memo remain as defense in depth.
 
 ## [0.0.2] - 2026-05-23
 
