@@ -7,9 +7,14 @@ import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { translations, type Locale } from "../i18n";
-import type { DocumentRecord, PageLinksResult, PageReadResult } from "../types";
+import type { DocumentRecord, PageLinksResult, PageProvenanceResult, PageReadResult } from "../types";
 import { findPageForTarget } from "../utils/graph";
-import { resolveBacklinks, type BacklinkRef } from "../utils/links";
+import {
+  mergeSourceReferences,
+  resolveBacklinks,
+  resolveDerivedPages,
+  type SourceReference
+} from "../utils/links";
 import { extractHeadingsWithSlugs, getMarkdownTitle, parseMarkdownDocument, type HeadingEntry } from "../utils/markdown";
 import { basename, displayTitle, formatUnixSeconds, truncateMiddle } from "../utils/format";
 
@@ -49,6 +54,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(() => new Set());
   const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
   const [backlinks, setBacklinks] = useState<PageLinksResult | null>(null);
+  const [derived, setDerived] = useState<PageProvenanceResult | null>(null);
   const previewRequestIdRef = useRef(0);
   const didAutoSelectRef = useRef(false);
 
@@ -174,6 +180,33 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     return () => controller.abort();
   }, [client, loadedPath, loadedLayer, pageReloadId]);
 
+  // K-page frontmatter `sources:` is a second, independent reverse-edge channel
+  // alongside body wikilinks; pre-0.2.6 cores return 404, so swallow errors and
+  // let the merged panel degrade to /links-only.
+  useEffect(() => {
+    if (!loadedPath || loadedLayer !== "source") {
+      setDerived(null);
+      return;
+    }
+    const controller = new AbortController();
+    client
+      .get<PageProvenanceResult>(`/v1/base/pages/${encodePath(loadedPath)}/provenance`, {
+        signal: controller.signal,
+        params: { direction: "in" }
+      })
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setDerived(result);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setDerived(null);
+        }
+      });
+    return () => controller.abort();
+  }, [client, loadedPath, loadedLayer, pageReloadId]);
+
   function refreshWiki() {
     pages.reload();
     if (selectedPath) {
@@ -259,12 +292,16 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   }
 
   const selectedDoc = pages.data?.find((doc) => doc.path === page?.path) ?? null;
-  const backlinkRefs = useMemo(
-    // Only trust backlinks whose response is for the page on screen now; a
-    // source→source switch updates `page` before the new /links call settles.
-    () => (backlinks && backlinks.path === page?.path ? resolveBacklinks(backlinks.incoming, pages.data ?? []) : []),
-    [backlinks, page?.path, pages.data]
-  );
+  const sourceReferences = useMemo<SourceReference[]>(() => {
+    // Only trust each response whose `path` matches the page on screen now;
+    // a source→source switch updates `page` before the in-flight /links or
+    // /provenance call settles.
+    const linked =
+      backlinks && backlinks.path === page?.path ? resolveBacklinks(backlinks.incoming, pages.data ?? []) : [];
+    const sourced =
+      derived && derived.path === page?.path ? resolveDerivedPages(derived.derived_pages, pages.data ?? []) : [];
+    return mergeSourceReferences(linked, sourced);
+  }, [backlinks, derived, page?.path, pages.data]);
 
   return (
     <div className="page-stack">
@@ -317,7 +354,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
           loading={pageLoading}
           error={pageError}
           onWikiLink={openWikiLink}
-          backlinks={backlinkRefs}
+          references={sourceReferences}
           onOpenBacklink={openBacklink}
           copy={copy}
           assetBaseUrl={assetBaseUrl}
@@ -442,7 +479,7 @@ function WikiReader({
   loading,
   error,
   onWikiLink,
-  backlinks,
+  references,
   onOpenBacklink,
   copy,
   assetBaseUrl,
@@ -453,7 +490,7 @@ function WikiReader({
   loading: boolean;
   error: unknown;
   onWikiLink: (target: string) => void;
-  backlinks: BacklinkRef[];
+  references: SourceReference[];
   onOpenBacklink: (path: string) => void;
   copy: WikiCopy;
   assetBaseUrl: string;
@@ -533,8 +570,8 @@ function WikiReader({
                 assetBaseUrl={assetBaseUrl}
                 assetToken={assetToken}
               />
-              {backlinks.length > 0 ? (
-                <WikiBacklinksSection backlinks={backlinks} onOpenBacklink={onOpenBacklink} copy={copy} />
+              {references.length > 0 ? (
+                <WikiBacklinksSection references={references} onOpenBacklink={onOpenBacklink} copy={copy} />
               ) : null}
             </section>
           ) : null}
@@ -732,11 +769,11 @@ function WikiOutlinePanel({
 }
 
 function WikiBacklinksSection({
-  backlinks,
+  references,
   onOpenBacklink,
   copy
 }: {
-  backlinks: BacklinkRef[];
+  references: SourceReference[];
   onOpenBacklink: (path: string) => void;
   copy: WikiCopy;
 }) {
@@ -744,12 +781,18 @@ function WikiBacklinksSection({
     <section className="wiki-backlinks" aria-label={copy.linkedRefsTitle}>
       <h2 className="wiki-backlinks__title">{copy.linkedRefsTitle}</h2>
       <ul className="wiki-backlinks__list">
-        {backlinks.map((ref) => (
+        {references.map((ref) => (
           <li className="wiki-backlinks__item" key={ref.path}>
             <button type="button" className="inline-wikilink" onClick={() => onOpenBacklink(ref.path)}>
               {ref.title}
             </button>
             <span className="soft-label wiki-backlinks__layer">{ref.layer}</span>
+            {ref.sources.includes("linked") ? (
+              <span className="frontmatter-chip">{copy.referenceSourceLinked}</span>
+            ) : null}
+            {ref.sources.includes("sourced") ? (
+              <span className="frontmatter-chip frontmatter-chip--source">{copy.referenceSourceSourced}</span>
+            ) : null}
           </li>
         ))}
       </ul>
