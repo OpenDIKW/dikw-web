@@ -41,7 +41,11 @@ file format introduced in `[0.0.1.0]` was dropped.
 - `resolveDerivedPages` no longer silently drops a `/provenance`
   entry when the cached `pages` list lags behind core — it falls back
   to the wire `title` so a just-synthesized K-page is visible in the
-  source reader without a manual refresh.
+  source reader without a manual refresh. The click handler closes the
+  loop: `openBacklink` now previews-by-path when the entry is not yet
+  in `pages.data`, so the cache-lag fallback never ships a dead
+  button. `previewDoc` and the new `previewByPath` share the same
+  request lifecycle.
 - `mergeSourceReferences` is now pure-functional (no in-place
   mutation of map entries) and sorts `sourced`-only above `linked`-
   only inside the single-evidence tier so the two evidence channels

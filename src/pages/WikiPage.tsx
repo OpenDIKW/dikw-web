@@ -274,12 +274,12 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     setSelectedPath(path);
   }
 
-  function previewDoc(doc: DocumentRecord, target: string = doc.title || doc.path) {
+  function previewByPath(path: string, target: string, doc: DocumentRecord) {
     const requestId = previewRequestIdRef.current + 1;
     previewRequestIdRef.current = requestId;
     setPreview({ kind: "loading", target, doc });
     client
-      .get<PageReadResult>(`/v1/base/pages/${encodePath(doc.path)}`)
+      .get<PageReadResult>(`/v1/base/pages/${encodePath(path)}`)
       .then((nextPage) => {
         if (previewRequestIdRef.current === requestId) {
           setPreview({ kind: "ready", target, doc, page: nextPage });
@@ -290,6 +290,10 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
           setPreview({ kind: "error", target, error: nextError });
         }
       });
+  }
+
+  function previewDoc(doc: DocumentRecord, target: string = doc.title || doc.path) {
+    previewByPath(doc.path, target, doc);
   }
 
   function openWikiLink(target: string) {
@@ -305,7 +309,28 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     const doc = pages.data?.find((entry) => entry.path === path);
     if (doc) {
       previewDoc(doc);
+      return;
     }
+    // pages.data hasn't caught up with this K-page yet (the cache-lag case
+    // resolveDerivedPages renders with the wire title). Look up the
+    // already-rendered reference for a usable title + layer, then preview
+    // by path — the body still comes from GET /v1/base/pages/<path> so
+    // pages.data being stale doesn't block the click.
+    const ref = sourceReferences.find((entry) => entry.path === path);
+    if (!ref) {
+      return;
+    }
+    const stub: DocumentRecord = {
+      doc_id: "",
+      path: ref.path,
+      path_key: ref.path.toLowerCase(),
+      title: ref.title,
+      hash: "",
+      mtime: 0,
+      layer: ref.layer,
+      active: true
+    };
+    previewByPath(ref.path, ref.title, stub);
   }
 
   function filterByPreviewTarget(target: string) {

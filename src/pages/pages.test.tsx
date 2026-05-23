@@ -234,6 +234,70 @@ describe("read console pages", () => {
     expect(items[0]).toBe(architectureItem);
   });
 
+  it("opens a cache-lag provenance reference even when its path is not yet in pages.data", async () => {
+    // The K-page is freshly synthesized in core but the cached
+    // /v1/base/pages list still lags behind — resolveDerivedPages renders
+    // the entry using the wire title (its cache-lag fallback), so the
+    // click handler must still be able to open the preview without
+    // requiring the entry to appear in pages.data. Otherwise we ship a
+    // dead button.
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        // Note: wiki/fresh-k.md intentionally NOT in the page list.
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.endsWith("/links")) {
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          outgoing: [],
+          incoming: []
+        } satisfies PageLinksResult);
+      }
+      if (path.endsWith("/provenance")) {
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          derived_from: [],
+          derived_pages: [
+            { doc_id: "wiki-fresh-k", path: "wiki/fresh-k.md", title: "Fresh K-page" }
+          ]
+        });
+      }
+      if (path === "/v1/base/pages/wiki/fresh-k.md") {
+        // Preview fetch goes straight to core by path — pages.data is not
+        // consulted for the body read.
+        return Promise.resolve({
+          doc_id: "wiki-fresh-k",
+          path: "wiki/fresh-k.md",
+          layer: "wiki",
+          title: "Fresh K-page",
+          body: "Body of fresh K-page.",
+          anchors: [],
+          assets: []
+        } satisfies PageReadResult);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "sources" }));
+    await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
+
+    const refs = await screen.findByRole("region", { name: "Linked references" });
+    const freshButton = await within(refs).findByRole("button", { name: "Fresh K-page" });
+
+    await userEvent.click(freshButton);
+
+    const preview = await screen.findByRole("region", { name: "Wiki link preview" });
+    expect(within(preview).getByText("wiki/fresh-k.md")).toBeInTheDocument();
+  });
+
   it("silently degrades when /provenance returns 404", async () => {
     const client = createMockClient();
     client.get.mockImplementation((path: string) => {
