@@ -29,6 +29,11 @@ file format introduced in `[0.0.1.0]` was dropped.
   `code-simplifier` subagent) can be invoked directly when useful. Bumping
   `package.json.version` and writing the matching `CHANGELOG.md` entry are now
   manual steps in the workflow.
+- `CLAUDE.md` delivery workflow step 8 rewritten to emphasize **active**
+  monitoring of CI status AND PR review comments after pushing, with
+  resolve-as-found discipline rather than batching at merge time. Lists the
+  three `gh api` endpoints (reviews / inline comments / top-level issue
+  comments) plus the `gh run view --log-failed` pattern for failing CI logs.
 
 ## [0.0.1.0] - 2026-05-23
 

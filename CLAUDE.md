@@ -65,7 +65,11 @@ End-to-end loop from request to landed PR. Run autonomously for behavior changes
 5. **Verify in the browser.** Use Chrome MCP to navigate the changed pages, exercise the affected interactions, and confirm the change actually rendered as intended — not just that unit tests pass.
 6. **Update markdown docs.** Walk `CLAUDE.md`, `README.md`, and the relevant `docs/*.md` against the diff; any contract, behavior, command, or doc index that drifted must be updated in the same change. Don't leave docs to "catch up later".
 7. **Create the PR.** Branch with a descriptive name, commit with `<type>(<scope>): <subject>` matching the project's existing convention (see recent `git log`), push, then `gh pr create`. CI auto-runs typecheck + coverage + build + e2e + Trivy. Bump `package.json.version` manually (standard 3-digit SemVer) when the change warrants it, and add an entry to `CHANGELOG.md` under the matching version heading. `/ship` is not used here — its 4-digit `VERSION` format collides with SemVer; relevant gstack sub-skills (`/code-review`, `/review`, `code-simplifier` subagent) can still be invoked individually when useful.
-8. **Merge and verify.** Wait for green CI and resolve every CodeRabbit / reviewer comment. Before squash-merging, pull review bodies explicitly (`gh api repos/{owner}/{repo}/pulls/{N}/reviews` and `/comments`) — `gh pr checks` only shows pass/fail, not the review prose. Merge via `gh pr merge --squash` once clean.
+8. **Monitor CI and PR comments; resolve as they surface, then merge.** After pushing, actively watch both signals — don't passively wait, and don't batch resolution to merge time.
+   - **CI rollup**: `gh pr checks <N>` (or `--watch` to block until terminal). Failing job logs: `gh run view <run-id> --log-failed`. Flaky e2e gets **one** rerun, not five (see [[project_flaky_graph_e2e]] in memory for which test).
+   - **PR review prose**: `gh api repos/{owner}/{repo}/pulls/{N}/reviews` for review bodies, `.../pulls/{N}/comments` for inline threads, `.../issues/{N}/comments` for top-level CodeRabbit summaries. `gh pr checks` shows pass/fail only, not the prose.
+   - **Resolve each finding** as it appears: fix + re-push (CodeRabbit/CI sees the new SHA and re-evaluates), refute with evidence in a reply, or defer explicitly with a rationale in the PR body.
+   - **Merge**: `gh pr merge <N> --squash --delete-branch` once CI is fully green and every actionable comment is resolved or explicitly dismissed.
 
 For trivial edits (typo, comment, single-line refactor), use judgment and skip the loop.
 
