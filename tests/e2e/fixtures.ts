@@ -292,6 +292,36 @@ export const wikiPageBodiesFixture = {
   }
 };
 
+export const wikiPageLinksFixture: Record<string, { path: string; outgoing: unknown[]; incoming: unknown[] }> = {
+  "sources/architecture.md": {
+    path: "sources/architecture.md",
+    outgoing: [],
+    incoming: [
+      {
+        src_doc_id: "wiki-architecture",
+        src_path: "wiki/concepts/architecture.md",
+        link_type: "wikilink",
+        anchor: null,
+        line: 3
+      }
+    ]
+  }
+};
+
+export const wikiPageProvenanceFixture: Record<
+  string,
+  { path: string; derived_from: unknown[]; derived_pages: Array<{ doc_id: string; path: string; title: string | null }> }
+> = {
+  "sources/architecture.md": {
+    path: "sources/architecture.md",
+    derived_from: [],
+    derived_pages: [
+      { doc_id: "wiki-architecture", path: "wiki/concepts/architecture.md", title: "Architecture" },
+      { doc_id: "wiki-synthesis", path: "wiki/concepts/synthesis.md", title: "Synthesis" }
+    ]
+  }
+};
+
 export const wisdomItemsFixture = [
   {
     item_id: "wisdom-1",

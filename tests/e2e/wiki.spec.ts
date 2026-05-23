@@ -109,6 +109,33 @@ test("jumps to a heading via the Outline tab and exposes a back-to-top button", 
   await expect(reader.getByRole("button", { name: "Back to top" })).toHaveCount(0);
 });
 
+test("source page merges body backlinks and frontmatter provenance with chip labels", async ({ page }) => {
+  await page.goto("/#wiki");
+
+  const tree = page.getByRole("tree", { name: "Base directory" });
+  await tree.getByRole("button", { name: "sources", exact: true }).click();
+  await tree.getByRole("button", { name: /Architecture source/ }).click();
+
+  const refs = page.getByRole("region", { name: "Linked references" });
+  await expect(refs.getByRole("button", { name: "Architecture", exact: true })).toBeVisible();
+  await expect(refs.getByRole("button", { name: "Synthesis", exact: true })).toBeVisible();
+
+  // Architecture has both body backlink + frontmatter source evidence.
+  const architectureItem = refs.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Architecture", exact: true }) });
+  await expect(architectureItem.getByText("linked", { exact: true })).toBeVisible();
+  await expect(architectureItem.getByText("sourced", { exact: true })).toBeVisible();
+
+  // Synthesis only via frontmatter `sources:`.
+  const synthesisItem = refs.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Synthesis", exact: true }) });
+  await expect(synthesisItem.getByText("sourced", { exact: true })).toBeVisible();
+  await expect(synthesisItem.getByText("linked", { exact: true })).toHaveCount(0);
+
+  // Clicking a sourced K reference opens the existing preview aside.
+  await refs.getByRole("button", { name: "Synthesis", exact: true }).click();
+  const preview = page.getByRole("region", { name: "Wiki link preview" });
+  await expect(preview.getByRole("heading", { name: "Synthesis" })).toBeVisible();
+});
+
 test("renders source details blocks with Mermaid diagrams", async ({ page }) => {
   await page.goto("/#wiki");
 
