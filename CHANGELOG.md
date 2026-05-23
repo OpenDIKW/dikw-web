@@ -2,12 +2,38 @@
 
 All notable changes to `dikw-web` are documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
-this project uses a four-digit version scheme `MAJOR.MINOR.PATCH.MICRO` so the
-`/ship` workflow can bump the `MICRO` digit on small chores without disturbing
-release-shaped digits.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.json.version`
+is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
+file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
+
+## [0.0.2] - 2026-05-23
+
+### Removed
+
+- `VERSION` file (4-digit `MAJOR.MINOR.PATCH.MICRO` from `[0.0.1.0]`). The format
+  was gstack `/ship`-specific and forced `package.json.version` into non-SemVer
+  territory (`0.0.1.0`), which kneecaps any tool that validates SemVer
+  (`npm version <bump>`, `semver.coerce()`, future Renovate / semantic-release).
+
+### Changed
+
+- `package.json.version` reverted to standard 3-digit SemVer (`0.0.2`); now the
+  single source of truth for the project's version. `package-lock.json` re-synced.
+- `CLAUDE.md` delivery workflow step 7 reverted to `gh pr create` as the primary
+  PR-creation path. `/ship` is not used in this repo — its 4-digit `VERSION`
+  requirement is incompatible with valid SemVer in `package.json`, and the
+  individual sub-skills it orchestrates (`/code-review`, `/review`,
+  `code-simplifier` subagent) can be invoked directly when useful. Bumping
+  `package.json.version` and writing the matching `CHANGELOG.md` entry are now
+  manual steps in the workflow.
+- `CLAUDE.md` delivery workflow step 8 rewritten to emphasize **active**
+  monitoring of CI status AND PR review comments after pushing, with
+  resolve-as-found discipline rather than batching at merge time. Lists the
+  three `gh api` endpoints (reviews / inline comments / top-level issue
+  comments) plus the `gh run view --log-failed` pattern for failing CI logs.
 
 ## [0.0.1.0] - 2026-05-23
 
