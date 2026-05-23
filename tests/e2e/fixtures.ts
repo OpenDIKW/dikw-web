@@ -292,7 +292,9 @@ export const wikiPageBodiesFixture = {
   }
 };
 
-export const wikiPageLinksFixture: Record<string, { path: string; outgoing: unknown[]; incoming: unknown[] }> = {
+import type { PageLinksResult, PageProvenanceResult } from "../../src/types";
+
+export const wikiPageLinksFixture: Record<string, PageLinksResult> = {
   "sources/architecture.md": {
     path: "sources/architecture.md",
     outgoing: [],
@@ -308,10 +310,7 @@ export const wikiPageLinksFixture: Record<string, { path: string; outgoing: unkn
   }
 };
 
-export const wikiPageProvenanceFixture: Record<
-  string,
-  { path: string; derived_from: unknown[]; derived_pages: Array<{ doc_id: string; path: string; title: string | null }> }
-> = {
+export const wikiPageProvenanceFixture: Record<string, PageProvenanceResult> = {
   "sources/architecture.md": {
     path: "sources/architecture.md",
     derived_from: [],

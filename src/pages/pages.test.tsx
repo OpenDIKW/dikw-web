@@ -141,6 +141,14 @@ describe("read console pages", () => {
           ]
         } satisfies PageLinksResult);
       }
+      if (path.endsWith("/provenance")) {
+        // This test isolates the body-wikilink backlinks channel — return a
+        // 404 so the source reader degrades to /links-only without the
+        // provenance fallthrough silently re-shaping the panel.
+        return Promise.reject(
+          new DikwClientError({ status: 404, code: "not_found", message: "endpoint unavailable" })
+        );
+      }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
         return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
@@ -341,17 +349,24 @@ describe("read console pages", () => {
     const refs = await screen.findByRole("region", { name: "Linked references" });
     expect(within(refs).getByRole("button", { name: "Synthesis" })).toBeInTheDocument();
 
-    // Now resolve the stale architecture provenance — it must not pollute the
-    // synthesis-notes panel with Architecture or extra entries.
+    // Now resolve the stale architecture provenance — but with a payload
+    // whose `path` matches the CURRENT on-screen page so the memo's
+    // `derived.path === page?.path` guard would accept it. The only thing
+    // stopping Architecture from showing up is the abort-guard inside the
+    // effect, which short-circuits on `controller.signal.aborted` before
+    // calling setDerived. If the abort-guard were removed, this assertion
+    // would flip red — that's the discriminator.
     await act(async () => {
       resolveStaleProvenance?.({
-        path: "sources/architecture.md",
+        path: "sources/synthesis-notes.md",
         derived_from: [],
         derived_pages: [{ doc_id: "wiki-architecture", path: "wiki/architecture.md", title: "Architecture" }]
       });
     });
 
     expect(within(refs).queryByRole("button", { name: "Architecture" })).not.toBeInTheDocument();
+    // Synthesis from the fresh response must still be the only K-page.
+    expect(within(refs).getAllByRole("button")).toHaveLength(1);
   });
 
   it("loads base pages without a layer selector and shows the base directory tree", async () => {
