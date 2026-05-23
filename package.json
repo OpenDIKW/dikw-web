@@ -20,11 +20,11 @@
     "verify": "npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "^0.74.0",
-    "@earendil-works/pi-ai": "^0.74.0",
+    "@earendil-works/pi-agent-core": "^0.75.4",
+    "@earendil-works/pi-ai": "^0.75.4",
     "d3-force": "^3.0.0",
     "echarts": "^5.5.0",
-    "katex": "^0.16.47",
+    "katex": "^0.17.0",
     "lucide-react": "^1.16.0",
     "markdown-it": "^14.1.1",
     "mermaid": "^11.15.0",
@@ -39,15 +39,15 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/d3-force": "^3.0.10",
     "@types/markdown-it": "^14.1.2",
-    "@types/node": "^25.8.0",
-    "@types/react": "^19.2.7",
+    "@types/node": "^25.9.1",
+    "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
-    "@vitest/coverage-v8": "^4.1.6",
+    "@vitest/coverage-v8": "^4.1.7",
     "esbuild": "^0.28.0",
     "jsdom": "^29.1.1",
     "typescript": "^6.0.3",
-    "vite": "^8.0.5",
+    "vite": "^8.0.14",
     "vitest": "^4.0.16"
   }
 }
