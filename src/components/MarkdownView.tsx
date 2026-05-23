@@ -74,6 +74,14 @@ export function MarkdownView({
     };
   }, [body, ctx, fallbackTitle]);
 
+  // React diffs `dangerouslySetInnerHTML` by the wrapping object's identity, not
+  // by `__html` string equality, so a fresh `{ __html: html }` literal on every
+  // render makes React re-set `innerHTML` on every parent state change — which
+  // wipes any DOM mutations from mermaid / chart / image hydration done in the
+  // effect below. Memoize the wrapper so the diff is a no-op when `html` stays
+  // the same value.
+  const innerHtml = useMemo(() => ({ __html: html }), [html]);
+
   useEffect(() => {
     const root = bodyRef.current;
     if (!root) {
@@ -112,7 +120,7 @@ export function MarkdownView({
     <article className="markdown-view" onClick={handleClick}>
       {showFrontmatter ? <FrontmatterSummary meta={meta} /> : null}
       {needsFallbackTitle ? <h1 className="markdown-fallback-title">{fallbackTitle}</h1> : null}
-      <div ref={bodyRef} className="markdown-body" dangerouslySetInnerHTML={{ __html: html }} />
+      <div ref={bodyRef} className="markdown-body" dangerouslySetInnerHTML={innerHtml} />
     </article>
   );
 }
