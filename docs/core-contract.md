@@ -92,6 +92,35 @@ reader does not enable arbitrary HTML. Only the safe table/details
 subset documented in the UI system is converted to live DOM; other HTML
 remains escaped or is removed during table sanitization.
 
+## Linked references and provenance
+
+Source-layer pages do not carry `[[wikilinks]]` of their own, so the
+Wiki reader surfaces incoming references from K/W pages instead. Two
+endpoints expose two independent reverse-edge channels — the reader
+merges them in a single `Linked references` panel.
+
+- `GET /v1/base/pages/{path}/links?direction=in` returns
+  `PageLinksResult` whose `incoming[]` lists body `[[wikilink]]` edges
+  pointing at this page (`src_doc_id`, `src_path`, `link_type`,
+  `anchor`, `line`).
+- `GET /v1/base/pages/{path}/provenance?direction=in` (dikw-core
+  `0.2.6+`) returns `PageProvenanceResult` whose `derived_pages[]`
+  lists K-pages that name this path in their frontmatter `sources:`
+  list (`doc_id`, `path`, `title`). The layer-safe contract that
+  core enforces: for a source page, `derived_from` is expected to be
+  empty; for a wiki page, `derived_pages` is expected to be empty.
+  The reader emits a dev-mode `console.warn` if it observes a
+  violation, but does not crash. Pre-`0.2.6` cores return 404 / 405
+  — the reader catches these silently and degrades to `/links`-only;
+  other failures (5xx, network) still clear the channel but log a
+  warning so the missing data is debuggable.
+
+`linked` (body wikilink) and `sourced` (frontmatter provenance) are
+two evidence channels for the same K↔Source relationship; a given K
+page can show up in either or both. The reader dedupes by `path`,
+tags each entry, and lifts double-evidence references above
+single-evidence ones in the panel.
+
 ## Assets
 
 `GET /v1/assets/{asset_id}` streams a single content-addressed asset
@@ -144,6 +173,7 @@ these core endpoints as tools:
 - `GET /v1/base/pages`
 - `GET /v1/base/pages/{path}`
 - `GET /v1/base/pages/{path}/links`
+- `GET /v1/base/pages/{path}/provenance`
 - `GET /v1/wisdom`
 
 Core returns facts and evidence; the Agent composes the final answer

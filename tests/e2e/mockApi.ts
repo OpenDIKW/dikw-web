@@ -11,6 +11,8 @@ import {
   taskEventsFixture,
   taskRowsFixture,
   wikiPageBodiesFixture,
+  wikiPageLinksFixture,
+  wikiPageProvenanceFixture,
   wikiPagesFixture,
   wisdomItemsFixture
 } from "./fixtures";
@@ -273,8 +275,20 @@ export async function mockDikwApi(page: Page) {
       return;
     }
     if (path.startsWith("/v1/base/pages/")) {
-      const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-      await route.fulfill({ json: wikiPageBodiesFixture[selectedPath] });
+      const rest = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+      if (rest.endsWith("/provenance")) {
+        const target = rest.replace(/\/provenance$/, "");
+        const body = wikiPageProvenanceFixture[target] ?? { path: target, derived_from: [], derived_pages: [] };
+        await route.fulfill({ json: body });
+        return;
+      }
+      if (rest.endsWith("/links")) {
+        const target = rest.replace(/\/links$/, "");
+        const body = wikiPageLinksFixture[target] ?? { path: target, outgoing: [], incoming: [] };
+        await route.fulfill({ json: body });
+        return;
+      }
+      await route.fulfill({ json: wikiPageBodiesFixture[rest] });
       return;
     }
     if (path.startsWith("/v1/assets/")) {

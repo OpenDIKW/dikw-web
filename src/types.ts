@@ -165,6 +165,18 @@ export interface PageLinksResult {
   incoming: IncomingLink[];
 }
 
+export interface DerivedPage {
+  doc_id: string;
+  path: string;
+  title: string | null;
+}
+
+export interface PageProvenanceResult {
+  path: string;
+  derived_from: DerivedPage[];
+  derived_pages: DerivedPage[];
+}
+
 export interface CoreGraphNode {
   id: string;
   path: string;

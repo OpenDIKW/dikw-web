@@ -1,15 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ArrowUp, ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, X } from "lucide-react";
-import { DikwClient } from "../api/client";
+import { DikwClient, DikwClientError } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { translations, type Locale } from "../i18n";
-import type { DocumentRecord, PageLinksResult, PageReadResult } from "../types";
+import type { DocumentRecord, PageLinksResult, PageProvenanceResult, PageReadResult } from "../types";
 import { findPageForTarget } from "../utils/graph";
-import { resolveBacklinks, type BacklinkRef } from "../utils/links";
+import {
+  mergeSourceReferences,
+  resolveBacklinks,
+  resolveDerivedPages,
+  type SourceReference
+} from "../utils/links";
 import { extractHeadingsWithSlugs, getMarkdownTitle, parseMarkdownDocument, type HeadingEntry } from "../utils/markdown";
 import { basename, displayTitle, formatUnixSeconds, truncateMiddle } from "../utils/format";
 
@@ -49,6 +54,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   const [expandedDirs, setExpandedDirs] = useState<Set<string>>(() => new Set());
   const [preview, setPreview] = useState<PreviewState>({ kind: "idle" });
   const [backlinks, setBacklinks] = useState<PageLinksResult | null>(null);
+  const [derived, setDerived] = useState<PageProvenanceResult | null>(null);
   const previewRequestIdRef = useRef(0);
   const didAutoSelectRef = useRef(false);
 
@@ -174,6 +180,64 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     return () => controller.abort();
   }, [client, loadedPath, loadedLayer, pageReloadId]);
 
+  // K-page frontmatter `sources:` is a second, independent reverse-edge channel
+  // alongside body wikilinks. Pre-0.2.6 cores have no /provenance endpoint and
+  // return 404 — silently degrade to /links-only. Other failures (5xx, network)
+  // also clear the channel but surface a warning so the user / dev sees that
+  // provenance is missing, instead of guessing at a quiet UI.
+  useEffect(() => {
+    if (!loadedPath || loadedLayer !== "source") {
+      setDerived(null);
+      return;
+    }
+    const controller = new AbortController();
+    client
+      .get<PageProvenanceResult>(`/v1/base/pages/${encodePath(loadedPath)}/provenance`, {
+        signal: controller.signal,
+        params: { direction: "in" }
+      })
+      .then((result) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        // Layer-safety invariant the core contract documents: a source page's
+        // `derived_from` should be empty (provenance points outward, not into
+        // a source). Warn instead of silently dropping, so a future regression
+        // in core is visible in dev tooling.
+        if (result.derived_from.length > 0 && typeof console !== "undefined") {
+          // eslint-disable-next-line no-console
+          console.warn(
+            `[wiki] /provenance for source page ${loadedPath} returned ${result.derived_from.length} derived_from entries; core contract says this should be empty.`
+          );
+        }
+        setDerived(result);
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) {
+          return;
+        }
+        setDerived(null);
+        // 404 / 405 are the documented pre-0.2.6 fallback path — silent on
+        // purpose. Anything else (5xx, network, parse error) leaves a console
+        // warning so the disappearance is debuggable.
+        const status = error instanceof DikwClientError ? error.status : null;
+        if (status !== 404 && status !== 405 && typeof console !== "undefined") {
+          // eslint-disable-next-line no-console
+          console.warn(`[wiki] /provenance for ${loadedPath} failed:`, error);
+        }
+      });
+    return () => controller.abort();
+  }, [client, loadedPath, loadedLayer, pageReloadId]);
+
+  // Source→source navigation: clear the prior page's reverse-edge state up
+  // front so the merged panel never shows stale chips during the body-fetch
+  // → setPage → effects-rerun window. Race guards in the memo still protect
+  // against late-arriving in-flight responses.
+  useEffect(() => {
+    setBacklinks(null);
+    setDerived(null);
+  }, [selectedPath]);
+
   function refreshWiki() {
     pages.reload();
     if (selectedPath) {
@@ -210,12 +274,12 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     setSelectedPath(path);
   }
 
-  function previewDoc(doc: DocumentRecord, target: string = doc.title || doc.path) {
+  function previewByPath(path: string, target: string, doc: DocumentRecord) {
     const requestId = previewRequestIdRef.current + 1;
     previewRequestIdRef.current = requestId;
     setPreview({ kind: "loading", target, doc });
     client
-      .get<PageReadResult>(`/v1/base/pages/${encodePath(doc.path)}`)
+      .get<PageReadResult>(`/v1/base/pages/${encodePath(path)}`)
       .then((nextPage) => {
         if (previewRequestIdRef.current === requestId) {
           setPreview({ kind: "ready", target, doc, page: nextPage });
@@ -226,6 +290,10 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
           setPreview({ kind: "error", target, error: nextError });
         }
       });
+  }
+
+  function previewDoc(doc: DocumentRecord, target: string = doc.title || doc.path) {
+    previewByPath(doc.path, target, doc);
   }
 
   function openWikiLink(target: string) {
@@ -241,7 +309,28 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     const doc = pages.data?.find((entry) => entry.path === path);
     if (doc) {
       previewDoc(doc);
+      return;
     }
+    // pages.data hasn't caught up with this K-page yet (the cache-lag case
+    // resolveDerivedPages renders with the wire title). Look up the
+    // already-rendered reference for a usable title + layer, then preview
+    // by path — the body still comes from GET /v1/base/pages/<path> so
+    // pages.data being stale doesn't block the click.
+    const ref = sourceReferences.find((entry) => entry.path === path);
+    if (!ref) {
+      return;
+    }
+    const stub: DocumentRecord = {
+      doc_id: "",
+      path: ref.path,
+      path_key: ref.path.toLowerCase(),
+      title: ref.title,
+      hash: "",
+      mtime: 0,
+      layer: ref.layer,
+      active: true
+    };
+    previewByPath(ref.path, ref.title, stub);
   }
 
   function filterByPreviewTarget(target: string) {
@@ -259,12 +348,16 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   }
 
   const selectedDoc = pages.data?.find((doc) => doc.path === page?.path) ?? null;
-  const backlinkRefs = useMemo(
-    // Only trust backlinks whose response is for the page on screen now; a
-    // source→source switch updates `page` before the new /links call settles.
-    () => (backlinks && backlinks.path === page?.path ? resolveBacklinks(backlinks.incoming, pages.data ?? []) : []),
-    [backlinks, page?.path, pages.data]
-  );
+  const sourceReferences = useMemo<SourceReference[]>(() => {
+    // Only trust each response whose `path` matches the page on screen now;
+    // a source→source switch updates `page` before the in-flight /links or
+    // /provenance call settles.
+    const linked =
+      backlinks && backlinks.path === page?.path ? resolveBacklinks(backlinks.incoming, pages.data ?? []) : [];
+    const sourced =
+      derived && derived.path === page?.path ? resolveDerivedPages(derived.derived_pages, pages.data ?? []) : [];
+    return mergeSourceReferences(linked, sourced);
+  }, [backlinks, derived, page?.path, pages.data]);
 
   return (
     <div className="page-stack">
@@ -317,7 +410,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
           loading={pageLoading}
           error={pageError}
           onWikiLink={openWikiLink}
-          backlinks={backlinkRefs}
+          references={sourceReferences}
           onOpenBacklink={openBacklink}
           copy={copy}
           assetBaseUrl={assetBaseUrl}
@@ -442,7 +535,7 @@ function WikiReader({
   loading,
   error,
   onWikiLink,
-  backlinks,
+  references,
   onOpenBacklink,
   copy,
   assetBaseUrl,
@@ -453,7 +546,7 @@ function WikiReader({
   loading: boolean;
   error: unknown;
   onWikiLink: (target: string) => void;
-  backlinks: BacklinkRef[];
+  references: SourceReference[];
   onOpenBacklink: (path: string) => void;
   copy: WikiCopy;
   assetBaseUrl: string;
@@ -533,8 +626,8 @@ function WikiReader({
                 assetBaseUrl={assetBaseUrl}
                 assetToken={assetToken}
               />
-              {backlinks.length > 0 ? (
-                <WikiBacklinksSection backlinks={backlinks} onOpenBacklink={onOpenBacklink} copy={copy} />
+              {references.length > 0 ? (
+                <WikiBacklinksSection references={references} onOpenBacklink={onOpenBacklink} copy={copy} />
               ) : null}
             </section>
           ) : null}
@@ -732,11 +825,11 @@ function WikiOutlinePanel({
 }
 
 function WikiBacklinksSection({
-  backlinks,
+  references,
   onOpenBacklink,
   copy
 }: {
-  backlinks: BacklinkRef[];
+  references: SourceReference[];
   onOpenBacklink: (path: string) => void;
   copy: WikiCopy;
 }) {
@@ -744,12 +837,28 @@ function WikiBacklinksSection({
     <section className="wiki-backlinks" aria-label={copy.linkedRefsTitle}>
       <h2 className="wiki-backlinks__title">{copy.linkedRefsTitle}</h2>
       <ul className="wiki-backlinks__list">
-        {backlinks.map((ref) => (
+        {references.map((ref) => (
           <li className="wiki-backlinks__item" key={ref.path}>
             <button type="button" className="inline-wikilink" onClick={() => onOpenBacklink(ref.path)}>
               {ref.title}
             </button>
             <span className="soft-label wiki-backlinks__layer">{ref.layer}</span>
+            {ref.sources.includes("linked") ? (
+              <span
+                className="soft-label wiki-backlinks__source wiki-backlinks__source--linked"
+                aria-label={copy.referenceSourceLinkedAria}
+              >
+                {copy.referenceSourceLinked}
+              </span>
+            ) : null}
+            {ref.sources.includes("sourced") ? (
+              <span
+                className="soft-label wiki-backlinks__source wiki-backlinks__source--sourced"
+                aria-label={copy.referenceSourceSourcedAria}
+              >
+                {copy.referenceSourceSourced}
+              </span>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -787,9 +896,14 @@ function WikiLinkPreview({
               <span className="soft-label">{formatAnchorCount(preview.page.anchors.length)}</span>
             </div>
             <p>{summarizeMarkdown(preview.page.body)}</p>
-            <button className="secondary-button" type="button" onClick={() => onOpen(preview.page.path)}>
-              {copy.previewOpen}
-            </button>
+            {/* Hide "Open as main document" for cache-lag stub docs (doc_id === "") —
+                the selection effect would round-trip the unknown path back to the
+                default page since visiblePages doesn't contain it yet. */}
+            {preview.doc.doc_id ? (
+              <button className="secondary-button" type="button" onClick={() => onOpen(preview.page.path)}>
+                {copy.previewOpen}
+              </button>
+            ) : null}
           </article>
         </PreviewFrame>
       ) : null}

@@ -105,7 +105,11 @@ export const translations = {
         previewFilter: "Filter directory by target",
         previewErrorTitle: "Could not read linked page",
         noMatches: "No matching pages",
-        linkedRefsTitle: "Linked references"
+        linkedRefsTitle: "Linked references",
+        referenceSourceLinked: "linked",
+        referenceSourceSourced: "sourced",
+        referenceSourceLinkedAria: "Linked via body wikilink",
+        referenceSourceSourcedAria: "Linked via frontmatter source"
       },
       graph: {
         title: "Graph",
@@ -282,7 +286,11 @@ export const translations = {
         previewFilter: "用目标过滤目录",
         previewErrorTitle: "无法读取引用页面",
         noMatches: "没有匹配页面",
-        linkedRefsTitle: "关联页面"
+        linkedRefsTitle: "关联页面",
+        referenceSourceLinked: "链接",
+        referenceSourceSourced: "出处",
+        referenceSourceLinkedAria: "通过正文双链关联",
+        referenceSourceSourcedAria: "通过 frontmatter 出处关联"
       },
       graph: {
         title: "知识图谱",
