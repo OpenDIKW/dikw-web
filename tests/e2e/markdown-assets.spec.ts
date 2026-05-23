@@ -27,11 +27,11 @@ test.describe("Source markdown — images and charts", () => {
 
     const barChart = reader.locator('.markdown-chart[data-chart-type="bar"]').first();
     await expect(barChart).toBeVisible();
-    await expect(barChart.locator("canvas")).toBeVisible();
+    await expect(barChart.locator("canvas").first()).toBeVisible();
 
     const heatChart = reader.locator('.markdown-chart[data-chart-type="heatmap"]');
     await expect(heatChart).toBeVisible();
-    await expect(heatChart.locator("canvas")).toBeVisible();
+    await expect(heatChart.locator("canvas").first()).toBeVisible();
 
     const badChartFallback = reader.locator(".markdown-details", { hasText: "Not a table at all" });
     await expect(badChartFallback).toBeVisible();
