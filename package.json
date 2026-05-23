@@ -23,7 +23,7 @@
     "@earendil-works/pi-agent-core": "^0.75.4",
     "@earendil-works/pi-ai": "^0.75.4",
     "d3-force": "^3.0.0",
-    "echarts": "^5.5.0",
+    "echarts": "^6.1.0",
     "katex": "^0.17.0",
     "lucide-react": "^1.16.0",
     "markdown-it": "^14.1.1",
