@@ -30,7 +30,7 @@ the Vite proxy to avoid CORS; any other URL is requested directly.
 | `npm.cmd run test:watch` | Vitest watch mode |
 | `npm.cmd run test:coverage` | Vitest with coverage thresholds (60 / 45 / 55 / 60) |
 | `npm.cmd run test:e2e` | Playwright (Chromium); auto-starts dev server if needed |
-| `npm.cmd run build` | `tsc --noEmit` + `vite build` |
+| `npm.cmd run build` | `tsc --noEmit` + `vite build` (browser to `dist/`) + `build:server` (esbuild to `dist-server/standalone.mjs`) |
 | `npm.cmd run verify` | Full gate: typecheck + coverage + build + e2e |
 
 Single-file iteration:
@@ -172,6 +172,8 @@ external dikw-core (host networking + CORS).
 - `docs/agent.md` — Pi-Agent sidecar configuration, session storage,
   tool registry.
 - `docs/tdd.md` — TDD workflow for this project.
+- `docs/adr/` — Architecture Decision Records (one decision per file,
+  prefixed `NNNN-`).
 
 ## Project layout
 
