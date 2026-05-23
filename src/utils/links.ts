@@ -57,7 +57,14 @@ export function resolveBacklinks(
  * Resolve the `derived_pages[]` from `GET /v1/base/pages/{path}/provenance` (a
  * reverse edge driven by K-page frontmatter `sources:`) into the same
  * `BacklinkRef` shape used by body wikilink backlinks, so the merger can union
- * them without reshaping. Same join + active + dedupe model as resolveBacklinks.
+ * them without reshaping. Same join + dedupe model as resolveBacklinks, but
+ * the API actually returns a usable title alongside doc_id, so when the
+ * cached `pages.data` list lags behind a freshly-synthesized K-page we still
+ * render the entry using the wire title rather than silently dropping it.
+ *
+ * The `opts.layers` filter is intentionally omitted: provenance edges always
+ * point at K-pages (wiki / wisdom) per the core contract, so callers never
+ * need to filter to a subset.
  */
 export function resolveDerivedPages(derived: DerivedPage[], pages: DocumentRecord[]): BacklinkRef[] {
   const byPath = new Map(pages.map((page) => [page.path, page]));
@@ -69,11 +76,20 @@ export function resolveDerivedPages(derived: DerivedPage[], pages: DocumentRecor
       continue;
     }
     const doc = byPath.get(entry.path);
-    if (!doc || !doc.active) {
+    if (doc && !doc.active) {
       continue;
     }
     seen.add(entry.path);
-    refs.push({ path: doc.path, title: displayTitle(doc), layer: doc.layer });
+    if (doc) {
+      refs.push({ path: doc.path, title: displayTitle(doc), layer: doc.layer });
+    } else {
+      // pages.data hasn't caught up with this K-page yet; render with the
+      // wire title and assume wiki layer (provenance edges only point at
+      // wiki / wisdom per core contract — assuming wiki is the lower-
+      // information default; the reader will get the correct layer when
+      // the next pages reload lands).
+      refs.push({ path: entry.path, title: entry.title ?? entry.path, layer: "wiki" });
+    }
   }
 
   refs.sort((a, b) => (a.layer === b.layer ? a.title.localeCompare(b.title) : a.layer.localeCompare(b.layer)));
@@ -83,9 +99,16 @@ export function resolveDerivedPages(derived: DerivedPage[], pages: DocumentRecor
 /**
  * Union backlinks (body `[[wikilink]]`) and provenance-derived pages (K-page
  * frontmatter `sources:`) by path. Each entry gets a `sources` tag list — a
- * double-evidence reference (`["linked", "sourced"]`) is sorted above
- * single-evidence ones. Within the same evidence tier, layer then title sort
- * matches resolveBacklinks for visual consistency.
+ * double-evidence reference is sorted above single-evidence ones. Within the
+ * single-evidence tier, `sourced` (frontmatter declaration) sits above
+ * `linked` (body wikilink) so the two evidence channels form contiguous
+ * visual blocks; within an evidence sub-group, layer then title sort matches
+ * resolveBacklinks for consistency.
+ *
+ * Pure-functional: never mutates inputs, never mutates entries already
+ * placed in the result map. Title/layer of a shared path are taken from the
+ * `linked` side; both sides are expected to agree because they are joined
+ * against the same `pages.data` snapshot in the caller.
  */
 export function mergeSourceReferences(linked: BacklinkRef[], sourced: BacklinkRef[]): SourceReference[] {
   const byPath = new Map<string, SourceReference>();
@@ -96,18 +119,27 @@ export function mergeSourceReferences(linked: BacklinkRef[], sourced: BacklinkRe
   for (const ref of sourced) {
     const existing = byPath.get(ref.path);
     if (existing) {
-      existing.sources = ["linked", "sourced"];
+      byPath.set(ref.path, { ...existing, sources: ["linked", "sourced"] });
     } else {
       byPath.set(ref.path, { ...ref, sources: ["sourced"] });
     }
   }
 
+  function tierKey(sources: SourceTag[]): number {
+    // Lower = higher in the panel. Double-evidence wins, then sourced-only,
+    // then linked-only — sourced-only above linked-only keeps the two
+    // single-evidence channels in contiguous blocks.
+    if (sources.length === 2) return 0;
+    if (sources[0] === "sourced") return 1;
+    return 2;
+  }
+
   const merged = Array.from(byPath.values());
   merged.sort((a, b) => {
-    const aDouble = a.sources.length === 2 ? 0 : 1;
-    const bDouble = b.sources.length === 2 ? 0 : 1;
-    if (aDouble !== bDouble) {
-      return aDouble - bDouble;
+    const aTier = tierKey(a.sources);
+    const bTier = tierKey(b.sources);
+    if (aTier !== bTier) {
+      return aTier - bTier;
     }
     if (a.layer !== b.layer) {
       return a.layer.localeCompare(b.layer);

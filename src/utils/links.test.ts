@@ -72,8 +72,7 @@ describe("resolveDerivedPages", () => {
     ]);
   });
 
-  it("drops derived entries whose path points to an unknown or inactive page", () => {
-    expect(resolveDerivedPages([derived("wiki/ghost.md")], pages)).toEqual([]);
+  it("drops derived entries whose path points to an inactive page", () => {
     const inactive: DocumentRecord[] = [{ ...doc("wiki/stale.md", "wiki", "Stale"), active: false }];
     expect(resolveDerivedPages([derived("wiki/stale.md")], inactive)).toEqual([]);
   });
@@ -83,6 +82,25 @@ describe("resolveDerivedPages", () => {
     expect(refs).toHaveLength(1);
     expect(refs[0]?.path).toBe("wiki/a.md");
   });
+
+  it("renders entries whose path is not in pages yet using the wire title", () => {
+    // Newly synthesized K-page returned by /provenance hasn't propagated to
+    // pages.data yet; fall back to the API-provided title instead of dropping.
+    const refs = resolveDerivedPages([derived("wiki/fresh.md", "Fresh page")], pages);
+    expect(refs).toEqual([{ path: "wiki/fresh.md", title: "Fresh page", layer: "wiki" }]);
+  });
+
+  it("falls back to path when both pages.data and wire title are missing", () => {
+    const refs = resolveDerivedPages([derived("wiki/unknown.md", null)], pages);
+    expect(refs).toEqual([{ path: "wiki/unknown.md", title: "wiki/unknown.md", layer: "wiki" }]);
+  });
+
+  it("still drops entries whose path matches an inactive page", () => {
+    // Inactive doc takes precedence over the wire title — a tombstoned page
+    // should not silently reappear in the panel.
+    const inactive: DocumentRecord[] = [{ ...doc("wiki/stale.md", "wiki", "Stale"), active: false }];
+    expect(resolveDerivedPages([derived("wiki/stale.md", "Stale wire title")], inactive)).toEqual([]);
+  });
 });
 
 describe("mergeSourceReferences", () => {
@@ -91,12 +109,12 @@ describe("mergeSourceReferences", () => {
       [{ path: "wiki/a.md", title: "Architecture", layer: "wiki" }],
       [{ path: "wiki/a.md", title: "Architecture", layer: "wiki" }]
     );
-    expect(merged).toEqual([
-      { path: "wiki/a.md", title: "Architecture", layer: "wiki", sources: ["linked", "sourced"] }
-    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ path: "wiki/a.md", title: "Architecture", layer: "wiki" });
+    expect(new Set(merged[0]?.sources)).toEqual(new Set(["linked", "sourced"]));
   });
 
-  it("sorts double-evidence references above single-evidence", () => {
+  it("sorts double-evidence above single-evidence, sourced-only above linked-only", () => {
     const merged = mergeSourceReferences(
       [
         { path: "wiki/a.md", title: "Architecture", layer: "wiki" },
@@ -107,8 +125,13 @@ describe("mergeSourceReferences", () => {
         { path: "wiki/d.md", title: "Design", layer: "wiki" }
       ]
     );
-    expect(merged.map((ref) => ref.path)).toEqual(["wiki/c.md", "wiki/a.md", "wiki/d.md"]);
-    expect(merged[0]?.sources).toEqual(["linked", "sourced"]);
+    // c is double-evidence (top); within single-evidence d is sourced-only
+    // (above) and a is linked-only (below) — the two channels form
+    // contiguous blocks instead of interleaving by title.
+    expect(merged.map((ref) => ref.path)).toEqual(["wiki/c.md", "wiki/d.md", "wiki/a.md"]);
+    expect(new Set(merged[0]?.sources)).toEqual(new Set(["linked", "sourced"]));
+    expect(merged[1]?.sources).toEqual(["sourced"]);
+    expect(merged[2]?.sources).toEqual(["linked"]);
   });
 
   it("preserves linked-only and sourced-only entries with the right tag", () => {
@@ -116,9 +139,20 @@ describe("mergeSourceReferences", () => {
       [{ path: "wiki/a.md", title: "Architecture", layer: "wiki" }],
       [{ path: "wiki/b.md", title: "Lesson B", layer: "wisdom" }]
     );
+    // sourced-only sorts above linked-only within the single-evidence tier.
     expect(merged).toEqual([
-      { path: "wiki/a.md", title: "Architecture", layer: "wiki", sources: ["linked"] },
-      { path: "wiki/b.md", title: "Lesson B", layer: "wisdom", sources: ["sourced"] }
+      { path: "wiki/b.md", title: "Lesson B", layer: "wisdom", sources: ["sourced"] },
+      { path: "wiki/a.md", title: "Architecture", layer: "wiki", sources: ["linked"] }
     ]);
+  });
+
+  it("does not mutate the inputs or share state across calls", () => {
+    const linked = [{ path: "wiki/a.md", title: "Architecture", layer: "wiki" as const }];
+    const sourced = [{ path: "wiki/a.md", title: "Architecture", layer: "wiki" as const }];
+    const linkedSnapshot = JSON.parse(JSON.stringify(linked));
+    const sourcedSnapshot = JSON.parse(JSON.stringify(sourced));
+    mergeSourceReferences(linked, sourced);
+    expect(linked).toEqual(linkedSnapshot);
+    expect(sourced).toEqual(sourcedSnapshot);
   });
 });
