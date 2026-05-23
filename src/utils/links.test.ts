@@ -101,6 +101,17 @@ describe("resolveDerivedPages", () => {
     const inactive: DocumentRecord[] = [{ ...doc("wiki/stale.md", "wiki", "Stale"), active: false }];
     expect(resolveDerivedPages([derived("wiki/stale.md", "Stale wire title")], inactive)).toEqual([]);
   });
+
+  it("infers wisdom layer from path for cache-lag entries", () => {
+    // provenance edges only point at wiki / wisdom; a `wisdom/` prefix
+    // signals wisdom layer when pages.data hasn't caught up. Hardcoding
+    // "wiki" would mislabel the chip until the next pages reload.
+    const refs = resolveDerivedPages(
+      [derived("wisdom/insight.md", "Insight on architecture")],
+      pages
+    );
+    expect(refs).toEqual([{ path: "wisdom/insight.md", title: "Insight on architecture", layer: "wisdom" }]);
+  });
 });
 
 describe("mergeSourceReferences", () => {
@@ -144,6 +155,21 @@ describe("mergeSourceReferences", () => {
       { path: "wiki/b.md", title: "Lesson B", layer: "wisdom", sources: ["sourced"] },
       { path: "wiki/a.md", title: "Architecture", layer: "wiki", sources: ["linked"] }
     ]);
+  });
+
+  it("does not upgrade to double-evidence when sourced contains duplicate paths", () => {
+    // Defensive against an upstream that hands us duplicate sourced
+    // entries — the second pass over the same path must not flip a
+    // sourced-only entry into a false `linked,sourced` double-evidence.
+    const merged = mergeSourceReferences(
+      [],
+      [
+        { path: "wiki/a.md", title: "Architecture", layer: "wiki" },
+        { path: "wiki/a.md", title: "Architecture", layer: "wiki" }
+      ]
+    );
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.sources).toEqual(["sourced"]);
   });
 
   it("does not mutate the inputs or share state across calls", () => {

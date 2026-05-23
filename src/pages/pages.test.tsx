@@ -303,7 +303,10 @@ describe("read console pages", () => {
     expect(within(preview).queryByRole("button", { name: "Open as main document" })).not.toBeInTheDocument();
   });
 
-  it("silently degrades when /provenance returns 404", async () => {
+  it.each([
+    [404, "not_found"],
+    [405, "method_not_allowed"]
+  ])("silently degrades when /provenance returns %i", async (status, code) => {
     const client = createMockClient();
     client.get.mockImplementation((path: string) => {
       if (path === "/v1/base/pages") {
@@ -319,7 +322,7 @@ describe("read console pages", () => {
         } satisfies PageLinksResult);
       }
       if (path.endsWith("/provenance")) {
-        return Promise.reject(new DikwClientError({ status: 404, code: "not_found", message: "endpoint unavailable" }));
+        return Promise.reject(new DikwClientError({ status, code, message: "endpoint unavailable" }));
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));

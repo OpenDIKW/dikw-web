@@ -84,11 +84,12 @@ export function resolveDerivedPages(derived: DerivedPage[], pages: DocumentRecor
       refs.push({ path: doc.path, title: displayTitle(doc), layer: doc.layer });
     } else {
       // pages.data hasn't caught up with this K-page yet; render with the
-      // wire title and assume wiki layer (provenance edges only point at
-      // wiki / wisdom per core contract — assuming wiki is the lower-
-      // information default; the reader will get the correct layer when
-      // the next pages reload lands).
-      refs.push({ path: entry.path, title: entry.title ?? entry.path, layer: "wiki" });
+      // wire title and a path-inferred layer. provenance edges only point
+      // at wiki / wisdom per the core contract, so a `wisdom/` prefix
+      // signals wisdom and everything else defaults to wiki. The reader
+      // will get the exact layer back when the next pages reload lands.
+      const fallbackLayer: Layer = entry.path.startsWith("wisdom/") ? "wisdom" : "wiki";
+      refs.push({ path: entry.path, title: entry.title ?? entry.path, layer: fallbackLayer });
     }
   }
 
@@ -119,7 +120,13 @@ export function mergeSourceReferences(linked: BacklinkRef[], sourced: BacklinkRe
   for (const ref of sourced) {
     const existing = byPath.get(ref.path);
     if (existing) {
-      byPath.set(ref.path, { ...existing, sources: ["linked", "sourced"] });
+      // Already tagged on a prior iteration — leave it alone. Guards
+      // against an upstream that hands us a sourced list with duplicate
+      // paths (resolveDerivedPages dedupes today, but defensive merging
+      // keeps the contract honest if a different caller skips that step).
+      if (!existing.sources.includes("sourced")) {
+        byPath.set(ref.path, { ...existing, sources: [...existing.sources, "sourced"] });
+      }
     } else {
       byPath.set(ref.path, { ...ref, sources: ["sourced"] });
     }
