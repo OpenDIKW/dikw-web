@@ -9,6 +9,28 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-05-23
+
+### Added
+
+- Source reader merges body `[[wikilink]]` backlinks and frontmatter
+  `sources:` provenance into a single `Linked references` panel with
+  `linked` / `sourced` chips. Consumes `GET /v1/base/pages/{path}/provenance?direction=in`
+  from `dikw-core 0.2.6+`; pre-`0.2.6` cores 404 and the panel
+  degrades silently to `/links`-only behavior.
+
+### Fixed
+
+- `MarkdownView` no longer wipes mermaid SVG (or chart / hydrated image
+  output) on unrelated parent re-renders. React diffs
+  `dangerouslySetInnerHTML` by the wrapping object's identity, not by
+  `__html` string equality, so a fresh `{ __html: html }` literal on
+  every render was forcing `innerHTML` to be re-set even when the body
+  HTML had not changed — discarding any post-render DOM mutations. The
+  wrapper is now memoized on `html`. This was latent before but
+  surfaced when the new source-reader effect started firing a second
+  `setState` after page load.
+
 ## [0.0.2] - 2026-05-23
 
 ### Removed

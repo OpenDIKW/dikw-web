@@ -76,6 +76,12 @@ Wiki reader changes should land as vertical UI slices:
    main document.
 5. E2E smoke covers the same browser path with mocked `/v1` data and
    checks desktop/mobile overflow.
+6. Source-page reverse-edge channels (body backlinks via `/links` and
+   frontmatter provenance via `/provenance`) land as a single vertical
+   slice: first a `resolveDerivedPages` + `mergeSourceReferences` util
+   test, then a `WikiPage` test that merges the two responses into the
+   `Linked references` panel with `linked` / `sourced` chips, then an
+   e2e that drives the same browser flow against a fixture.
 
 This keeps the structured reading layer inside Wiki, where users already
 expect it, while leaving Tasks, Chat, Retrieve, and Graph as their
