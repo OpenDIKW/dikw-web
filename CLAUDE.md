@@ -2,7 +2,72 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-`AGENTS.md` is the canonical operational guide and takes precedence over anything here that conflicts. Read it before non-trivial work. The deeper product/contract docs live in `docs/` (`core-contract.md`, `graph-view.md`, `ui-system.md`, `agent.md`, `tdd.md`).
+Deeper product/contract docs live in `docs/` (`core-contract.md`, `graph-view.md`, `ui-system.md`, `agent.md`, `tdd.md`). Read the relevant ones before non-trivial work.
+
+## Working principles
+
+These bias toward caution over speed; use judgment for trivial edits.
+
+### Think before coding
+
+Don't assume. Don't hide confusion. Surface tradeoffs.
+
+- State assumptions out loud. When a root cause depends on data shape, verify against the live API (`/v1/health`, `/v1/base/graph`, `/v1/base/pages/{path}/links`) before designing around it — a plausible cause is not a confirmed one.
+- If multiple interpretations of a request exist, present them; don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop, name what's confusing, and ask.
+
+### Simplicity first
+
+Minimum code that solves the problem. Nothing speculative.
+
+- No features beyond what was asked; no abstractions for single-use code.
+- No flexibility/configurability that wasn't requested; no error handling for impossible scenarios.
+- If 200 lines could be 50, rewrite it.
+- The aesthetic backs this up: no UI framework, hand-rolled tokens in `src/styles.css`, restrained shadows — don't pull in a library when the token system already covers it.
+
+### Surgical changes
+
+Touch only what you must. Clean up only your own mess.
+
+- Don't "improve" adjacent code, comments, or formatting in unrelated areas. Match existing style even if you'd write it differently.
+- Don't refactor things that aren't broken — `#chat` canonical route, Settings-owned connection config, the current `styles.css` tokens (see Patch intake).
+- If you notice unrelated dead code, mention it; don't delete it.
+- Remove imports/variables/functions that *your* changes orphaned; leave pre-existing dead code alone unless asked.
+- Every changed line should trace to the request.
+
+### Goal-driven execution
+
+Define success criteria. Loop until verified.
+
+TDD is the default loop (see `docs/tdd.md` and §Testing approach): failing test first → smallest change to green → refactor. Restate vague requests as verifiable goals before coding:
+
+- "Add validation" → write tests for invalid inputs, then make them pass.
+- "Fix the bug" → write a failing test that reproduces it, then make it pass.
+- "Refactor X" → tests pass before and after.
+
+For multi-step work, state a brief plan with a check per step (`npx vitest run …`, `npm.cmd run typecheck`, a `curl` against `/v1/...`, a Chrome MCP screenshot). `npm.cmd run verify` is the final gate before claiming a behavior change is done — don't lower the coverage thresholds in `vite.config.ts` to make a feature pass.
+
+Strong success criteria let you loop independently; "make it work" requires constant clarification.
+
+Working when: fewer unnecessary diffs, fewer rewrites from over-engineering, clarifying questions land *before* implementation rather than after.
+
+## Delivery workflow
+
+End-to-end loop from request to landed PR. Run autonomously for behavior changes — don't wait for the user to prompt each step. Steps run in order; skip only with an explicit reason.
+
+1. **Clarify the request.** Restate it, surface assumptions, and ask before assuming. For non-trivial scope, build a plan with the `drill-me-with-docs` or `superpowers` planning skill before touching code.
+2. **Write the plan in the user's language.** Plan body follows the user's writing language (Chinese / English); code, identifiers, file paths, and commands stay English. Plans default to TDD: failing test first, smallest change to green, refactor (see `docs/tdd.md`).
+3. **Code-review loop — max 3 rounds by default.** Repeat until there are no new actionable findings or the cap is reached:
+   - 3.1 Run `/codex:review --background` for an independent review pass.
+   - 3.2 Evaluate the findings, decide which are valid, and fix.
+4. **Final pass.** Run `/code-review` (the Anthropic plugin — five parallel Sonnet agents with confidence scoring) or dispatch the `code-simplifier` subagent for a cleanup pass, and resolve anything they surface.
+5. **Verify in the browser.** Use Chrome MCP to navigate the changed pages, exercise the affected interactions, and confirm the change actually rendered as intended — not just that unit tests pass.
+6. **Update markdown docs.** Walk `CLAUDE.md`, `README.md`, and the relevant `docs/*.md` against the diff; any contract, behavior, command, or doc index that drifted must be updated in the same change. Don't leave docs to "catch up later".
+7. **Create the PR.** Branch with a descriptive name and commit with `<type>(<scope>): <subject>` matching the project's existing convention (see recent `git log`). Prefer `/ship` to bump `VERSION`, write the `CHANGELOG.md` entry, split into bisectable commits, push, and open the PR; fall back to `gh pr create` only if `/ship` fails for environment reasons. The four-digit `VERSION` (`MAJOR.MINOR.PATCH.MICRO`) tracks `package.json.version`; CI auto-runs typecheck + coverage + build + e2e + Trivy.
+8. **Merge and verify.** Wait for green CI and resolve every CodeRabbit / reviewer comment. Before squash-merging, pull review bodies explicitly (`gh api repos/{owner}/{repo}/pulls/{N}/reviews` and `/comments`) — `gh pr checks` only shows pass/fail, not the review prose. Merge via `gh pr merge --squash` once clean.
+
+For trivial edits (typo, comment, single-line refactor), use judgment and skip the loop.
 
 ## Commands
 
@@ -16,7 +81,7 @@ Windows shell: use `npm.cmd` (not `npm`) when invoking from PowerShell.
 - `npx vitest run path/to/file.test.ts` — run a single test file. Add `-t "name"` to filter by test name.
 - `npm.cmd run test:e2e` — Playwright (Chromium). The config auto-starts `npm run dev` and reuses an existing server on 4321.
 - `npx playwright test tests/e2e/chat.spec.ts` — run one E2E spec.
-- `npm.cmd run build` — typecheck then `vite build`.
+- `npm.cmd run build` — typecheck, `vite build` (browser bundle to `dist/`), then `build:server` (esbuild bundles `server/agent/standalone.ts` to `dist-server/standalone.mjs`). `npm.cmd start` runs that standalone sidecar.
 - `npm.cmd run verify` — full gate: typecheck + coverage + build + e2e. Run before committing behavior changes.
 
 Codex-sandbox fallback when `npm.cmd run dev` fails with `Cannot read directory "../../.."`:
@@ -34,7 +99,7 @@ Read-only React/Vite knowledge workbench over `dikw-core`. The browser talks to 
 1. **Browser app** (`src/`) — React 19 + TypeScript, no UI framework (no Tailwind/Radix/shadcn). Styling is the hand-rolled token system in `src/styles.css`; iterate within it.
 2. **Agent sidecar** (`server/agent/`) — a Node middleware injected into Vite via `agentSidecarPlugin()` in `vite.config.ts`. It mounts at `/agent/*` and runs Pi Agent (`@earendil-works/pi-agent-core`, `@earendil-works/pi-ai`). The browser only calls same-origin `/agent/*`; the sidecar then calls core. Sessions persist as JSON in `.agent-sessions/`. Two optional sidecar-only tools (`web_search` via Tavily, `web_fetch` via Jina) activate when `DIKW_AGENT_TAVILY_API_KEY` / `DIKW_AGENT_JINA_API_KEY` are present in `.env.agent.local`; a Brave Search client is retained in `WebToolClient.search` for future provider rotation but is not registered as an agent tool. These tools don't touch `dikw-core`.
 
-The browser receives the current core URL from settings and passes it to the sidecar on each request. The sidecar must error on missing core URL rather than silently falling back to `.env.agent.local` (which holds local LLM credentials and is gitignored — never expose to browser/tests/screenshots).
+The browser receives the current core URL from settings and passes it to the sidecar on each request. The sidecar must error on missing core URL rather than silently falling back to `.env.agent.local` (which holds local LLM credentials and is gitignored — never expose to browser/tests/screenshots). `.agent-sessions/`, `.tmp/`, `coverage/`, `dist/`, `dist-server/`, `test-results/`, and `playwright-report/` are local/generated — don't commit them or treat them as source.
 
 ### Core connection
 
@@ -48,8 +113,14 @@ The browser receives the current core URL from settings and passes it to the sid
 
 - `#chat` is the canonical chat route. `#query` must redirect to `#chat` — do not reintroduce a Query UI or `/v1/query` calls (no longer part of the consumed core contract).
 - Knowledge (`WikiPage`) uses `/v1/base/pages?active=true` and `/v1/base/pages/{path}`. Do not use the legacy `/v1/wiki/pages` endpoint.
-- Graph (`GraphPage` + `components/GraphCanvas.tsx`) consumes `GET /v1/base/graph?active=true`. Scope filters (`wiki` / `source` / `all`) are applied in the web layer. Do not reintroduce browser-side body reads to build graph edges. Rendering uses Pixi.js + d3-force.
+- Graph (`GraphPage` + `components/GraphCanvas.tsx`) consumes `GET /v1/base/graph?active=true` and renders the full active graph. Only `search` and `hide-orphans` are exposed as client-side filters — the `wiki` / `source` / `all` scope toggle was removed; do not reintroduce it (see `docs/graph-view.md`). Do not reintroduce browser-side body reads to build graph edges. Rendering uses Pixi.js + d3-force.
 - Overview reads `/v1/health`, `/v1/status`, `/v1/info` — see `docs/core-contract.md` for which fields are authoritative (e.g. wisdom counts come from `health.layer_counts`, not `status.documents_by_layer.wisdom`).
+
+### Chat / agent rules
+
+- Chat right-rail context is session-scoped accumulated sources/tool calls, not per-turn filtering. Don't "fix" this by filtering per turn.
+- The agent prefers core tools (DIKW retrieval) and falls back to `web_search` / `web_fetch` only when core can't answer.
+- Maintenance actions (destructive operations on core) must be proposed by the agent and explicitly confirmed by the user before calling the corresponding core endpoint — never auto-execute.
 
 ### Markdown reader (`src/components/MarkdownView.tsx`)
 
@@ -64,6 +135,7 @@ Charts use Apache ECharts, lazy-imported per-module for tree-shaking. The placeh
 - Compact knowledge-workbench feel: warm neutral surfaces, petrol accent, hairline borders, restrained shadows, small radii.
 - Page chrome is single-language per current locale — no bilingual labels like `Overview / 工作台概览`. Core/user content is not translated by the web layer.
 - Dark-mode Wiki reader uses reader tokens — avoid large near-white blocks.
+- Don't add a UI framework (shadcn / Radix / Tailwind / etc.) without an explicit plan — work within the `src/styles.css` token system.
 
 ## Testing approach
 
