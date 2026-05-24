@@ -196,6 +196,11 @@ export function injectInlineRefs(
     if (!meetsMinLength(ref.title)) {
       continue;
     }
+    if (matchedPaths.has(ref.path)) {
+      // Same path already injected via an earlier (possibly longer-title)
+      // entry — skip duplicates so each K page gets at most one inline link.
+      continue;
+    }
     if (injectOneRef(segments, ref)) {
       matchedPaths.add(ref.path);
     }

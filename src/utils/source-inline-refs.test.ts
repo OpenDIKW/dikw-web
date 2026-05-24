@@ -223,4 +223,36 @@ describe("injectInlineRefs", () => {
     expect(result.body).toBe("# [[Architecture|Architecture]] source\n\nBody.");
     expect(result.matchedPaths).toEqual(new Set(["wiki/arch.md"]));
   });
+
+  it("does not mutate the input refs array or its entries", () => {
+    const original: InlineRefMatch[] = [
+      ref("wiki/architecture.md", "Architecture"),
+      ref("wiki/synthesis.md", "Synthesis")
+    ];
+    const snapshot = JSON.parse(JSON.stringify(original));
+    injectInlineRefs("Architecture then Synthesis.", original);
+    expect(original).toEqual(snapshot);
+  });
+
+  it("returns matchedPaths exactly equal to the set of refs that were injected", () => {
+    const refs = [
+      ref("wiki/architecture.md", "Architecture"),  // present
+      ref("wiki/synthesis.md", "Synthesis"),         // present
+      ref("wiki/missing.md", "AbsolutelyMissing")    // absent
+    ];
+    const result = injectInlineRefs("Architecture then Synthesis only.", refs);
+    expect(result.matchedPaths).toEqual(new Set(["wiki/architecture.md", "wiki/synthesis.md"]));
+  });
+
+  it("counts each matched ref's path exactly once even when scanned in unusual order", () => {
+    // Same ref appearing multiple times in input — only one injection happens,
+    // matchedPaths has one entry.
+    const refs = [
+      ref("wiki/arch.md", "Architecture"),
+      ref("wiki/arch.md", "Architecture")
+    ];
+    const result = injectInlineRefs("Architecture, Architecture, Architecture.", refs);
+    expect(result.body).toBe("[[Architecture|Architecture]], Architecture, Architecture.");
+    expect(result.matchedPaths).toEqual(new Set(["wiki/arch.md"]));
+  });
 });
