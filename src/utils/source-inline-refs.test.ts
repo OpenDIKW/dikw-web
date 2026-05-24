@@ -355,4 +355,16 @@ describe("injectInlineRefs — Codex review fix coverage", () => {
       "Body [[Architecture|Architecture]] matters.\n\n[arch]: https://example.com/Architecture"
     );
   });
+
+  it("treats link reference definitions WITHOUT whitespace after the colon as protected", () => {
+    // markdown-it (and CommonMark in practice) accepts `[arch]:url` with no
+    // space after the colon — round-2 review caught this gap in the original
+    // `[ \t]+` form.
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Body Architecture matters.\n\n[arch]:https://example.com/Architecture";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "Body [[Architecture|Architecture]] matters.\n\n[arch]:https://example.com/Architecture"
+    );
+  });
 });

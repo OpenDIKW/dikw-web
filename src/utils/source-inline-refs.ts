@@ -89,9 +89,10 @@ const MARKDOWN_LINK_PATTERN = /\[(?:\\\]|[^\]\n])+?\]\((?:\\\)|\([^()\n]*\)|[^()
 // forms here.
 const REFERENCE_LINK_PATTERN = /\[(?:\\\]|[^\]\n])+?\]\[(?:\\\]|[^\]\n])*\]/g;
 // Link reference definition: `[label]: url`. Must start on its own line with
-// 0-3 spaces of indent. Multi-line title definitions are not protected (rare
-// in source notes).
-const LINK_DEFINITION_PATTERN = /^ {0,3}\[(?:\\\]|[^\]\n])+?\]:[ \t]+[^\n]+$/gm;
+// 0-3 spaces of indent. The whitespace after `:` is optional — markdown-it
+// (and CommonMark in practice) accepts `[arch]:https://example.com/Foo`.
+// Multi-line title definitions are not protected (rare in source notes).
+const LINK_DEFINITION_PATTERN = /^ {0,3}\[(?:\\\]|[^\]\n])+?\]:[ \t]*\S[^\n]*$/gm;
 
 interface ProtectedRange {
   start: number;
