@@ -86,7 +86,7 @@ Panel 文案 **复用现有 `pages.wiki.linkedRefsTitle`,不新增 i18n key** �
 
 ### 数据流
 
-```
+```text
 WikiPage
   ├─ sourceReferences = mergeSourceReferences(backlinks, derived)  ← 现有
   ├─ if (page.layer === "source"):
@@ -197,9 +197,7 @@ token 子串匹配等,所以 target 写 title 就能正确解析回 K 页 doc �
 | Raw HTML block | `<tag>...</tag>` 跨段块(参考 `rawDetailsPattern` / `rawTablePattern`) | 渲染时走 sanitizer,字面不可拆 |
 | Existing wikilink | `[[...]]` 整个区域(含 alias `[[a|b]]` 和 image `![[...]]`) | 已经是 link,不再二次包装 |
 | Markdown link URL | `[text](url)` 中的 `(url)` 部分 | 链接目标是 URL 字面 |
-| Markdown link text | `[text](url)` 中的 `[text]` 部分 | **允许**替换(text 是正文),但替换后变成
-   `[<button>...</button>](url)` 嵌套 — 风险:markdown-it 不会把 `[...]` 中的 wikilink 当成
-   合法 link text。**决策:link text 也归为受保护**,放弃这类位置的命中(罕见,值得换简单) |
+| Markdown link text | `[text](url)` 中的 `[text]` 部分 | **允许**替换(text 是正文),但替换后变成 `[<button>...</button>](url)` 嵌套 — 风险:markdown-it 不会把 `[...]` 中的 wikilink 当成合法 link text。**决策:link text 也归为受保护**,放弃这类位置的命中(罕见,值得换简单) |
 | Heading text | `# text` 中的 text | **允许**替换 — wikilink button 在 heading 里能正常工作。但 heading id slug 在 inject 前后必须一致(否则 outline 跳转 `getElementById` 找不到),所以 `slugifyHeading` 在 lowercasing 之前先剥掉 `[[label\|literal]]` / `[[label]]` 语法 — MarkdownView 的 `heading_open` 和 `extractHeadingsWithSlugs` 都经过同一个 `slugifyHeading`,自动对齐 |
 
 实现上,先做一遍"扫描受保护区域 → 标记 segment 列表",然后只在 plaintext
