@@ -123,7 +123,7 @@ describe("read console pages", () => {
     expect(await screen.findByText("Synthesis Body.")).toBeInTheDocument();
   });
 
-  it("surfaces source-page backlinks and opens them in the preview panel", async () => {
+  it("inlines source-page backlinks into the body and opens preview on click", async () => {
     const client = createMockClient();
     const linksCalls: string[] = [];
     client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
@@ -166,20 +166,21 @@ describe("read console pages", () => {
     await userEvent.click(screen.getByRole("button", { name: "sources" }));
     await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
 
-    const backlinks = await screen.findByRole("region", { name: "Linked references" });
+    // Body backlink 'Architecture' 在源 body 里有字面命中 → 走 inline,不在 panel 里。
+    const reader = await screen.findByRole("main", { name: "Wiki reader" });
+    const readTab = within(reader).getByRole("tabpanel", { name: /Read/ });
     await waitFor(() => expect(linksCalls).toHaveLength(1));
-    const backlinkButton = within(backlinks).getByRole("button", { name: "Architecture" });
-    expect(backlinkButton).toBeInTheDocument();
+    const inlineButton = await within(readTab).findByRole("button", { name: "Architecture" });
+    expect(inlineButton).toHaveClass("inline-wikilink");
 
-    await userEvent.click(backlinkButton);
+    await userEvent.click(inlineButton);
     const preview = await screen.findByRole("region", { name: "Wiki link preview" });
     expect(within(preview).getByText("wiki/architecture.md")).toBeInTheDocument();
   });
 
-  it("merges body backlinks and frontmatter provenance into the source linked references panel", async () => {
+  it("inlines matched K-pages into the source body and lists unmatched ones in the panel", async () => {
     const client = createMockClient();
-    const provenanceCalls: string[] = [];
-    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
+    client.get.mockImplementation((path: string) => {
       if (path === "/v1/base/pages") {
         return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
       }
@@ -193,8 +194,6 @@ describe("read console pages", () => {
         } satisfies PageLinksResult);
       }
       if (path.endsWith("/provenance")) {
-        provenanceCalls.push(path);
-        expect(options?.params).toEqual({ direction: "in" });
         return Promise.resolve({
           path: "sources/architecture.md",
           derived_from: [],
@@ -217,21 +216,113 @@ describe("read console pages", () => {
     await userEvent.click(screen.getByRole("button", { name: "sources" }));
     await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
 
-    const refs = await screen.findByRole("region", { name: "Linked references" });
-    await waitFor(() => expect(provenanceCalls).toHaveLength(1));
+    // Body 内联:fixture body 含 "Architecture" — 应该被注入为 inline wikilink button。
+    const reader = await screen.findByRole("main", { name: "Wiki reader" });
+    const readTab = within(reader).getByRole("tabpanel", { name: /Read/ });
+    const inlineButton = await within(readTab).findByRole("button", { name: "Architecture" });
+    expect(inlineButton).toHaveClass("inline-wikilink");
 
-    // Both K pages should be listed; Architecture has both linked and sourced
-    // evidence (body wikilink + frontmatter source); Synthesis only sourced.
-    const architectureItem = within(refs).getByRole("button", { name: "Architecture" }).closest("li") as HTMLElement;
-    const synthesisItem = within(refs).getByRole("button", { name: "Synthesis" }).closest("li") as HTMLElement;
-    expect(within(architectureItem).getByText("linked")).toBeInTheDocument();
-    expect(within(architectureItem).getByText("sourced")).toBeInTheDocument();
-    expect(within(synthesisItem).queryByText("linked")).not.toBeInTheDocument();
-    expect(within(synthesisItem).getByText("sourced")).toBeInTheDocument();
+    // Panel: 只剩 Synthesis(body 中无字面 "Synthesis")。
+    const refs = within(reader).getByRole("region", { name: "Linked references" });
+    expect(within(refs).getByRole("button", { name: "Synthesis" })).toBeInTheDocument();
+    expect(within(refs).queryByRole("button", { name: "Architecture" })).not.toBeInTheDocument();
 
-    // Double-evidence Architecture sorts above sourced-only Synthesis.
-    const items = within(refs).getAllByRole("listitem");
-    expect(items[0]).toBe(architectureItem);
+    // Synthesis 在 panel 里只有 sourced chip(matched 的 Architecture 不出现)。
+    expect(within(refs).getByText("sourced")).toBeInTheDocument();
+    expect(within(refs).queryByText("linked")).not.toBeInTheDocument();
+  });
+
+  it("opens the K-page preview when an inline injected wikilink is clicked", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.endsWith("/links")) {
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          outgoing: [],
+          incoming: []
+        } satisfies PageLinksResult);
+      }
+      if (path.endsWith("/provenance")) {
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          derived_from: [],
+          derived_pages: [
+            { doc_id: "wiki-architecture", path: "wiki/architecture.md", title: "Architecture" }
+          ]
+        });
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "sources" }));
+    await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
+
+    const reader = await screen.findByRole("main", { name: "Wiki reader" });
+    const readTab = within(reader).getByRole("tabpanel", { name: /Read/ });
+    const inlineButton = await within(readTab).findByRole("button", { name: "Architecture" });
+    await userEvent.click(inlineButton);
+
+    const preview = await screen.findByRole("region", { name: "Wiki link preview" });
+    expect(within(preview).getByText("wiki/architecture.md")).toBeInTheDocument();
+  });
+
+  it("renders the original source body verbatim in the Source tab (no inline injection)", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.endsWith("/links")) {
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          outgoing: [],
+          incoming: []
+        } satisfies PageLinksResult);
+      }
+      if (path.endsWith("/provenance")) {
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          derived_from: [],
+          derived_pages: [
+            { doc_id: "wiki-architecture", path: "wiki/architecture.md", title: "Architecture" }
+          ]
+        });
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "sources" }));
+    await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
+
+    // Wait for inline injection on the Read tab — confirms /provenance landed
+    // and refs memo settled before we flip to the Source tab.
+    const reader = await screen.findByRole("main", { name: "Wiki reader" });
+    const readTab = within(reader).getByRole("tabpanel", { name: /Read/ });
+    await within(readTab).findByRole("button", { name: "Architecture" });
+
+    await userEvent.click(screen.getByRole("tab", { name: /Source/ }));
+
+    const sourceTab = await screen.findByRole("tabpanel", { name: /Source/ });
+    // The raw source code <pre> renders the original body — no [[...|...]] markers.
+    expect(within(sourceTab).getByText(/The Architecture is the main topic/)).toBeInTheDocument();
+    expect(within(sourceTab).queryByText(/\[\[Architecture\|Architecture\]\]/)).not.toBeInTheDocument();
   });
 
   it("opens a cache-lag provenance reference even when its path is not yet in pages.data", async () => {
@@ -337,11 +428,13 @@ describe("read console pages", () => {
     await userEvent.click(screen.getByRole("button", { name: "sources" }));
     await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
 
-    const refs = await screen.findByRole("region", { name: "Linked references" });
-    const architectureItem = within(refs).getByRole("button", { name: "Architecture" }).closest("li") as HTMLElement;
-    expect(within(architectureItem).getByText("linked")).toBeInTheDocument();
-    expect(within(architectureItem).queryByText("sourced")).not.toBeInTheDocument();
-    expect(within(refs).queryByRole("button", { name: "Synthesis" })).not.toBeInTheDocument();
+    // Architecture 在 body 中有字面命中 → 走 inline,不在 panel。Synthesis 既无 link
+    // 也无 provenance(404 degrades)。panel 因为没有 unlinked refs 不渲染。
+    const reader = await screen.findByRole("main", { name: "Wiki reader" });
+    const readTab = within(reader).getByRole("tabpanel", { name: /Read/ });
+    const inlineButton = await within(readTab).findByRole("button", { name: "Architecture" });
+    expect(inlineButton).toHaveClass("inline-wikilink");
+    expect(within(reader).queryByRole("region", { name: "Linked references" })).not.toBeInTheDocument();
     // No top-level error notice was rendered for the 404.
     expect(screen.queryByText(/endpoint unavailable/)).not.toBeInTheDocument();
   });
@@ -412,22 +505,31 @@ describe("read console pages", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "sources" }));
     await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
-    await waitFor(() => expect(screen.getByText("Body of architecture source.")).toBeInTheDocument());
+    // Body 中 "architecture" 命中 K-page 后被注入为 inline wikilink,文本节点被
+    // 切开 → 用 reader header 的 path 判定当前已加载哪个 source。
+    const reader = await screen.findByRole("main", { name: "Wiki reader" });
+    await waitFor(() => expect(within(reader).getByText("sources/architecture.md")).toBeInTheDocument());
 
     // Switch to a different source while the first /provenance is still pending.
     await userEvent.click(screen.getByRole("button", { name: /Synthesis notes/ }));
-    await waitFor(() => expect(screen.getByText("Body of synthesis notes source.")).toBeInTheDocument());
+    await waitFor(() => expect(within(reader).getByText("sources/synthesis-notes.md")).toBeInTheDocument());
 
-    const refs = await screen.findByRole("region", { name: "Linked references" });
-    expect(within(refs).getByRole("button", { name: "Synthesis" })).toBeInTheDocument();
+    // Synthesis 在 body "Body of synthesis notes source." 中有字面命中(大小写
+    // 不敏感) → 走 inline。inline button 的可见文本是原文 "synthesis",
+    // data-wiki-link 才是 title "Synthesis"。
+    const readTab = within(reader).getByRole("tabpanel", { name: /Read/ });
+    const synthesisInline = await within(readTab).findByRole("button", { name: /^synthesis$/i });
+    expect(synthesisInline).toHaveClass("inline-wikilink");
+    expect(synthesisInline.getAttribute("data-wiki-link")).toBe("Synthesis");
 
     // Now resolve the stale architecture provenance — but with a payload
     // whose `path` matches the CURRENT on-screen page so the memo's
     // `derived.path === page?.path` guard would accept it. The only thing
     // stopping Architecture from showing up is the abort-guard inside the
     // effect, which short-circuits on `controller.signal.aborted` before
-    // calling setDerived. If the abort-guard were removed, this assertion
-    // would flip red — that's the discriminator.
+    // calling setDerived. If the abort-guard were removed, Architecture
+    // would leak in. body 中无 "Architecture" 字面 → 不会被 inline。剩下的
+    // unlinked refs 也应该为空 → Linked-references panel 不渲染。
     await act(async () => {
       resolveStaleProvenance?.({
         path: "sources/synthesis-notes.md",
@@ -436,9 +538,8 @@ describe("read console pages", () => {
       });
     });
 
-    expect(within(refs).queryByRole("button", { name: "Architecture" })).not.toBeInTheDocument();
-    // Synthesis from the fresh response must still be the only K-page.
-    expect(within(refs).getAllByRole("button")).toHaveLength(1);
+    expect(within(readTab).queryByRole("button", { name: /^architecture$/i })).not.toBeInTheDocument();
+    expect(within(reader).queryByRole("region", { name: "Linked references" })).not.toBeInTheDocument();
   });
 
   it("loads base pages without a layer selector and shows the base directory tree", async () => {

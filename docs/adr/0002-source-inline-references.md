@@ -164,6 +164,14 @@ export function injectInlineRefs(
 token 子串匹配等,所以 target 写 title 就能正确解析回 K 页 doc 并触发
 `previewDoc()`。零新增渲染代码,零新增 CSS。
 
+**Wikilink 路由的 layer 偏好** — 合成的 `[[title|literal]]` 经现有
+`findPageForTarget` 解析回 K 页。当 K 页 (wiki/wisdom) 和 source 同名(实际
+项目里很常见,K 页常借用 source 标题做派生)时,旧逻辑用 `pages.find(...)`
+按数组顺序返回首匹配 — 会让 inline-injected source-back-reference 自己
+路由回 source 自身。`findPageForTarget` 改为对 exact-match 候选按 K > source
+排序,确保 inline 合成的 wikilink 始终命中 K 页。该改动对手写 `[[xxx]]` 也
+保持向后兼容(用户的意图通常也是 K 页)。
+
 ## 跳过区域规范
 
 `injectInlineRefs` 必须把以下区域识别为"受保护",不在其中替换:

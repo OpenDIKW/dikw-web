@@ -210,7 +210,10 @@ export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
     path: "sources/architecture.md",
     layer: "source",
     title: "Architecture source",
-    body: "# Architecture source\n\nOriginal source body.",
+    // Body contains 'Architecture' (matches the K page title) but does NOT
+    // contain 'Synthesis' — so Architecture should become an inline wikilink
+    // and Synthesis should fall to the bottom Unlinked-references panel.
+    body: "# Architecture source\n\nThe Architecture is the main topic of this source.",
     anchors: [{ chunk_id: 201, seq: 1, start: 0, end: 38 }],
     assets: []
   }
