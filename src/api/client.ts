@@ -90,14 +90,41 @@ export class DikwClient {
     });
   }
 
-  getTaskResult<T = Record<string, unknown>>(
+  async getTaskResult<T = Record<string, unknown>>(
     taskId: string,
     signal?: AbortSignal
   ): Promise<T> {
-    return this.requestJson<T>(
-      `/v1/tasks/${encodeURIComponent(taskId)}/result`,
-      { method: "GET", signal }
-    );
+    // ``GET /v1/tasks/{id}/result`` returns a ``TaskResultBody`` envelope
+    // ``{ task_id, status, started_at, finished_at, result, error }``. Every
+    // caller wants the unwrapped ``result`` payload (e.g. ``FixProposalReport``
+    // / ``ApplyReport``) and would otherwise read ``proposeResult.proposals``
+    // off the envelope and get ``undefined``. Unwrap centrally so each caller
+    // doesn't have to remember.
+    const envelope = await this.requestJson<{
+      task_id: string;
+      status: TaskStatus;
+      result: T | null;
+      error: Record<string, unknown> | null;
+    }>(`/v1/tasks/${encodeURIComponent(taskId)}/result`, {
+      method: "GET",
+      signal
+    });
+    if (envelope.status !== "succeeded") {
+      throw new DikwClientError({
+        status: 200,
+        code: "task_not_succeeded",
+        message: `task ${taskId} terminated as ${envelope.status}; cannot return result`,
+        detail: envelope.error ?? undefined
+      });
+    }
+    if (envelope.result === null) {
+      throw new DikwClientError({
+        status: 200,
+        code: "task_result_empty",
+        message: `task ${taskId} succeeded but recorded no result`
+      });
+    }
+    return envelope.result;
   }
 
   cancelTask(taskId: string, signal?: AbortSignal): Promise<unknown> {

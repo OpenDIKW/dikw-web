@@ -83,6 +83,11 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   const [bundleBuilding, setBundleBuilding] = useState(false);
   const [activeEvent, setActiveEvent] = useState<TaskEvent | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
+  // Generation counter so a slow ``buildImportBundle`` from an earlier
+  // selection can't overwrite a fresher one that finished first — without
+  // this, the preview can momentarily reflect files the user no longer has
+  // selected and Start would upload the wrong bytes.
+  const bundleGenRef = useRef(0);
 
   // Persist every pipeline-state change so a refresh during a task stage
   // can resume without losing the task id.
@@ -116,22 +121,27 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
 
   const onFilesChosen = useCallback((files: File[]) => {
     if (files.length === 0) return;
+    const gen = ++bundleGenRef.current;
     setSelectedFiles(files);
     setBundle(null);
     setBundleError(null);
     setBundleBuilding(true);
     buildImportBundle(files)
       .then((result) => {
+        if (bundleGenRef.current !== gen) return; // superseded
         setBundle(result);
         setBundleBuilding(false);
       })
       .catch((err) => {
+        if (bundleGenRef.current !== gen) return;
         setBundleError(err);
         setBundleBuilding(false);
       });
   }, []);
 
   const resetPicker = useCallback(() => {
+    // Bump the gen so any in-flight bundle promise's setState is ignored.
+    bundleGenRef.current += 1;
     setSelectedFiles([]);
     setBundle(null);
     setBundleError(null);

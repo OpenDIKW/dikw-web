@@ -302,13 +302,47 @@ describe("DikwClient import + pipeline submits", () => {
     ]);
   });
 
-  it("getTaskResult 请求 /v1/tasks/{id}/result", async () => {
-    fetchSpy.mockResolvedValueOnce(jsonResponse({ applied: [], skipped: [] }));
+  it("getTaskResult 拆开 TaskResultBody 信封,只把 result 字段返回给调用方", async () => {
+    // server returns the envelope; callers want the unwrapped payload so
+    // ``proposeResult.proposals`` and ``applyReport.applied`` resolve as
+    // expected (round-2 codex regression).
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse({
+        task_id: "apply-1",
+        status: "succeeded",
+        started_at: "2026-05-24T00:00:00Z",
+        finished_at: "2026-05-24T00:00:05Z",
+        result: { applied: [{ kind: "update_page", path: "K/x.md" }], skipped: [] },
+        error: null
+      })
+    );
     const client = new DikwClient({ baseUrl: "http://core.test" });
-    const out = await client.getTaskResult<{ applied: unknown[] }>("apply-1");
-    expect(out).toEqual({ applied: [], skipped: [] });
+    const out = await client.getTaskResult<{ applied: unknown[]; skipped: unknown[] }>(
+      "apply-1"
+    );
+    expect(out).toEqual({
+      applied: [{ kind: "update_page", path: "K/x.md" }],
+      skipped: []
+    });
     const url = new URL(String(fetchSpy.mock.calls[0][0]));
     expect(url.pathname).toBe("/v1/tasks/apply-1/result");
+  });
+
+  it("getTaskResult 在 status != succeeded 时抛 DikwClientError", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse({
+        task_id: "f-1",
+        status: "failed",
+        started_at: null,
+        finished_at: null,
+        result: null,
+        error: { code: "boom", message: "oh no" }
+      })
+    );
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    await expect(client.getTaskResult("f-1")).rejects.toMatchObject({
+      code: "task_not_succeeded"
+    });
   });
 
   it("cancelTask POST 到 /v1/tasks/{id}/cancel", async () => {
