@@ -35,9 +35,11 @@ Source 层 read tab 渲染时,基于现有 `sourceReferences` (backlinks ∪ der
 click 一路走到现有 `previewDoc()` 通道,右侧弹 K 页 preview — **零新增
 渲染代码**。
 
-匹配不上的 K 页(title 在 body 中找不到合规位置)留在底部 panel 显示
-(panel 标题改为"Unlinked references" 或类似措辞,与 inline 的语义区分)。
-Source tab(raw view)始终用未增强的 `page.body`。
+匹配不上的 K 页(title 在 body 中找不到合规位置)留在底部 panel 显示。
+Panel 文案 **复用现有 `pages.wiki.linkedRefsTitle`,不新增 i18n key** —— inline
+已经表达了"linked",底部 panel 视觉分工自然是"unlinked but still cited",
+文字 key 不需要变(详见 §路由 决策 #4)。Source tab(raw view)始终用
+未增强的 `page.body`。
 
 ### UX 锁定项
 
@@ -155,6 +157,13 @@ export function injectInlineRefs(
 4. WikiBacklinksSection 文案 — **决定:复用现有 `pages.wiki.linkedRefsTitle`,
    不新增 i18n key**。理由:inline 已经表达了"linked",底部 panel 自然变成
    "unlinked but still cited",视觉分工解释语义,文字 key 不需要变。
+5. **Cache-lag 过滤** — `injectInlineRefs` 调用前先按 `pages.data` 路径表
+   过滤 `sourceReferences`,只对 `pages.data` 里已存在的 ref 内联。原因:
+   `resolveDerivedPages` 有 cache-lag 兜底(K 页刚 synth、`pages.data` 还没
+   刷新时用 wire title 占位),但 inline 出去的 `[[title|literal]]` 经
+   `findPageForTarget(title, pages.data)` 会查不到 → click 触发 not-found。
+   `openBacklink` 自己有 path-based fallback,所以让 cache-lag ref 留在
+   panel 而不是被内联,反而更可靠。
 
 ### 复用 wikilink 渲染管线
 

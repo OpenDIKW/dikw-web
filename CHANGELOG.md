@@ -29,6 +29,20 @@ file format introduced in `[0.0.1.0]` was dropped.
 - `findPageForTarget` 加 K 优先(wiki/wisdom > source)— 同名 K 与 source
   共存时,合成的 inline wikilink 始终命中 K 页(否则可能 self-route 回
   当前 source)。手写 `[[xxx]]` 行为保持兼容。
+- Cache-lag 防御:`injectInlineRefs` 调用前先按 `pages.data` 路径表过滤
+  refs。`resolveDerivedPages` 用 wire title 占位的 K 页(还没进
+  `pages.data`)不内联,留在底部 panel,由 `openBacklink` 的 path-based
+  fallback 兜底 —— 否则 inline 按钮的 `openWikiLink` 会查不到 path → dead link。
+- 受保护区段补全(round-2 review):
+  - CRLF normalize:`injectInlineRefs` 起手把 `\r\n` 归一为 `\n`,
+    frontmatter / fenced / indented / display math 这几个行向 recognizer
+    才能正确识别 Windows-edited source 文件。
+  - Fenced code 行扫描:替换原 regex 实现,识别 0-3 空格缩进、`backtick/tilde`
+    长度 ≥3、closing fence 长度 ≥ opener、EOF unclosed fence 整段保护。
+  - Markdown link 兼容:URL 允许一层 balanced parens
+    (`[docs](https://example.com/path(v2))`);新增 reference-style
+    (`[text][label]` / `[text][]`)和 link reference definition
+    (`[label]: url`)整段保护。
 
 ## [0.0.3] - 2026-05-24
 

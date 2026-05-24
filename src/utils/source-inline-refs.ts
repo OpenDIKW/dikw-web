@@ -65,7 +65,6 @@ function injectOneRef(segments: Segment[], ref: InlineRefMatch): boolean {
 }
 
 const FRONTMATTER_PATTERN = /^---\n[\s\S]*?\n---\n?/;
-const FENCED_CODE_PATTERN = /(^|\n)(?<fence>```|~~~)[^\n]*\n[\s\S]*?\n\k<fence>(?=\n|$)/g;
 // Indented code: a sequence of one-or-more lines starting with 4 spaces,
 // preceded by a blank line (or BOS). Simplified to "at least 4 leading
 // spaces on a fresh paragraph line."
@@ -80,12 +79,72 @@ const INLINE_MATH_PATTERN = /(?<!\\)\$(?!\$)((?:\\\$|[^\n$])+?)(?<!\\)\$/g;
 const RAW_HTML_BLOCK_PATTERN = /<(details|table|summary|div|section|article|aside|nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi;
 // Existing wikilink (with optional image bang) — must NOT be wrapped again.
 const EXISTING_WIKILINK_PATTERN = /!?\[\[[^\]\n]+?\]\]/g;
-// Markdown link: [text](url). Bracket part may contain ] only if escaped — accept simple form.
-const MARKDOWN_LINK_PATTERN = /\[(?:\\\]|[^\]\n])+?\]\((?:\\\)|[^)\n])+?\)/g;
+// Markdown inline link: [text](url). The URL allows one level of balanced
+// parens (e.g. `https://example.com/path(v2)`) — deeper nesting is too rare
+// to chase with a non-recursive regex.
+const MARKDOWN_LINK_PATTERN = /\[(?:\\\]|[^\]\n])+?\]\((?:\\\)|\([^()\n]*\)|[^()\n])+?\)/g;
+// Reference-style links: [text][label] (full) and [text][] (collapsed).
+// Shortcut form `[label]` overlaps with stray bracketed text and needs the
+// definition table to disambiguate — we only protect the explicit two-bracket
+// forms here.
+const REFERENCE_LINK_PATTERN = /\[(?:\\\]|[^\]\n])+?\]\[(?:\\\]|[^\]\n])*\]/g;
+// Link reference definition: `[label]: url`. Must start on its own line with
+// 0-3 spaces of indent. Multi-line title definitions are not protected (rare
+// in source notes).
+const LINK_DEFINITION_PATTERN = /^ {0,3}\[(?:\\\]|[^\]\n])+?\]:[ \t]+[^\n]+$/gm;
 
 interface ProtectedRange {
   start: number;
   end: number;
+}
+
+/**
+ * CommonMark fenced code scanner. Recognizes:
+ * - 0-3 leading spaces on the opener and closer
+ * - Backtick or tilde runs of length ≥3
+ * - Closing fence of the same character, length ≥ opener, optional trailing whitespace
+ * - Unclosed fence at EOF (CommonMark treats the rest of the document as the block)
+ *
+ * Implemented as a line scanner because nested-fence semantics and length
+ * comparison (≥ opener) don't fit cleanly into a single regex.
+ */
+function collectFencedCodeRanges(body: string): ProtectedRange[] {
+  const ranges: ProtectedRange[] = [];
+  const lines = body.split("\n");
+  const lineStarts: number[] = [];
+  let offset = 0;
+  for (const line of lines) {
+    lineStarts.push(offset);
+    offset += line.length + 1; // +1 for the \n separator
+  }
+
+  let i = 0;
+  while (i < lines.length) {
+    const opener = /^( {0,3})(`{3,}|~{3,})/.exec(lines[i]);
+    if (!opener) {
+      i++;
+      continue;
+    }
+    const fenceChar = opener[2][0];
+    const fenceLen = opener[2].length;
+    const closingRe = new RegExp(`^ {0,3}\\${fenceChar}{${fenceLen},}[ \\t]*$`);
+    let j = i + 1;
+    while (j < lines.length && !closingRe.test(lines[j])) {
+      j++;
+    }
+    const startPos = lineStarts[i];
+    let endPos: number;
+    if (j < lines.length) {
+      // Include the closing line and its trailing newline if present.
+      endPos = lineStarts[j] + lines[j].length;
+      if (endPos < body.length && body[endPos] === "\n") endPos++;
+    } else {
+      endPos = body.length;
+    }
+    ranges.push({ start: startPos, end: endPos });
+    i = j + 1;
+  }
+  return ranges;
 }
 
 function collectProtectedRanges(body: string): ProtectedRange[] {
@@ -96,14 +155,9 @@ function collectProtectedRanges(body: string): ProtectedRange[] {
     ranges.push({ start: 0, end: fm[0].length });
   }
 
-  let m: RegExpExecArray | null;
-  const fence = new RegExp(FENCED_CODE_PATTERN.source, FENCED_CODE_PATTERN.flags);
-  while ((m = fence.exec(body)) !== null) {
-    // m[1] is the leading newline (or empty if BOS); fence proper starts after it.
-    const lead = m[1] ? 1 : 0;
-    ranges.push({ start: m.index + lead, end: m.index + m[0].length });
-  }
+  ranges.push(...collectFencedCodeRanges(body));
 
+  let m: RegExpExecArray | null;
   const indented = new RegExp(INDENTED_CODE_PATTERN.source, INDENTED_CODE_PATTERN.flags);
   while ((m = indented.exec(body)) !== null) {
     const lead = m[1].length;
@@ -137,6 +191,16 @@ function collectProtectedRanges(body: string): ProtectedRange[] {
 
   const mdLinks = new RegExp(MARKDOWN_LINK_PATTERN.source, MARKDOWN_LINK_PATTERN.flags);
   while ((m = mdLinks.exec(body)) !== null) {
+    ranges.push({ start: m.index, end: m.index + m[0].length });
+  }
+
+  const refLinks = new RegExp(REFERENCE_LINK_PATTERN.source, REFERENCE_LINK_PATTERN.flags);
+  while ((m = refLinks.exec(body)) !== null) {
+    ranges.push({ start: m.index, end: m.index + m[0].length });
+  }
+
+  const linkDefs = new RegExp(LINK_DEFINITION_PATTERN.source, LINK_DEFINITION_PATTERN.flags);
+  while ((m = linkDefs.exec(body)) !== null) {
     ranges.push({ start: m.index, end: m.index + m[0].length });
   }
 
@@ -191,7 +255,12 @@ export function injectInlineRefs(
   refs: ReadonlyArray<InlineRefMatch>
 ): InjectInlineRefsResult {
   const matchedPaths = new Set<string>();
-  const segments: Segment[] = sliceByRanges(body, collectProtectedRanges(body));
+  // Normalize line endings before range collection — line-oriented recognizers
+  // (frontmatter, fenced code, indented code, display math) expect LF. The
+  // enhanced output also uses LF; the Source tab still shows the original
+  // page.body so CRLF preservation isn't required downstream.
+  const normalized = body.replace(/\r\n/g, "\n");
+  const segments: Segment[] = sliceByRanges(normalized, collectProtectedRanges(normalized));
   for (const ref of sortRefsLongestFirst(refs)) {
     if (!meetsMinLength(ref.title)) {
       continue;

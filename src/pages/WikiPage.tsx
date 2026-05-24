@@ -362,12 +362,17 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
 
   // Source 层 read tab 在 body 中首次出现的 K 页 title 上注入合成 wikilink。
   // 非 source 层不动 body;empty refs 时直接退化为原 body + 空 matched set。
+  // 只内联已经在 pages.data 里的 ref —— 否则合成的 wikilink 经
+  // findPageForTarget → 空,inline-wikilink 按钮会变 dead link;cache-lag 的
+  // ref 留在底部 panel,由 openBacklink 的 path-based fallback 兜底。
   const enhancedSourceBody = useMemo(() => {
     if (!page || page.layer !== "source") {
       return { body: page?.body ?? "", matchedPaths: new Set<string>() };
     }
-    return injectInlineRefs(page.body, sourceReferences);
-  }, [page, sourceReferences]);
+    const knownPaths = new Set((pages.data ?? []).map((p) => p.path));
+    const eligibleRefs = sourceReferences.filter((ref) => knownPaths.has(ref.path));
+    return injectInlineRefs(page.body, eligibleRefs);
+  }, [page, sourceReferences, pages.data]);
 
   const unlinkedReferences = useMemo<SourceReference[]>(
     () => sourceReferences.filter((ref) => !enhancedSourceBody.matchedPaths.has(ref.path)),

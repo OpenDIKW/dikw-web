@@ -256,3 +256,103 @@ describe("injectInlineRefs", () => {
     expect(result.matchedPaths).toEqual(new Set(["wiki/arch.md"]));
   });
 });
+
+describe("injectInlineRefs — Codex review fix coverage", () => {
+  // Finding 3: CRLF line endings on line-oriented recognizers.
+  it("treats CRLF frontmatter as protected and normalizes to LF in output", () => {
+    const refs = [ref("wiki/architecture.md", "Architecture")];
+    const body = "---\r\ntitle: Architecture notes\r\n---\r\n\r\nBody mentions Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "---\ntitle: Architecture notes\n---\n\nBody mentions [[Architecture|Architecture]]."
+    );
+    expect(result.matchedPaths).toEqual(new Set(["wiki/architecture.md"]));
+  });
+
+  it("treats CRLF fenced code as protected", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Plain Architecture.\r\n\r\n```ts\r\nconst Architecture = 1;\r\n```\r\n\r\nLater Architecture again.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "Plain [[Architecture|Architecture]].\n\n```ts\nconst Architecture = 1;\n```\n\nLater Architecture again."
+    );
+  });
+
+  it("treats CRLF indented code as protected", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Before Architecture.\r\n\r\n    Architecture in indented code\r\n    more code\r\n\r\nAfter Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "Before [[Architecture|Architecture]].\n\n    Architecture in indented code\n    more code\n\nAfter Architecture."
+    );
+  });
+
+  // Finding 2: fenced code 0-3 indent + ≥3 fence length.
+  it("treats fenced code with 1-3 space indentation as protected", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Before Architecture.\n\n   ```ts\n   const Architecture = 1;\n   ```\n\nLater.";
+    const result = injectInlineRefs(body, refs);
+    // First occurrence (Before) is replaced; the indented fence block is opaque.
+    expect(result.body).toBe(
+      "Before [[Architecture|Architecture]].\n\n   ```ts\n   const Architecture = 1;\n   ```\n\nLater."
+    );
+  });
+
+  it("treats fences with length ≥4 as protected (closer must be ≥ opener length)", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    // Opener is 4 backticks; inner uses 3 backticks (which would not close).
+    // Closer is also 4 backticks.
+    const body = "Before.\n\n````md\nExample with ```ts inside\nconst Architecture = 1;\n```\n````\n\nAfter Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "Before.\n\n````md\nExample with ```ts inside\nconst Architecture = 1;\n```\n````\n\nAfter [[Architecture|Architecture]]."
+    );
+  });
+
+  it("treats unclosed fence at EOF as protected through end of document", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Before Architecture.\n\n```ts\nconst Architecture = 1;\n// no closing fence";
+    const result = injectInlineRefs(body, refs);
+    // Only the leading "Before Architecture" gets replaced.
+    expect(result.body).toBe(
+      "Before [[Architecture|Architecture]].\n\n```ts\nconst Architecture = 1;\n// no closing fence"
+    );
+  });
+
+  // Finding 4: markdown link variants.
+  it("treats markdown link URLs with one level of balanced parens as protected", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Read [docs](https://example.com/Architecture(v2)). Then Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "Read [docs](https://example.com/Architecture(v2)). Then [[Architecture|Architecture]]."
+    );
+  });
+
+  it("treats reference-style links [text][label] as protected", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "See [Architecture overview][arch] for context. Then Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "See [Architecture overview][arch] for context. Then [[Architecture|Architecture]]."
+    );
+  });
+
+  it("treats collapsed-reference links [text][] as protected", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "See [Architecture][] later. Then Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "See [Architecture][] later. Then [[Architecture|Architecture]]."
+    );
+  });
+
+  it("treats link reference definitions [label]: url as protected", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Body Architecture matters.\n\n[arch]: https://example.com/Architecture";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "Body [[Architecture|Architecture]] matters.\n\n[arch]: https://example.com/Architecture"
+    );
+  });
+});

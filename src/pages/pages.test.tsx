@@ -394,6 +394,89 @@ describe("read console pages", () => {
     expect(within(preview).queryByRole("button", { name: "Open as main document" })).not.toBeInTheDocument();
   });
 
+  it("keeps a cache-lag K-page in the bottom panel even when its title literally appears in the source body", async () => {
+    // 没有这个保护时:injectInlineRefs 会把 "Emergent" 字面命中后从 panel
+    // 移除,但 inline 按钮的 openWikiLink("Emergent") → findPageForTarget
+    // 在 pages.data 里找不到 wiki/emergent.md,返回 not-found —— dead link。
+    // 修复后:cache-lag ref 不参与 inline 注入,留在 panel,由 openBacklink
+    // 的 path-based fallback 直接打开 preview。
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        // wiki/emergent.md 故意没放进 page list,模拟 cache lag。
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.endsWith("/links")) {
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          outgoing: [],
+          incoming: []
+        } satisfies PageLinksResult);
+      }
+      if (path.endsWith("/provenance")) {
+        return Promise.resolve({
+          path: "sources/architecture.md",
+          derived_from: [],
+          derived_pages: [
+            { doc_id: "wiki-emergent", path: "wiki/emergent.md", title: "Emergent" }
+          ]
+        });
+      }
+      if (path === "/v1/base/pages/sources/architecture.md") {
+        // 自定义 body —— 含字面 "Emergent" 触发本测试的关键路径。
+        return Promise.resolve({
+          doc_id: "source-architecture",
+          path: "sources/architecture.md",
+          layer: "source",
+          title: "Architecture source",
+          body: "# Architecture source\n\nThe Emergent behavior is interesting.",
+          anchors: [],
+          assets: []
+        } satisfies PageReadResult);
+      }
+      if (path === "/v1/base/pages/wiki/emergent.md") {
+        return Promise.resolve({
+          doc_id: "wiki-emergent",
+          path: "wiki/emergent.md",
+          layer: "wiki",
+          title: "Emergent",
+          body: "Body of Emergent.",
+          anchors: [],
+          assets: []
+        } satisfies PageReadResult);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "sources" }));
+    await userEvent.click(screen.getByRole("button", { name: /Architecture source/ }));
+
+    // Panel: 含 Emergent 按钮 —— 没被 inline 吃掉。
+    const refs = await screen.findByRole("region", { name: "Linked references" });
+    const panelButton = await within(refs).findByRole("button", { name: "Emergent" });
+
+    // Markdown body 里 "Emergent" 仍为纯文本,没有 inline-wikilink 按钮 ——
+    // panel 里那个 Emergent 按钮 sits 在同一个 tabpanel 但在 .wiki-backlinks 里,
+    // 所以这里要拿 .markdown-body scope 才能区分。
+    const reader = await screen.findByRole("main", { name: "Wiki reader" });
+    const markdownBody = reader.querySelector(".markdown-body") as HTMLElement | null;
+    expect(markdownBody).not.toBeNull();
+    expect(within(markdownBody!).queryByRole("button", { name: "Emergent" })).not.toBeInTheDocument();
+    expect(within(markdownBody!).getByText(/Emergent behavior is interesting/)).toBeInTheDocument();
+
+    // 点击 panel 里的按钮 → preview 打开(由 openBacklink path-based fallback 兜底)。
+    await userEvent.click(panelButton);
+    const preview = await screen.findByRole("region", { name: "Wiki link preview" });
+    expect(within(preview).getByText("wiki/emergent.md")).toBeInTheDocument();
+  });
+
   it.each([
     [404, "not_found"],
     [405, "method_not_allowed"]
