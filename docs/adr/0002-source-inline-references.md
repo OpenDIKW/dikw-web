@@ -200,7 +200,7 @@ token 子串匹配等,所以 target 写 title 就能正确解析回 K 页 doc �
 | Markdown link text | `[text](url)` 中的 `[text]` 部分 | **允许**替换(text 是正文),但替换后变成
    `[<button>...</button>](url)` 嵌套 — 风险:markdown-it 不会把 `[...]` 中的 wikilink 当成
    合法 link text。**决策:link text 也归为受保护**,放弃这类位置的命中(罕见,值得换简单) |
-| Heading text | `# text` 中的 text | **允许**替换 — heading_open 规则会先生成 id slug 再渲染 children,wikilink button 在 heading 里能正常工作 |
+| Heading text | `# text` 中的 text | **允许**替换 — wikilink button 在 heading 里能正常工作。但 heading id slug 在 inject 前后必须一致(否则 outline 跳转 `getElementById` 找不到),所以 `slugifyHeading` 在 lowercasing 之前先剥掉 `[[label\|literal]]` / `[[label]]` 语法 — MarkdownView 的 `heading_open` 和 `extractHeadingsWithSlugs` 都经过同一个 `slugifyHeading`,自动对齐 |
 
 实现上,先做一遍"扫描受保护区域 → 标记 segment 列表",然后只在 plaintext
 segment 内做正则查找替换。可以借鉴现有 `extractSafeDetails` /

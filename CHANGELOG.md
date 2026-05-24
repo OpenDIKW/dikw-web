@@ -43,6 +43,12 @@ file format introduced in `[0.0.1.0]` was dropped.
     (`[docs](https://example.com/path(v2))`);新增 reference-style
     (`[text][label]` / `[text][]`)和 link reference definition
     (`[label]: url`)整段保护。
+- Heading slug 对齐(PR #37 /code-review finding):`slugifyHeading`
+  在 lowercase 前先剥掉 `[[label|literal]]` / `[[label]]` 语法,
+  这样 MarkdownView 的 `heading_open`(看 enhanced body)和
+  `extractHeadingsWithSlugs`(看 original body)即使输入不同也能
+  产出同一 slug。修复 source 页 outline 在"heading 含被内联的 K 页
+  title"场景下 `getElementById` 命中 null → 跳转静默失败的回归。
 
 ## [0.0.3] - 2026-05-24
 
