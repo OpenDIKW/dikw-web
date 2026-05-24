@@ -179,4 +179,48 @@ describe("injectInlineRefs", () => {
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe("Cost is \\$5 for [[Architecture|Architecture]] lessons.");
   });
+
+  it("never replaces inside raw <details> blocks", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Before.\n\n<details>\n<summary>Architecture details</summary>\nInner Architecture.\n</details>\n\nAfter Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "Before.\n\n<details>\n<summary>Architecture details</summary>\nInner Architecture.\n</details>\n\nAfter [[Architecture|Architecture]]."
+    );
+  });
+
+  it("never replaces inside raw <table> blocks", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "<table><tr><td>Architecture cell</td></tr></table>\n\nThen Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "<table><tr><td>Architecture cell</td></tr></table>\n\nThen [[Architecture|Architecture]]."
+    );
+  });
+
+  it("never replaces inside existing wikilinks or obsidian image embeds", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "See [[Architecture]] and ![[notes/Architecture.png]] then Architecture is back.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "See [[Architecture]] and ![[notes/Architecture.png]] then [[Architecture|Architecture]] is back."
+    );
+  });
+
+  it("never replaces inside a markdown link [text](url) — neither text nor url", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Read [the Architecture guide](https://example.com/Architecture). Then Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "Read [the Architecture guide](https://example.com/Architecture). Then [[Architecture|Architecture]]."
+    );
+  });
+
+  it("allows replacement inside heading text", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "# Architecture source\n\nBody.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe("# [[Architecture|Architecture]] source\n\nBody.");
+    expect(result.matchedPaths).toEqual(new Set(["wiki/arch.md"]));
+  });
 });

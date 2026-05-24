@@ -75,6 +75,13 @@ const DISPLAY_MATH_PATTERN = /\$\$[\s\S]*?\$\$/g;
 // Inline math: opening $ must not be preceded by '\' and not followed by '$';
 // closing $ must not be preceded by '\'. Content single-line.
 const INLINE_MATH_PATTERN = /(?<!\\)\$(?!\$)((?:\\\$|[^\n$])+?)(?<!\\)\$/g;
+// Raw HTML block: a `<tag ...>...</tag>` span where tag is a known block tag.
+// Conservative whitelist matching the markdown reader's sanitizer scope.
+const RAW_HTML_BLOCK_PATTERN = /<(details|table|summary|div|section|article|aside|nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi;
+// Existing wikilink (with optional image bang) — must NOT be wrapped again.
+const EXISTING_WIKILINK_PATTERN = /!?\[\[[^\]\n]+?\]\]/g;
+// Markdown link: [text](url). Bracket part may contain ] only if escaped — accept simple form.
+const MARKDOWN_LINK_PATTERN = /\[(?:\\\]|[^\]\n])+?\]\((?:\\\)|[^)\n])+?\)/g;
 
 interface ProtectedRange {
   start: number;
@@ -115,6 +122,21 @@ function collectProtectedRanges(body: string): ProtectedRange[] {
 
   const inlineMath = new RegExp(INLINE_MATH_PATTERN.source, INLINE_MATH_PATTERN.flags);
   while ((m = inlineMath.exec(body)) !== null) {
+    ranges.push({ start: m.index, end: m.index + m[0].length });
+  }
+
+  const rawHtml = new RegExp(RAW_HTML_BLOCK_PATTERN.source, RAW_HTML_BLOCK_PATTERN.flags);
+  while ((m = rawHtml.exec(body)) !== null) {
+    ranges.push({ start: m.index, end: m.index + m[0].length });
+  }
+
+  const wikilinks = new RegExp(EXISTING_WIKILINK_PATTERN.source, EXISTING_WIKILINK_PATTERN.flags);
+  while ((m = wikilinks.exec(body)) !== null) {
+    ranges.push({ start: m.index, end: m.index + m[0].length });
+  }
+
+  const mdLinks = new RegExp(MARKDOWN_LINK_PATTERN.source, MARKDOWN_LINK_PATTERN.flags);
+  while ((m = mdLinks.exec(body)) !== null) {
     ranges.push({ start: m.index, end: m.index + m[0].length });
   }
 
@@ -159,11 +181,10 @@ function sliceByRanges(body: string, ranges: ProtectedRange[]): Segment[] {
  * 字面出现的位置,合成 `[[title|原文本]]` wikilink 标记。产物丢回 markdown-it
  * 由现有 wikilink rule 渲染为可点击 inline-wikilink 按钮。
  *
- * 当前实现:segment-based scan,case-insensitive,ASCII 要求 word boundary
- * CJK 无 boundary,最小长度英文 ≥3 / CJK ≥2,长 title 优先,已替换段
- * 标记 protected 不复扫 — 已识别受保护区段:frontmatter / fenced & indented
- * code(含 mermaid)/ math(inline + display)/ inline code;raw HTML / wikilink
- * / markdown link 在后续任务加。
+ * 已识别受保护区段:frontmatter / fenced & indented code(含 mermaid)/
+ * inline code / display + inline math / raw HTML 块(details/table/...) /
+ * existing wikilink(含 image embed) / markdown link 整体。
+ * Heading text 不算受保护 — 允许在 # heading 文本里命中。
  */
 export function injectInlineRefs(
   body: string,
