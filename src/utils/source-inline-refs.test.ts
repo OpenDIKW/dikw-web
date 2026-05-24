@@ -149,4 +149,34 @@ describe("injectInlineRefs", () => {
     // Only the first plain occurrence (Before) is replaced.
     expect(result.matchedPaths).toEqual(new Set(["wiki/arch.md"]));
   });
+
+  it("never replaces inside inline code", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Use `Architecture.tsx` for the file. Architecture is the concept.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe("Use `Architecture.tsx` for the file. [[Architecture|Architecture]] is the concept.");
+  });
+
+  it("never replaces inside display math ($$...$$)", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "$$\\text{Architecture} = f(x)$$\n\nThen Architecture is great.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "$$\\text{Architecture} = f(x)$$\n\nThen [[Architecture|Architecture]] is great."
+    );
+  });
+
+  it("never replaces inside inline math ($...$) within the same line", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Inline $Architecture_i$ and then Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe("Inline $Architecture_i$ and then [[Architecture|Architecture]].");
+  });
+
+  it("escaped dollar (\\$) does not open a math span", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Cost is \\$5 for Architecture lessons.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe("Cost is \\$5 for [[Architecture|Architecture]] lessons.");
+  });
 });

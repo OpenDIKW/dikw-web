@@ -70,6 +70,11 @@ const FENCED_CODE_PATTERN = /(^|\n)(?<fence>```|~~~)[^\n]*\n[\s\S]*?\n\k<fence>(
 // preceded by a blank line (or BOS). Simplified to "at least 4 leading
 // spaces on a fresh paragraph line."
 const INDENTED_CODE_PATTERN = /(^|\n\n)((?:    [^\n]*(?:\n|$))+)/g;
+const INLINE_CODE_PATTERN = /(`+)(?:.+?)\1/g;
+const DISPLAY_MATH_PATTERN = /\$\$[\s\S]*?\$\$/g;
+// Inline math: opening $ must not be preceded by '\' and not followed by '$';
+// closing $ must not be preceded by '\'. Content single-line.
+const INLINE_MATH_PATTERN = /(?<!\\)\$(?!\$)((?:\\\$|[^\n$])+?)(?<!\\)\$/g;
 
 interface ProtectedRange {
   start: number;
@@ -96,6 +101,21 @@ function collectProtectedRanges(body: string): ProtectedRange[] {
   while ((m = indented.exec(body)) !== null) {
     const lead = m[1].length;
     ranges.push({ start: m.index + lead, end: m.index + m[0].length });
+  }
+
+  const inlineCode = new RegExp(INLINE_CODE_PATTERN.source, INLINE_CODE_PATTERN.flags);
+  while ((m = inlineCode.exec(body)) !== null) {
+    ranges.push({ start: m.index, end: m.index + m[0].length });
+  }
+
+  const displayMath = new RegExp(DISPLAY_MATH_PATTERN.source, DISPLAY_MATH_PATTERN.flags);
+  while ((m = displayMath.exec(body)) !== null) {
+    ranges.push({ start: m.index, end: m.index + m[0].length });
+  }
+
+  const inlineMath = new RegExp(INLINE_MATH_PATTERN.source, INLINE_MATH_PATTERN.flags);
+  while ((m = inlineMath.exec(body)) !== null) {
+    ranges.push({ start: m.index, end: m.index + m[0].length });
   }
 
   return mergeRanges(ranges);
@@ -142,7 +162,8 @@ function sliceByRanges(body: string, ranges: ProtectedRange[]): Segment[] {
  * 当前实现:segment-based scan,case-insensitive,ASCII 要求 word boundary
  * CJK 无 boundary,最小长度英文 ≥3 / CJK ≥2,长 title 优先,已替换段
  * 标记 protected 不复扫 — 已识别受保护区段:frontmatter / fenced & indented
- * code(含 mermaid);math / raw HTML / wikilink / markdown link 在后续任务加。
+ * code(含 mermaid)/ math(inline + display)/ inline code;raw HTML / wikilink
+ * / markdown link 在后续任务加。
  */
 export function injectInlineRefs(
   body: string,
