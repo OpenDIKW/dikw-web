@@ -54,7 +54,7 @@ describe("ImportPage", () => {
     // Seed storage as if the user refreshed mid-ingest. The state initializer
     // must read this BEFORE the first persistence effect fires, otherwise the
     // effect saves the default ``idle`` state and clobbers the task id.
-    localStorage.setItem(
+    sessionStorage.setItem(
       PIPELINE_STORAGE_KEY,
       JSON.stringify({ stage: "ingest", ingestTaskId: "resumed-ingest" })
     );
@@ -76,7 +76,7 @@ describe("ImportPage", () => {
     });
     expect(screen.getByTestId("import-cancel")).toBeInTheDocument();
     // Storage still carries the resumed state — it was not clobbered.
-    expect(localStorage.getItem(PIPELINE_STORAGE_KEY)).toContain("resumed-ingest");
+    expect(sessionStorage.getItem(PIPELINE_STORAGE_KEY)).toContain("resumed-ingest");
   });
 
   it("transitions to uploading when Start is clicked", async () => {

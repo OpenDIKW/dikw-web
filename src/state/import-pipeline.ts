@@ -1,7 +1,13 @@
-// Pipeline state for the Import page. Persisted in localStorage so a page
-// refresh while a task is running can pick up polling where it left off.
-// Upload itself is a single POST — if the user refreshes mid-upload we
-// can't recover the request, so we reset to ``idle`` on next mount.
+// Pipeline state for the Import page. Persisted in **sessionStorage** so a
+// page refresh while a task is running can pick up polling where it left off
+// — and tagged with the ``coreUrl`` it belongs to so a Settings change to
+// the connection (or a new tab against a different core) can't resume a stale
+// task id against the wrong server. sessionStorage matches the scope of the
+// connection itself (``dikw-web.serverUrl`` / ``dikw-web.token`` also live
+// there), so the two die together when the tab closes.
+//
+// Upload itself is a single POST — if the user refreshes mid-upload we can't
+// recover the request, so we reset to ``idle`` on next mount.
 
 import type {
   ApplyReport,
@@ -29,6 +35,10 @@ export interface PipelineError {
 
 export interface PipelineState {
   stage: PipelineStage;
+  /** The core URL this pipeline is bound to. Set automatically when persisted
+   *  via ``savePipelineState``; checked in ``loadPipelineState`` to discard
+   *  state that belongs to a different server. */
+  coreUrl?: string;
   ingestTaskId?: string;
   synthTaskId?: string;
   lintProposeTaskId?: string;
@@ -58,14 +68,20 @@ export function isTaskStage(stage: PipelineStage): boolean {
   return TASK_STAGES.has(stage);
 }
 
-export function loadPipelineState(): PipelineState {
-  if (typeof localStorage === "undefined") return initialState();
-  const raw = localStorage.getItem(PIPELINE_STORAGE_KEY);
+export function loadPipelineState(currentCoreUrl: string): PipelineState {
+  if (typeof sessionStorage === "undefined") return initialState();
+  const raw = sessionStorage.getItem(PIPELINE_STORAGE_KEY);
   if (!raw) return initialState();
   let parsed: PipelineState;
   try {
     parsed = JSON.parse(raw) as PipelineState;
   } catch {
+    return initialState();
+  }
+  // Connection mismatch — the persisted task ids belong to a different core.
+  // Polling / cancelling / applying against the current client could touch
+  // the wrong server. Discard rather than risk a cross-core write.
+  if (parsed.coreUrl && parsed.coreUrl !== currentCoreUrl) {
     return initialState();
   }
   // Upload state can't be recovered — the in-flight POST died with the page.
@@ -84,26 +100,32 @@ export function loadPipelineState(): PipelineState {
   return parsed;
 }
 
-export function savePipelineState(state: PipelineState): void {
-  if (typeof localStorage === "undefined") return;
+export function savePipelineState(
+  state: PipelineState,
+  currentCoreUrl: string
+): void {
+  if (typeof sessionStorage === "undefined") return;
   // ``uploading`` is intentionally not persisted — we'd just have to wipe it
   // on the next mount. Keeping the previous persisted state intact (if any)
   // is the wrong move because the upload may already have started touching
   // the server; the truthful state in storage is "no active pipeline".
   if (state.stage === "uploading") {
-    localStorage.removeItem(PIPELINE_STORAGE_KEY);
+    sessionStorage.removeItem(PIPELINE_STORAGE_KEY);
     return;
   }
   if (state.stage === "idle") {
-    localStorage.removeItem(PIPELINE_STORAGE_KEY);
+    sessionStorage.removeItem(PIPELINE_STORAGE_KEY);
     return;
   }
-  localStorage.setItem(PIPELINE_STORAGE_KEY, JSON.stringify(state));
+  sessionStorage.setItem(
+    PIPELINE_STORAGE_KEY,
+    JSON.stringify({ ...state, coreUrl: currentCoreUrl })
+  );
 }
 
 export function clearPipelineState(): void {
-  if (typeof localStorage === "undefined") return;
-  localStorage.removeItem(PIPELINE_STORAGE_KEY);
+  if (typeof sessionStorage === "undefined") return;
+  sessionStorage.removeItem(PIPELINE_STORAGE_KEY);
 }
 
 /** Identify the currently-running task id (if any) so the page can resume

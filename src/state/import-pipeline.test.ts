@@ -9,64 +9,77 @@ import {
   savePipelineState
 } from "./import-pipeline";
 
+const CORE = "http://core.test";
+
 afterEach(() => {
-  localStorage.clear();
+  sessionStorage.clear();
 });
 
 describe("pipeline persistence", () => {
   it("returns initial state when nothing is stored", () => {
-    expect(loadPipelineState()).toEqual({ stage: "idle" });
+    expect(loadPipelineState(CORE)).toEqual({ stage: "idle" });
   });
 
-  it("round-trips a task-stage state", () => {
-    savePipelineState({ stage: "ingest", ingestTaskId: "t-1" });
-    expect(loadPipelineState()).toEqual({ stage: "ingest", ingestTaskId: "t-1" });
+  it("round-trips a task-stage state and stamps the coreUrl", () => {
+    savePipelineState({ stage: "ingest", ingestTaskId: "t-1" }, CORE);
+    expect(loadPipelineState(CORE)).toEqual({
+      stage: "ingest",
+      ingestTaskId: "t-1",
+      coreUrl: CORE
+    });
+  });
+
+  it("discards persisted state belonging to a different core", () => {
+    savePipelineState({ stage: "ingest", ingestTaskId: "t-1" }, CORE);
+    // User changed Settings to a different server URL — the task ids belong
+    // to the old core and must not be replayed against the new one.
+    expect(loadPipelineState("http://other.core")).toEqual({ stage: "idle" });
   });
 
   it("clears storage on idle save", () => {
-    localStorage.setItem(PIPELINE_STORAGE_KEY, JSON.stringify({ stage: "ingest", ingestTaskId: "t-x" }));
-    savePipelineState({ stage: "idle" });
-    expect(localStorage.getItem(PIPELINE_STORAGE_KEY)).toBeNull();
+    sessionStorage.setItem(PIPELINE_STORAGE_KEY, JSON.stringify({ stage: "ingest", ingestTaskId: "t-x" }));
+    savePipelineState({ stage: "idle" }, CORE);
+    expect(sessionStorage.getItem(PIPELINE_STORAGE_KEY)).toBeNull();
   });
 
   it("treats persisted uploading state as a dead transaction (back to idle)", () => {
-    localStorage.setItem(
+    sessionStorage.setItem(
       PIPELINE_STORAGE_KEY,
-      JSON.stringify({ stage: "uploading" })
+      JSON.stringify({ stage: "uploading", coreUrl: CORE })
     );
-    expect(loadPipelineState()).toEqual({ stage: "idle" });
+    expect(loadPipelineState(CORE)).toEqual({ stage: "idle" });
   });
 
   it("treats a task stage without its task id as unrecoverable", () => {
-    localStorage.setItem(
+    sessionStorage.setItem(
       PIPELINE_STORAGE_KEY,
-      JSON.stringify({ stage: "synth" })
+      JSON.stringify({ stage: "synth", coreUrl: CORE })
     );
-    expect(loadPipelineState()).toEqual({ stage: "idle" });
+    expect(loadPipelineState(CORE)).toEqual({ stage: "idle" });
   });
 
   it("ignores corrupt JSON in storage", () => {
-    localStorage.setItem(PIPELINE_STORAGE_KEY, "not-json");
-    expect(loadPipelineState()).toEqual({ stage: "idle" });
+    sessionStorage.setItem(PIPELINE_STORAGE_KEY, "not-json");
+    expect(loadPipelineState(CORE)).toEqual({ stage: "idle" });
   });
 
   it("treats lint-review without proposals as unrecoverable", () => {
-    localStorage.setItem(
+    sessionStorage.setItem(
       PIPELINE_STORAGE_KEY,
-      JSON.stringify({ stage: "lint-review", lintProposeTaskId: "p-1" })
+      JSON.stringify({ stage: "lint-review", lintProposeTaskId: "p-1", coreUrl: CORE })
     );
-    expect(loadPipelineState()).toEqual({ stage: "idle" });
+    expect(loadPipelineState(CORE)).toEqual({ stage: "idle" });
   });
 
   it("clearPipelineState wipes storage", () => {
-    savePipelineState({ stage: "ingest", ingestTaskId: "t-1" });
+    savePipelineState({ stage: "ingest", ingestTaskId: "t-1" }, CORE);
     clearPipelineState();
-    expect(localStorage.getItem(PIPELINE_STORAGE_KEY)).toBeNull();
+    expect(sessionStorage.getItem(PIPELINE_STORAGE_KEY)).toBeNull();
   });
 
   it("never writes the uploading stage to disk", () => {
-    savePipelineState({ stage: "uploading" });
-    expect(localStorage.getItem(PIPELINE_STORAGE_KEY)).toBeNull();
+    savePipelineState({ stage: "uploading" }, CORE);
+    expect(sessionStorage.getItem(PIPELINE_STORAGE_KEY)).toBeNull();
   });
 });
 

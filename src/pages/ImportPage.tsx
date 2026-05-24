@@ -70,12 +70,14 @@ function stageRank(stage: PipelineStage): number {
 
 export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   const copy = translations[locale].pages.import;
+  const coreId = client.coreId;
   // Lazy-init from storage so a refresh during a task stage doesn't lose the
   // persisted task id. If we initialized with ``initialState()`` then saved on
   // the next effect tick, the save would clear storage before the resume
-  // effect could read it — see codex review of f927a79.
+  // effect could read it — see codex review of f927a79. State is bound to the
+  // current ``coreId`` so a Settings change can't resume against the wrong core.
   const [pipeline, setPipeline] = useState<PipelineState>(() =>
-    loadPipelineState()
+    loadPipelineState(coreId)
   );
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [bundle, setBundle] = useState<ImportBundleResult | null>(null);
@@ -92,8 +94,8 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   // Persist every pipeline-state change so a refresh during a task stage
   // can resume without losing the task id.
   useEffect(() => {
-    savePipelineState(pipeline);
-  }, [pipeline]);
+    savePipelineState(pipeline, coreId);
+  }, [pipeline, coreId]);
 
   // ---- Resume polling on mount when a task is mid-flight -------------------
   const resumeOnMountRef = useRef(false);

@@ -52,6 +52,13 @@ export class DikwClient {
     this.token = config.token ?? "";
   }
 
+  /** Stable identifier for the core this client talks to. The empty string is
+   *  the same-origin proxy mode. Used by callers that persist task state and
+   *  must invalidate it if the user reconnects to a different server. */
+  get coreId(): string {
+    return this.baseUrl;
+  }
+
   get<T>(
     path: string,
     options: Omit<JsonRequestOptions, "method" | "body"> = {}

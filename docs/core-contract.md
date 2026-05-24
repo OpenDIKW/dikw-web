@@ -283,10 +283,14 @@ runs a four-stage pipeline rooted at `POST /v1/import`:
 
 Each async task is followed via `GET /v1/tasks/{id}/events?from_seq=N&wait=30`
 through `DikwClient.streamTaskEvents`. The pipeline persists active task
-ids in `localStorage["dikw-web.importPipeline"]` so a refresh during any
-task stage resumes polling without losing state. The upload itself
-(stage `uploading`) is a single non-resumable POST — refreshing during
-upload resets to the picker.
+ids in `sessionStorage["dikw-web.importPipeline"]` (per-tab, matching the
+connection-config scope of `dikw-web.serverUrl` / `dikw-web.token`) so a
+refresh during any task stage resumes polling without losing state.
+Persisted state carries the active `coreUrl` and is invalidated when a
+mount finds a different current `client.coreId` — this prevents replaying
+stale task ids against a server the user reconnected to via Settings. The
+upload itself (stage `uploading`) is a single non-resumable POST —
+refreshing during upload resets to the picker.
 
 Partial lint apply (server returns SUCCEEDED with non-empty
 `ApplyReport.skipped`) is treated as a normal completion. The Done card
