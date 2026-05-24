@@ -109,31 +109,41 @@ test("jumps to a heading via the Outline tab and exposes a back-to-top button", 
   await expect(reader.getByRole("button", { name: "Back to top" })).toHaveCount(0);
 });
 
-test("source page merges body backlinks and frontmatter provenance with chip labels", async ({ page }) => {
+test("source page inlines K-page title in body and keeps unmatched refs in the panel", async ({ page }) => {
   await page.goto("/#wiki");
 
   const tree = page.getByRole("tree", { name: "Base directory" });
   await tree.getByRole("button", { name: "sources", exact: true }).click();
   await tree.getByRole("button", { name: /Architecture source/ }).click();
 
+  const reader = page.getByRole("main", { name: "Wiki reader" });
+  const readTab = reader.getByRole("tabpanel", { name: "Read" });
+
+  // Body 内联:fixture body 含 "Architecture" → 应该被替换成可点的 inline wikilink button。
+  const inlineArchitecture = readTab.getByRole("button", { name: "Architecture", exact: true });
+  await expect(inlineArchitecture).toBeVisible();
+  await expect(inlineArchitecture).toHaveClass(/inline-wikilink/);
+
+  // Panel 只剩 Synthesis(body 中无字面 "Synthesis")。
   const refs = page.getByRole("region", { name: "Linked references" });
-  await expect(refs.getByRole("button", { name: "Architecture", exact: true })).toBeVisible();
   await expect(refs.getByRole("button", { name: "Synthesis", exact: true })).toBeVisible();
+  await expect(refs.getByRole("button", { name: "Architecture", exact: true })).toHaveCount(0);
 
-  // Architecture has both body backlink + frontmatter source evidence.
-  const architectureItem = refs.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Architecture", exact: true }) });
-  await expect(architectureItem.getByText("linked", { exact: true })).toBeVisible();
-  await expect(architectureItem.getByText("sourced", { exact: true })).toBeVisible();
-
-  // Synthesis only via frontmatter `sources:`.
+  // Synthesis 只有 sourced(matched 的 Architecture 没在 panel 里,所以也没 linked chip)。
   const synthesisItem = refs.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Synthesis", exact: true }) });
   await expect(synthesisItem.getByText("sourced", { exact: true })).toBeVisible();
-  await expect(synthesisItem.getByText("linked", { exact: true })).toHaveCount(0);
+  await expect(refs.getByText("linked", { exact: true })).toHaveCount(0);
 
-  // Clicking a sourced K reference opens the existing preview aside.
-  await refs.getByRole("button", { name: "Synthesis", exact: true }).click();
+  // 点击 inline button 弹 preview。
+  await inlineArchitecture.click();
   const preview = page.getByRole("region", { name: "Wiki link preview" });
-  await expect(preview.getByRole("heading", { name: "Synthesis" })).toBeVisible();
+  await expect(preview.getByRole("heading", { name: "Architecture" })).toBeVisible();
+
+  // Source tab 显示原始 body,不含 [[...|...]] 字符。
+  await preview.getByRole("button", { name: "Collapse link preview" }).click();
+  await reader.getByRole("tab", { name: "Source" }).click();
+  await expect(reader.getByText(/The Architecture is the main topic/)).toBeVisible();
+  await expect(reader.locator("pre.wiki-source-code")).not.toContainText("[[Architecture|");
 });
 
 test("renders source details blocks with Mermaid diagrams", async ({ page }) => {

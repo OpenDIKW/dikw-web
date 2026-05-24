@@ -121,6 +121,16 @@ page can show up in either or both. The reader dedupes by `path`,
 tags each entry, and lifts double-evidence references above
 single-evidence ones in the panel.
 
+### Web 渲染:source read tab 的 inline 合成
+
+dikw-web 在 source 层 read tab 渲染时,会把 backlinks ∪ derived 合集中
+**title 在 source body 首次字面出现**的位置自动合成 wikilink(参见
+`docs/adr/0002-source-inline-references.md`)。匹配宽松:大小写不敏感、
+英文要求 `\b`、CJK 不要求、最小长度英文 ≥3 / CJK ≥2、长 title 优先。
+受保护区段(frontmatter / code / math / raw HTML / 已有 wikilink /
+markdown link)不替换。未匹配 K 页留在底部 panel。Source tab 始终
+显示原始 body,不做替换。本机制不改动 core 契约。
+
 ## Assets
 
 `GET /v1/assets/{asset_id}` streams a single content-addressed asset

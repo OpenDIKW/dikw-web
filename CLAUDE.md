@@ -134,6 +134,11 @@ Image embeds resolve through `PageReadResult.assets[]` (matching `original_paths
 
 Charts use Apache ECharts, lazy-imported per-module for tree-shaking. The placeholder element carries the parsed spec as a base64-encoded `data-chart-spec`; if ECharts fails to load or a single chart fails to render, the placeholder falls back to a `<details>` block containing the source pipe table so data is never lost. Dark mode passes the `"dark"` theme to `echarts.init`.
 
+Source 层 read tab 在渲染前会跑 `injectInlineRefs`(`src/utils/source-inline-refs.ts`),
+把已有反向边的 K 页 title 在 body 首次出现位置合成 `[[title|literal]]` wikilink。
+未匹配上的 K 页留在底部 Linked references panel。Source tab 永远显示原始 `page.body`。
+设计细节见 `docs/adr/0002-source-inline-references.md`。
+
 ### UI rules
 
 - Compact knowledge-workbench feel: warm neutral surfaces, petrol accent, hairline borders, restrained shadows, small radii.
