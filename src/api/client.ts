@@ -2,8 +2,11 @@ import { decodeNdjsonStream } from "./ndjson";
 import type {
   ApiErrorEnvelope,
   EventsPage,
+  ImportResponse,
+  LintKind,
   RetrieveStreamEvent,
   TaskEvent,
+  TaskHandle,
   TaskListPage,
   TaskRow,
   TaskStatus
@@ -85,6 +88,118 @@ export class DikwClient {
       method: "GET",
       signal
     });
+  }
+
+  getTaskResult<T = Record<string, unknown>>(
+    taskId: string,
+    signal?: AbortSignal
+  ): Promise<T> {
+    return this.requestJson<T>(
+      `/v1/tasks/${encodeURIComponent(taskId)}/result`,
+      { method: "GET", signal }
+    );
+  }
+
+  cancelTask(taskId: string, signal?: AbortSignal): Promise<unknown> {
+    return this.requestJson<unknown>(
+      `/v1/tasks/${encodeURIComponent(taskId)}/cancel`,
+      { method: "POST", signal }
+    );
+  }
+
+  importBundle(
+    payload: Blob,
+    manifestJson: string,
+    signal?: AbortSignal
+  ): Promise<ImportResponse> {
+    const form = new FormData();
+    // Field names match dikw-core's routes_import.py multipart contract.
+    form.append("payload", payload, "import.tar.gz");
+    form.append("manifest", manifestJson);
+    return this.postMultipart<ImportResponse>("/v1/import", form, signal);
+  }
+
+  startIngest(
+    opts: { noEmbed?: boolean } = {},
+    signal?: AbortSignal
+  ): Promise<TaskHandle> {
+    return this.post<TaskHandle>(
+      "/v1/ingest",
+      { no_embed: opts.noEmbed ?? false },
+      { signal }
+    );
+  }
+
+  startSynth(
+    opts: { forceAll?: boolean; noEmbed?: boolean } = {},
+    signal?: AbortSignal
+  ): Promise<TaskHandle> {
+    return this.post<TaskHandle>(
+      "/v1/synth",
+      { force_all: opts.forceAll ?? false, no_embed: opts.noEmbed ?? false },
+      { signal }
+    );
+  }
+
+  startLintPropose(
+    opts: { rule?: LintKind | null; limit?: number; enableLlm?: boolean } = {},
+    signal?: AbortSignal
+  ): Promise<TaskHandle> {
+    return this.post<TaskHandle>(
+      "/v1/lint/propose",
+      {
+        rule: opts.rule ?? null,
+        limit: opts.limit ?? 10,
+        enable_llm: opts.enableLlm ?? false
+      },
+      { signal }
+    );
+  }
+
+  startLintApply(
+    opts: {
+      proposalTaskId: string;
+      pick?: number[] | null;
+      skip?: number[] | null;
+    },
+    signal?: AbortSignal
+  ): Promise<TaskHandle> {
+    return this.post<TaskHandle>(
+      "/v1/lint/apply",
+      {
+        proposal_task_id: opts.proposalTaskId,
+        pick: opts.pick ?? null,
+        skip: opts.skip ?? null
+      },
+      { signal }
+    );
+  }
+
+  async postMultipart<T>(
+    path: string,
+    form: FormData,
+    signal?: AbortSignal
+  ): Promise<T> {
+    // FormData sets its own Content-Type with boundary — never inject one.
+    const headers: Record<string, string> = {
+      Accept: "application/json"
+    };
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    }
+    const response = await fetch(buildRequestUrl(this.baseUrl, path), {
+      method: "POST",
+      headers,
+      body: form,
+      signal
+    });
+    if (!response.ok) {
+      throw await errorFromResponse(response);
+    }
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return (await response.json()) as T;
   }
 
   async requestJson<T>(path: string, options: JsonRequestOptions = {}): Promise<T> {

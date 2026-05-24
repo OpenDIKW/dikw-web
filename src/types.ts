@@ -257,6 +257,76 @@ export interface RetrieveResult {
   page_refs: PageRef[];
 }
 
+// ---- Import + lint contracts (mirror dikw-core server pydantic models) ----
+
+export interface RejectedPackage {
+  id: number;
+  code: string;
+  detail?: Record<string, unknown> | null;
+}
+
+export interface ImportResponse {
+  import_id: string;
+  files_count: number;
+  bytes: number;
+  applied_at: string;
+  committed: number[];
+  rejected: RejectedPackage[];
+}
+
+export interface TaskHandle {
+  task_id: string;
+  op: string;
+  status: TaskStatus;
+  created_at: string;
+  links: Record<string, string>;
+}
+
+export type LintKind =
+  | "broken_wikilink"
+  | "orphan_page"
+  | "duplicate_title"
+  | "non_atomic_page"
+  | "missing_provenance";
+
+export type FixOperationKind =
+  | "create_page"
+  | "update_page"
+  | "delete_page"
+  | "reconcile_provenance";
+
+export interface FixOperation {
+  kind: FixOperationKind;
+  path: string;
+  new_frontmatter?: Record<string, unknown> | null;
+  new_body?: string | null;
+  expected_hash?: string | null;
+  source_paths?: string[] | null;
+}
+
+export interface FixProposal {
+  proposal_id: string;
+  issue_kind: LintKind;
+  issue_path: string;
+  issue_detail: string;
+  issue_line?: number | null;
+  operations: FixOperation[];
+  rationale: string;
+  source: "heuristic" | "llm";
+}
+
+export interface FixProposalReport {
+  proposals: FixProposal[];
+  skipped: Array<Record<string, unknown>>;
+}
+
+export interface ApplyReport {
+  applied: FixOperation[];
+  skipped: Array<Record<string, unknown>>;
+  wiki_paths_changed: string[];
+  proposal_task_id?: string | null;
+}
+
 export interface WisdomItem {
   item_id: string;
   kind: WisdomKind;

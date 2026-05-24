@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DikwClient, buildRequestUrl, normalizeBaseUrl } from "./client";
-import type { EventsPage, TaskEvent, TaskListPage, TaskRow } from "../types";
+import type {
+  EventsPage,
+  TaskEvent,
+  TaskHandle,
+  TaskListPage,
+  TaskRow
+} from "../types";
 
 describe("DikwClient URL helpers", () => {
   it("normalizes a trailing slash", () => {
@@ -214,6 +220,104 @@ describe("DikwClient.listTasks (cursor envelope)", () => {
     expect(url.searchParams.get("status")).toBeNull();
     expect(url.searchParams.get("op")).toBeNull();
     expect(url.searchParams.get("limit")).toBe("50");
+  });
+});
+
+describe("DikwClient import + pipeline submits", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it("importBundle 走 multipart,字段名 payload+manifest,带 Bearer 不带 Content-Type", async () => {
+    const resp = {
+      import_id: "abc",
+      files_count: 2,
+      bytes: 42,
+      applied_at: "2026-05-24T00:00:00Z",
+      committed: [0],
+      rejected: []
+    };
+    fetchSpy.mockResolvedValueOnce(jsonResponse(resp));
+
+    const client = new DikwClient({ baseUrl: "http://core.test", token: "T" });
+    const payload = new Blob([new Uint8Array([0x1f, 0x8b])], { type: "application/gzip" });
+    const out = await client.importBundle(payload, "{\"files\":[]}");
+
+    expect(out).toEqual(resp);
+    const [calledUrl, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(new URL(String(calledUrl)).pathname).toBe("/v1/import");
+    expect(init.method).toBe("POST");
+    const body = init.body as FormData;
+    expect(body).toBeInstanceOf(FormData);
+    expect(body.get("manifest")).toBe("{\"files\":[]}");
+    expect(body.get("payload")).toBeInstanceOf(Blob);
+    const headers = init.headers as Record<string, string>;
+    expect(headers.Authorization).toBe("Bearer T");
+    // Multipart Content-Type must be set by the browser, not by us.
+    expect(headers["Content-Type"]).toBeUndefined();
+  });
+
+  it("startIngest / startSynth / startLintPropose / startLintApply 投递正确 body", async () => {
+    const handle: TaskHandle = {
+      task_id: "t-x",
+      op: "ingest",
+      status: "pending",
+      created_at: "2026-05-24T00:00:00Z",
+      links: {}
+    };
+    // Each call gets a fresh Response — body is single-read.
+    fetchSpy.mockImplementation(async () => jsonResponse(handle));
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+
+    await client.startIngest();
+    await client.startSynth({ forceAll: true });
+    await client.startLintPropose({ rule: "broken_wikilink", limit: 20 });
+    await client.startLintApply({ proposalTaskId: "p-1", pick: [0, 2] });
+
+    const bodies = fetchSpy.mock.calls.map(([, init]: [unknown, RequestInit]) =>
+      JSON.parse(String(init.body))
+    );
+    expect(bodies[0]).toEqual({ no_embed: false });
+    expect(bodies[1]).toEqual({ force_all: true, no_embed: false });
+    expect(bodies[2]).toEqual({ rule: "broken_wikilink", limit: 20, enable_llm: false });
+    expect(bodies[3]).toEqual({
+      proposal_task_id: "p-1",
+      pick: [0, 2],
+      skip: null
+    });
+
+    const urls = fetchSpy.mock.calls.map(([u]: [unknown]) => new URL(String(u)).pathname);
+    expect(urls).toEqual([
+      "/v1/ingest",
+      "/v1/synth",
+      "/v1/lint/propose",
+      "/v1/lint/apply"
+    ]);
+  });
+
+  it("getTaskResult 请求 /v1/tasks/{id}/result", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse({ applied: [], skipped: [] }));
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const out = await client.getTaskResult<{ applied: unknown[] }>("apply-1");
+    expect(out).toEqual({ applied: [], skipped: [] });
+    const url = new URL(String(fetchSpy.mock.calls[0][0]));
+    expect(url.pathname).toBe("/v1/tasks/apply-1/result");
+  });
+
+  it("cancelTask POST 到 /v1/tasks/{id}/cancel", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse({ cancelled: true }));
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    await client.cancelTask("t-9");
+    const [u, init] = fetchSpy.mock.calls[0] as [unknown, RequestInit];
+    expect(new URL(String(u)).pathname).toBe("/v1/tasks/t-9/cancel");
+    expect(init.method).toBe("POST");
   });
 });
 

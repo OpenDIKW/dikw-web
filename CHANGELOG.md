@@ -9,6 +9,38 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-05-24
+
+### Import 页
+
+- 新增 **Import** 路由(`#import`),sidebar 加同名入口。这是 web 第一个写入
+  surface:用户在浏览器内选本地文件或文件夹,自动跑「打包 → ingest → synth
+  → lint(propose + 审阅 + apply)」全管线。任意阶段可取消,任务阶段刷新可
+  续轮询。core 端零改动,沿用 `/v1/import` 现有 multipart 协议。
+- 浏览器侧打包(`src/utils/import-bundle.ts`):手写 USTAR tar + 原生
+  `CompressionStream('gzip')` + `crypto.subtle.digest` 算 SHA-256。无新增 npm
+  依赖。`package_sha256(md_sha, asset_shas) =
+  sha256(sorted([md, ...assets]).join("\n").encode("ascii"))` 严格复现
+  `dikw-core/src/dikw_core/md_inspect.py:60-66`。
+- Markdown 引用解析(`src/utils/md-asset-refs.ts`):正则与 core 的
+  `_IMG_MD` / `_IMG_WIKILINK` 一致,sibling-of-md → project-root 两段式
+  解析。远程 URL 不上传,缺失 asset 在 pre-flight 阻止导入。
+- 管线状态(`src/state/import-pipeline.ts`):`PipelineStage` 联合 + localStorage
+  持久化(键 `dikw-web.importPipeline`)。任务阶段(ingest/synth/lint-*)落地
+  对应 `task_id`,刷新后从 `streamTaskEvents` 续跟。上传阶段单次 POST,
+  刷新即丢,picker 重置。
+- Lint 走法:propose 后弹审阅面板让用户勾选要 apply 的 proposal;**部分
+  修复也算完成** —— 只要 task 终态 `SUCCEEDED`,即便 `ApplyReport.skipped`
+  非空,管线进 done,跳过项以 reason 形式展示,不判 failure。
+- `DikwClient` 扩展:`postMultipart` + `importBundle` + `startIngest` /
+  `startSynth` / `startLintPropose` / `startLintApply` + `getTaskResult` +
+  `cancelTask`。multipart 上传不注入 `Content-Type`,让浏览器自填 boundary。
+- i18n:`nav.import` + `pages.import.*` 全量中英文案。
+- 测试覆盖:`import-bundle` (Python-golden hashes、USTAR 头结构、gzip magic、
+  端到端管线包)、`md-asset-refs`(19 个 case)、`import-pipeline`(状态机
+  迁移 + 持久化 + cancel)、`DikwClient`(4 个新方法 wire)、`ImportPage`
+  (各 stage 渲染 + cancel)、e2e(sidebar 入口 + picker 预览)。
+
 ## [0.0.4] - 2026-05-24
 
 ### Source reader

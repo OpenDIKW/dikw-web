@@ -119,6 +119,7 @@ The browser receives the current core URL from settings and passes it to the sid
 - Knowledge (`WikiPage`) uses `/v1/base/pages?active=true` and `/v1/base/pages/{path}`. Do not use the legacy `/v1/wiki/pages` endpoint.
 - Graph (`GraphPage` + `components/GraphCanvas.tsx`) consumes `GET /v1/base/graph?active=true` and renders the full active graph. Only `search` and `hide-orphans` are exposed as client-side filters — the `wiki` / `source` / `all` scope toggle was removed; do not reintroduce it (see `docs/graph-view.md`). Do not reintroduce browser-side body reads to build graph edges. Rendering uses Pixi.js + d3-force.
 - Overview reads `/v1/health`, `/v1/status`, `/v1/info` — see `docs/core-contract.md` for which fields are authoritative (e.g. wisdom counts come from `health.layer_counts`, not `status.documents_by_layer.wisdom`).
+- `#import` (`ImportPage`) is the only write surface: browser bundles `.md` + referenced assets into a tar.gz + manifest (per `routes_import.py` wire shape), POSTs to `/v1/import`, then runs ingest → synth → lint (propose + user-reviewed apply). Pipeline state persists in `localStorage["dikw-web.importPipeline"]` so a refresh during any async task resumes polling; upload itself is non-resumable. See `docs/core-contract.md#import`.
 
 ### Chat / agent rules
 
