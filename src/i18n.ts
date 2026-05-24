@@ -16,6 +16,7 @@ export const translations = {
       graph: "Graph",
       wisdom: "Wisdom",
       tasks: "Tasks",
+      import: "Import",
       settings: "Settings"
     },
     navGroups: {
@@ -159,6 +160,59 @@ export const translations = {
           pageOf: "Page {current} / {total}",
           ariaLabel: "event pagination"
         }
+      },
+      import: {
+        title: "Import",
+        description:
+          "Upload markdown and referenced assets to dikw-core, then automatically run ingest → synth → lint.",
+        pickerTitle: "Choose files or a folder",
+        pickerHint:
+          "Markdown files plus referenced images/PDFs will be packaged into a single import. Anything else is skipped.",
+        pickFiles: "Choose files",
+        pickFolder: "Choose folder",
+        clearSelection: "Clear selection",
+        buildingBundle: "Inspecting files and building the import bundle…",
+        bundleErrorTitle: "Could not build the import bundle",
+        previewTitle: "Ready to import",
+        previewFilesCount: "Files",
+        previewPackages: "Markdown packages",
+        previewTotalBytes: "Total size",
+        previewSkipped: "Skipped",
+        previewSkippedDetails: "Show skipped files",
+        skippedUnsupported: "unsupported extension",
+        skippedEmpty: "empty body after frontmatter",
+        skippedAssetMissing: "referenced asset is missing",
+        skippedUnreferenced: "no markdown references this asset (will not upload)",
+        skippedDuplicate: "multiple selected files map to this path",
+        skippedPathTooLong: "path is too long for the import format",
+        start: "Start import",
+        cancel: "Cancel",
+        pipelineTitle: "Pipeline",
+        stages: {
+          uploading: "Upload",
+          ingest: "Ingest",
+          synth: "Synth",
+          lintPropose: "Lint propose",
+          lintApply: "Lint apply"
+        },
+        lintReviewTitle: "Review lint proposals",
+        lintReviewHint:
+          "Pick the proposals you want dikw-core to apply. Unchecked proposals are skipped.",
+        selectAll: "Select all",
+        selectNone: "Select none",
+        applySelected: "Apply selected",
+        skipAll: "Skip all",
+        doneTitle: "Import complete",
+        summaryCommitted: "Committed packages",
+        summaryRejected: "Rejected packages",
+        summaryBytes: "Bytes uploaded",
+        summaryApplied: "Lint fixes applied",
+        summarySkippedServer: "Lint fixes skipped by server",
+        summaryNoLint: "No lint proposals",
+        errorTitle: "Import failed",
+        cancelledTitle: "Import cancelled",
+        errorStageLabel: "Stage",
+        restart: "Start a new import"
       }
     },
     connection: {
@@ -197,6 +251,7 @@ export const translations = {
       graph: "图谱",
       wisdom: "智慧",
       tasks: "任务",
+      import: "导入",
       settings: "设置"
     },
     navGroups: {
@@ -340,6 +395,56 @@ export const translations = {
           pageOf: "第 {current} 页 / 共 {total} 页",
           ariaLabel: "事件分页"
         }
+      },
+      import: {
+        title: "导入",
+        description: "把本地 markdown 和引用的素材上传到 dikw-core，并自动接连跑 ingest → synth → lint。",
+        pickerTitle: "选择文件或文件夹",
+        pickerHint: "Markdown 文件和它引用的图片/PDF 会一起打包导入，其它文件会被跳过。",
+        pickFiles: "选择文件",
+        pickFolder: "选择文件夹",
+        clearSelection: "清空选择",
+        buildingBundle: "正在解析文件并构建导入包……",
+        bundleErrorTitle: "构建导入包失败",
+        previewTitle: "待导入",
+        previewFilesCount: "文件数",
+        previewPackages: "Markdown 包",
+        previewTotalBytes: "总大小",
+        previewSkipped: "跳过",
+        previewSkippedDetails: "查看跳过的文件",
+        skippedUnsupported: "不支持的扩展名",
+        skippedEmpty: "去掉 frontmatter 后正文为空",
+        skippedAssetMissing: "引用的素材文件不存在",
+        skippedUnreferenced: "没有 markdown 引用此素材(不会上传)",
+        skippedDuplicate: "多个选中文件指向同一路径",
+        skippedPathTooLong: "路径过长,导入格式无法表示",
+        start: "开始导入",
+        cancel: "取消",
+        pipelineTitle: "管线进度",
+        stages: {
+          uploading: "上传",
+          ingest: "Ingest",
+          synth: "Synth",
+          lintPropose: "Lint 检查",
+          lintApply: "Lint 应用"
+        },
+        lintReviewTitle: "审阅 lint 修复建议",
+        lintReviewHint: "勾选你希望 dikw-core 自动修复的建议，未勾选的会被跳过。",
+        selectAll: "全选",
+        selectNone: "全不选",
+        applySelected: "应用所选",
+        skipAll: "全部跳过",
+        doneTitle: "导入完成",
+        summaryCommitted: "提交的包数",
+        summaryRejected: "被拒绝的包数",
+        summaryBytes: "上传字节数",
+        summaryApplied: "Lint 已修复",
+        summarySkippedServer: "Lint 服务端跳过",
+        summaryNoLint: "Lint 无需修复",
+        errorTitle: "导入失败",
+        cancelledTitle: "导入已取消",
+        errorStageLabel: "阶段",
+        restart: "开始新的导入"
       }
     },
     connection: {

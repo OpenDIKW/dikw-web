@@ -259,3 +259,54 @@ available in a collapsed details block.
 
 `heartbeat` events remain transport noise and are dropped by
 `DikwClient.streamNdjson`.
+
+## Import
+
+The Import page is the only web surface that writes to `dikw-core`. It
+runs a four-stage pipeline rooted at `POST /v1/import`:
+
+1. **Bundle**: the browser scans selected files, resolves markdown asset
+   references (sibling-of-md → project-root, matching `md_inspect.py`),
+   hashes each unique file (`crypto.subtle.digest('SHA-256')`), writes a
+   USTAR tar, and gzips it via `CompressionStream('gzip')`. The manifest
+   wire shape is `{files:[{path,size,sha256}], packages:[{id,md_path,asset_paths,package_sha256}], total_bytes}`,
+   exactly the shape `dikw-core/src/dikw_core/server/routes_import.py`
+   validates. `package_sha256(md, assets) =
+   sha256(sorted([md, ...assets]).join("\n").encode("ascii"))` —
+   divergence shows up as `manifest_package_sha256_mismatch`.
+2. **Ingest** (`POST /v1/ingest`, body `{no_embed:false}`): async task.
+3. **Synth** (`POST /v1/synth`, body `{force_all:false, no_embed:false}`):
+   async task; only new D-layer documents are synthesised.
+4. **Lint**: `POST /v1/lint/propose` then a user-driven review gate that
+   selects which proposals to apply; `POST /v1/lint/apply` with the
+   picked indices completes the run.
+
+Each async task is followed via `GET /v1/tasks/{id}/events?from_seq=N&wait=30`
+through `DikwClient.streamTaskEvents`. The pipeline persists active task
+ids in `sessionStorage["dikw-web.importPipeline"]` (per-tab, matching the
+connection-config scope of `dikw-web.serverUrl` / `dikw-web.token`) so a
+refresh during any task stage resumes polling without losing state.
+Persisted state carries the active `coreUrl` and is invalidated when a
+mount finds a different current `client.coreId` — this prevents replaying
+stale task ids against a server the user reconnected to via Settings. The
+upload itself (stage `uploading`) is a single non-resumable POST —
+refreshing during upload resets to the picker.
+
+Partial lint apply (server returns SUCCEEDED with non-empty
+`ApplyReport.skipped`) is treated as a normal completion. The Done card
+surfaces per-proposal skip reasons but does not flag the pipeline as
+failed. Only a task transitioning to `FAILED` or a network/manifest
+error drops the pipeline into its `failed` branch.
+
+The web bundler diverges from the CLI importer in two intentional spots:
+
+- **Orphan assets**: core's `dikw client import` *rejects* a directory
+  with allowed-extension assets that no markdown references. The web
+  picker is more permissive (users often select a whole vault) — it
+  surfaces unreferenced assets as `unreferenced_asset` skipped entries
+  in the preview, leaves them out of the bundle, and proceeds. Move
+  them under a referenced path if you want them committed.
+- **Bundle ceiling**: core accepts up to 1 GiB
+  (`DIKW_SERVER_MAX_IMPORT_BYTES`). The browser bundler ceiling is
+  256 MiB because we materialize the raw tar and gzipped Blob in RAM
+  before POST. Stream/spool is a follow-up.

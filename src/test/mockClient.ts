@@ -25,6 +25,9 @@ export function createMockClient(): MockDikwClient {
     getTask: vi.fn().mockResolvedValue(undefined),
     streamRetrieve: vi.fn(),
     streamTaskEvents: vi.fn(),
-    streamNdjson: vi.fn()
+    streamNdjson: vi.fn(),
+    // Stable identifier matching the same-origin proxy default — pages that
+    // bind state to ``client.coreId`` need a deterministic value in tests.
+    coreId: ""
   } as unknown as MockDikwClient;
 }

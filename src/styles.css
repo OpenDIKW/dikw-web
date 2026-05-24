@@ -4423,3 +4423,28 @@ html[data-theme="dark"] .graph-pixi-stage {
     transition: none;
   }
 }
+
+/* Import page */
+.import-step-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.import-step-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  font-size: 13px;
+}
+
+.import-step-row code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+}

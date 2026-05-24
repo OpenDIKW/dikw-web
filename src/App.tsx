@@ -7,7 +7,8 @@ import {
   MessageSquareText,
   Network,
   Search,
-  Settings
+  Settings,
+  Upload
 } from "lucide-react";
 import { DikwClient, normalizeBaseUrl } from "./api/client";
 import { AgentClient } from "./api/agentClient";
@@ -24,13 +25,14 @@ import {
 import { OverviewPage } from "./pages/OverviewPage";
 import { GraphPage } from "./pages/GraphPage";
 import { ChatPage } from "./pages/ChatPage";
+import { ImportPage } from "./pages/ImportPage";
 import { RetrievePage } from "./pages/RetrievePage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TasksPage } from "./pages/TasksPage";
 import { WikiPage } from "./pages/WikiPage";
 import { WisdomPage } from "./pages/WisdomPage";
 
-type ViewId = "overview" | "chat" | "retrieve" | "wiki" | "graph" | "wisdom" | "tasks" | "settings";
+type ViewId = "overview" | "chat" | "retrieve" | "wiki" | "graph" | "wisdom" | "tasks" | "import" | "settings";
 type NavLabelKey = keyof (typeof translations)["en"]["nav"];
 
 const serverKey = "dikw-web.serverUrl";
@@ -52,7 +54,8 @@ const navGroups: Array<{ id: NavGroupId; items: NavItem[] }> = [
       { id: "wiki", labelKey: "wiki", icon: BookOpen },
       { id: "graph", labelKey: "graph", icon: Network },
       { id: "wisdom", labelKey: "wisdom", icon: Gem },
-      { id: "tasks", labelKey: "tasks", icon: ListChecks }
+      { id: "tasks", labelKey: "tasks", icon: ListChecks },
+      { id: "import", labelKey: "import", icon: Upload }
     ]
   }
 ];
@@ -72,7 +75,14 @@ export function App() {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readThemePreference()));
   const [wikiInitialPath, setWikiInitialPath] = useState<string | null>(null);
   const clientBaseUrl = normalizeBaseUrl(serverUrl) === defaultServerUrl ? "" : serverUrl;
-  const client = useMemo(() => new DikwClient({ baseUrl: clientBaseUrl, token }), [clientBaseUrl, token]);
+  // Pass the user-visible serverUrl as coreId so same-origin proxy mode
+  // (baseUrl='') still has a distinct identity across distinct upstream cores —
+  // ImportPage uses coreId to guard persisted task state against cross-core
+  // replay (see docs/core-contract.md#import).
+  const client = useMemo(
+    () => new DikwClient({ baseUrl: clientBaseUrl, token, coreId: serverUrl }),
+    [clientBaseUrl, token, serverUrl]
+  );
   const agentClient = useMemo(() => new AgentClient({ coreUrl: serverUrl, token }), [serverUrl, token]);
   const copy = translations[locale];
 
@@ -220,6 +230,7 @@ export function App() {
           {activeView === "graph" ? <GraphPage client={client} onOpenWikiPath={openWikiPath} locale={locale} /> : null}
           {activeView === "wisdom" ? <WisdomPage client={client} locale={locale} /> : null}
           {activeView === "tasks" ? <TasksPage client={client} locale={locale} /> : null}
+          {activeView === "import" ? <ImportPage client={client} locale={locale} /> : null}
           {activeView === "settings" ? (
             <SettingsPage
               locale={locale}

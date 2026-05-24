@@ -2,8 +2,11 @@ import { decodeNdjsonStream } from "./ndjson";
 import type {
   ApiErrorEnvelope,
   EventsPage,
+  ImportResponse,
+  LintKind,
   RetrieveStreamEvent,
   TaskEvent,
+  TaskHandle,
   TaskListPage,
   TaskRow,
   TaskStatus
@@ -12,6 +15,12 @@ import type {
 export interface DikwClientConfig {
   baseUrl?: string;
   token?: string;
+  /** Stable identifier for the core this client talks to — used by callers
+   *  that persist task state and must invalidate it if the user reconnects to
+   *  a different server. Defaults to ``baseUrl`` when omitted, which collapses
+   *  to the empty string in same-origin proxy mode; pass an explicit value
+   *  (e.g. the user-visible server URL) to distinguish proxy targets. */
+  coreId?: string;
 }
 
 export interface JsonRequestOptions {
@@ -43,10 +52,23 @@ export class DikwClientError extends Error {
 export class DikwClient {
   private readonly baseUrl: string;
   private readonly token: string;
+  private readonly _coreId: string;
 
   constructor(config: DikwClientConfig = {}) {
     this.baseUrl = normalizeBaseUrl(config.baseUrl ?? "");
     this.token = config.token ?? "";
+    // Default to the normalized baseUrl, but allow callers to override —
+    // e.g. App.tsx passes the user-visible ``serverUrl`` so the same-origin
+    // proxy mode (baseUrl='') still has a distinct identity across distinct
+    // upstream cores.
+    this._coreId = normalizeBaseUrl(config.coreId ?? config.baseUrl ?? "");
+  }
+
+  /** Stable identifier for the core this client talks to. Used by callers that
+   *  persist task state and must invalidate it if the user reconnects to a
+   *  different server. */
+  get coreId(): string {
+    return this._coreId;
   }
 
   get<T>(
@@ -85,6 +107,151 @@ export class DikwClient {
       method: "GET",
       signal
     });
+  }
+
+  async getTaskResult<T = Record<string, unknown>>(
+    taskId: string,
+    signal?: AbortSignal
+  ): Promise<T> {
+    // ``GET /v1/tasks/{id}/result`` returns a ``TaskResultBody`` envelope
+    // ``{ task_id, status, started_at, finished_at, result, error }``. Every
+    // caller wants the unwrapped ``result`` payload (e.g. ``FixProposalReport``
+    // / ``ApplyReport``) and would otherwise read ``proposeResult.proposals``
+    // off the envelope and get ``undefined``. Unwrap centrally so each caller
+    // doesn't have to remember.
+    const envelope = await this.requestJson<{
+      task_id: string;
+      status: TaskStatus;
+      result: T | null;
+      error: Record<string, unknown> | null;
+    }>(`/v1/tasks/${encodeURIComponent(taskId)}/result`, {
+      method: "GET",
+      signal
+    });
+    if (envelope.status !== "succeeded") {
+      // Use a distinct ``code`` for cancelled vs failed so callers (notably
+      // ImportPage.handlePipelineError) can route a server-cancelled task to
+      // the cancelled UI branch instead of treating it as a generic failure.
+      throw new DikwClientError({
+        status: 200,
+        code:
+          envelope.status === "cancelled"
+            ? "task_cancelled"
+            : "task_not_succeeded",
+        message: `task ${taskId} terminated as ${envelope.status}; cannot return result`,
+        detail: envelope.error ?? undefined
+      });
+    }
+    if (envelope.result === null) {
+      throw new DikwClientError({
+        status: 200,
+        code: "task_result_empty",
+        message: `task ${taskId} succeeded but recorded no result`
+      });
+    }
+    return envelope.result;
+  }
+
+  cancelTask(taskId: string, signal?: AbortSignal): Promise<unknown> {
+    return this.requestJson<unknown>(
+      `/v1/tasks/${encodeURIComponent(taskId)}/cancel`,
+      { method: "POST", signal }
+    );
+  }
+
+  importBundle(
+    payload: Blob,
+    manifestJson: string,
+    signal?: AbortSignal
+  ): Promise<ImportResponse> {
+    const form = new FormData();
+    // Field names match dikw-core's routes_import.py multipart contract.
+    form.append("payload", payload, "import.tar.gz");
+    form.append("manifest", manifestJson);
+    return this.postMultipart<ImportResponse>("/v1/import", form, signal);
+  }
+
+  startIngest(
+    opts: { noEmbed?: boolean } = {},
+    signal?: AbortSignal
+  ): Promise<TaskHandle> {
+    return this.post<TaskHandle>(
+      "/v1/ingest",
+      { no_embed: opts.noEmbed ?? false },
+      { signal }
+    );
+  }
+
+  startSynth(
+    opts: { forceAll?: boolean; noEmbed?: boolean } = {},
+    signal?: AbortSignal
+  ): Promise<TaskHandle> {
+    return this.post<TaskHandle>(
+      "/v1/synth",
+      { force_all: opts.forceAll ?? false, no_embed: opts.noEmbed ?? false },
+      { signal }
+    );
+  }
+
+  startLintPropose(
+    opts: { rule?: LintKind | null; limit?: number; enableLlm?: boolean } = {},
+    signal?: AbortSignal
+  ): Promise<TaskHandle> {
+    return this.post<TaskHandle>(
+      "/v1/lint/propose",
+      {
+        rule: opts.rule ?? null,
+        limit: opts.limit ?? 10,
+        enable_llm: opts.enableLlm ?? false
+      },
+      { signal }
+    );
+  }
+
+  startLintApply(
+    opts: {
+      proposalTaskId: string;
+      pick?: number[] | null;
+      skip?: number[] | null;
+    },
+    signal?: AbortSignal
+  ): Promise<TaskHandle> {
+    return this.post<TaskHandle>(
+      "/v1/lint/apply",
+      {
+        proposal_task_id: opts.proposalTaskId,
+        pick: opts.pick ?? null,
+        skip: opts.skip ?? null
+      },
+      { signal }
+    );
+  }
+
+  async postMultipart<T>(
+    path: string,
+    form: FormData,
+    signal?: AbortSignal
+  ): Promise<T> {
+    // FormData sets its own Content-Type with boundary — never inject one.
+    const headers: Record<string, string> = {
+      Accept: "application/json"
+    };
+    if (this.token) {
+      headers.Authorization = `Bearer ${this.token}`;
+    }
+    const response = await fetch(buildRequestUrl(this.baseUrl, path), {
+      method: "POST",
+      headers,
+      body: form,
+      signal
+    });
+    if (!response.ok) {
+      throw await errorFromResponse(response);
+    }
+    if (response.status === 204) {
+      return undefined as T;
+    }
+    return (await response.json()) as T;
   }
 
   async requestJson<T>(path: string, options: JsonRequestOptions = {}): Promise<T> {
