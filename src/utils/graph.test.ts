@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { DocumentRecord, GraphResult, PageReadResult } from "../types";
-import { buildKnowledgeGraph, filterKnowledgeGraph, layoutKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "./graph";
+import { buildKnowledgeGraph, filterKnowledgeGraph, findPageForTarget, layoutKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "./graph";
 import { layoutGalaxyGraph, toGalaxyGraph } from "./galaxyGraph";
 
 const pages: DocumentRecord[] = [
@@ -330,6 +330,62 @@ describe("knowledge graph builder", () => {
     };
 
     expect(packageJson.dependencies).not.toHaveProperty("pixi-filters");
+  });
+});
+
+describe("findPageForTarget", () => {
+  it("prefers a K (wiki) page over a same-named source page when both match", () => {
+    const pages: DocumentRecord[] = [
+      // Source listed first on purpose: a regression to `pages.find(...)` would
+      // return the source. The K-preference fix must still pick the wiki page.
+      {
+        doc_id: "src-arch",
+        path: "sources/architecture.md",
+        path_key: "sources/architecture.md",
+        title: "Architecture source",
+        hash: "h1",
+        mtime: 0,
+        layer: "source",
+        active: true
+      },
+      {
+        doc_id: "wiki-arch",
+        path: "wiki/architecture.md",
+        path_key: "wiki/architecture.md",
+        title: "Architecture",
+        hash: "h2",
+        mtime: 0,
+        layer: "wiki",
+        active: true
+      }
+    ];
+    expect(findPageForTarget("Architecture", pages)?.path).toBe("wiki/architecture.md");
+  });
+
+  it("returns the K page even when target uses the full wiki path form", () => {
+    const pages: DocumentRecord[] = [
+      {
+        doc_id: "src-arch",
+        path: "sources/architecture.md",
+        path_key: "sources/architecture.md",
+        title: "Architecture source",
+        hash: "h1",
+        mtime: 0,
+        layer: "source",
+        active: true
+      },
+      {
+        doc_id: "wiki-arch",
+        path: "wiki/architecture.md",
+        path_key: "wiki/architecture.md",
+        title: "Architecture",
+        hash: "h2",
+        mtime: 0,
+        layer: "wiki",
+        active: true
+      }
+    ];
+    expect(findPageForTarget("wiki/architecture.md", pages)?.path).toBe("wiki/architecture.md");
   });
 });
 

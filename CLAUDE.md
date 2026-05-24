@@ -61,10 +61,10 @@ End-to-end loop from request to landed PR. Run autonomously for behavior changes
 3. **Code-review loop — max 3 rounds by default.** Repeat until there are no new actionable findings or the cap is reached:
    - 3.1 Run `/codex:review --background` for an independent review pass.
    - 3.2 Evaluate the findings, decide which are valid, and fix.
-4. **Final pass.** Run `/code-review` (the Anthropic plugin — five parallel Sonnet agents with confidence scoring) or dispatch the `code-simplifier` subagent for a cleanup pass, and resolve anything they surface.
+4. **Final pass.** Run `/code-review` and resolve every finding before continuing.
 5. **Verify in the browser.** Use Chrome MCP to navigate the changed pages, exercise the affected interactions, and confirm the change actually rendered as intended — not just that unit tests pass.
 6. **Update markdown docs.** Walk `CLAUDE.md`, `README.md`, and the relevant `docs/*.md` against the diff; any contract, behavior, command, or doc index that drifted must be updated in the same change. Don't leave docs to "catch up later".
-7. **Create the PR.** Branch with a descriptive name, commit with `<type>(<scope>): <subject>` matching the project's existing convention (see recent `git log`), push, then `gh pr create`. CI auto-runs typecheck + coverage + build + e2e + Trivy. Bump `package.json.version` manually (standard 3-digit SemVer) when the change warrants it, and add an entry to `CHANGELOG.md` under the matching version heading. `/ship` is not used here — its 4-digit `VERSION` format collides with SemVer; relevant gstack sub-skills (`/code-review`, `/review`, `code-simplifier` subagent) can still be invoked individually when useful.
+7. **Create the PR.** Branch with a descriptive name, commit with `<type>(<scope>): <subject>` matching the project's existing convention (see recent `git log`), push, then `gh pr create`. CI auto-runs typecheck + coverage + build + e2e + Trivy. Bump `package.json.version` manually (standard 3-digit SemVer) when the change warrants it, and add an entry to `CHANGELOG.md` under the matching version heading.
 8. **Monitor CI and PR comments; resolve as they surface, then merge.** After pushing, actively watch both signals — don't passively wait, and don't batch resolution to merge time.
    - **CI rollup**: `gh pr checks <N>` (or `--watch` to block until terminal). Failing job logs: `gh run view <run-id> --log-failed`. Flaky e2e gets **one** rerun, not five (see [[project_flaky_graph_e2e]] in memory for which test).
    - **PR review prose**: `gh api repos/{owner}/{repo}/pulls/{N}/reviews` for review bodies, `.../pulls/{N}/comments` for inline threads, `.../issues/{N}/comments` for top-level CodeRabbit summaries. `gh pr checks` shows pass/fail only, not the prose.
@@ -133,6 +133,11 @@ Pipe tables, a sanitized raw HTML table subset, safe `details/summary`, KaTeX ma
 Image embeds resolve through `PageReadResult.assets[]` (matching `original_paths` or the SHA-256 segment of the filename) and load from `GET /v1/assets/{asset_id}` via the Settings-owned base URL. When a session token is configured, images are hydrated through an authenticated `fetch` + `URL.createObjectURL` instead of a plain `<img src>` so the `Authorization` header is honored; missing assets render a `.md-broken-image` placeholder.
 
 Charts use Apache ECharts, lazy-imported per-module for tree-shaking. The placeholder element carries the parsed spec as a base64-encoded `data-chart-spec`; if ECharts fails to load or a single chart fails to render, the placeholder falls back to a `<details>` block containing the source pipe table so data is never lost. Dark mode passes the `"dark"` theme to `echarts.init`.
+
+Source 层 read tab 在渲染前会跑 `injectInlineRefs`(`src/utils/source-inline-refs.ts`),
+把已有反向边的 K 页 title 在 body 首次出现位置合成 `[[title|literal]]` wikilink。
+未匹配上的 K 页留在底部 Linked references panel。Source tab 永远显示原始 `page.body`。
+设计细节见 `docs/adr/0002-source-inline-references.md`。
 
 ### UI rules
 

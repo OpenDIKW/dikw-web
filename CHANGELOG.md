@@ -9,6 +9,47 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-05-24
+
+### Source reader
+
+- Source 层 read tab 渲染时,把已有反向边的 K 页 title(`backlinks ∪ derived`)
+  在 source body 中**首次字面出现**位置自动合成 `[[title|原文本]]` wikilink,
+  阅读体验向 wiki 页对齐。未匹配上的 K 页留在底部 Linked references panel。
+  Source tab(raw view)始终用原始 body,不做替换。
+- 匹配规则:大小写不敏感、英文要求 `\b` 边界、CJK 无边界、最小长度英文 ≥3
+  CJK ≥2、longest-match-first、保留 source 原文字面写法。
+- 受保护区段不替换:YAML frontmatter / fenced & indented code(含 mermaid)/
+  inline code / inline & display math / raw HTML 块(details/table/...)/
+  existing wikilink(含 image embed)/ markdown link 整体。
+- 实现:新增 `src/utils/source-inline-refs.ts` 纯函数(30+ 单元测试),
+  WikiPage 加 `enhancedSourceBody` useMemo 串起来,MarkdownView 和
+  wikilink rule 不动 — click 走现有 `previewDoc` 通道直达右侧 preview。
+  零新增 CSS / 零新增 i18n key。
+- `findPageForTarget` 加 K 优先(wiki/wisdom > source)— 同名 K 与 source
+  共存时,合成的 inline wikilink 始终命中 K 页(否则可能 self-route 回
+  当前 source)。手写 `[[xxx]]` 行为保持兼容。
+- Cache-lag 防御:`injectInlineRefs` 调用前先按 `pages.data` 路径表过滤
+  refs。`resolveDerivedPages` 用 wire title 占位的 K 页(还没进
+  `pages.data`)不内联,留在底部 panel,由 `openBacklink` 的 path-based
+  fallback 兜底 —— 否则 inline 按钮的 `openWikiLink` 会查不到 path → dead link。
+- 受保护区段补全(round-2 review):
+  - CRLF normalize:`injectInlineRefs` 起手把 `\r\n` 归一为 `\n`,
+    frontmatter / fenced / indented / display math 这几个行向 recognizer
+    才能正确识别 Windows-edited source 文件。
+  - Fenced code 行扫描:替换原 regex 实现,识别 0-3 空格缩进、`backtick/tilde`
+    长度 ≥3、closing fence 长度 ≥ opener、EOF unclosed fence 整段保护。
+  - Markdown link 兼容:URL 允许一层 balanced parens
+    (`[docs](https://example.com/path(v2))`);新增 reference-style
+    (`[text][label]` / `[text][]`)和 link reference definition
+    (`[label]: url`)整段保护。
+- Heading slug 对齐(PR #37 /code-review finding):`slugifyHeading`
+  在 lowercase 前先剥掉 `[[label|literal]]` / `[[label]]` 语法,
+  这样 MarkdownView 的 `heading_open`(看 enhanced body)和
+  `extractHeadingsWithSlugs`(看 original body)即使输入不同也能
+  产出同一 slug。修复 source 页 outline 在"heading 含被内联的 K 页
+  title"场景下 `getElementById` 命中 null → 跳转静默失败的回归。
+
 ## [0.0.3] - 2026-05-24
 
 ### Added

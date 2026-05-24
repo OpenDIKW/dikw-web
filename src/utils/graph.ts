@@ -286,12 +286,20 @@ export function layoutKnowledgeGraph(graph: KnowledgeGraph, options: GraphLayout
 
 export function findPageForTarget(target: string, pages: DocumentRecord[]): DocumentRecord | null {
   const normalizedTarget = normalizeTarget(target);
-  const exactMatch = pages.find((page) => {
+  const exactMatches = pages.filter((page) => {
     const candidates = getPageMatchCandidates(page);
     return candidates.includes(normalizedTarget) || normalizeTarget(page.path).endsWith(`/${normalizedTarget}`);
   });
-  if (exactMatch) {
-    return exactMatch;
+  if (exactMatches.length > 0) {
+    // Wikilinks by convention point at K (wiki/wisdom) pages — when a target
+    // name collides with a same-named source page (e.g. `Architecture` exists
+    // both as `wiki/architecture.md` and `sources/architecture.md`), prefer
+    // the K page. Otherwise the inline-injected source-back-reference
+    // wikilinks added in `injectInlineRefs` could self-resolve back to the
+    // source page they were rendered in.
+    const layerRank = (layer: typeof exactMatches[number]["layer"]) => (layer === "source" ? 1 : 0);
+    const sorted = [...exactMatches].sort((a, b) => layerRank(a.layer) - layerRank(b.layer));
+    return sorted[0];
   }
 
   const targetTokens = normalizedTarget.split(/[/-]+/).filter((token) => token.length >= 3);

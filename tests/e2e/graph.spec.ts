@@ -58,7 +58,7 @@ test("opens source graph nodes in the matching knowledge document", async ({ pag
   const reader = page.getByRole("main", { name: "Wiki reader" });
   await expect(reader.getByText("sources/architecture.md")).toBeVisible();
   await expect(reader.getByRole("heading", { name: "Architecture source" })).toBeVisible();
-  await expect(reader.getByText("Original source body.")).toBeVisible();
+  await expect(reader.getByText(/is the main topic of this source/)).toBeVisible();
 });
 
 test("graph canvas renders on first entry without manual refresh", async ({ page }) => {

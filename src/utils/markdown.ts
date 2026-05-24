@@ -137,8 +137,23 @@ function normalizeHeading(value: string): string {
   return value.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-export function slugifyHeading(value: string): string {
+// Strip Obsidian-style wikilink markup so heading slugs reflect the rendered
+// visible text instead of the markup. `[[label|literal]]` -> `literal`,
+// `[[label]]` -> `label`. Critical for source-page outline alignment:
+// `injectInlineRefs` may wrap a K-page title inside a heading, and both
+// MarkdownView's `heading_open` (renders the DOM `id`) and
+// `extractHeadingsWithSlugs` (drives the Outline tab) feed `inline.content`
+// through this slugifier. Without this strip the two paths produce different
+// slugs when one operates on the original body and the other on the enhanced
+// body, and Outline clicks silently no-op.
+function stripWikilinkSyntax(value: string): string {
   return value
+    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
+    .replace(/\[\[([^\]]+)\]\]/g, "$1");
+}
+
+export function slugifyHeading(value: string): string {
+  return stripWikilinkSyntax(value)
     .trim()
     .toLowerCase()
     .normalize("NFKD")

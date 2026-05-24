@@ -37,6 +37,24 @@ describe("slugifyHeading", () => {
     expect(slugifyHeading("---")).toBe("");
     expect(slugifyHeading("***")).toBe("");
   });
+
+  // Regression: source-page outline navigation broke when injectInlineRefs
+  // wrapped a K-page title inside a heading, because MarkdownView's
+  // heading_open saw the enhanced body (`[[Architecture|Architecture]] source`)
+  // and extractHeadingsWithSlugs saw the original (`Architecture source`),
+  // producing different slugs. Wikilink syntax must be stripped first so both
+  // sides agree on `architecture-source`.
+  it("strips Obsidian wikilink markup before slugifying", () => {
+    expect(slugifyHeading("[[Architecture]] source")).toBe("architecture-source");
+    expect(slugifyHeading("[[Architecture|Architecture]] source")).toBe("architecture-source");
+    expect(slugifyHeading("[[Foo|Bar]] notes")).toBe("bar-notes");
+  });
+
+  it("produces identical slugs for the original heading and its inline-injected form", () => {
+    // Asserts the invariant that the two code paths (heading_open vs
+    // extractHeadingsWithSlugs) cannot diverge after injectInlineRefs runs.
+    expect(slugifyHeading("Architecture source")).toBe(slugifyHeading("[[Architecture|Architecture]] source"));
+  });
 });
 
 describe("uniqueHeadingSlug", () => {

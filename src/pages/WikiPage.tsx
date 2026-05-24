@@ -17,6 +17,7 @@ import {
 } from "../utils/links";
 import { extractHeadingsWithSlugs, getMarkdownTitle, parseMarkdownDocument, type HeadingEntry } from "../utils/markdown";
 import { basename, displayTitle, formatUnixSeconds, truncateMiddle } from "../utils/format";
+import { injectInlineRefs } from "../utils/source-inline-refs";
 
 interface WikiPageProps {
   client: DikwClient;
@@ -359,6 +360,25 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     return mergeSourceReferences(linked, sourced);
   }, [backlinks, derived, page?.path, pages.data]);
 
+  // Source 层 read tab 在 body 中首次出现的 K 页 title 上注入合成 wikilink。
+  // 非 source 层不动 body;empty refs 时直接退化为原 body + 空 matched set。
+  // 只内联已经在 pages.data 里的 ref —— 否则合成的 wikilink 经
+  // findPageForTarget → 空,inline-wikilink 按钮会变 dead link;cache-lag 的
+  // ref 留在底部 panel,由 openBacklink 的 path-based fallback 兜底。
+  const enhancedSourceBody = useMemo(() => {
+    if (!page || page.layer !== "source") {
+      return { body: page?.body ?? "", matchedPaths: new Set<string>() };
+    }
+    const knownPaths = new Set((pages.data ?? []).map((p) => p.path));
+    const eligibleRefs = sourceReferences.filter((ref) => knownPaths.has(ref.path));
+    return injectInlineRefs(page.body, eligibleRefs);
+  }, [page, sourceReferences, pages.data]);
+
+  const unlinkedReferences = useMemo<SourceReference[]>(
+    () => sourceReferences.filter((ref) => !enhancedSourceBody.matchedPaths.has(ref.path)),
+    [sourceReferences, enhancedSourceBody.matchedPaths]
+  );
+
   return (
     <div className="page-stack">
       <header className="page-header" data-testid="page-header">
@@ -410,11 +430,12 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
           loading={pageLoading}
           error={pageError}
           onWikiLink={openWikiLink}
-          references={sourceReferences}
+          references={unlinkedReferences}
           onOpenBacklink={openBacklink}
           copy={copy}
           assetBaseUrl={assetBaseUrl}
           assetToken={assetToken}
+          enhancedBody={page?.layer === "source" ? enhancedSourceBody.body : undefined}
         />
 
         {preview.kind !== "idle" ? (
@@ -539,7 +560,8 @@ function WikiReader({
   onOpenBacklink,
   copy,
   assetBaseUrl,
-  assetToken
+  assetToken,
+  enhancedBody
 }: {
   page: PageReadResult | null;
   doc: DocumentRecord | null;
@@ -551,6 +573,7 @@ function WikiReader({
   copy: WikiCopy;
   assetBaseUrl: string;
   assetToken: string;
+  enhancedBody?: string;
 }) {
   const [activeTab, setActiveTab] = useState<WikiReaderTab>("read");
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -618,7 +641,7 @@ function WikiReader({
           {activeTab === "read" ? (
             <section className="wiki-reader-tab-panel" role="tabpanel" aria-label={copy.readTab}>
               <MarkdownView
-                body={page.body}
+                body={enhancedBody ?? page.body}
                 fallbackTitle={page.title || getMarkdownTitle(page.body) || basename(page.path)}
                 onWikiLink={onWikiLink}
                 showFrontmatter={false}

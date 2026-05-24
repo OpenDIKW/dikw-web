@@ -237,7 +237,7 @@ export const wikiPageBodiesFixture = {
     path: "sources/architecture.md",
     layer: "source",
     title: "Architecture source",
-    body: "# Architecture source\n\nOriginal source body.",
+    body: "# Architecture source\n\nThe Architecture is the main topic of this source.",
     anchors: [],
     assets: []
   },
