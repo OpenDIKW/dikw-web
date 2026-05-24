@@ -345,6 +345,31 @@ describe("DikwClient import + pipeline submits", () => {
     });
   });
 
+  it("getTaskResult 区分 cancelled,丢出 task_cancelled 让上层走取消分支", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse({
+        task_id: "c-1",
+        status: "cancelled",
+        started_at: null,
+        finished_at: null,
+        result: null,
+        error: null
+      })
+    );
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    await expect(client.getTaskResult("c-1")).rejects.toMatchObject({
+      code: "task_cancelled"
+    });
+  });
+
+  it("coreId 默认走 baseUrl,允许显式 override(同源代理模式区分上游)", () => {
+    expect(new DikwClient({ baseUrl: "http://x:8765" }).coreId).toBe("http://x:8765");
+    expect(new DikwClient({ baseUrl: "" }).coreId).toBe("");
+    expect(
+      new DikwClient({ baseUrl: "", coreId: "http://127.0.0.1:8765" }).coreId
+    ).toBe("http://127.0.0.1:8765");
+  });
+
   it("cancelTask POST 到 /v1/tasks/{id}/cancel", async () => {
     fetchSpy.mockResolvedValueOnce(jsonResponse({ cancelled: true }));
     const client = new DikwClient({ baseUrl: "http://core.test" });

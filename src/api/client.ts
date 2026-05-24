@@ -15,6 +15,12 @@ import type {
 export interface DikwClientConfig {
   baseUrl?: string;
   token?: string;
+  /** Stable identifier for the core this client talks to — used by callers
+   *  that persist task state and must invalidate it if the user reconnects to
+   *  a different server. Defaults to ``baseUrl`` when omitted, which collapses
+   *  to the empty string in same-origin proxy mode; pass an explicit value
+   *  (e.g. the user-visible server URL) to distinguish proxy targets. */
+  coreId?: string;
 }
 
 export interface JsonRequestOptions {
@@ -46,17 +52,23 @@ export class DikwClientError extends Error {
 export class DikwClient {
   private readonly baseUrl: string;
   private readonly token: string;
+  private readonly _coreId: string;
 
   constructor(config: DikwClientConfig = {}) {
     this.baseUrl = normalizeBaseUrl(config.baseUrl ?? "");
     this.token = config.token ?? "";
+    // Default to the normalized baseUrl, but allow callers to override —
+    // e.g. App.tsx passes the user-visible ``serverUrl`` so the same-origin
+    // proxy mode (baseUrl='') still has a distinct identity across distinct
+    // upstream cores.
+    this._coreId = normalizeBaseUrl(config.coreId ?? config.baseUrl ?? "");
   }
 
-  /** Stable identifier for the core this client talks to. The empty string is
-   *  the same-origin proxy mode. Used by callers that persist task state and
-   *  must invalidate it if the user reconnects to a different server. */
+  /** Stable identifier for the core this client talks to. Used by callers that
+   *  persist task state and must invalidate it if the user reconnects to a
+   *  different server. */
   get coreId(): string {
-    return this.baseUrl;
+    return this._coreId;
   }
 
   get<T>(
@@ -117,9 +129,15 @@ export class DikwClient {
       signal
     });
     if (envelope.status !== "succeeded") {
+      // Use a distinct ``code`` for cancelled vs failed so callers (notably
+      // ImportPage.handlePipelineError) can route a server-cancelled task to
+      // the cancelled UI branch instead of treating it as a generic failure.
       throw new DikwClientError({
         status: 200,
-        code: "task_not_succeeded",
+        code:
+          envelope.status === "cancelled"
+            ? "task_cancelled"
+            : "task_not_succeeded",
         message: `task ${taskId} terminated as ${envelope.status}; cannot return result`,
         detail: envelope.error ?? undefined
       });

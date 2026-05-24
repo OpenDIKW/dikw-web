@@ -36,6 +36,25 @@ describe("pipeline persistence", () => {
     expect(loadPipelineState("http://other.core")).toEqual({ stage: "idle" });
   });
 
+  it("save refuses to overwrite an existing coreUrl tag with a different current core", () => {
+    // The in-memory state already carries coreUrl=A from startPipeline. If
+    // the user changes Settings mid-pipeline (currentCoreUrl=B), the save
+    // effect must NOT rewrite the tag — otherwise loadPipelineState's
+    // cross-core guard sees coreUrl=B on next mount and replays A's task ids
+    // against B.
+    savePipelineState(
+      { stage: "ingest", ingestTaskId: "t-1", coreUrl: CORE },
+      "http://other.core"
+    );
+    const raw = sessionStorage.getItem(PIPELINE_STORAGE_KEY);
+    // Storage either retained the original (no overwrite) or stayed empty —
+    // never gets the wrong stamp.
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      expect(parsed.coreUrl).toBe(CORE);
+    }
+  });
+
   it("clears storage on idle save", () => {
     sessionStorage.setItem(PIPELINE_STORAGE_KEY, JSON.stringify({ stage: "ingest", ingestTaskId: "t-x" }));
     savePipelineState({ stage: "idle" }, CORE);

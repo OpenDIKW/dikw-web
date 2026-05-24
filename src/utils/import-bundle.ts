@@ -23,6 +23,11 @@ export const ASSET_EXTENSIONS: ReadonlySet<string> = new Set([
 
 const TAR_BLOCK = 512;
 const NAME_FIELD_MAX = 100;
+const PREFIX_FIELD_MAX = 155;
+// Total USTAR path budget = name + '/' + prefix → 256 bytes once you account
+// for the splitting rule (POSIX 1003.1-1988). Anything beyond that needs PAX
+// extended headers, which we don't emit.
+const USTAR_PATH_MAX = NAME_FIELD_MAX + 1 + PREFIX_FIELD_MAX;
 
 export interface ManifestFileEntry {
   path: string;
@@ -49,7 +54,9 @@ export interface SkippedFile {
     | "unsupported_extension"
     | "empty_body"
     | "asset_missing"
-    | "unreferenced_asset";
+    | "unreferenced_asset"
+    | "duplicate_path"
+    | "path_too_long";
   detail?: string;
 }
 
@@ -114,9 +121,26 @@ export function scanFiles(files: File[]): ScanResult {
   const byProjectRel = new Map<string, File>();
   const mdPaths: string[] = [];
   const skipped: SkippedFile[] = [];
+  // Detect collisions where two distinct ``File`` inputs strip to the same
+  // project-rel path. Without this, mdPaths gets duplicate entries and the
+  // server rejects the whole import with ``manifest_duplicate_md_path`` —
+  // the user just sees 'Import failed' with no actionable detail.
   for (const file of files) {
     const rel = computeProjectRelPath(file);
     const ext = lowerExt(rel);
+    if (byProjectRel.has(rel)) {
+      const existing = byProjectRel.get(rel)!;
+      // Only flag if it's actually a different File object — picking the
+      // same File twice via two pickers should be a quiet no-op.
+      if (existing !== file) {
+        skipped.push({
+          path: rel,
+          reason: "duplicate_path",
+          detail: `${existing.size}B vs ${file.size}B`
+        });
+      }
+      continue;
+    }
     if (MD_EXTENSIONS.has(ext)) {
       byProjectRel.set(rel, file);
       mdPaths.push(rel);
@@ -263,14 +287,47 @@ function writeAscii(view: Uint8Array, offset: number, length: number, value: str
   }
 }
 
+/** Split a path into (name, prefix) per USTAR (POSIX 1003.1-1988) so paths
+ *  up to 256 bytes can fit. Returns null if the path can't be represented in
+ *  USTAR even with prefix splitting (caller should reject the file or escalate
+ *  to PAX). */
+export function splitUstarPath(
+  archivePath: string
+): { name: string; prefix: string } | null {
+  const bytes = new TextEncoder().encode(archivePath);
+  if (bytes.length <= NAME_FIELD_MAX) {
+    return { name: archivePath, prefix: "" };
+  }
+  if (bytes.length > USTAR_PATH_MAX) {
+    return null;
+  }
+  // The split MUST happen on a ``/`` boundary, and the trailing component
+  // (``name``) must be ≤100 bytes; the leading part (``prefix``) ≤155 bytes.
+  // Walk from the right: find the latest ``/`` whose tail-after-it fits in
+  // 100 bytes and whose head-before-it fits in 155 bytes.
+  for (let i = archivePath.length - 1; i > 0; i--) {
+    if (archivePath[i] !== "/") continue;
+    const head = archivePath.slice(0, i);
+    const tail = archivePath.slice(i + 1);
+    const headLen = new TextEncoder().encode(head).length;
+    const tailLen = new TextEncoder().encode(tail).length;
+    if (tailLen <= NAME_FIELD_MAX && headLen <= PREFIX_FIELD_MAX) {
+      return { name: tail, prefix: head };
+    }
+  }
+  return null;
+}
+
 function ustarHeader(archivePath: string, size: number): Uint8Array {
-  if (new TextEncoder().encode(archivePath).length > NAME_FIELD_MAX) {
+  const split = splitUstarPath(archivePath);
+  if (split === null) {
     throw new Error(
-      `archive path too long for USTAR (max ${NAME_FIELD_MAX} bytes): ${archivePath}`
+      `archive path too long for USTAR (max ${USTAR_PATH_MAX} bytes, ` +
+        `requires PAX extended headers we don't emit): ${archivePath}`
     );
   }
   const header = new Uint8Array(TAR_BLOCK);
-  writeAscii(header, 0, 100, archivePath); // name
+  writeAscii(header, 0, 100, split.name); // name (≤100 bytes)
   writeOctal(header, 100, 8, 0o644); // mode
   writeOctal(header, 108, 8, 0); // uid
   writeOctal(header, 116, 8, 0); // gid
@@ -283,6 +340,9 @@ function ustarHeader(archivePath: string, size: number): Uint8Array {
   writeAscii(header, 257, 6, "ustar\0");
   header[263] = 0x30;
   header[264] = 0x30;
+  if (split.prefix) {
+    writeAscii(header, 345, PREFIX_FIELD_MAX, split.prefix);
+  }
   // Compute checksum: unsigned sum of every byte (with chksum field = spaces).
   let sum = 0;
   for (let i = 0; i < TAR_BLOCK; i++) sum += header[i];
@@ -385,21 +445,32 @@ export async function buildImportBundle(
   // Hash + size each unique file once, in archive-path order so the manifest is
   // stable (matches importer.py:_build_bundle sorted iteration).
   const sortedArchive = Array.from(projectRelByArchive.keys()).sort();
-  const entries: Array<{ archivePath: string; data: Uint8Array; sha: string; size: number }> = [];
+
+  // Pre-flight: sum ``File.size`` (no I/O — the browser already knows the
+  // sizes from the picker) and reject before loading anything into RAM. The
+  // old code called ``await file.arrayBuffer()`` first and only then checked
+  // ``totalBytes``, so a single oversized file could OOM the tab before the
+  // limit fired.
   let totalBytes = 0;
+  for (const archive of sortedArchive) {
+    const projectRel = projectRelByArchive.get(archive)!;
+    const file = scan.byProjectRel.get(projectRel)!;
+    totalBytes += file.size;
+  }
+  if (totalBytes > max) {
+    throw new ImportBundleError(
+      "too_large",
+      `Selected files total ${totalBytes} bytes, exceeding the ${max}-byte limit.`
+    );
+  }
+
+  const entries: Array<{ archivePath: string; data: Uint8Array; sha: string; size: number }> = [];
   for (const archive of sortedArchive) {
     const projectRel = projectRelByArchive.get(archive)!;
     const file = scan.byProjectRel.get(projectRel)!;
     const buf = await file.arrayBuffer();
     const data = new Uint8Array(buf);
     const sha = await sha256Hex(buf);
-    totalBytes += data.length;
-    if (totalBytes > max) {
-      throw new ImportBundleError(
-        "too_large",
-        `Selected files total ${totalBytes} bytes, exceeding the ${max}-byte limit.`
-      );
-    }
     entries.push({ archivePath: archive, data, sha, size: data.length });
   }
   const shaByArchive = new Map(entries.map((e) => [e.archivePath, e.sha] as const));

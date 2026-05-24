@@ -75,7 +75,14 @@ export function App() {
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readThemePreference()));
   const [wikiInitialPath, setWikiInitialPath] = useState<string | null>(null);
   const clientBaseUrl = normalizeBaseUrl(serverUrl) === defaultServerUrl ? "" : serverUrl;
-  const client = useMemo(() => new DikwClient({ baseUrl: clientBaseUrl, token }), [clientBaseUrl, token]);
+  // Pass the user-visible serverUrl as coreId so same-origin proxy mode
+  // (baseUrl='') still has a distinct identity across distinct upstream cores —
+  // ImportPage uses coreId to guard persisted task state against cross-core
+  // replay (see docs/core-contract.md#import).
+  const client = useMemo(
+    () => new DikwClient({ baseUrl: clientBaseUrl, token, coreId: serverUrl }),
+    [clientBaseUrl, token, serverUrl]
+  );
   const agentClient = useMemo(() => new AgentClient({ coreUrl: serverUrl, token }), [serverUrl, token]);
   const copy = translations[locale];
 

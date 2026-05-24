@@ -9,7 +9,8 @@ import {
   inspectMarkdownFiles,
   scanFiles,
   sha256Hex,
-  sha256HexString
+  sha256HexString,
+  splitUstarPath
 } from "./import-bundle";
 
 function file(path: string, body: BodyInit, type = ""): File {
@@ -53,6 +54,48 @@ describe("scanFiles", () => {
     expect(out.skipped).toEqual([
       { path: "garbage.zip", reason: "unsupported_extension" }
     ]);
+  });
+
+  it("flags duplicate project-rel paths as skipped instead of letting them slip through", () => {
+    // Two distinct File objects that strip to the same project-rel — server
+    // would reject with manifest_duplicate_md_path; we surface it locally.
+    const files = [
+      file("V1/note.md", "first body"),
+      file("V2/note.md", "second body, different content")
+    ];
+    const out = scanFiles(files);
+    expect(out.mdPaths).toEqual(["note.md"]);
+    expect(out.skipped).toHaveLength(1);
+    expect(out.skipped[0]).toMatchObject({
+      path: "note.md",
+      reason: "duplicate_path"
+    });
+  });
+});
+
+describe("splitUstarPath", () => {
+  it("returns just name for short paths", () => {
+    expect(splitUstarPath("sources/a.md")).toEqual({
+      name: "sources/a.md",
+      prefix: ""
+    });
+  });
+
+  it("splits longer paths on a / boundary into prefix + name", () => {
+    const path = "sources/" + "a".repeat(50) + "/" + "b".repeat(50) + "/file.md";
+    const split = splitUstarPath(path);
+    expect(split).not.toBeNull();
+    expect(split!.name).toBe("file.md");
+    expect(split!.prefix).toBe("sources/" + "a".repeat(50) + "/" + "b".repeat(50));
+  });
+
+  it("returns null when the path can't fit in name(100)+prefix(155)", () => {
+    expect(splitUstarPath("sources/" + "x".repeat(300))).toBeNull();
+  });
+
+  it("returns null when no valid / split exists in the budget", () => {
+    // 200-byte single segment — no / boundary inside the prefix budget
+    expect(splitUstarPath("a".repeat(200))).toBeNull();
   });
 });
 
@@ -203,10 +246,24 @@ describe("buildTar (USTAR structure)", () => {
     for (let i = 1024; i < 2048; i++) expect(tar[i]).toBe(0);
   });
 
-  it("rejects archive paths longer than 100 bytes", () => {
+  it("uses the USTAR prefix field to fit paths up to 256 bytes (name 100 + '/' + prefix 155)", () => {
+    // A 150-byte project-rel path (under sources/) — splits cleanly.
+    const longPath = "sources/" + "a".repeat(50) + "/" + "b".repeat(50) + "/x.md";
+    const tar = buildTar([{ archivePath: longPath, data: new Uint8Array(0) }]);
+    // Name field carries the trailing component ('x.md')
+    expect(
+      new TextDecoder().decode(tar.slice(0, 5)).replace(/\0+$/, "")
+    ).toBe("x.md");
+    // Prefix field at offset 345 carries the leading dirs
+    expect(
+      new TextDecoder().decode(tar.slice(345, 345 + 60)).replace(/\0+$/, "")
+    ).toContain("sources/");
+  });
+
+  it("rejects archive paths longer than the USTAR 256-byte budget", () => {
     expect(() =>
       buildTar([
-        { archivePath: "sources/" + "x".repeat(120), data: new Uint8Array(0) }
+        { archivePath: "sources/" + "x".repeat(300), data: new Uint8Array(0) }
       ])
     ).toThrow(/USTAR/);
   });

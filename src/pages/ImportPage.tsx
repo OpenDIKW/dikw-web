@@ -166,10 +166,19 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
 
   const startPipeline = useCallback(async () => {
     if (!bundle) return;
+    // Guard against a double-click firing two pipelines: between the user's
+    // click and the next render the Start button is still on-screen.
+    if (controllerRef.current && !controllerRef.current.signal.aborted) {
+      return;
+    }
     const controller = new AbortController();
     controllerRef.current = controller;
     setActiveEvent(null);
-    setPipeline({ stage: "uploading" });
+    // Lock the pipeline to the coreId it started against so a mid-flight
+    // Settings change cannot rebind the persisted task ids to a different
+    // core (see savePipelineState's guard). Carrying coreUrl in React state
+    // keeps the guard correct across every subsequent reducer call.
+    setPipeline({ stage: "uploading", coreUrl: coreId });
     try {
       const importResult = await client.importBundle(
         bundle.payload,
@@ -177,10 +186,17 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         controller.signal
       );
 
-      // Ingest
-      setPipeline({ stage: "ingest", importResult });
+      // Ingest — start the task FIRST so the persist effect never sees
+      // a stage:'ingest' state without an ingestTaskId (otherwise a refresh
+      // in the POST window would wipe the importResult and the user would
+      // lose all visibility into the already-committed import).
       const ingestHandle = await client.startIngest({}, controller.signal);
-      setPipeline((p) => ({ ...p, ingestTaskId: ingestHandle.task_id }));
+      setPipeline((p) => ({
+        ...p,
+        stage: "ingest",
+        importResult,
+        ingestTaskId: ingestHandle.task_id
+      }));
       const ingestFinal = await consumeTask(
         ingestHandle.task_id,
         controller.signal
@@ -194,10 +210,13 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         );
       }
 
-      // Synth
-      setPipeline((p) => ({ ...p, stage: "synth" }));
+      // Synth — same batched start to avoid stage:'synth' without synthTaskId.
       const synthHandle = await client.startSynth({}, controller.signal);
-      setPipeline((p) => ({ ...p, synthTaskId: synthHandle.task_id }));
+      setPipeline((p) => ({
+        ...p,
+        stage: "synth",
+        synthTaskId: synthHandle.task_id
+      }));
       const synthFinal = await consumeTask(
         synthHandle.task_id,
         controller.signal
@@ -211,10 +230,13 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         );
       }
 
-      // Lint propose
-      setPipeline((p) => ({ ...p, stage: "lint-propose" }));
+      // Lint propose — same batched start.
       const proposeHandle = await client.startLintPropose({}, controller.signal);
-      setPipeline((p) => ({ ...p, lintProposeTaskId: proposeHandle.task_id }));
+      setPipeline((p) => ({
+        ...p,
+        stage: "lint-propose",
+        lintProposeTaskId: proposeHandle.task_id
+      }));
       const proposeFinal = await consumeTask(
         proposeHandle.task_id,
         controller.signal
@@ -258,7 +280,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       const controller = new AbortController();
       controllerRef.current = controller;
       setActiveEvent(null);
-      setPipeline((p) => ({ ...p, stage: "lint-apply", picked }));
+      setPipeline((p) => ({ ...p, picked }));
       try {
         const proposeId = pipeline.lintProposeTaskId;
         if (!proposeId) {
@@ -267,11 +289,17 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
             "missing propose task id; cannot apply"
           );
         }
+        // Start the apply task FIRST so the persist effect never sees
+        // stage:'lint-apply' without lintApplyTaskId.
         const applyHandle = await client.startLintApply(
           { proposalTaskId: proposeId, pick: picked },
           controller.signal
         );
-        setPipeline((p) => ({ ...p, lintApplyTaskId: applyHandle.task_id }));
+        setPipeline((p) => ({
+          ...p,
+          stage: "lint-apply",
+          lintApplyTaskId: applyHandle.task_id
+        }));
         const applyFinal = await consumeTask(
           applyHandle.task_id,
           controller.signal
@@ -334,9 +362,12 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         // pipeline closure across a refresh, so each resumed task is treated
         // independently: kick off the next phase from here.
         if (persisted.stage === "ingest") {
-          setPipeline((p) => ({ ...p, stage: "synth" }));
           const synthHandle = await client.startSynth({}, controller.signal);
-          setPipeline((p) => ({ ...p, synthTaskId: synthHandle.task_id }));
+          setPipeline((p) => ({
+            ...p,
+            stage: "synth",
+            synthTaskId: synthHandle.task_id
+          }));
           const synthFinal = await consumeTask(
             synthHandle.task_id,
             controller.signal
@@ -367,9 +398,12 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   );
 
   async function continueFromSynth(controller: AbortController) {
-    setPipeline((p) => ({ ...p, stage: "lint-propose" }));
     const proposeHandle = await client.startLintPropose({}, controller.signal);
-    setPipeline((p) => ({ ...p, lintProposeTaskId: proposeHandle.task_id }));
+    setPipeline((p) => ({
+      ...p,
+      stage: "lint-propose",
+      lintProposeTaskId: proposeHandle.task_id
+    }));
     const proposeFinal = await consumeTask(
       proposeHandle.task_id,
       controller.signal
@@ -409,9 +443,14 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       // Cancellation path — pipeline state is set in onCancel.
       return;
     }
+    // Server-cancelled tasks (or any propagated cancel signal) land here too;
+    // route them to the cancelled UI branch instead of the failed one so the
+    // user sees an amber 'cancelled' card rather than a red 'failed' one.
+    const cancelled =
+      err instanceof DikwClientError && err.code === "task_cancelled";
     setPipeline((p) => ({
       ...p,
-      stage: "failed",
+      stage: cancelled ? "cancelled" : "failed",
       error: {
         stage: err instanceof PipelineFailure ? err.failedStage : p.stage,
         message:
@@ -955,6 +994,10 @@ function skippedLabel(copy: ImportCopy, s: SkippedFile): string {
       return `${copy.skippedAssetMissing}${s.detail ? ` (${s.detail})` : ""}`;
     case "unreferenced_asset":
       return copy.skippedUnreferenced;
+    case "duplicate_path":
+      return `${copy.skippedDuplicate}${s.detail ? ` (${s.detail})` : ""}`;
+    case "path_too_long":
+      return copy.skippedPathTooLong;
   }
 }
 

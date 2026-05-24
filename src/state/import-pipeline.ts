@@ -117,9 +117,19 @@ export function savePipelineState(
     sessionStorage.removeItem(PIPELINE_STORAGE_KEY);
     return;
   }
+  // Defense against the cross-core rebind: if the state already carries a
+  // coreUrl tag from an earlier core, refuse to overwrite it with a fresh
+  // currentCoreUrl. The task ids belong to the original core; rewriting the
+  // tag would let loadPipelineState happily resume them against the new
+  // server. Instead, drop persistence entirely — the original state is
+  // already in storage and will be discarded by loadPipelineState's
+  // cross-core guard on next mount.
+  if (state.coreUrl && state.coreUrl !== currentCoreUrl) {
+    return;
+  }
   sessionStorage.setItem(
     PIPELINE_STORAGE_KEY,
-    JSON.stringify({ ...state, coreUrl: currentCoreUrl })
+    JSON.stringify({ ...state, coreUrl: state.coreUrl ?? currentCoreUrl })
   );
 }
 
