@@ -72,12 +72,19 @@ export function loadPipelineState(currentCoreUrl: string): PipelineState {
   if (typeof sessionStorage === "undefined") return initialState();
   const raw = sessionStorage.getItem(PIPELINE_STORAGE_KEY);
   if (!raw) return initialState();
-  let parsed: PipelineState;
+  let parsedUnknown: unknown;
   try {
-    parsed = JSON.parse(raw) as PipelineState;
+    parsedUnknown = JSON.parse(raw);
   } catch {
     return initialState();
   }
+  // ``JSON.parse('null')`` is valid JSON returning the value ``null``; without
+  // this guard the subsequent ``parsed.coreUrl`` access throws and the page
+  // can't even mount. Any non-object value is unrecoverable — fall back to idle.
+  if (parsedUnknown === null || typeof parsedUnknown !== "object") {
+    return initialState();
+  }
+  const parsed = parsedUnknown as PipelineState;
   // Connection mismatch — the persisted task ids belong to a different core.
   // Polling / cancelling / applying against the current client could touch
   // the wrong server. Discard rather than risk a cross-core write.

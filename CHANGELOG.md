@@ -25,8 +25,9 @@ file format introduced in `[0.0.1.0]` was dropped.
 - Markdown 引用解析(`src/utils/md-asset-refs.ts`):正则与 core 的
   `_IMG_MD` / `_IMG_WIKILINK` 一致,sibling-of-md → project-root 两段式
   解析。远程 URL 不上传,缺失 asset 在 pre-flight 阻止导入。
-- 管线状态(`src/state/import-pipeline.ts`):`PipelineStage` 联合 + localStorage
-  持久化(键 `dikw-web.importPipeline`)。任务阶段(ingest/synth/lint-*)落地
+- 管线状态(`src/state/import-pipeline.ts`):`PipelineStage` 联合 + sessionStorage
+  持久化(键 `dikw-web.importPipeline`,scope 与 `serverUrl`/`token` 一致;
+  state 携带 `coreUrl` 防止跨核重放)。任务阶段(ingest/synth/lint-*)落地
   对应 `task_id`,刷新后从 `streamTaskEvents` 续跟。上传阶段单次 POST,
   刷新即丢,picker 重置。
 - Lint 走法:propose 后弹审阅面板让用户勾选要 apply 的 proposal;**部分

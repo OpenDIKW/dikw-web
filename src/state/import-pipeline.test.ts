@@ -82,6 +82,17 @@ describe("pipeline persistence", () => {
     expect(loadPipelineState(CORE)).toEqual({ stage: "idle" });
   });
 
+  it("survives JSON.parse returning null (valid JSON, invalid shape)", () => {
+    // ``JSON.parse('null')`` returns null. Without an explicit null/object
+    // guard, subsequent property access would throw and break page mount.
+    sessionStorage.setItem(PIPELINE_STORAGE_KEY, "null");
+    expect(loadPipelineState(CORE)).toEqual({ stage: "idle" });
+    sessionStorage.setItem(PIPELINE_STORAGE_KEY, "42");
+    expect(loadPipelineState(CORE)).toEqual({ stage: "idle" });
+    sessionStorage.setItem(PIPELINE_STORAGE_KEY, '"a string"');
+    expect(loadPipelineState(CORE)).toEqual({ stage: "idle" });
+  });
+
   it("treats lint-review without proposals as unrecoverable", () => {
     sessionStorage.setItem(
       PIPELINE_STORAGE_KEY,
