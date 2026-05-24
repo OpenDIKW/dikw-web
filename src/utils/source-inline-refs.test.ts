@@ -102,4 +102,51 @@ describe("injectInlineRefs", () => {
     expect(result.body).toBe("系统[[架构图|架构图]]原理。");
     expect(result.matchedPaths).toEqual(new Set(["wiki/x.md"]));
   });
+
+  it("never replaces inside YAML frontmatter", () => {
+    const refs = [ref("wiki/architecture.md", "Architecture")];
+    const body = "---\ntitle: Architecture notes\n---\n\nBody mentions Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "---\ntitle: Architecture notes\n---\n\nBody mentions [[Architecture|Architecture]]."
+    );
+    expect(result.matchedPaths).toEqual(new Set(["wiki/architecture.md"]));
+  });
+
+  it("never replaces inside fenced code blocks", () => {
+    const refs = [ref("wiki/architecture.md", "Architecture")];
+    const body = "Plain Architecture.\n\n```ts\nconst Architecture = 1;\n```\n\nLater Architecture again.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "Plain [[Architecture|Architecture]].\n\n```ts\nconst Architecture = 1;\n```\n\nLater Architecture again."
+    );
+  });
+
+  it("never replaces inside mermaid fences (mermaid is a fenced code lang)", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "```mermaid\ngraph LR\n  A[Architecture] --> B\n```";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(body);
+    expect(result.matchedPaths).toEqual(new Set());
+  });
+
+  it("supports tilde-fenced code blocks", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "~~~\nArchitecture inside tildes\n~~~\n\nAfter Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "~~~\nArchitecture inside tildes\n~~~\n\nAfter [[Architecture|Architecture]]."
+    );
+  });
+
+  it("never replaces inside indented (4-space) code blocks", () => {
+    const refs = [ref("wiki/arch.md", "Architecture")];
+    const body = "Before Architecture.\n\n    Architecture in indented code\n    more code\n\nAfter Architecture.";
+    const result = injectInlineRefs(body, refs);
+    expect(result.body).toBe(
+      "Before [[Architecture|Architecture]].\n\n    Architecture in indented code\n    more code\n\nAfter Architecture."
+    );
+    // Only the first plain occurrence (Before) is replaced.
+    expect(result.matchedPaths).toEqual(new Set(["wiki/arch.md"]));
+  });
 });

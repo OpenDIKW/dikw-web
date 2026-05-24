@@ -64,6 +64,76 @@ function injectOneRef(segments: Segment[], ref: InlineRefMatch): boolean {
   return false;
 }
 
+const FRONTMATTER_PATTERN = /^---\n[\s\S]*?\n---\n?/;
+const FENCED_CODE_PATTERN = /(^|\n)(?<fence>```|~~~)[^\n]*\n[\s\S]*?\n\k<fence>(?=\n|$)/g;
+// Indented code: a sequence of one-or-more lines starting with 4 spaces,
+// preceded by a blank line (or BOS). Simplified to "at least 4 leading
+// spaces on a fresh paragraph line."
+const INDENTED_CODE_PATTERN = /(^|\n\n)((?:    [^\n]*(?:\n|$))+)/g;
+
+interface ProtectedRange {
+  start: number;
+  end: number;
+}
+
+function collectProtectedRanges(body: string): ProtectedRange[] {
+  const ranges: ProtectedRange[] = [];
+
+  const fm = FRONTMATTER_PATTERN.exec(body);
+  if (fm) {
+    ranges.push({ start: 0, end: fm[0].length });
+  }
+
+  let m: RegExpExecArray | null;
+  const fence = new RegExp(FENCED_CODE_PATTERN.source, FENCED_CODE_PATTERN.flags);
+  while ((m = fence.exec(body)) !== null) {
+    // m[1] is the leading newline (or empty if BOS); fence proper starts after it.
+    const lead = m[1] ? 1 : 0;
+    ranges.push({ start: m.index + lead, end: m.index + m[0].length });
+  }
+
+  const indented = new RegExp(INDENTED_CODE_PATTERN.source, INDENTED_CODE_PATTERN.flags);
+  while ((m = indented.exec(body)) !== null) {
+    const lead = m[1].length;
+    ranges.push({ start: m.index + lead, end: m.index + m[0].length });
+  }
+
+  return mergeRanges(ranges);
+}
+
+function mergeRanges(ranges: ProtectedRange[]): ProtectedRange[] {
+  if (ranges.length <= 1) return ranges.slice().sort((a, b) => a.start - b.start);
+  const sorted = ranges.slice().sort((a, b) => a.start - b.start);
+  const merged: ProtectedRange[] = [sorted[0]];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    const next = sorted[i];
+    if (next.start <= last.end) {
+      last.end = Math.max(last.end, next.end);
+    } else {
+      merged.push(next);
+    }
+  }
+  return merged;
+}
+
+function sliceByRanges(body: string, ranges: ProtectedRange[]): Segment[] {
+  if (!ranges.length) return [{ kind: "plain", text: body }];
+  const segs: Segment[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) {
+      segs.push({ kind: "plain", text: body.slice(cursor, range.start) });
+    }
+    segs.push({ kind: "protected", text: body.slice(range.start, range.end) });
+    cursor = range.end;
+  }
+  if (cursor < body.length) {
+    segs.push({ kind: "plain", text: body.slice(cursor) });
+  }
+  return segs;
+}
+
 /**
  * Source 层 read tab 渲染前的预处理:对每个 ref 的 title 在 body 中首次
  * 字面出现的位置,合成 `[[title|原文本]]` wikilink 标记。产物丢回 markdown-it
@@ -71,15 +141,15 @@ function injectOneRef(segments: Segment[], ref: InlineRefMatch): boolean {
  *
  * 当前实现:segment-based scan,case-insensitive,ASCII 要求 word boundary
  * CJK 无 boundary,最小长度英文 ≥3 / CJK ≥2,长 title 优先,已替换段
- * 标记 protected 不复扫 — 受保护区段(frontmatter / code / math / raw HTML /
- * existing wikilink / markdown link)在后续任务加。
+ * 标记 protected 不复扫 — 已识别受保护区段:frontmatter / fenced & indented
+ * code(含 mermaid);math / raw HTML / wikilink / markdown link 在后续任务加。
  */
 export function injectInlineRefs(
   body: string,
   refs: ReadonlyArray<InlineRefMatch>
 ): InjectInlineRefsResult {
   const matchedPaths = new Set<string>();
-  const segments: Segment[] = [{ kind: "plain", text: body }];
+  const segments: Segment[] = sliceByRanges(body, collectProtectedRanges(body));
   for (const ref of sortRefsLongestFirst(refs)) {
     if (!meetsMinLength(ref.title)) {
       continue;
