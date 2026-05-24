@@ -55,4 +55,51 @@ describe("injectInlineRefs", () => {
     expect(result.body).toBe("a RESTful API and restful_api too");
     expect(result.matchedPaths).toEqual(new Set());
   });
+
+  it("matches CJK titles without word boundaries (CJK has no inter-word space)", () => {
+    const refs = [ref("wiki/arch.md", "架构")];
+    const result = injectInlineRefs("系统架构包含三个核心组件。", refs);
+    expect(result.body).toBe("系统[[架构|架构]]包含三个核心组件。");
+  });
+
+  it("skips ASCII titles shorter than 3 characters", () => {
+    const refs = [ref("wiki/a.md", "AI"), ref("wiki/b.md", "x")];
+    const result = injectInlineRefs("AI and x are both short.", refs);
+    expect(result.body).toBe("AI and x are both short.");
+    expect(result.matchedPaths).toEqual(new Set());
+  });
+
+  it("skips CJK titles shorter than 2 characters", () => {
+    const refs = [ref("wiki/y.md", "是")];
+    const result = injectInlineRefs("这是一段话。", refs);
+    expect(result.body).toBe("这是一段话。");
+    expect(result.matchedPaths).toEqual(new Set());
+  });
+
+  it("matches the longest title first when titles overlap by prefix", () => {
+    // Refs in 'wrong' order on purpose — the longer title must win.
+    const refs = [ref("wiki/arch.md", "Arch"), ref("wiki/architecture.md", "Architecture")];
+    const result = injectInlineRefs("Architecture is everything.", refs);
+    expect(result.body).toBe("[[Architecture|Architecture]] is everything.");
+    expect(result.matchedPaths).toEqual(new Set(["wiki/architecture.md"]));
+  });
+
+  it("does not re-scan a region that has already been wrapped by a prior ref", () => {
+    // After 'Architecture' is wrapped, the inner 'Arch' substring must not be
+    // independently re-matched by a later ref.
+    const refs = [ref("wiki/architecture.md", "Architecture"), ref("wiki/arch.md", "Arch")];
+    const result = injectInlineRefs("Architecture mentioned once.", refs);
+    expect(result.body).toBe("[[Architecture|Architecture]] mentioned once.");
+    expect(result.matchedPaths).toEqual(new Set(["wiki/architecture.md"]));
+  });
+
+  it("does not re-scan a wrapped CJK region (segment guard, not regex boundary)", () => {
+    // ASCII word boundary would naturally block 'Arch' inside '[[Architecture|...]]'
+    // because the next char is a letter; CJK has no boundary, so this case
+    // actually exercises the segment.kind === 'protected' guard in injectOneRef.
+    const refs = [ref("wiki/x.md", "架构图"), ref("wiki/y.md", "构图")];
+    const result = injectInlineRefs("系统架构图原理。", refs);
+    expect(result.body).toBe("系统[[架构图|架构图]]原理。");
+    expect(result.matchedPaths).toEqual(new Set(["wiki/x.md"]));
+  });
 });
