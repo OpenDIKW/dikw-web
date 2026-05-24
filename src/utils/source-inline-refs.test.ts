@@ -36,4 +36,23 @@ describe("injectInlineRefs", () => {
     expect(result.body).toBe("Body without any match.");
     expect(result.matchedPaths).toEqual(new Set());
   });
+
+  it("matches case-insensitively and preserves the source-side literal in the button label", () => {
+    const refs = [ref("wiki/architecture.md", "Architecture")];
+    const result = injectInlineRefs("the architecture of...", refs);
+    expect(result.body).toBe("the [[Architecture|architecture]] of...");
+  });
+
+  it("preserves uppercase source literal when the title is mixed-case", () => {
+    const refs = [ref("wiki/architecture.md", "Architecture")];
+    const result = injectInlineRefs("THE ARCHITECTURE OF...", refs);
+    expect(result.body).toBe("THE [[Architecture|ARCHITECTURE]] OF...");
+  });
+
+  it("requires word boundaries for ASCII titles (does not match inside larger ASCII words)", () => {
+    const refs = [ref("wiki/rest.md", "REST")];
+    const result = injectInlineRefs("a RESTful API and restful_api too", refs);
+    expect(result.body).toBe("a RESTful API and restful_api too");
+    expect(result.matchedPaths).toEqual(new Set());
+  });
 });
