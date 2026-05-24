@@ -293,3 +293,16 @@ Partial lint apply (server returns SUCCEEDED with non-empty
 surfaces per-proposal skip reasons but does not flag the pipeline as
 failed. Only a task transitioning to `FAILED` or a network/manifest
 error drops the pipeline into its `failed` branch.
+
+The web bundler diverges from the CLI importer in two intentional spots:
+
+- **Orphan assets**: core's `dikw client import` *rejects* a directory
+  with allowed-extension assets that no markdown references. The web
+  picker is more permissive (users often select a whole vault) — it
+  surfaces unreferenced assets as `unreferenced_asset` skipped entries
+  in the preview, leaves them out of the bundle, and proceeds. Move
+  them under a referenced path if you want them committed.
+- **Bundle ceiling**: core accepts up to 1 GiB
+  (`DIKW_SERVER_MAX_IMPORT_BYTES`). The browser bundler ceiling is
+  256 MiB because we materialize the raw tar and gzipped Blob in RAM
+  before POST. Stream/spool is a follow-up.

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ImportPage } from "./ImportPage";
 import { createMockClient } from "../test/mockClient";
+import { PIPELINE_STORAGE_KEY } from "../state/import-pipeline";
 
 function file(name: string, body: string): File {
   const f = new File([body], name.split("/").pop()!, { type: "text/markdown" });
@@ -47,6 +48,35 @@ describe("ImportPage", () => {
     const client = createMockClient();
     render(<ImportPage client={client} locale="zh-CN" />);
     expect(screen.getByRole("heading", { name: "导入" })).toBeInTheDocument();
+  });
+
+  it("resumes a persisted task stage on mount (the initial-save wipe bug regression)", async () => {
+    // Seed storage as if the user refreshed mid-ingest. The state initializer
+    // must read this BEFORE the first persistence effect fires, otherwise the
+    // effect saves the default ``idle`` state and clobbers the task id.
+    localStorage.setItem(
+      PIPELINE_STORAGE_KEY,
+      JSON.stringify({ stage: "ingest", ingestTaskId: "resumed-ingest" })
+    );
+    const client = createMockClient();
+    // Hang the stream so we can observe the resumed running state without
+    // sequencing the rest of the pipeline.
+    Object.assign(client, {
+      streamTaskEvents: vi.fn(() =>
+        (async function* () {
+          await new Promise(() => {});
+        })()
+      )
+    });
+    render(<ImportPage client={client} locale="en" />);
+    // Pipeline panel + cancel button appear, anchored to the persisted task id.
+    await waitFor(() => {
+      expect(screen.getByTestId("import-pipeline")).toBeInTheDocument();
+      expect(screen.getByText("resumed-ingest")).toBeInTheDocument();
+    });
+    expect(screen.getByTestId("import-cancel")).toBeInTheDocument();
+    // Storage still carries the resumed state — it was not clobbered.
+    expect(localStorage.getItem(PIPELINE_STORAGE_KEY)).toContain("resumed-ingest");
   });
 
   it("transitions to uploading when Start is clicked", async () => {

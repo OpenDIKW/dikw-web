@@ -5,6 +5,7 @@
 
 import {
   extractAssetRefs,
+  isRemoteRef,
   resolveAssetRef,
   stripFrontmatter
 } from "./md-asset-refs";
@@ -44,7 +45,11 @@ export interface ManifestJson {
 
 export interface SkippedFile {
   path: string;
-  reason: "unsupported_extension" | "empty_body" | "asset_missing";
+  reason:
+    | "unsupported_extension"
+    | "empty_body"
+    | "asset_missing"
+    | "unreferenced_asset";
   detail?: string;
 }
 
@@ -58,12 +63,15 @@ export interface ImportBundleResult {
 }
 
 export interface BuildBundleOptions {
-  /** Maximum allowed total uncompressed bytes — defaults to 1 GiB, matching
-   *  core's ``_DEFAULT_MAX_IMPORT_BYTES``. */
+  /** Maximum allowed total uncompressed bytes. Defaults to 256 MiB — the
+   *  browser-realistic ceiling. Core itself accepts up to 1 GiB
+   *  (``_DEFAULT_MAX_IMPORT_BYTES``) but we read every file fully into RAM
+   *  twice (raw bytes + gzipped Blob) before POSTing, so anything close to
+   *  that limit OOMs the tab. Streaming/spooling is a follow-up. */
   maxTotalBytes?: number;
 }
 
-const DEFAULT_MAX_TOTAL_BYTES = 1024 * 1024 * 1024;
+const DEFAULT_MAX_TOTAL_BYTES = 256 * 1024 * 1024;
 
 export function lowerExt(name: string): string {
   const i = name.lastIndexOf(".");
@@ -193,9 +201,11 @@ export async function inspectMarkdownFiles(
         available
       });
       if (resolved === null) {
-        // ``http://``/``https://``/``data:`` are silently dropped — they're not
-        // local files. Genuine misses are reported.
-        if (!/^([a-zA-Z][a-zA-Z0-9+\-.]*):/.test(ref.originalPath)) {
+        // ``http(s)://`` / ``data:`` / other non-file schemes are silently
+        // dropped — they're not local files. Anything else (including
+        // ``file:`` URIs, which core's ``_is_remote`` treats as local) is a
+        // genuine miss and gets reported.
+        if (!isRemoteRef(ref.originalPath)) {
           if (firstMissing === null) firstMissing = ref.originalPath;
         }
         continue;
@@ -347,11 +357,29 @@ export async function buildImportBundle(
 
   // Collect every unique archive path that participates in any package.
   const projectRelByArchive = new Map<string, string>(); // archive → project-rel
+  const referencedAssets = new Set<string>();
   for (const pkg of packages) {
     projectRelByArchive.set(archivePath(pkg.mdProjectRel), pkg.mdProjectRel);
     for (const a of pkg.assetsProjectRel) {
       projectRelByArchive.set(archivePath(a), a);
+      referencedAssets.add(a);
     }
+  }
+
+  // Warn (but don't block) on assets the user selected that no md references.
+  // Core's CLI importer rejects these outright; the web flow is more permissive
+  // (the user may have selected a broad folder and we shouldn't force them to
+  // unselect every loose image), so we surface them in ``skipped`` and leave
+  // them out of the bundle — see CLAUDE.md / plan for the divergence rationale.
+  for (const [projRel, file] of scan.byProjectRel) {
+    const ext = lowerExt(projRel);
+    if (!ASSET_EXTENSIONS.has(ext)) continue;
+    if (referencedAssets.has(projRel)) continue;
+    skipped.push({
+      path: projRel,
+      reason: "unreferenced_asset",
+      detail: `${file.size}B`
+    });
   }
 
   // Hash + size each unique file once, in archive-path order so the manifest is

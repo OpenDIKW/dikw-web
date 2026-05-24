@@ -70,7 +70,13 @@ function stageRank(stage: PipelineStage): number {
 
 export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   const copy = translations[locale].pages.import;
-  const [pipeline, setPipeline] = useState<PipelineState>(initialState());
+  // Lazy-init from storage so a refresh during a task stage doesn't lose the
+  // persisted task id. If we initialized with ``initialState()`` then saved on
+  // the next effect tick, the save would clear storage before the resume
+  // effect could read it — see codex review of f927a79.
+  const [pipeline, setPipeline] = useState<PipelineState>(() =>
+    loadPipelineState()
+  );
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [bundle, setBundle] = useState<ImportBundleResult | null>(null);
   const [bundleError, setBundleError] = useState<unknown>(null);
@@ -89,13 +95,11 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   useEffect(() => {
     if (resumeOnMountRef.current) return;
     resumeOnMountRef.current = true;
-    const persisted = loadPipelineState();
-    if (persisted.stage === "idle") return;
-    setPipeline(persisted);
-    if (activeTaskId(persisted)) {
+    if (pipeline.stage === "idle") return;
+    if (activeTaskId(pipeline)) {
       const controller = new AbortController();
       controllerRef.current = controller;
-      void resumeRunningTask(persisted, controller);
+      void resumeRunningTask(pipeline, controller);
     }
     // intentionally no deps — only runs once
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -937,6 +941,8 @@ function skippedLabel(copy: ImportCopy, s: SkippedFile): string {
       return copy.skippedEmpty;
     case "asset_missing":
       return `${copy.skippedAssetMissing}${s.detail ? ` (${s.detail})` : ""}`;
+    case "unreferenced_asset":
+      return copy.skippedUnreferenced;
   }
 }
 

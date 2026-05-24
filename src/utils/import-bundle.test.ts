@@ -106,6 +106,22 @@ describe("inspectMarkdownFiles", () => {
       { mdProjectRel: "x.md", assetsProjectRel: [] }
     ]);
   });
+
+  it("reports unresolvable file: URI as a missing asset (matches core _is_remote)", async () => {
+    // core's md_inspect._is_remote returns False for ``file:`` schemes, so the
+    // ref must round-trip through resolveAssetRef and end up flagged missing
+    // when no candidate exists. Earlier versions silently dropped it.
+    const files = [
+      file("V/x.md", "Bad ref ![alt](file:///tmp/missing.png) here.\n")
+    ];
+    const scan = scanFiles(files);
+    const out = await inspectMarkdownFiles(scan);
+    expect(out.packages).toEqual([]);
+    expect(out.skipped[0]).toMatchObject({
+      path: "x.md",
+      reason: "asset_missing"
+    });
+  });
 });
 
 describe("computePackageSha256 (must agree with dikw-core)", () => {
@@ -259,5 +275,29 @@ describe("buildImportBundle (end to end)", () => {
     await expect(buildImportBundle(files)).rejects.toMatchObject({
       code: "no_packages"
     });
+  });
+
+  it("warns about unreferenced assets without blocking the import", async () => {
+    // User selected an md plus a bunch of pngs but only one is actually embedded.
+    // The unreferenced pngs should surface in ``skipped`` (warning) and stay
+    // out of the bundle. The advertised md still goes through.
+    const files = [
+      file("V/a.md", "Has ![[used.png]] only.\n"),
+      file("V/used.png", new Uint8Array([1])),
+      file("V/unused.png", new Uint8Array([2, 3])),
+      file("V/also-unused.jpg", new Uint8Array([4, 5, 6]))
+    ];
+    const out = await buildImportBundle(files);
+    expect(out.manifest.files.map((f) => f.path).sort()).toEqual([
+      "sources/a.md",
+      "sources/used.png"
+    ]);
+    const unrefSkips = out.skipped.filter(
+      (s) => s.reason === "unreferenced_asset"
+    );
+    expect(unrefSkips.map((s) => s.path).sort()).toEqual([
+      "also-unused.jpg",
+      "unused.png"
+    ]);
   });
 });
