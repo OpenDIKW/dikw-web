@@ -2493,6 +2493,45 @@ textarea:focus {
   color: var(--subtle);
 }
 
+.import-pill--amber {
+  color: var(--amber);
+}
+
+.import-completed-row--spaced {
+  margin-top: 14px;
+}
+
+/* small utility classes used by import subviews */
+.import-input-hidden {
+  display: none;
+}
+
+.import-file-row--skipped {
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+}
+
+.import-icon-inline {
+  vertical-align: -2px;
+  margin-right: 6px;
+}
+
+.import-lint-card__fix-empty {
+  color: var(--muted);
+}
+
+/* honor reduced-motion for the indeterminate bar + dot-pulse animations */
+@media (prefers-reduced-motion: reduce) {
+  .import-step--running .import-step__bar--indeterminate .import-step__bar-fill,
+  .import-active-stage__bar--indeterminate .import-active-stage__bar-fill,
+  .import-dot-pulse::after {
+    animation: none;
+  }
+  .import-step__bar-fill,
+  .import-active-stage__bar-fill {
+    transition: none;
+  }
+}
+
 /* resume banner */
 .import-resume-banner {
   display: flex;

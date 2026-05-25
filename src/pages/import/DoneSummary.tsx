@@ -114,10 +114,7 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
             ) : null}
           </dl>
           <div className="import-done-card__history">
-            <Info
-              size={12}
-              style={{ verticalAlign: "-2px", marginRight: 6 }}
-            />
+            <Info size={12} className="import-icon-inline" />
             {copy.doneTaskHistoryHint}
           </div>
         </section>

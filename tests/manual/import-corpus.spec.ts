@@ -8,10 +8,19 @@
 
 import { expect, test } from "@playwright/test";
 
-const CORPUS_ROOT =
-  "C:\\Users\\HE LE\\Project\\opendikw\\dikw-data\\datasets\\synthetic-multimodal-datasets-v1\\corpus";
+// Override via env var so the spec is portable across checkouts.
+// e.g. DIKW_IMPORT_CORPUS_ROOT=/path/to/corpus npx playwright test ...
+const CORPUS_ROOT = process.env.DIKW_IMPORT_CORPUS_ROOT;
 
 test.describe.configure({ mode: "serial" });
+
+test.beforeAll(() => {
+  if (!CORPUS_ROOT) {
+    throw new Error(
+      "Set DIKW_IMPORT_CORPUS_ROOT to the directory you want to import before running this manual spec."
+    );
+  }
+});
 
 test("redesigned picker accepts the corpus folder and renders preview", async ({
   page
@@ -31,7 +40,7 @@ test("redesigned picker accepts the corpus folder and renders preview", async ({
   // itself — it walks the tree and synthesizes the right webkitRelativePath
   // values for each entry.
   const folderInput = page.locator('[data-testid="import-folder-input"]');
-  await folderInput.setInputFiles(CORPUS_ROOT);
+  await folderInput.setInputFiles(CORPUS_ROOT!);
 
   // BundlePreview should appear within a few seconds (build is in-browser).
   await expect(page.getByTestId("import-preview")).toBeVisible({
@@ -72,7 +81,7 @@ test("redesigned pipeline runs the corpus end-to-end against live core", async (
   await expect(page.getByRole("heading", { name: "Import" })).toBeVisible();
 
   const folderInput = page.locator('[data-testid="import-folder-input"]');
-  await folderInput.setInputFiles(CORPUS_ROOT);
+  await folderInput.setInputFiles(CORPUS_ROOT!);
   await expect(page.getByTestId("import-preview")).toBeVisible({
     timeout: 30_000
   });

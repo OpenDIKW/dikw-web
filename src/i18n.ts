@@ -205,6 +205,7 @@ export const translations = {
         pipelineStepOf: "Step {n} of {total}",
         pipelineResumable: "Resumable on refresh",
         pipelineLeaveHint: "You can leave this page; progress is saved per-session.",
+        pipelinePhaseLabel: "phase",
         resumeBannerTitle: "Resumed your import",
         resumeBannerBody: "This page was refreshed mid-pipeline. We picked up polling against the running task — no need to re-upload.",
         stages: {
@@ -484,6 +485,7 @@ export const translations = {
         pipelineStepOf: "第 {n} 步，共 {total} 步",
         pipelineResumable: "刷新页面也能接着跑",
         pipelineLeaveHint: "可以暂时离开此页，进度按会话保存。",
+        pipelinePhaseLabel: "阶段",
         resumeBannerTitle: "已恢复上次的导入",
         resumeBannerBody: "页面在管线运行中被刷新，已自动接回服务端任务，无需重新上传。",
         stages: {

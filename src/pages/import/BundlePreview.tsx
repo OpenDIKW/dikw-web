@@ -118,9 +118,8 @@ export function BundlePreview({
               <>
                 {bundle.skipped.map((s) => (
                   <div
-                    className="import-file-row"
+                    className="import-file-row import-file-row--skipped"
                     key={`${s.path}:${s.reason}`}
-                    style={{ gridTemplateColumns: "16px minmax(0,1fr) auto" }}
                   >
                     <span
                       className="import-file-row__icon import-file-row__icon--warn"

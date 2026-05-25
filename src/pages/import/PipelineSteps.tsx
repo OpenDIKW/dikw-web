@@ -203,7 +203,7 @@ export function PipelineSteps({
                 <div className="import-active-stage__progress-row">
                   <span>
                     <span className="import-active-stage__progress-row-label">
-                      phase
+                      {copy.pipelinePhaseLabel}
                     </span>{" "}
                     · {progress.phase}
                   </span>
@@ -234,7 +234,7 @@ export function PipelineSteps({
         </div>
 
         {importResult ? (
-          <div className="import-completed-row" style={{ marginTop: 14 }}>
+          <div className="import-completed-row import-completed-row--spaced">
             <span className="import-pill import-pill--green">
               <Check size={11} />
               {copy.stages.uploading} · {formatBytes(importResult.bytes)}
@@ -247,7 +247,7 @@ export function PipelineSteps({
               </span>
             ) : null}
             {importResult.rejected.length > 0 ? (
-              <span className="import-pill" style={{ color: "var(--amber)" }}>
+              <span className="import-pill import-pill--amber">
                 {importResult.rejected.length} {copy.summaryRejected}
               </span>
             ) : null}

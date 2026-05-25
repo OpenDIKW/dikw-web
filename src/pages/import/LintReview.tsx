@@ -197,7 +197,7 @@ export function LintReview({
                         </div>
                         <div className="import-lint-card__fix-body">
                           {p.operations.length === 0 ? (
-                            <span style={{ color: "var(--muted)" }}>—</span>
+                            <span className="import-lint-card__fix-empty">—</span>
                           ) : (
                             p.operations.map((op, k) => (
                               <div

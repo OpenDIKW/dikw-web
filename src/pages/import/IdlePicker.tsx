@@ -110,7 +110,7 @@ export function IdlePicker({
           type="file"
           multiple
           accept=".md,.png,.jpg,.jpeg,.webp,.gif,.svg,.pdf"
-          style={{ display: "none" }}
+          className="import-input-hidden"
           onChange={(e) => {
             const list = e.target.files;
             if (!list) return;
@@ -126,7 +126,7 @@ export function IdlePicker({
           // @ts-expect-error — webkitdirectory is a non-standard but widely-supported attribute.
           webkitdirectory=""
           directory=""
-          style={{ display: "none" }}
+          className="import-input-hidden"
           onChange={(e) => {
             const list = e.target.files;
             if (!list) return;
