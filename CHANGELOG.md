@@ -9,6 +9,52 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-05-26
+
+### Import page redesign
+
+- Slim the 1018-line `ImportPage.tsx` into a 538-line orchestrator plus seven
+  `src/pages/import/` subviews (`IdlePicker`, `BundlePreview`, `PipelineSteps`,
+  `LintReview`, `DoneSummary`, plus `format.ts` + `readDroppedItems.ts`). All
+  styling reuses the existing `src/styles.css` token system — no UI framework
+  introduced.
+- `IdlePicker`: dropzone now accepts both files and folders. `webkitGetAsEntry`
+  walks the directory tree and injects `webkitRelativePath` so
+  `computeProjectRelPath` produces the same archive paths as the folder picker.
+- `BundlePreview`: two-column Included / Skipped layout with per-row type
+  icons, byte sizes, and ref counts; skipped rows carry a reason tag.
+- `PipelineSteps`: resumed pipelines show a blue "Resumed your import" banner
+  above the stepper; a 1-second interval drives the elapsed-time text so it
+  no longer freezes on silent stages. 5-step stepper renders progress bars
+  and an active-stage description card.
+- `DoneSummary`: large success banner with `Open in Wiki` / `View graph`
+  CTAs (hash navigation), two stat cards (what was added / lint outcome),
+  and a restart tail.
+- Tests: `ImportPage.test.tsx` grows from 4 to 17 cases across five describe
+  blocks (idle picker, pipeline resume, lint review, done summary, failure
+  & cancel).
+
+### Correctness fixes (landed alongside the redesign)
+
+- `handlePipelineError(err, owner)` now compares the throwing controller
+  against `controllerRef.current` so a late `AbortError` from a cancelled
+  pipeline cannot clobber the state of a freshly-started one after the
+  user clicks "Start a new import".
+- `applyLint` resets `wasResumed`, breaking the
+  "refresh into lint-review → click Apply → lint-apply incorrectly renders
+  the resume banner" chain.
+- Two hardcoded English strings now route through i18n: `stepMeta` returned
+  `"5 committed"` and `BundlePreview` rendered `"refs 3"` even in the
+  Chinese locale. Both have proper `en` and `zh-CN` translations now.
+- Resume path seeds `pipelineStartedAt = Date.now()` so the stepper's
+  elapsed segment is populated on the most important code path (mid-stage
+  refresh). Combined with the 1s ticker, the clock no longer freezes when a
+  task runs silent for 90+ seconds.
+- `IdlePicker.onDrop` is no longer `async`. `readDroppedItems` rejections
+  (permissions errors, browser quirks) now route through `onDropError`
+  into the existing `bundleError` Notice instead of vanishing into the
+  React synthetic-event system as unhandled promise rejections.
+
 ## [0.0.5] - 2026-05-24
 
 ### Import 页
