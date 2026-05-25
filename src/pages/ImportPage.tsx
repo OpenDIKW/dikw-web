@@ -1,22 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  CheckCircle2,
-  FileText,
-  FolderOpen,
-  Pause,
-  Play,
-  Upload,
-  XCircle
-} from "lucide-react";
+import { Pause, Upload } from "lucide-react";
 import { DikwClient, DikwClientError } from "../api/client";
 import { Notice } from "../components/Notice";
-import { StatusPill } from "../components/StatusPill";
 import { translations, type Locale } from "../i18n";
 import {
   buildImportBundle,
-  ImportBundleError,
-  type ImportBundleResult,
-  type SkippedFile
+  type ImportBundleResult
 } from "../utils/import-bundle";
 import {
   activeTaskId,
@@ -24,71 +13,51 @@ import {
   initialState,
   loadPipelineState,
   savePipelineState,
-  type PipelineStage,
   type PipelineState
 } from "../state/import-pipeline";
 import type {
   ApplyReport,
-  FixProposal,
   FixProposalReport,
   TaskEvent
 } from "../types";
+import { IdlePicker } from "./import/IdlePicker";
+import { PipelineSteps } from "./import/PipelineSteps";
+import { LintReview } from "./import/LintReview";
+import { DoneSummary } from "./import/DoneSummary";
+import { isRunningStage, PipelineFailure, taskErrorMessage } from "./import/format";
 
 interface ImportPageProps {
   client: DikwClient;
   locale?: Locale;
 }
 
-interface PipelineStepView {
-  id: Exclude<PipelineStage, "idle" | "lint-review" | "done" | "failed" | "cancelled">;
-  labelKey: keyof (typeof translations)["en"]["pages"]["import"]["stages"];
-}
-
-const STEPS: PipelineStepView[] = [
-  { id: "uploading", labelKey: "uploading" },
-  { id: "ingest", labelKey: "ingest" },
-  { id: "synth", labelKey: "synth" },
-  { id: "lint-propose", labelKey: "lintPropose" },
-  { id: "lint-apply", labelKey: "lintApply" }
-];
-
-const ALL_STAGES_ORDER: PipelineStage[] = [
-  "idle",
-  "uploading",
-  "ingest",
-  "synth",
-  "lint-propose",
-  "lint-review",
-  "lint-apply",
-  "done"
-];
-
-function stageRank(stage: PipelineStage): number {
-  const idx = ALL_STAGES_ORDER.indexOf(stage);
-  return idx < 0 ? 0 : idx;
-}
-
+/** Top-level Import page. Owns the pipeline state machine + orchestration; all
+ *  visual surfaces live in ``./import/`` so this file stays readable. */
 export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   const copy = translations[locale].pages.import;
   const coreId = client.coreId;
   // Lazy-init from storage so a refresh during a task stage doesn't lose the
   // persisted task id. If we initialized with ``initialState()`` then saved on
   // the next effect tick, the save would clear storage before the resume
-  // effect could read it — see codex review of f927a79. State is bound to the
-  // current ``coreId`` so a Settings change can't resume against the wrong core.
+  // effect could read it.
   const [pipeline, setPipeline] = useState<PipelineState>(() =>
     loadPipelineState(coreId)
   );
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  // Track whether the current pipeline was resumed from storage rather than
+  // started in this session — drives the resume banner over the stepper.
+  const [wasResumed, setWasResumed] = useState<boolean>(
+    () => pipeline.stage !== "idle"
+  );
   const [bundle, setBundle] = useState<ImportBundleResult | null>(null);
   const [bundleError, setBundleError] = useState<unknown>(null);
   const [bundleBuilding, setBundleBuilding] = useState(false);
   const [activeEvent, setActiveEvent] = useState<TaskEvent | null>(null);
+  const [pipelineStartedAt, setPipelineStartedAt] = useState<number | null>(
+    null
+  );
   const controllerRef = useRef<AbortController | null>(null);
   // Generation counter so a slow ``buildImportBundle`` from an earlier
-  // selection can't overwrite a fresher one that finished first — without
-  // this, the preview can momentarily reflect files the user no longer has
-  // selected and Start would upload the wrong bytes.
+  // selection can't overwrite a fresher one that finished first.
   const bundleGenRef = useRef(0);
 
   // Persist every pipeline-state change so a refresh during a task stage
@@ -104,6 +73,10 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     resumeOnMountRef.current = true;
     if (pipeline.stage === "idle") return;
     if (activeTaskId(pipeline)) {
+      // Seed startedAt so the stepper has something to count from on resume
+      // — without this the elapsed segment is blank on the very code path
+      // users care about most (mid-pipeline refresh).
+      setPipelineStartedAt(Date.now());
       const controller = new AbortController();
       controllerRef.current = controller;
       void resumeRunningTask(pipeline, controller);
@@ -124,7 +97,6 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   const onFilesChosen = useCallback((files: File[]) => {
     if (files.length === 0) return;
     const gen = ++bundleGenRef.current;
-    setSelectedFiles(files);
     setBundle(null);
     setBundleError(null);
     setBundleBuilding(true);
@@ -142,9 +114,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   }, []);
 
   const resetPicker = useCallback(() => {
-    // Bump the gen so any in-flight bundle promise's setState is ignored.
     bundleGenRef.current += 1;
-    setSelectedFiles([]);
     setBundle(null);
     setBundleError(null);
     setBundleBuilding(false);
@@ -166,18 +136,14 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
 
   const startPipeline = useCallback(async () => {
     if (!bundle) return;
-    // Guard against a double-click firing two pipelines: between the user's
-    // click and the next render the Start button is still on-screen.
     if (controllerRef.current && !controllerRef.current.signal.aborted) {
       return;
     }
     const controller = new AbortController();
     controllerRef.current = controller;
     setActiveEvent(null);
-    // Lock the pipeline to the coreId it started against so a mid-flight
-    // Settings change cannot rebind the persisted task ids to a different
-    // core (see savePipelineState's guard). Carrying coreUrl in React state
-    // keeps the guard correct across every subsequent reducer call.
+    setWasResumed(false);
+    setPipelineStartedAt(Date.now());
     setPipeline({ stage: "uploading", coreUrl: coreId });
     try {
       const importResult = await client.importBundle(
@@ -186,10 +152,6 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         controller.signal
       );
 
-      // Ingest — start the task FIRST so the persist effect never sees
-      // a stage:'ingest' state without an ingestTaskId (otherwise a refresh
-      // in the POST window would wipe the importResult and the user would
-      // lose all visibility into the already-committed import).
       const ingestHandle = await client.startIngest({}, controller.signal);
       setPipeline((p) => ({
         ...p,
@@ -210,7 +172,6 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         );
       }
 
-      // Synth — same batched start to avoid stage:'synth' without synthTaskId.
       const synthHandle = await client.startSynth({}, controller.signal);
       setPipeline((p) => ({
         ...p,
@@ -230,7 +191,6 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         );
       }
 
-      // Lint propose — same batched start.
       const proposeHandle = await client.startLintPropose({}, controller.signal);
       setPipeline((p) => ({
         ...p,
@@ -255,7 +215,6 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       );
       const proposals = proposeResult.proposals ?? [];
       if (proposals.length === 0) {
-        // Nothing to fix — pipeline complete.
         setPipeline((p) => ({
           ...p,
           stage: "done",
@@ -271,15 +230,16 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         picked: proposals.map((_, i) => i)
       }));
     } catch (err) {
-      handlePipelineError(err);
+      handlePipelineError(err, controller);
     }
-  }, [bundle, client, consumeTask]);
+  }, [bundle, client, consumeTask, coreId]);
 
   const applyLint = useCallback(
     async (picked: number[]) => {
       const controller = new AbortController();
       controllerRef.current = controller;
       setActiveEvent(null);
+      setWasResumed(false);
       setPipeline((p) => ({ ...p, picked }));
       try {
         const proposeId = pipeline.lintProposeTaskId;
@@ -289,8 +249,6 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
             "missing propose task id; cannot apply"
           );
         }
-        // Start the apply task FIRST so the persist effect never sees
-        // stage:'lint-apply' without lintApplyTaskId.
         const applyHandle = await client.startLintApply(
           { proposalTaskId: proposeId, pick: picked },
           controller.signal
@@ -307,9 +265,6 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         if (applyFinal?.status === "cancelled") {
           throw new PipelineFailure("lint-apply", "lint apply cancelled");
         }
-        // Even if some proposals are server-side-skipped, the task may still
-        // SUCCEED — partial fix counts as completion. Only a true task FAILED
-        // status drops us into the failed branch.
         if (applyFinal?.status !== "succeeded") {
           throw new PipelineFailure(
             "lint-apply",
@@ -322,14 +277,13 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         );
         setPipeline((p) => ({ ...p, stage: "done", applyReport }));
       } catch (err) {
-        handlePipelineError(err);
+        handlePipelineError(err, controller);
       }
     },
     [client, consumeTask, pipeline.lintProposeTaskId]
   );
 
   const skipAllLint = useCallback(() => {
-    // User reviewed and chose to apply nothing — short-circuit straight to done.
     setPipeline((p) => ({ ...p, stage: "done", picked: [] }));
   }, []);
 
@@ -358,9 +312,6 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           }));
           return;
         }
-        // Advance to the next stage. We can't easily continue the original
-        // pipeline closure across a refresh, so each resumed task is treated
-        // independently: kick off the next phase from here.
         if (persisted.stage === "ingest") {
           const synthHandle = await client.startSynth({}, controller.signal);
           setPipeline((p) => ({
@@ -382,7 +333,10 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         } else if (persisted.stage === "synth") {
           await continueFromSynth(controller);
         } else if (persisted.stage === "lint-propose") {
-          await finalizeProposeAndGate(persisted.lintProposeTaskId!, controller);
+          await finalizeProposeAndGate(
+            persisted.lintProposeTaskId!,
+            controller
+          );
         } else if (persisted.stage === "lint-apply") {
           const applyReport = await client.getTaskResult<ApplyReport>(
             persisted.lintApplyTaskId!,
@@ -391,7 +345,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           setPipeline((p) => ({ ...p, stage: "done", applyReport }));
         }
       } catch (err) {
-        handlePipelineError(err);
+        handlePipelineError(err, controller);
       }
     },
     [client, consumeTask]
@@ -438,14 +392,15 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     }));
   }
 
-  function handlePipelineError(err: unknown) {
-    if (controllerRef.current?.signal.aborted) {
-      // Cancellation path — pipeline state is set in onCancel.
+  function handlePipelineError(err: unknown, owner: AbortController) {
+    // Stale rejection from a controller this owner no longer represents
+    // (cancelled-then-restarted, or torn down by startOver) must not clobber
+    // the current pipeline state. Compare identity, not just `.aborted` —
+    // after startOver `controllerRef.current` may be null, which would
+    // otherwise let the late catch fall through.
+    if (owner !== controllerRef.current || owner.signal.aborted) {
       return;
     }
-    // Server-cancelled tasks (or any propagated cancel signal) land here too;
-    // route them to the cancelled UI branch instead of the failed one so the
-    // user sees an amber 'cancelled' card rather than a red 'failed' one.
     const cancelled =
       err instanceof DikwClientError && err.code === "task_cancelled";
     setPipeline((p) => ({
@@ -469,11 +424,13 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     controller?.abort();
     const taskId = activeTaskId(pipeline);
     if (taskId) {
-      // Best-effort server cancel; ignore failures (the task may already be done).
       try {
         await client.cancelTask(taskId);
       } catch {
-        // swallow
+        // Swallow — UI already reflects the user's intent; the server will
+        // either honor the cancel or eventually surface a different terminal
+        // status on its own. Re-throwing here would replace the cancelled
+        // state with a "failed" Notice.
       }
     }
     setPipeline((p) => ({
@@ -489,21 +446,24 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     clearPipelineState();
     setPipeline(initialState());
     setActiveEvent(null);
+    setWasResumed(false);
+    setPipelineStartedAt(null);
     resetPicker();
   }, [resetPicker]);
 
   // ---- Render branches -----------------------------------------------------
 
   const stage = pipeline.stage;
+  const running = isRunningStage(stage);
 
   return (
-    <div className="page-stack">
+    <div className="page-stack import-stack">
       <header className="page-header" data-testid="page-header">
         <div>
           <h1>{copy.title}</h1>
-          <p>{copy.description}</p>
+          <p className="page-header__description">{copy.description}</p>
         </div>
-        {isRunning(stage) ? (
+        {running ? (
           <div>
             <button
               type="button"
@@ -522,20 +482,23 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         <IdlePicker
           copy={copy}
           onFilesChosen={onFilesChosen}
+          onDropError={setBundleError}
           bundle={bundle}
           bundleBuilding={bundleBuilding}
           bundleError={bundleError}
-          selectedCount={selectedFiles.length}
           onStart={startPipeline}
           onReset={resetPicker}
         />
       ) : null}
 
-      {isRunning(stage) ? (
+      {running ? (
         <PipelineSteps
           copy={copy}
           stage={stage}
           activeEvent={activeEvent}
+          wasResumed={wasResumed}
+          startedAt={pipelineStartedAt}
+          importResult={pipeline.importResult ?? null}
           ingestTaskId={pipeline.ingestTaskId}
           synthTaskId={pipeline.synthTaskId}
           lintProposeTaskId={pipeline.lintProposeTaskId}
@@ -554,11 +517,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       ) : null}
 
       {stage === "done" ? (
-        <DoneSummary
-          copy={copy}
-          pipeline={pipeline}
-          onStartOver={startOver}
-        />
+        <DoneSummary copy={copy} pipeline={pipeline} onStartOver={startOver} />
       ) : null}
 
       {(stage === "failed" || stage === "cancelled") && pipeline.error ? (
@@ -566,17 +525,20 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           title={stage === "failed" ? copy.errorTitle : copy.cancelledTitle}
           tone={stage === "failed" ? "bad" : "warn"}
         >
-          <div>{copy.errorStageLabel}: {pipeline.error.stage}</div>
+          <div>
+            {copy.errorStageLabel}: {pipeline.error.stage}
+          </div>
           <div>{pipeline.error.message}</div>
           {pipeline.error.code ? (
             <div className="notice__code">{pipeline.error.code}</div>
           ) : null}
-          <div style={{ marginTop: 8 }}>
+          <div className="import-error-actions">
             <button
               type="button"
               className="primary-button"
               onClick={startOver}
             >
+              <Upload size={16} />
               {copy.restart}
             </button>
           </div>
@@ -584,435 +546,4 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       ) : null}
     </div>
   );
-}
-
-// ---- Subviews -------------------------------------------------------------
-
-interface IdlePickerProps {
-  copy: ImportCopy;
-  onFilesChosen: (files: File[]) => void;
-  bundle: ImportBundleResult | null;
-  bundleBuilding: boolean;
-  bundleError: unknown;
-  selectedCount: number;
-  onStart: () => void;
-  onReset: () => void;
-}
-
-function IdlePicker({
-  copy,
-  onFilesChosen,
-  bundle,
-  bundleBuilding,
-  bundleError,
-  selectedCount,
-  onStart,
-  onReset
-}: IdlePickerProps) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const folderRef = useRef<HTMLInputElement>(null);
-  return (
-    <>
-      <section className="panel">
-        <div className="panel__title">{copy.pickerTitle}</div>
-        <p>{copy.pickerHint}</p>
-        <div className="query-form query-form--compact">
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => fileRef.current?.click()}
-          >
-            <FileText size={16} />
-            {copy.pickFiles}
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={() => folderRef.current?.click()}
-          >
-            <FolderOpen size={16} />
-            {copy.pickFolder}
-          </button>
-          {selectedCount > 0 ? (
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={onReset}
-            >
-              {copy.clearSelection}
-            </button>
-          ) : null}
-        </div>
-        <input
-          ref={fileRef}
-          type="file"
-          multiple
-          accept=".md,.png,.jpg,.jpeg,.webp,.gif,.svg,.pdf"
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const list = e.target.files;
-            if (!list) return;
-            onFilesChosen(Array.from(list));
-            e.target.value = "";
-          }}
-          data-testid="import-file-input"
-        />
-        <input
-          ref={folderRef}
-          type="file"
-          // @ts-expect-error — webkitdirectory is a non-standard but widely-supported attribute.
-          webkitdirectory=""
-          directory=""
-          style={{ display: "none" }}
-          onChange={(e) => {
-            const list = e.target.files;
-            if (!list) return;
-            onFilesChosen(Array.from(list));
-            e.target.value = "";
-          }}
-          data-testid="import-folder-input"
-        />
-      </section>
-
-      {bundleBuilding ? (
-        <Notice tone="info">
-          <div>{copy.buildingBundle}</div>
-        </Notice>
-      ) : null}
-
-      {bundleError ? (
-        <Notice
-          title={copy.bundleErrorTitle}
-          error={
-            bundleError instanceof ImportBundleError
-              ? new Error(bundleError.message)
-              : bundleError
-          }
-        />
-      ) : null}
-
-      {bundle ? (
-        <section className="panel" data-testid="import-preview">
-          <div className="panel__title">{copy.previewTitle}</div>
-          <div className="result-table">
-            <div className="result-table__row">
-              <strong>{copy.previewFilesCount}</strong>
-              <span>{bundle.filesCount}</span>
-            </div>
-            <div className="result-table__row">
-              <strong>{copy.previewPackages}</strong>
-              <span>{bundle.manifest.packages.length}</span>
-            </div>
-            <div className="result-table__row">
-              <strong>{copy.previewTotalBytes}</strong>
-              <span>{formatBytes(bundle.totalBytes)}</span>
-            </div>
-            {bundle.skipped.length > 0 ? (
-              <div className="result-table__row">
-                <strong>{copy.previewSkipped}</strong>
-                <span>{bundle.skipped.length}</span>
-              </div>
-            ) : null}
-          </div>
-          {bundle.skipped.length > 0 ? (
-            <details>
-              <summary>{copy.previewSkippedDetails}</summary>
-              <ul>
-                {bundle.skipped.map((s) => (
-                  <li key={`${s.path}:${s.reason}`}>
-                    <code>{s.path}</code> — {skippedLabel(copy, s)}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-          <div style={{ marginTop: 12 }}>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={onStart}
-              data-testid="import-start"
-            >
-              <Play size={16} />
-              {copy.start}
-            </button>
-          </div>
-        </section>
-      ) : null}
-    </>
-  );
-}
-
-interface PipelineStepsProps {
-  copy: ImportCopy;
-  stage: PipelineStage;
-  activeEvent: TaskEvent | null;
-  ingestTaskId?: string;
-  synthTaskId?: string;
-  lintProposeTaskId?: string;
-  lintApplyTaskId?: string;
-}
-
-function PipelineSteps({
-  copy,
-  stage,
-  activeEvent,
-  ingestTaskId,
-  synthTaskId,
-  lintProposeTaskId,
-  lintApplyTaskId
-}: PipelineStepsProps) {
-  const currentRank = stageRank(stage);
-  return (
-    <section className="panel" data-testid="import-pipeline">
-      <div className="panel__title">{copy.pipelineTitle}</div>
-      <ul className="import-step-list">
-        {STEPS.map((step) => {
-          const rank = stageRank(step.id);
-          const status =
-            rank < currentRank
-              ? "succeeded"
-              : rank === currentRank
-              ? "running"
-              : "pending";
-          const taskId =
-            step.id === "ingest"
-              ? ingestTaskId
-              : step.id === "synth"
-              ? synthTaskId
-              : step.id === "lint-propose"
-              ? lintProposeTaskId
-              : step.id === "lint-apply"
-              ? lintApplyTaskId
-              : undefined;
-          return (
-            <li className="import-step-row" key={step.id}>
-              <StatusPill status={status} label={copy.stages[step.labelKey]} />
-              {taskId ? <code>{taskId}</code> : null}
-              {status === "running" && activeEvent ? (
-                <span>{describeEvent(activeEvent)}</span>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    </section>
-  );
-}
-
-interface LintReviewProps {
-  copy: ImportCopy;
-  proposals: FixProposal[];
-  initialPicked: number[];
-  onApply: (picked: number[]) => void;
-  onSkipAll: () => void;
-}
-
-function LintReview({
-  copy,
-  proposals,
-  initialPicked,
-  onApply,
-  onSkipAll
-}: LintReviewProps) {
-  const [picked, setPicked] = useState<Set<number>>(
-    () => new Set(initialPicked)
-  );
-  const togglePick = (i: number) =>
-    setPicked((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) next.delete(i);
-      else next.add(i);
-      return next;
-    });
-  return (
-    <section className="panel" data-testid="import-lint-review">
-      <div className="panel__title">{copy.lintReviewTitle}</div>
-      <p>{copy.lintReviewHint}</p>
-      <div className="query-form query-form--compact">
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => setPicked(new Set(proposals.map((_, i) => i)))}
-        >
-          {copy.selectAll}
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => setPicked(new Set())}
-        >
-          {copy.selectNone}
-        </button>
-        <button
-          type="button"
-          className="primary-button"
-          onClick={() => onApply(Array.from(picked).sort((a, b) => a - b))}
-          disabled={picked.size === 0}
-          data-testid="import-lint-apply"
-        >
-          <CheckCircle2 size={16} />
-          {copy.applySelected} ({picked.size})
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={onSkipAll}
-          data-testid="import-lint-skip-all"
-        >
-          <XCircle size={16} />
-          {copy.skipAll}
-        </button>
-      </div>
-      <ul className="result-table">
-        {proposals.map((p, i) => (
-          <li className="result-table__row" key={p.proposal_id}>
-            <input
-              type="checkbox"
-              checked={picked.has(i)}
-              onChange={() => togglePick(i)}
-              aria-label={`proposal ${p.proposal_id}`}
-            />
-            <strong>{p.issue_kind}</strong>
-            <code>{p.issue_path}</code>
-            <span>{p.issue_detail}</span>
-            <span>{p.rationale}</span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-interface DoneSummaryProps {
-  copy: ImportCopy;
-  pipeline: PipelineState;
-  onStartOver: () => void;
-}
-
-function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
-  const apply = pipeline.applyReport;
-  return (
-    <section className="panel" data-testid="import-done">
-      <div className="panel__title">{copy.doneTitle}</div>
-      <div className="result-table">
-        {pipeline.importResult ? (
-          <>
-            <div className="result-table__row">
-              <strong>{copy.summaryCommitted}</strong>
-              <span>{pipeline.importResult.committed.length}</span>
-            </div>
-            {pipeline.importResult.rejected.length > 0 ? (
-              <div className="result-table__row">
-                <strong>{copy.summaryRejected}</strong>
-                <span>{pipeline.importResult.rejected.length}</span>
-              </div>
-            ) : null}
-            <div className="result-table__row">
-              <strong>{copy.summaryBytes}</strong>
-              <span>{formatBytes(pipeline.importResult.bytes)}</span>
-            </div>
-          </>
-        ) : null}
-        {apply ? (
-          <>
-            <div className="result-table__row">
-              <strong>{copy.summaryApplied}</strong>
-              <span>{apply.applied.length}</span>
-            </div>
-            {apply.skipped.length > 0 ? (
-              <div className="result-table__row">
-                <strong>{copy.summarySkippedServer}</strong>
-                <span>{apply.skipped.length}</span>
-              </div>
-            ) : null}
-          </>
-        ) : (pipeline.proposals?.length ?? 0) === 0 ? (
-          <div className="result-table__row">
-            <strong>{copy.summaryNoLint}</strong>
-            <span>—</span>
-          </div>
-        ) : null}
-      </div>
-      <div style={{ marginTop: 12 }}>
-        <button
-          type="button"
-          className="primary-button"
-          onClick={onStartOver}
-          data-testid="import-restart"
-        >
-          <Upload size={16} />
-          {copy.restart}
-        </button>
-      </div>
-    </section>
-  );
-}
-
-// ---- Helpers --------------------------------------------------------------
-
-type ImportCopy = (typeof translations)["en"]["pages"]["import"];
-
-function isRunning(stage: PipelineStage): boolean {
-  return (
-    stage === "uploading" ||
-    stage === "ingest" ||
-    stage === "synth" ||
-    stage === "lint-propose" ||
-    stage === "lint-apply"
-  );
-}
-
-function describeEvent(event: TaskEvent): string {
-  if (event.type === "progress") {
-    const pct = event.total > 0 ? Math.round((event.current / event.total) * 100) : 0;
-    return `${event.phase} ${event.current}/${event.total} (${pct}%)`;
-  }
-  if (event.type === "log") return event.message;
-  if (event.type === "partial") return `partial: ${event.kind}`;
-  if (event.type === "task_started") return `started: ${event.op}`;
-  if (event.type === "error") return `error: ${event.message}`;
-  return event.type;
-}
-
-function taskErrorMessage(
-  final: Extract<TaskEvent, { type: "final" }> | null,
-  fallback: string
-): string {
-  if (!final || !final.error) return fallback;
-  const m = final.error.message;
-  return typeof m === "string" ? m : fallback;
-}
-
-function skippedLabel(copy: ImportCopy, s: SkippedFile): string {
-  switch (s.reason) {
-    case "unsupported_extension":
-      return copy.skippedUnsupported;
-    case "empty_body":
-      return copy.skippedEmpty;
-    case "asset_missing":
-      return `${copy.skippedAssetMissing}${s.detail ? ` (${s.detail})` : ""}`;
-    case "unreferenced_asset":
-      return copy.skippedUnreferenced;
-    case "duplicate_path":
-      return `${copy.skippedDuplicate}${s.detail ? ` (${s.detail})` : ""}`;
-    case "path_too_long":
-      return copy.skippedPathTooLong;
-  }
-}
-
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-class PipelineFailure extends Error {
-  readonly failedStage: PipelineStage;
-  constructor(failedStage: PipelineStage, message: string) {
-    super(message);
-    this.name = "PipelineFailure";
-    this.failedStage = failedStage;
-  }
 }

@@ -9,6 +9,38 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-05-26
+
+### Import 页重设计
+
+- 重构 Import 页交互:把单文件 1018 行的 `ImportPage.tsx` 拆成 538 行 orchestrator + 7
+  个 `src/pages/import/` 子视图(IdlePicker / BundlePreview / PipelineSteps /
+  LintReview / DoneSummary + format/readDroppedItems 两个纯模块)。视觉上沿用
+  `src/styles.css` 既有 token,无 UI 框架引入。
+- IdlePicker:dropzone 支持拖文件 / 文件夹(`webkitGetAsEntry` 走目录树,
+  注入 `webkitRelativePath` 让 `computeProjectRelPath` 行为与文件夹选择一致)。
+- BundlePreview:左侧 Included 列表 + 右侧 Skipped 列表;每行带类型图标 / 字节数 /
+  ref 数,跳过项带原因 tag。
+- PipelineSteps:刷新后恢复显示 "Resumed your import" 蓝色 banner;每秒 tick 一次
+  让 elapsed 时间真实推进;5 步 stepper 带进度条 + active stage 描述卡片。
+- DoneSummary:完成后大号 banner + 「Open in Wiki / View graph」CTA(hash 跳转)+
+  两张统计卡(本次新增 / Lint 结果)+ 收尾 restart 行。
+- 测试:`ImportPage.test.tsx` 从 4 例扩到 17 例,覆盖 idle picker / pipeline resume /
+  lint review / done summary / failure & cancel 五个 describe block。
+
+### 正确性修复(在整合 redesign 时一并落地)
+
+- `handlePipelineError(err, owner)` 现在比较抛错时持有的 `owner` 与 `controllerRef.current`,
+  避免「取消 → 重启 → 旧 pipeline 的延迟 AbortError 把新 pipeline 状态打成 failed」。
+- `applyLint` 复位 `wasResumed`,断掉「刷新到 lint-review → 点 Apply → lint-apply
+  阶段错误显示恢复 banner」的连锁。
+- `format.ts.stepMeta` 与 BundlePreview 的 "refs N" 改走 i18n,移除两处硬编码英文(
+  zh-CN 之前会看到 "5 committed" / "refs 3")。
+- Resume 路径上 `pipelineStartedAt` 被初始化为 `Date.now()`,搭配 1s interval ticker,
+  确保 stepper 在「上传 90 秒无进度事件」这类静默场景下计时器不冻结。
+- IdlePicker 的 onDrop 不再是 async handler:`readDroppedItems` 的 rejection 走
+  `onDropError` → `setBundleError`,Notice 兜底,不再丢成 unhandled promise rejection。
+
 ## [0.0.5] - 2026-05-24
 
 ### Import 页
