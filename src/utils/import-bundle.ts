@@ -9,6 +9,9 @@ import {
   resolveAssetRef,
   stripFrontmatter
 } from "./md-asset-refs";
+import { buildTar, splitUstarPath } from "./tar";
+
+export { buildTar, splitUstarPath };
 
 export const MD_EXTENSIONS: ReadonlySet<string> = new Set([".md"]);
 export const ASSET_EXTENSIONS: ReadonlySet<string> = new Set([
@@ -20,14 +23,6 @@ export const ASSET_EXTENSIONS: ReadonlySet<string> = new Set([
   ".svg",
   ".pdf"
 ]);
-
-const TAR_BLOCK = 512;
-const NAME_FIELD_MAX = 100;
-const PREFIX_FIELD_MAX = 155;
-// Total USTAR path budget = name + '/' + prefix → 256 bytes once you account
-// for the splitting rule (POSIX 1003.1-1988). Anything beyond that needs PAX
-// extended headers, which we don't emit.
-const USTAR_PATH_MAX = NAME_FIELD_MAX + 1 + PREFIX_FIELD_MAX;
 
 export interface ManifestFileEntry {
   path: string;
@@ -249,135 +244,6 @@ export async function inspectMarkdownFiles(
     packages.push({ mdProjectRel: mdRel, assetsProjectRel });
   }
   return { packages, skipped };
-}
-
-// ---- USTAR writer ---------------------------------------------------------
-//
-// Format reference: https://www.gnu.org/software/tar/manual/html_node/Standard.html
-// Header fields we write explicitly: name, mode, size, mtime, chksum, typeflag,
-// magic, version. Everything else stays zero-filled. We strip uid/gid/uname/gname
-// to keep the archive byte-stable across users (mirrors importer.py's choice).
-
-function writeOctal(view: Uint8Array, offset: number, length: number, value: number): void {
-  // tar uses null-terminated octal; the field length includes the terminator.
-  const oct = value.toString(8);
-  if (oct.length > length - 1) {
-    throw new Error(`tar field overflow: octal ${oct} does not fit in ${length} bytes`);
-  }
-  const padded = oct.padStart(length - 1, "0");
-  for (let i = 0; i < padded.length; i++) {
-    view[offset + i] = padded.charCodeAt(i);
-  }
-  view[offset + length - 1] = 0;
-}
-
-function writeAscii(view: Uint8Array, offset: number, length: number, value: string): void {
-  // Tar ``name`` and ``magic`` are byte-fields. Reject names that don't fit
-  // ASCII (UTF-8 byte length > field length). Non-ASCII filenames are technically
-  // representable but require POSIX 1003.1-2001 extended headers — out of scope
-  // for v1.
-  const bytes = new TextEncoder().encode(value);
-  if (bytes.length > length) {
-    throw new Error(
-      `tar field overflow: ${JSON.stringify(value)} exceeds ${length} bytes`
-    );
-  }
-  for (let i = 0; i < bytes.length; i++) {
-    view[offset + i] = bytes[i];
-  }
-}
-
-/** Split a path into (name, prefix) per USTAR (POSIX 1003.1-1988) so paths
- *  up to 256 bytes can fit. Returns null if the path can't be represented in
- *  USTAR even with prefix splitting (caller should reject the file or escalate
- *  to PAX). */
-export function splitUstarPath(
-  archivePath: string
-): { name: string; prefix: string } | null {
-  const bytes = new TextEncoder().encode(archivePath);
-  if (bytes.length <= NAME_FIELD_MAX) {
-    return { name: archivePath, prefix: "" };
-  }
-  if (bytes.length > USTAR_PATH_MAX) {
-    return null;
-  }
-  // The split MUST happen on a ``/`` boundary, and the trailing component
-  // (``name``) must be ≤100 bytes; the leading part (``prefix``) ≤155 bytes.
-  // Walk from the right: find the latest ``/`` whose tail-after-it fits in
-  // 100 bytes and whose head-before-it fits in 155 bytes.
-  for (let i = archivePath.length - 1; i > 0; i--) {
-    if (archivePath[i] !== "/") continue;
-    const head = archivePath.slice(0, i);
-    const tail = archivePath.slice(i + 1);
-    const headLen = new TextEncoder().encode(head).length;
-    const tailLen = new TextEncoder().encode(tail).length;
-    if (tailLen <= NAME_FIELD_MAX && headLen <= PREFIX_FIELD_MAX) {
-      return { name: tail, prefix: head };
-    }
-  }
-  return null;
-}
-
-function ustarHeader(archivePath: string, size: number): Uint8Array {
-  const split = splitUstarPath(archivePath);
-  if (split === null) {
-    throw new Error(
-      `archive path too long for USTAR (max ${USTAR_PATH_MAX} bytes, ` +
-        `requires PAX extended headers we don't emit): ${archivePath}`
-    );
-  }
-  const header = new Uint8Array(TAR_BLOCK);
-  writeAscii(header, 0, 100, split.name); // name (≤100 bytes)
-  writeOctal(header, 100, 8, 0o644); // mode
-  writeOctal(header, 108, 8, 0); // uid
-  writeOctal(header, 116, 8, 0); // gid
-  writeOctal(header, 124, 12, size); // size
-  writeOctal(header, 136, 12, 0); // mtime (zeroed for byte-stability)
-  // chksum field: filled with spaces before computing, then re-written.
-  for (let i = 148; i < 156; i++) header[i] = 0x20;
-  header[156] = 0x30; // typeflag '0' = regular file
-  // magic + version: "ustar\0" then "00"
-  writeAscii(header, 257, 6, "ustar\0");
-  header[263] = 0x30;
-  header[264] = 0x30;
-  if (split.prefix) {
-    writeAscii(header, 345, PREFIX_FIELD_MAX, split.prefix);
-  }
-  // Compute checksum: unsigned sum of every byte (with chksum field = spaces).
-  let sum = 0;
-  for (let i = 0; i < TAR_BLOCK; i++) sum += header[i];
-  // Write back: 6-digit octal, NUL, then space. Note this is the standard
-  // tar checksum encoding (not the usual ``writeOctal`` shape).
-  const oct = sum.toString(8).padStart(6, "0");
-  for (let i = 0; i < 6; i++) header[148 + i] = oct.charCodeAt(i);
-  header[154] = 0;
-  header[155] = 0x20;
-  return header;
-}
-
-export function buildTar(
-  entries: Array<{ archivePath: string; data: Uint8Array }>
-): Uint8Array {
-  let total = 0;
-  for (const e of entries) {
-    total += TAR_BLOCK; // header
-    total += Math.ceil(e.data.length / TAR_BLOCK) * TAR_BLOCK; // padded data
-  }
-  total += TAR_BLOCK * 2; // two end-of-archive zero blocks
-
-  const out = new Uint8Array(total);
-  let pos = 0;
-  for (const e of entries) {
-    const header = ustarHeader(e.archivePath, e.data.length);
-    out.set(header, pos);
-    pos += TAR_BLOCK;
-    out.set(e.data, pos);
-    pos += e.data.length;
-    const pad = (TAR_BLOCK - (e.data.length % TAR_BLOCK)) % TAR_BLOCK;
-    pos += pad; // already zeros
-  }
-  // Final 2 blocks are already zero-filled by Uint8Array's default.
-  return out;
 }
 
 export async function gzip(bytes: Uint8Array): Promise<Blob> {

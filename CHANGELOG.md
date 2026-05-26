@@ -9,6 +9,92 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.8] - 2026-05-27
+
+### Import: PDF / Office support via mineru
+
+- ImportPage now accepts `.pdf / .doc / .docx / .ppt / .pptx / .xls /
+  .xlsx` alongside the existing `.md` + assets surface. New files run
+  through a `converting` pre-stage that POSTs to a new sidecar route,
+  which calls mineru.net's v4 batch API and streams the converted
+  markdown + assets back as a USTAR tar.gz. Once converted, files join
+  the existing bundle → `/v1/import` → ingest → synth → lint pipeline
+  unchanged. The `/v1/import` wire shape is unmodified, so core needs
+  no changes.
+- New sidecar namespace `/web/*` for dikw-web's own browser helpers,
+  parallel to `/agent/*` (Pi Agent chat) and `/v1/*` (dikw-core). First
+  occupants: `POST /web/mineru/convert?inputSha=<hex>` (single-file
+  multipart in, tar.gz out) and `GET /web/mineru/health`. Same Node
+  process as the agent sidecar — mounted in dev via `webApiPlugin()`
+  in `vite.config.ts` and in prod via the same `/web` branch in
+  `dist-server/standalone.mjs`. The browser only talks same-origin.
+- New optional env var `MinerUAPIKey` (alias `DIKW_AGENT_MINERU_API_KEY`)
+  in `.env.agent.local`. The variable name matches the
+  `dikw-plugins/.env` convention so the same key file can be reused.
+  Missing key → `/web/mineru/*` returns `503 mineru_disabled`,
+  ImportPage shows a `Mineru not configured` notice, and the file
+  picker `accept` collapses back to `.md/.pdf` (PDF still works as a
+  passive asset when referenced from a sibling `.md`).
+- **Idempotency** is the headline contract: same input bytes →
+  identical `package_sha256`, every run. Three layers enforce this:
+  (a) mineru `cache_tolerance=31536000` + `data_id=<sha256[:32]>` so
+  the server-side cache returns the same conversion for one year;
+  (b) browser IndexedDB cache keyed by SHA-256 of the input file
+  bytes (LRU, 500 MB ceiling, `mineruVersion: 1` cache-bust knob);
+  (c) byte-stable tar packaging — entries sorted, `mtime=0`,
+  `uid=gid=0`, mode `0644`, frontmatter contains only
+  `converter / original_filename / original_sha256` (no timestamps,
+  no `batch_id`).
+- New `converting` pipeline stage with a `ConversionProgress` UI surface
+  (`src/pages/import/ConversionProgress.tsx`). Per-file rows surface
+  substages `queued / hashing / uploading / polling / downloading /
+  done / failed` with a per-file Skip on failure. Two-concurrent
+  worker pool — conservative on mineru quota while still pipelining
+  well. Refresh during `converting` is non-resumable in v1 — the
+  pipeline returns to idle, but the mineru server cache + browser IDB
+  cache make re-conversion typically millisecond-fast for the same
+  input bytes. Resume during the existing core-side stages
+  (`ingest / synth / lint-*`) is unchanged.
+- Image references in the converted markdown are rewritten from the
+  mineru `![alt](path)` form to project-conventional
+  `![[assets/<rel>|alt]]` wikilinks, matching what other dikw-web
+  sources do. Resolution uses a 4-tier match (exact / case-insensitive
+  / basename-unique / basename-folded-unique), mirroring the
+  `dikw-plugins/dikw-converter-mineru` Python implementation.
+- Token redaction: the mineru bearer token never appears in error
+  messages or logs in full; only `…<last 4 chars>` is ever surfaced.
+- New files of interest: `server/web/{config,http,mineruClient,
+  mineruConvert,vitePlugin}.ts`, `src/utils/{tar,tar-reader,
+  mineru-convert}.ts`, `src/pages/import/ConversionProgress.tsx`,
+  `tests/e2e/import-mineru.spec.ts`. `src/utils/tar.ts` is a new
+  isomorphic extraction of the USTAR writer that was previously
+  inlined in `import-bundle.ts`; the writer's behavior is unchanged,
+  it is now just importable from both the browser bundler and the
+  sidecar's tar.gz response builder.
+
+### Known follow-ups
+
+- The IndexedDB conversion cache stores `cachedAt` but does not yet
+  enforce the planned 500 MB LRU ceiling — it relies on the browser's
+  own quota eviction. Tracking as a follow-up so this PR stays scoped.
+
+### Manual verification (post-merge)
+
+End-to-end mineru verification is not part of CI because it requires a
+real `MinerUAPIKey` and burns mineru quota. The e2e suite mocks the
+`/web/mineru/*` wire. Before relying on the feature in a workspace:
+
+1. Copy `MinerUAPIKey=…` from `dikw-plugins/.env` (or wherever you keep
+   it) into `dikw-web/.env.agent.local`.
+2. `npm.cmd run dev` and open `http://127.0.0.1:4321/#import`.
+3. Drop a small PDF or `.docx`. Watch `ConversionProgress` walk through
+   `hashing → uploading → polling → downloading → done`, then watch the
+   regular Bundle preview render with the synthesized markdown.
+4. Drop the same file again. The IDB cache should make it instant — no
+   network call to `mineru.net` (verify in DevTools Network).
+5. Compare `package_sha256` across two end-to-end runs of the same
+   input — they must be identical for core's dedup to work.
+
 ## [0.0.7] - 2026-05-26
 
 ### Sidebar regroup + Base rename

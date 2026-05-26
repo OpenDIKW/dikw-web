@@ -18,7 +18,15 @@ interface IdlePickerProps {
   bundleError: unknown;
   onStart: () => void;
   onReset: () => void;
+  /** When true, the picker accepts mineru-convertible office/PDF formats
+   *  too. When false (sidecar's /web/mineru/health reports disabled),
+   *  the picker falls back to .md + image assets + .pdf-as-asset only. */
+  mineruEnabled?: boolean;
 }
+
+const NATIVE_ACCEPT = ".md,.png,.jpg,.jpeg,.webp,.gif,.svg,.pdf";
+const MINERU_ACCEPT =
+  ".md,.png,.jpg,.jpeg,.webp,.gif,.svg,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx";
 
 export function IdlePicker({
   copy,
@@ -28,8 +36,10 @@ export function IdlePicker({
   bundleBuilding,
   bundleError,
   onStart,
-  onReset
+  onReset,
+  mineruEnabled = false
 }: IdlePickerProps) {
+  const accept = mineruEnabled ? MINERU_ACCEPT : NATIVE_ACCEPT;
   const fileRef = useRef<HTMLInputElement>(null);
   const folderRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -109,7 +119,7 @@ export function IdlePicker({
           ref={fileRef}
           type="file"
           multiple
-          accept=".md,.png,.jpg,.jpeg,.webp,.gif,.svg,.pdf"
+          accept={accept}
           className="import-input-hidden"
           onChange={(e) => {
             const list = e.target.files;

@@ -30,6 +30,7 @@ export const STEPS: PipelineStepView[] = [
 
 const ALL_STAGES_ORDER: PipelineStage[] = [
   "idle",
+  "converting",
   "uploading",
   "ingest",
   "synth",

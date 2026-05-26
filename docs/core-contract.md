@@ -263,7 +263,14 @@ available in a collapsed details block.
 ## Import
 
 The Import page is the only web surface that writes to `dikw-core`. It
-runs a four-stage pipeline rooted at `POST /v1/import`:
+runs a four-stage pipeline rooted at `POST /v1/import`. PDF / Office
+formats route through an optional `converting` pre-stage owned by the
+web sidecar (`POST /web/mineru/convert` — see `docs/agent.md` for the
+sidecar layout); the resulting markdown + assets are bundled exactly
+like a user-authored `.md` source. The `/v1/import` wire shape is
+unchanged. Same input bytes → identical `package_sha256` (mineru
+`cache_tolerance` + browser IndexedDB by SHA-256 + byte-stable tar
+packaging), so core's existing dedup continues to apply.
 
 1. **Bundle**: the browser scans selected files, resolves markdown asset
    references (sibling-of-md → project-root, matching `md_inspect.py`),
