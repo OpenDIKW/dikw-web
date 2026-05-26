@@ -316,10 +316,12 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       // hand off to bundle build (if any conversion succeeded) or remain on
       // the converting stage so the user can interact with failures.
       const succeeded = Array.from(conversionResultsRef.current.values());
-      if (succeeded.length === 0 && conversionNativeRef.current.length === 0) {
-        // Everything failed and there's nothing native to fall back on — let
-        // the user see the per-file errors. Stay in converting; user can
-        // click Skip on each or Cancel to reset.
+      if (succeeded.length === 0) {
+        // Every mineru conversion failed. Stay on the converting stage so the
+        // user sees the per-file error rows — even if `native` is non-empty,
+        // proceeding into the bundle would silently drop the office files
+        // they tried to import. They can Skip each failed row to fall back
+        // to the native-only bundle, or click Start over to reset.
         return;
       }
       await finalizeConversion(gen);
@@ -346,35 +348,37 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
 
   const onSkipFailed = useCallback(
     (inputSha: string) => {
+      // Inspect the post-skip files map inside the updater so we never read a
+      // pre-commit snapshot. A previous version used setTimeout + a mirrored
+      // ref which raced React's commit ordering and could leave the UI stuck
+      // on `converting` when the user skipped the last failed row.
+      let shouldFinalize = false;
+      let nextSucceededAny = false;
       setPipeline((p) => {
         if (!p.conversion) return p;
         const files = { ...p.conversion.files };
         const inputOrder = p.conversion.inputOrder.filter((k) => k !== inputSha);
         delete files[inputSha];
-        return { ...p, conversion: { files, inputOrder } };
-      });
-      // If skip leaves nothing pending, finalize.
-      setTimeout(() => {
-        // Use a microtask-ish defer so the React state has settled.
-        const anyPending = Object.values(
-          (pipelineRef.current?.conversion?.files ?? {}) as Record<string, ConversionFileState>
-        ).some(
+        const remaining = Object.values(files);
+        const anyPending = remaining.some(
           (f) => f.substage !== "done" && f.substage !== "failed"
         );
-        if (!anyPending) {
+        nextSucceededAny =
+          remaining.some((f) => f.substage === "done") ||
+          conversionResultsRef.current.size > 0;
+        shouldFinalize = !anyPending && nextSucceededAny;
+        return { ...p, conversion: { files, inputOrder } };
+      });
+      // Defer to a microtask so finalize's setPipeline isn't fired inside the
+      // previous setPipeline's updater.
+      if (shouldFinalize) {
+        queueMicrotask(() => {
           void finalizeConversion(bundleGenRef.current);
-        }
-      }, 0);
+        });
+      }
     },
     [finalizeConversion]
   );
-
-  // Mirror state into a ref so callbacks fired from setTimeout can see the
-  // latest snapshot without forcing rerenders to wait.
-  const pipelineRef = useRef(pipeline);
-  useEffect(() => {
-    pipelineRef.current = pipeline;
-  }, [pipeline]);
 
   const resetPicker = useCallback(() => {
     bundleGenRef.current += 1;

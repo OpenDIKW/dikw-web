@@ -171,7 +171,27 @@ function readLocalEntry(buf: Uint8Array, entry: CentralEntry): Uint8Array {
     return slice.slice();
   }
   if (entry.method === METHOD_DEFLATE) {
-    const out = inflateRawSync(slice);
+    // Pre-check the CD-advertised uncompressed size so we reject decompression
+    // bombs before allocating. `inflateRawSync` without maxOutputLength can
+    // expand arbitrary GBs from a small compressed input.
+    if (entry.uncompressedSize > MAX_ENTRY_UNCOMPRESSED) {
+      throw new MineruConvertError(
+        "too_large",
+        `ZIP entry ${JSON.stringify(entry.name)} declares ${entry.uncompressedSize} bytes uncompressed, exceeds per-entry cap ${MAX_ENTRY_UNCOMPRESSED}`
+      );
+    }
+    let out: Buffer;
+    try {
+      // maxOutputLength bounds the buffer zlib will allocate — even with a
+      // malformed deflate stream advertising a small CD size, zlib stops
+      // at this cap and throws rather than expanding into multi-GB memory.
+      out = inflateRawSync(slice, { maxOutputLength: MAX_ENTRY_UNCOMPRESSED });
+    } catch (err) {
+      throw new MineruConvertError(
+        "invalid_zip",
+        `failed to inflate ${entry.name}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
     if (out.byteLength !== entry.uncompressedSize) {
       throw new MineruConvertError(
         "invalid_zip",

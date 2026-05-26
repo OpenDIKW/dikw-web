@@ -4,12 +4,15 @@
 // contract.
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { gzipSync } from "node:zlib";
+import { gzip } from "node:zlib";
+import { promisify } from "node:util";
 import { extname } from "node:path";
 import { buildTar } from "../../src/utils/tar.js";
 import { MineruClient, MineruClientError } from "./mineruClient.js";
 import { extractResultZip, MineruConvertError } from "./mineruConvert.js";
 import { loadWebConfig, type WebConfig } from "./config.js";
+
+const gzipAsync = promisify(gzip);
 
 export interface WebHandlerOptions {
   cwd?: string;
@@ -103,8 +106,14 @@ async function handleConvert(
   const stem = stemOf(fileName);
   const dataId = inputSha.slice(0, 32);
 
+  // Abort the mineru pipeline only on premature client disconnect — not on
+  // normal completion. `aborted` fires for "client gave up"; `close` fires
+  // for any reason including our own res.end, which would spuriously abort
+  // anything still holding controller.signal after the response was sent.
   const controller = new AbortController();
-  req.on("close", () => controller.abort());
+  const onAborted = () => controller.abort();
+  req.on("aborted", onAborted);
+  const cleanup = () => req.removeListener("aborted", onAborted);
 
   const client = new MineruClient({
     token: apiKey,
@@ -124,13 +133,19 @@ async function handleConvert(
       inputSha
     );
     const tarBytes = buildResponseTar(stem, markdownWithFrontmatter, extracted.assets);
-    const gz = gzipSync(tarBytes, { level: 9 });
+    // Async gzip so a multi-hundred-MB tar doesn't block the event loop for
+    // the entire conversion's sister requests. Level 6 (zlib default) — the
+    // marginal compression from level 9 isn't worth the CPU cost on the
+    // server-side hot path.
+    const gz = await gzipAsync(tarBytes);
     res.statusCode = 200;
     res.setHeader("Content-Type", "application/x-tar+gzip");
     res.setHeader("Content-Length", String(gz.byteLength));
     res.end(gz);
   } catch (err) {
     return convertErrorJson(res, err);
+  } finally {
+    cleanup();
   }
 }
 
@@ -277,6 +292,14 @@ function convertErrorJson(res: ServerResponse, err: unknown): void {
     return errorJson(res, status, err.code, err.message);
   }
   if (err instanceof MineruConvertError) {
+    // Map post-download ZIP/extraction failures to wire codes that the
+    // browser's pickErrorCode recognizes. `too_large` is the only one
+    // that's actionable for the user (file was bigger than our cap) —
+    // surface it as `mineru_input` so the UI can tell them so. The
+    // others are server-side malformations the user can't fix.
+    if (err.code === "too_large") {
+      return errorJson(res, 413, "mineru_input", err.message);
+    }
     return errorJson(res, 502, "mineru_api", err.message);
   }
   const message = err instanceof Error ? err.message : String(err);

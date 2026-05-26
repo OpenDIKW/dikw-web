@@ -34,7 +34,19 @@ function readCstr(view: Uint8Array, offset: number, length: number): string {
 function readOctal(view: Uint8Array, offset: number, length: number): number {
   const s = readCstr(view, offset, length).trim();
   if (s === "") return 0;
-  return parseInt(s, 8);
+  const n = parseInt(s, 8);
+  // parseInt returns NaN for strings with no leading octal digit (e.g. a tar
+  // produced by a non-strict writer that left garbage in a numeric field).
+  // We refuse rather than letting NaN silently corrupt offset/size math
+  // downstream (`dataStart + NaN === NaN`; comparisons against NaN all return
+  // false, masking truncation/overflow checks).
+  if (!Number.isFinite(n) || n < 0) {
+    throw new TarReaderError(
+      "unsupported_format",
+      `non-octal numeric tar field at offset ${offset}: ${JSON.stringify(s)}`
+    );
+  }
+  return n;
 }
 
 function isZeroBlock(view: Uint8Array, offset: number): boolean {

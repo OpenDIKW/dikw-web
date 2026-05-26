@@ -140,17 +140,34 @@ export class MineruClient {
   constructor(opts: MineruClientOptions) {
     this.token = opts.token;
     this.fetchFn = opts.fetch ?? ((url, init) => fetch(url, init));
+    this.signal = opts.signal;
+    // Sleep must be abort-aware — pollUntilDone waits up to POLL_MAX_MS (30s)
+    // between polls, and an unaware sleep would let the user's Cancel wait
+    // the full backoff window before the next throwIfAborted runs.
+    const signal = this.signal;
     this.sleep =
       opts.sleep ??
       ((ms) =>
-        new Promise((resolve) => {
-          setTimeout(resolve, ms);
+        new Promise<void>((resolve, reject) => {
+          if (signal?.aborted) {
+            reject(new MineruClientError("mineru_api", "request aborted"));
+            return;
+          }
+          const timer = setTimeout(() => {
+            signal?.removeEventListener("abort", onAbort);
+            resolve();
+          }, ms);
+          const onAbort = () => {
+            clearTimeout(timer);
+            signal?.removeEventListener("abort", onAbort);
+            reject(new MineruClientError("mineru_api", "request aborted"));
+          };
+          signal?.addEventListener("abort", onAbort, { once: true });
         }));
     this.now = opts.now ?? (() => Date.now());
     this.pollInitialMs = opts.pollInitialMs ?? POLL_INITIAL_MS;
     this.pollMaxMs = opts.pollMaxMs ?? POLL_MAX_MS;
     this.pollTotalTimeoutMs = opts.pollTotalTimeoutMs ?? POLL_TOTAL_TIMEOUT_MS;
-    this.signal = opts.signal;
   }
 
   async submit(params: SubmitParams): Promise<SubmissionHandle> {
