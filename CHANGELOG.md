@@ -35,6 +35,13 @@ file format introduced in `[0.0.1.0]` was dropped.
 - Docs: `CLAUDE.md`, `README.md`, and `docs/graph-view.md` updated to the new
   Base terminology.
 
+### Fixes
+
+- `OverviewPage`: defensive optional chain on
+  `data?.status.wisdom_by_status?.candidate`. Older / 0-wisdom core
+  payloads omit the `wisdom_by_status` subkey, which previously threw
+  `TypeError` and blanked the entire app via React 19's tree unmount.
+
 ## [0.0.6] - 2026-05-26
 
 ### Import page redesign
