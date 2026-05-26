@@ -689,6 +689,12 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   const onCancel = useCallback(async () => {
     const controller = controllerRef.current;
     controller?.abort();
+    // Also abort the conversion batch — convertCtrlRef is independent of
+    // controllerRef (a /web/mineru/* in-flight is not a core task), so the
+    // line above wouldn't reach it. Without this, workers keep marching
+    // through their queue after the user clicks Cancel and would later
+    // transition state behind the cancelled UI.
+    convertCtrlRef.current?.abort();
     const taskId = activeTaskId(pipeline);
     if (taskId) {
       try {
@@ -753,11 +759,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         <>
           {mineruEnabled === false ? (
             <Notice tone="info">
-              <div>
-                Mineru not configured — only .md/.pdf are accepted. Set{" "}
-                <code>MinerUAPIKey</code> in <code>.env.agent.local</code> to enable
-                PDF/Office conversion.
-              </div>
+              <div>{copy.mineruDisabledNotice}</div>
             </Notice>
           ) : null}
           <IdlePicker
@@ -776,6 +778,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
 
       {stage === "converting" && pipeline.conversion ? (
         <ConversionProgress
+          copy={copy}
           conversion={pipeline.conversion}
           onSkipFailed={onSkipFailed}
         />

@@ -140,7 +140,17 @@ test("dropping a .docx routes through /web/mineru/convert and shows bundle previ
 test("mineru disabled: office files dropped silently, Notice surfaced, .md still works", async ({
   page
 }) => {
-  // Default mockApi already returns enabled=false.
+  // Default mockApi already returns enabled=false. Install a defensive
+  // route that fails loudly if anything in the UI tries to convert.
+  let unexpectedConvertCalls = 0;
+  await page.route("**/web/mineru/convert**", async (route) => {
+    unexpectedConvertCalls += 1;
+    await route.fulfill({
+      status: 500,
+      body: "/web/mineru/convert called in mineru-disabled flow"
+    });
+  });
+
   await page.goto("/#import");
   await expect(
     page.getByText("Mineru not configured", { exact: false })
@@ -162,8 +172,9 @@ test("mineru disabled: office files dropped silently, Notice surfaced, .md still
       buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04])
     }
   ]);
-  // Bundle preview shows for the .md, no convert call to /web/mineru/*.
+  // Bundle preview shows for the .md, and the convert route was never hit.
   await expect(page.getByTestId("import-preview")).toBeVisible();
+  expect(unexpectedConvertCalls).toBe(0);
 });
 
 test("conversion failure: per-file Skip surfaces and dismisses the row", async ({

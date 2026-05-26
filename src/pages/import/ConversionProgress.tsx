@@ -3,9 +3,10 @@ import type {
   ConversionFileState,
   ConversionState
 } from "../../state/import-pipeline";
-import { formatBytes } from "./format";
+import { formatBytes, type ImportCopy } from "./format";
 
 interface ConversionProgressProps {
+  copy: ImportCopy;
   conversion: ConversionState;
   /** Drop a single failed entry from the in-flight queue so the batch can
    *  proceed without it. UI only — parent decides what "skip" means. */
@@ -16,16 +17,19 @@ interface ConversionProgressProps {
  *  No spinner duplication with PipelineSteps — this surface is exclusive
  *  to the ``converting`` stage. */
 export function ConversionProgress({
+  copy,
   conversion,
   onSkipFailed
 }: ConversionProgressProps) {
+  const c = copy.conversion;
+  const count = conversion.inputOrder.length;
+  const queuedTemplate = count === 1 ? c.queuedOne : c.queuedMany;
   return (
     <section className="panel" data-testid="conversion-progress">
       <header className="panel__header">
-        <h2 className="panel__title">Converting via mineru</h2>
+        <h2 className="panel__title">{c.title}</h2>
         <p className="panel__subtitle">
-          {conversion.inputOrder.length} file
-          {conversion.inputOrder.length === 1 ? "" : "s"} queued
+          {queuedTemplate.replace("{n}", String(count))}
         </p>
       </header>
       <ul className="conversion-list">
@@ -39,7 +43,7 @@ export function ConversionProgress({
               </span>
               <span className="conversion-row__name">{file.fileName}</span>
               <span className="conversion-row__meta">
-                {formatBytes(file.sizeBytes)} · {labelFor(file.substage)}
+                {formatBytes(file.sizeBytes)} · {c.substages[file.substage]}
               </span>
               {file.substage === "failed" && file.error ? (
                 <>
@@ -52,7 +56,7 @@ export function ConversionProgress({
                     onClick={() => onSkipFailed(file.inputSha)}
                     data-testid="conversion-skip"
                   >
-                    <X size={14} /> Skip
+                    <X size={14} /> {c.skip}
                   </button>
                 </>
               ) : null}
@@ -69,23 +73,4 @@ function iconFor(file: ConversionFileState) {
   if (file.substage === "failed") return <AlertCircle size={16} aria-label="failed" />;
   if (file.substage === "queued") return <FileText size={16} aria-label="queued" />;
   return <Loader2 size={16} className="spin" aria-label="running" />;
-}
-
-function labelFor(substage: ConversionFileState["substage"]): string {
-  switch (substage) {
-    case "queued":
-      return "queued";
-    case "hashing":
-      return "hashing";
-    case "uploading":
-      return "uploading to mineru";
-    case "polling":
-      return "waiting on mineru";
-    case "downloading":
-      return "downloading result";
-    case "done":
-      return "done";
-    case "failed":
-      return "failed";
-  }
 }

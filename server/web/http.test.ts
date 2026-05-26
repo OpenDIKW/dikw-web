@@ -7,10 +7,14 @@
 import { describe, expect, it } from "vitest";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
-import { deflateRawSync } from "node:zlib";
+import { deflateRawSync, gunzipSync } from "node:zlib";
+import { createHash } from "node:crypto";
 import { createWebHandler } from "./http";
 import { readTar } from "../../src/utils/tar-reader";
-import { gunzipSync } from "node:zlib";
+
+function sha256Hex(buf: Buffer | Uint8Array): string {
+  return createHash("sha256").update(buf).digest("hex");
+}
 
 const TOKEN = "sk-mineru-deadbeef0123456789";
 
@@ -248,7 +252,8 @@ describe("/web/mineru/convert — guards", () => {
 
 describe("/web/mineru/convert — happy path (mocked mineru)", () => {
   it("returns tar.gz with stem.md + sorted assets", async () => {
-    const inputSha = "deadbeef".repeat(8);
+    const fileBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+    const inputSha = sha256Hex(fileBytes);
     const fixtureMd = "# Title\n\n![](images/fig.png)\n";
     const fixturePng = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const fixtureZip = makeFixtureZip(
@@ -301,7 +306,7 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     const { body, contentType } = makeMultipart(
       "test.pdf",
       "application/pdf",
-      Buffer.from([0x25, 0x50, 0x44, 0x46])
+      fileBytes
     );
 
     const handler = createWebHandler({
@@ -344,10 +349,12 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
         { status: 401, headers: { "Content-Type": "application/json" } }
       );
     };
+    const fileBytes = Buffer.from([0x78, 0x78]);
+    const inputSha = sha256Hex(fileBytes);
     const { body, contentType } = makeMultipart(
       "x.pdf",
       "application/pdf",
-      Buffer.from([0x78, 0x78])
+      fileBytes
     );
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
@@ -355,7 +362,7 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     });
     const req = makeReq({
       method: "POST",
-      url: "/mineru/convert?inputSha=ab",
+      url: `/mineru/convert?inputSha=${inputSha}`,
       headers: { "content-type": contentType },
       body
     });
@@ -365,5 +372,60 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     expect(r.status).toBe(401);
     const body2 = JSON.parse(r.body.toString("utf-8"));
     expect(body2.error.code).toBe("mineru_auth");
+  });
+
+  it("rejects with input_sha_mismatch when claimed sha doesn't match bytes", async () => {
+    const fileBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+    const wrongSha = "0".repeat(64);
+    const { body, contentType } = makeMultipart(
+      "x.pdf",
+      "application/pdf",
+      fileBytes
+    );
+    const handler = createWebHandler({
+      config: { mineruApiKey: TOKEN },
+      fetch: (async () => {
+        throw new Error("should not be reached");
+      }) as unknown as typeof fetch
+    });
+    const req = makeReq({
+      method: "POST",
+      url: `/mineru/convert?inputSha=${wrongSha}`,
+      headers: { "content-type": contentType },
+      body
+    });
+    const { res, captured } = makeRes();
+    await handler(req, res);
+    const r = await captured;
+    expect(r.status).toBe(400);
+    const body2 = JSON.parse(r.body.toString("utf-8"));
+    expect(body2.error.code).toBe("input_sha_mismatch");
+  });
+
+  it("rejects with invalid_input_sha when claimed sha is not 64-hex", async () => {
+    const fileBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+    const { body, contentType } = makeMultipart(
+      "x.pdf",
+      "application/pdf",
+      fileBytes
+    );
+    const handler = createWebHandler({
+      config: { mineruApiKey: TOKEN },
+      fetch: (async () => {
+        throw new Error("should not be reached");
+      }) as unknown as typeof fetch
+    });
+    const req = makeReq({
+      method: "POST",
+      url: "/mineru/convert?inputSha=not-a-hex-digest",
+      headers: { "content-type": contentType },
+      body
+    });
+    const { res, captured } = makeRes();
+    await handler(req, res);
+    const r = await captured;
+    expect(r.status).toBe(400);
+    const body2 = JSON.parse(r.body.toString("utf-8"));
+    expect(body2.error.code).toBe("invalid_input_sha");
   });
 });

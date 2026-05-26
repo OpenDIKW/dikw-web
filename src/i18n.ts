@@ -261,7 +261,24 @@ export const translations = {
         errorTitle: "Import failed",
         cancelledTitle: "Import cancelled",
         errorStageLabel: "Stage",
-        restart: "Start a new import"
+        restart: "Start a new import",
+        mineruDisabledNotice:
+          "Mineru not configured — only .md / .pdf are accepted. Set MinerUAPIKey in .env.agent.local to enable PDF / Office conversion.",
+        conversion: {
+          title: "Converting via mineru",
+          queuedOne: "{n} file queued",
+          queuedMany: "{n} files queued",
+          skip: "Skip",
+          substages: {
+            queued: "queued",
+            hashing: "hashing",
+            uploading: "uploading to mineru",
+            polling: "waiting on mineru",
+            downloading: "downloading result",
+            done: "done",
+            failed: "failed"
+          }
+        }
       }
     },
     connection: {
@@ -542,7 +559,24 @@ export const translations = {
         errorTitle: "导入失败",
         cancelledTitle: "导入已取消",
         errorStageLabel: "阶段",
-        restart: "开始新的导入"
+        restart: "开始新的导入",
+        mineruDisabledNotice:
+          "未配置 Mineru —— 当前仅接受 .md / .pdf。在 .env.agent.local 设置 MinerUAPIKey 即可启用 PDF / Office 转换。",
+        conversion: {
+          title: "通过 mineru 转换中",
+          queuedOne: "已排队 {n} 个文件",
+          queuedMany: "已排队 {n} 个文件",
+          skip: "跳过",
+          substages: {
+            queued: "已排队",
+            hashing: "计算指纹",
+            uploading: "上传至 mineru",
+            polling: "等待 mineru",
+            downloading: "下载结果",
+            done: "完成",
+            failed: "失败"
+          }
+        }
       }
     },
     connection: {

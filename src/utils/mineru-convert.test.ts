@@ -151,19 +151,41 @@ describe("convertedToFiles", () => {
   it("produces File[] whose webkitRelativePath survives scanFiles strip-prefix", () => {
     const c = {
       input: new File([new Uint8Array(0)], "test.pdf"),
-      inputSha: "deadbeef",
+      inputSha: "deadbeefcafe1234",
       stem: "test",
       markdown: "# Body\n",
       assets: new Map([["assets/images/fig.png", new Uint8Array([1, 2])]])
     };
     const files = convertedToFiles(c);
+    // Synthetic root now suffixes the stem with the first 12 chars of
+    // inputSha to keep two same-stem inputs from colliding into a
+    // duplicate_path skip. Same bytes → same suffix → idempotency holds.
+    const root = "test-deadbeefcafe";
     expect(files.map((f) => computeProjectRelPath(f)).sort()).toEqual([
-      "test/assets/images/fig.png",
-      "test/test.md"
+      `${root}/assets/images/fig.png`,
+      `${root}/test.md`
     ]);
     const scan = scanFiles(files);
-    expect(scan.mdPaths).toEqual(["test/test.md"]);
+    expect(scan.mdPaths).toEqual([`${root}/test.md`]);
     expect(scan.skipped).toEqual([]);
+  });
+
+  it("uses a different synthetic root for same-stem inputs with different content", () => {
+    const a = {
+      input: new File([new Uint8Array(0)], "report.pdf"),
+      inputSha: "aaaaaaaaaaaaaaaaaaaaaaaa",
+      stem: "report",
+      markdown: "# A\n",
+      assets: new Map<string, Uint8Array>()
+    };
+    const b = { ...a, inputSha: "bbbbbbbbbbbbbbbbbbbbbbbb" };
+    const aFiles = convertedToFiles(a);
+    const bFiles = convertedToFiles(b);
+    const aPath = computeProjectRelPath(aFiles[0]);
+    const bPath = computeProjectRelPath(bFiles[0]);
+    expect(aPath).not.toBe(bPath);
+    expect(aPath.startsWith("report-aaa")).toBe(true);
+    expect(bPath.startsWith("report-bbb")).toBe(true);
   });
 
   it("sorts assets so iteration order doesn't perturb downstream bundle sha", () => {

@@ -72,6 +72,12 @@ file format introduced in `[0.0.1.0]` was dropped.
   it is now just importable from both the browser bundler and the
   sidecar's tar.gz response builder.
 
+### Known follow-ups
+
+- The IndexedDB conversion cache stores `cachedAt` but does not yet
+  enforce the planned 500 MB LRU ceiling — it relies on the browser's
+  own quota eviction. Tracking as a follow-up so this PR stays scoped.
+
 ### Manual verification (post-merge)
 
 End-to-end mineru verification is not part of CI because it requires a

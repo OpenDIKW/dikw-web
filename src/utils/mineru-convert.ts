@@ -182,11 +182,18 @@ export async function convertSource(
 }
 
 export function convertedToFiles(c: ConvertedSource): File[] {
+  // Suffix the synthetic root with a short content-hash prefix so two
+  // converted inputs that happen to share a `stem` (e.g. `report.pdf`
+  // from different vault folders) don't collapse onto the same archive
+  // path and get dropped by buildImportBundle.scanFiles as
+  // `duplicate_path`. The hash prefix is content-derived, so identical
+  // bytes still produce the same synthetic root — idempotency holds.
+  const root = `${c.stem}-${c.inputSha.slice(0, 12)}`;
   const files: File[] = [];
   files.push(
     syntheticFile(
       `${c.stem}.md`,
-      `_mineru/${c.stem}/${c.stem}.md`,
+      `_mineru/${root}/${c.stem}.md`,
       new TextEncoder().encode(c.markdown),
       "text/markdown"
     )
@@ -197,7 +204,7 @@ export function convertedToFiles(c: ConvertedSource): File[] {
     const data = c.assets.get(archivePath)!;
     const basename = archivePath.split("/").pop() ?? archivePath;
     files.push(
-      syntheticFile(basename, `_mineru/${c.stem}/${archivePath}`, data)
+      syntheticFile(basename, `_mineru/${root}/${archivePath}`, data)
     );
   }
   return files;

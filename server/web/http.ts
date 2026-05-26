@@ -7,12 +7,27 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { gzip } from "node:zlib";
 import { promisify } from "node:util";
 import { extname } from "node:path";
+import { createHash } from "node:crypto";
 import { buildTar } from "../../src/utils/tar.js";
 import { MineruClient, MineruClientError } from "./mineruClient.js";
 import { extractResultZip, MineruConvertError } from "./mineruConvert.js";
 import { loadWebConfig, type WebConfig } from "./config.js";
 
 const gzipAsync = promisify(gzip);
+
+// Mirror the 200 MB cap that MinerU enforces server-side, so we don't waste
+// an upload round-trip on something MinerU would reject anyway. Streamed at
+// chunk granularity in `bufferRequest` to avoid OOMing on an oversized POST.
+const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+
+class RequestTooLargeError extends Error {
+  readonly limitBytes: number;
+  constructor(limitBytes: number) {
+    super(`request body exceeds ${limitBytes} byte cap`);
+    this.name = "RequestTooLargeError";
+    this.limitBytes = limitBytes;
+  }
+}
 
 export interface WebHandlerOptions {
   cwd?: string;
@@ -74,30 +89,51 @@ async function handleConvert(
   apiKey: string,
   fetchFn: typeof fetch
 ): Promise<void> {
-  const inputSha = url.searchParams.get("inputSha");
-  if (!inputSha) {
+  const claimedInputSha = url.searchParams.get("inputSha");
+  if (!claimedInputSha) {
     return errorJson(res, 400, "missing_input_sha", "inputSha query parameter is required");
+  }
+  // Reject obvious garbage early so we don't burn an upload on a request
+  // that can't possibly satisfy the post-upload verification step.
+  if (!/^[0-9a-f]{64}$/i.test(claimedInputSha)) {
+    return errorJson(
+      res,
+      400,
+      "invalid_input_sha",
+      "inputSha must be a 64-char lowercase hex SHA-256"
+    );
   }
   let fileName: string;
   let fileBytes: Uint8Array;
   try {
     const part = await readMultipartFile(req);
-    fileName = part.filename || `upload-${inputSha.slice(0, 8)}.bin`;
+    fileName = part.filename || `upload-${claimedInputSha.slice(0, 8)}.bin`;
     fileBytes = part.data;
   } catch (err) {
+    if (err instanceof RequestTooLargeError) {
+      return errorJson(
+        res,
+        413,
+        "mineru_input",
+        `request body exceeds ${err.limitBytes} byte cap`
+      );
+    }
     const message = err instanceof Error ? err.message : String(err);
     return errorJson(res, 400, "invalid_multipart", message);
   }
 
-  // 200 MB hard cap (matches mineru's server-side limit; refusing here
-  // means we don't waste an upload round-trip on something mineru would
-  // reject anyway).
-  if (fileBytes.byteLength > 200 * 1024 * 1024) {
+  // Reverify the SHA-256 against the bytes we actually received — the
+  // claimed value in the URL is only a hint. The verified hash is what we
+  // use everywhere downstream (mineru's `data_id`, frontmatter, response
+  // tar) so a malicious or buggy caller can't poison the cache key or
+  // forge the `original_sha256` provenance in the markdown.
+  const inputSha = sha256Hex(fileBytes);
+  if (inputSha !== claimedInputSha.toLowerCase()) {
     return errorJson(
       res,
-      413,
-      "mineru_input",
-      `File ${JSON.stringify(fileName)} is ${fileBytes.byteLength} bytes, exceeds mineru's 200 MB cap`
+      400,
+      "input_sha_mismatch",
+      `inputSha query param does not match SHA-256 of uploaded bytes`
     );
   }
 
@@ -205,17 +241,35 @@ async function readMultipartFile(req: IncomingMessage): Promise<MultipartFile> {
   if (!ct.includes("multipart/form-data")) {
     throw new Error("expected multipart/form-data");
   }
-  const body = await bufferRequest(req);
+  const body = await bufferRequest(req, MAX_UPLOAD_BYTES);
   return parseMultipartFile(body, ct);
 }
 
-async function bufferRequest(req: IncomingMessage): Promise<Uint8Array> {
+async function bufferRequest(
+  req: IncomingMessage,
+  maxBytes: number
+): Promise<Uint8Array> {
+  // Track the running total at chunk granularity so an oversized POST is
+  // rejected as soon as it crosses the cap, rather than after the whole
+  // body has accumulated in memory. Anything that arrives after the cap
+  // is dropped (we still drain the request to let the client finish its
+  // POST cleanly, but we never copy those bytes).
   const chunks: Uint8Array[] = [];
-  for await (const chunk of req as unknown as AsyncIterable<Buffer | Uint8Array>) {
-    chunks.push(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk));
-  }
   let total = 0;
-  for (const c of chunks) total += c.byteLength;
+  let aborted = false;
+  for await (const chunk of req as unknown as AsyncIterable<Buffer | Uint8Array>) {
+    if (aborted) continue;
+    const u8 = chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk);
+    total += u8.byteLength;
+    if (total > maxBytes) {
+      aborted = true;
+      continue;
+    }
+    chunks.push(u8);
+  }
+  if (aborted) {
+    throw new RequestTooLargeError(maxBytes);
+  }
   const out = new Uint8Array(total);
   let pos = 0;
   for (const c of chunks) {
@@ -223,6 +277,10 @@ async function bufferRequest(req: IncomingMessage): Promise<Uint8Array> {
     pos += c.byteLength;
   }
   return out;
+}
+
+function sha256Hex(data: Uint8Array): string {
+  return createHash("sha256").update(data).digest("hex");
 }
 
 /** Minimal RFC 7578 parser scoped to single-file form submissions. We rolled
