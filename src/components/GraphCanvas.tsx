@@ -108,7 +108,7 @@ export function GraphCanvas({
   }, [focusedNodeId, focusedNodeIds, positionedGraph, size.height, size.width, pixiReady]);
 
   return (
-    <div ref={stageRef} className="graph-pixi-stage" role="img" aria-label="Knowledge graph">
+    <div ref={stageRef} className="graph-pixi-stage" role="img" aria-label="Base graph">
       <div ref={mountRef} className="graph-pixi-mount" data-ready={String(pixiReady)} />
       {!pixiReady ? (
         <FallbackGraphSvg

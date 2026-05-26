@@ -73,7 +73,7 @@ Two processes share a single Vite dev server:
 Hash-based. Settings owns connection state.
 
 - `#chat` — canonical chat. Legacy `#query` redirects here.
-- `#wiki` — Knowledge reader. Tree from `/v1/base/pages?active=true`;
+- `#wiki` — Base reader (sidebar label "Base", page heading "Base" in en / "知识库" in zh-CN). Tree from `/v1/base/pages?active=true`;
   body from `/v1/base/pages/{path}`. Tabs: Read / Info / Outline / Source.
 - `#graph` — read-only knowledge map; consumes
   `/v1/base/graph?active=true`. Pixi.js + d3-force.

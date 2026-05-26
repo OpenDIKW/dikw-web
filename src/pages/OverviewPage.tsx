@@ -61,7 +61,7 @@ export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
         <MetricCard
           label="Wisdom"
           value={formatNumber(data?.health.layer_counts.wisdom_items)}
-          detail={`${formatNumber(data?.status.wisdom_by_status.candidate)} candidates`}
+          detail={`${formatNumber(data?.status.wisdom_by_status?.candidate)} candidates`}
         />
         <MetricCard label="Assets" value={formatNumber(data?.status.assets)} detail={`${formatNumber(data?.status.asset_embeddings)} asset embeddings`} />
       </section>

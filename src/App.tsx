@@ -42,21 +42,31 @@ const defaultServerUrl = "http://127.0.0.1:8765";
 type NavItem = { id: ViewId; labelKey: NavLabelKey; icon: typeof LayoutDashboard };
 type NavGroupId = keyof (typeof translations)["en"]["navGroups"];
 
-// PR2: Sidebar nav is now grouped so the eye gets a rhythmic break
-// between the seven knowledge routes and the single System entry.
+// Sidebar nav is split into three semantic clusters separated by hairline
+// dividers (knowledge artifacts / interaction surfaces / work). The visible
+// group labels are dropped; the i18n keys stay around so each <nav> still
+// carries an aria-label for screen readers.
 const navGroups: Array<{ id: NavGroupId; items: NavItem[] }> = [
   {
     id: "knowledge",
     items: [
       { id: "overview", labelKey: "overview", icon: LayoutDashboard },
-      { id: "chat", labelKey: "chat", icon: MessageSquareText },
-      { id: "retrieve", labelKey: "retrieve", icon: Search },
+      { id: "import", labelKey: "import", icon: Upload },
       { id: "wiki", labelKey: "wiki", icon: BookOpen },
       { id: "graph", labelKey: "graph", icon: Network },
-      { id: "wisdom", labelKey: "wisdom", icon: Gem },
-      { id: "tasks", labelKey: "tasks", icon: ListChecks },
-      { id: "import", labelKey: "import", icon: Upload }
+      { id: "wisdom", labelKey: "wisdom", icon: Gem }
     ]
+  },
+  {
+    id: "interact",
+    items: [
+      { id: "retrieve", labelKey: "retrieve", icon: Search },
+      { id: "chat", labelKey: "chat", icon: MessageSquareText }
+    ]
+  },
+  {
+    id: "work",
+    items: [{ id: "tasks", labelKey: "tasks", icon: ListChecks }]
   }
 ];
 
@@ -174,7 +184,6 @@ export function App() {
 
         {navGroups.map((group) => (
           <nav className="nav-list nav-main" aria-label={copy.navGroups[group.id]} key={group.id}>
-            <div className="nav-group-label">{copy.navGroups[group.id]}</div>
             {group.items.map((item) => (
               <NavButton
                 active={activeView === item.id}
@@ -188,7 +197,6 @@ export function App() {
         ))}
 
         <nav className="nav-list nav-footer" aria-label={copy.navGroups.system}>
-          <div className="nav-group-label">{copy.navGroups.system}</div>
           <NavButton
             active={activeView === "settings"}
             icon={settingsNavItem.icon}

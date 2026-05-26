@@ -121,8 +121,8 @@ describe("App shell", () => {
       expect(sessionStorage.getItem("dikw-web.token")).toBeNull();
     });
 
-    await userEvent.click(screen.getByRole("button", { name: "Knowledge" }));
-    expect(await screen.findByRole("heading", { name: "Knowledge" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Base" }));
+    expect(await screen.findByRole("heading", { name: "Base" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#wiki");
 
     await userEvent.click(screen.getByRole("button", { name: "Graph" }));
@@ -198,7 +198,7 @@ describe("App shell", () => {
 
     expect(await screen.findByRole("heading", { name: "Graph" })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "Architecture graph node" }));
-    await userEvent.click(screen.getByRole("button", { name: "Open in Knowledge" }));
+    await userEvent.click(screen.getByRole("button", { name: "Open in Base" }));
 
     expect(window.location.hash).toBe("#wiki");
     expect(await screen.findByRole("heading", { name: "Architecture", level: 1 })).toBeInTheDocument();

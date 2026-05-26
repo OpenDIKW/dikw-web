@@ -9,6 +9,39 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.7] - 2026-05-26
+
+### Sidebar regroup + Base rename
+
+- Split the sidebar's single flat list into three semantic clusters separated
+  by hairline `border-top` dividers: `Overview / Import / Base / Graph /
+  Wisdom`, then `Retrieve / Chat`, then `Tasks`. Settings stays in the footer
+  group as before. The visible `KNOWLEDGE` and `SYSTEM` uppercase group labels
+  are gone; each `<nav>` keeps `aria-label` for screen readers.
+- Rename the en wiki-route concept from `Knowledge` to `Base` to match the
+  `/v1/base/*` core endpoint family. Touches sidebar (`nav.wiki`), breadcrumb,
+  wiki page heading (`pages.wiki.title`), the refresh button
+  (`pages.wiki.refresh`), the Graph detail panel button
+  (`pages.graph.openInWiki` → `Open in Base`), and the Graph canvas aria-label
+  (`Base graph`). zh-CN keeps `知识库` / `在知识库打开` unchanged.
+- zh-CN: rename `nav.wisdom` 智慧 → 认知 (English `Wisdom` unchanged) and
+  cascade the wisdom page strings (`认知沉淀`, `刷新认知条目`, etc.). The
+  Work nav group's zh-CN aria-label is `工作` to avoid colliding with the
+  contained `任务` button.
+- CSS: drop `.nav-group-label` rules; extend `.nav-main + .nav-main` to render
+  the hairline divider. Mobile breakpoint (≤720px) flips the divider to
+  `border-left` so the new vertical hairline doesn't appear as a stray top
+  border in horizontal-scroll mode.
+- Docs: `CLAUDE.md`, `README.md`, and `docs/graph-view.md` updated to the new
+  Base terminology.
+
+### Fixes
+
+- `OverviewPage`: defensive optional chain on
+  `data?.status.wisdom_by_status?.candidate`. Older / 0-wisdom core
+  payloads omit the `wisdom_by_status` subkey, which previously threw
+  `TypeError` and blanked the entire app via React 19's tree unmount.
+
 ## [0.0.6] - 2026-05-26
 
 ### Import page redesign
