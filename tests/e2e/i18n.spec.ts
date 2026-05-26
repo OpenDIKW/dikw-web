@@ -4,7 +4,7 @@ import { mockDikwApi } from "./mockApi";
 const englishRoutes = [
   { hash: "overview", heading: "Overview" },
   { hash: "chat", heading: "Chat" },
-  { hash: "wiki", heading: "Knowledge" },
+  { hash: "wiki", heading: "Base" },
   { hash: "graph", heading: "Graph" },
   { hash: "tasks", heading: "Tasks" },
   { hash: "wisdom", heading: "Wisdom" },
@@ -17,7 +17,7 @@ const chineseRoutes = [
   { hash: "wiki", heading: "知识库" },
   { hash: "graph", heading: "知识图谱" },
   { hash: "tasks", heading: "任务" },
-  { hash: "wisdom", heading: "智慧沉淀" },
+  { hash: "wisdom", heading: "认知沉淀" },
   { hash: "settings", heading: "设置" }
 ];
 
@@ -57,7 +57,7 @@ test("Chinese locale keeps page chrome single-language", async ({ page }) => {
     const header = page.getByTestId("page-header");
     await expect(header.getByRole("heading", { name: route.heading, exact: true })).toBeVisible();
     await expect(header.locator(".eyebrow")).toHaveCount(0);
-    await expect(header).not.toContainText(/Overview|Chat|Knowledge|Graph|Tasks|Wisdom|Settings/);
+    await expect(header).not.toContainText(/Overview|Chat|Base|Knowledge|Graph|Tasks|Wisdom|Settings/);
   }
 });
 

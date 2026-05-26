@@ -27,11 +27,11 @@ describe("shared display components", () => {
   it("renders empty state and metric content", () => {
     render(
       <>
-        <EmptyState title="暂无智慧条目" detail="Try another filter" />
+        <EmptyState title="暂无认知条目" detail="Try another filter" />
         <MetricCard label="Information" value="31" detail="31 embeddings" />
       </>
     );
-    expect(screen.getByText("暂无智慧条目")).toBeInTheDocument();
+    expect(screen.getByText("暂无认知条目")).toBeInTheDocument();
     expect(screen.getByText("Try another filter")).toBeInTheDocument();
     expect(screen.getByText("Information")).toBeInTheDocument();
     expect(screen.getByText("31 embeddings")).toBeInTheDocument();

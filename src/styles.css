@@ -3656,6 +3656,7 @@ html[data-theme="dark"] .markdown-body blockquote {
     min-width: max-content;
   }
 
+  .nav-main + .nav-main,
   .nav-footer {
     margin-top: 0;
     margin-left: 8px;
@@ -3903,8 +3904,8 @@ html[data-theme="dark"] .markdown-body blockquote {
 
 
 /* ============================================================
-   PR2 · Sidebar groups + richer topbar
-   ─ nav now has Knowledge / System group labels
+   Sidebar groups + richer topbar
+   ─ nav is split into hairline-separated groups (no visible labels)
    ─ topbar shows breadcrumb left + connection chip right
    ─ brand mark anchored to accent, subtitle uses mono
    ============================================================ */
@@ -3941,19 +3942,13 @@ html[data-theme="dark"] .markdown-body blockquote {
   letter-spacing: 0.02em;
 }
 
-/* ---- Nav group label ---- */
-.nav-group-label {
-  padding: 0 8px 6px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--subtle);
-}
+/* ---- Nav group dividers ---- */
 .nav-list { gap: 1px; }
-.nav-main + .nav-main { margin-top: 4px; }
-.nav-footer .nav-group-label { padding-top: 12px; }
+.nav-main + .nav-main {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
 
 /* tighten nav-item now that it's single-line */
 .nav-item { min-height: 34px; padding: 5px 9px; gap: 9px; }

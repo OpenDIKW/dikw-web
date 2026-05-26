@@ -883,7 +883,7 @@ describe("read console pages", () => {
     expect(screen.queryByRole("region", { name: "Wiki link preview" })).not.toBeInTheDocument();
 
     const readsAfterClear = bodyReads;
-    await userEvent.click(screen.getByRole("button", { name: "Refresh knowledge" }));
+    await userEvent.click(screen.getByRole("button", { name: "Refresh base" }));
 
     expect(bodyReads).toBe(readsAfterClear);
   });
@@ -953,7 +953,7 @@ describe("read console pages", () => {
     render(<WikiPage client={client} />);
 
     expect(await screen.findByText("Original Body.")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Refresh knowledge" }));
+    await userEvent.click(screen.getByRole("button", { name: "Refresh base" }));
 
     expect(await screen.findByText("Updated Body.")).toBeInTheDocument();
   });
@@ -1052,7 +1052,7 @@ describe("read console pages", () => {
     expect(await screen.findByText("4 nodes")).toBeInTheDocument();
     expect(screen.getByText("1 link")).toBeInTheDocument();
     expect(screen.getByText("2 unresolved")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Knowledge graph" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Base graph" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Architecture graph node" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Synthesis graph node" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Architecture source graph node" })).toBeInTheDocument();
@@ -1125,7 +1125,7 @@ describe("read console pages", () => {
     expect(screen.getByRole("button", { name: "Architecture graph node" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "Synthesis graph node" })).toHaveAttribute("data-muted", "false");
 
-    await userEvent.click(within(detail).getByRole("button", { name: "Open in Knowledge" }));
+    await userEvent.click(within(detail).getByRole("button", { name: "Open in Base" }));
 
     expect(openedPaths).toEqual(["wiki/architecture.md"]);
   });

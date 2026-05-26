@@ -13,7 +13,7 @@ copy Obsidian behavior wholesale and does not modify base content.
 - Data source: `GET /v1/base/graph?active=true`.
 - Rendering: PixiJS canvas with a deterministic clustered layout and
   accessible DOM node hit targets.
-- Navigation: the detail panel button `Open in Knowledge` switches to
+- Navigation: the detail panel button `Open in Base` switches to
   `#wiki` and passes the selected path directly to `WikiPage`.
 
 `dikw-core` returns the complete active graph in one request:

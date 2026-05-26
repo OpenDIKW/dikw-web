@@ -12,7 +12,7 @@ export const translations = {
       overview: "Overview",
       chat: "Chat",
       retrieve: "Retrieve",
-      wiki: "Knowledge",
+      wiki: "Base",
       graph: "Graph",
       wisdom: "Wisdom",
       tasks: "Tasks",
@@ -21,6 +21,8 @@ export const translations = {
     },
     navGroups: {
       knowledge: "Knowledge",
+      interact: "Interact",
+      work: "Work",
       system: "System"
     },
     pages: {
@@ -77,8 +79,8 @@ export const translations = {
         emptyPageRefs: "No page refs"
       },
       wiki: {
-        title: "Knowledge",
-        refresh: "Refresh knowledge",
+        title: "Base",
+        refresh: "Refresh base",
         listErrorTitle: "Could not read wiki pages",
         pageErrorTitle: "Could not read page",
         directoryTitle: "Directory",
@@ -117,7 +119,7 @@ export const translations = {
         refresh: "Refresh graph",
         searchPlaceholder: "Search graph...",
         hideOrphans: "Hide orphans",
-        openInWiki: "Open in Knowledge",
+        openInWiki: "Open in Base",
         loadingGraph: "Loading graph",
         readingPages: "Reading",
         pages: "pages",
@@ -296,13 +298,15 @@ export const translations = {
       retrieve: "检索",
       wiki: "知识库",
       graph: "图谱",
-      wisdom: "智慧",
+      wisdom: "认知",
       tasks: "任务",
       import: "导入",
       settings: "设置"
     },
     navGroups: {
       knowledge: "知识",
+      interact: "对话",
+      work: "工作",
       system: "系统"
     },
     pages: {
@@ -408,14 +412,14 @@ export const translations = {
         errorTitle: "无法构建知识图谱"
       },
       wisdom: {
-        title: "智慧沉淀",
-        refresh: "刷新智慧条目",
+        title: "认知沉淀",
+        refresh: "刷新认知条目",
         statusLabel: "状态",
         kindLabel: "类型",
-        errorTitle: "无法读取智慧条目",
-        emptyList: "暂无智慧条目",
-        loadingList: "读取智慧条目中",
-        selectItem: "选择一个智慧条目"
+        errorTitle: "无法读取认知条目",
+        emptyList: "暂无认知条目",
+        loadingList: "读取认知条目中",
+        selectItem: "选择一个认知条目"
       },
       tasks: {
         title: "任务",

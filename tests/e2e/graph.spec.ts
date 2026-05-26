@@ -23,7 +23,7 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   const legend = page.getByLabel("Graph legend");
   await expect(legend.getByText("Wiki", { exact: true })).toBeVisible();
   await expect(legend.getByText("Source", { exact: true })).toBeVisible();
-  await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Base graph" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Architecture source graph node" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Wiki" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Sources" })).toHaveCount(0);
@@ -39,7 +39,7 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   await expect(detail.getByRole("heading", { name: "Architecture" })).toBeVisible();
   await expect(detail.getByText("Missing Concept")).toBeVisible();
 
-  await detail.getByRole("button", { name: "Open in Knowledge" }).click();
+  await detail.getByRole("button", { name: "Open in Base" }).click();
 
   await expect(page).toHaveURL(/#wiki$/);
   await expect(page.getByRole("main", { name: "Wiki reader" }).getByRole("heading", { name: "Architecture" })).toBeVisible();
@@ -52,7 +52,7 @@ test("opens source graph nodes in the matching knowledge document", async ({ pag
   const detail = page.getByRole("region", { name: "Graph node detail" });
   await expect(detail.getByRole("heading", { name: "Architecture source" })).toBeVisible();
 
-  await detail.getByRole("button", { name: "Open in Knowledge" }).click();
+  await detail.getByRole("button", { name: "Open in Base" }).click();
 
   await expect(page).toHaveURL(/#wiki$/);
   const reader = page.getByRole("main", { name: "Wiki reader" });
@@ -64,7 +64,7 @@ test("opens source graph nodes in the matching knowledge document", async ({ pag
 test("graph canvas renders on first entry without manual refresh", async ({ page }) => {
   await page.goto("/#graph");
 
-  await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Base graph" })).toBeVisible();
   await expect(page.locator('.graph-pixi-mount[data-ready="true"]')).toBeVisible({ timeout: 15000 });
 
   await expect
@@ -79,7 +79,7 @@ test("graph canvas renders on first entry without manual refresh", async ({ page
 test("renders a nonblank Pixi graph canvas", async ({ page }) => {
   await page.goto("/#graph");
 
-  await expect(page.getByRole("img", { name: "Knowledge graph" })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Base graph" })).toBeVisible();
   // Wait for Pixi to finish async init (data-ready flips to "true" after engineRef is set
   // and setPixiReady(true) fires). Avoids racing the brief 0x0 canvas window where
   // Playwright's toBeVisible can return false even though the element is attached.

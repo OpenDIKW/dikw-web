@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 test("reads a wiki page and follows a wikilink", async ({ page }) => {
   await page.goto("/#wiki");
 
-  await expect(page.getByRole("heading", { name: "Knowledge" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Base", exact: true })).toBeVisible();
   await expect(page.getByRole("tree", { name: "Base directory" })).toBeVisible();
   await expect(page.getByRole("treeitem", { name: "concepts" })).toBeVisible();
   await expect(page.getByText(/Layered DIKW notes/)).toBeVisible();
