@@ -111,6 +111,40 @@ describe("pipeline persistence", () => {
     savePipelineState({ stage: "uploading" }, CORE);
     expect(sessionStorage.getItem(PIPELINE_STORAGE_KEY)).toBeNull();
   });
+
+  it("never writes the converting stage to disk (non-resumable in v1)", () => {
+    savePipelineState(
+      {
+        stage: "converting",
+        conversion: {
+          files: {
+            abc: {
+              inputSha: "abc",
+              fileName: "x.pdf",
+              sizeBytes: 100,
+              ext: ".pdf",
+              substage: "polling"
+            }
+          },
+          inputOrder: ["abc"]
+        }
+      },
+      CORE
+    );
+    expect(sessionStorage.getItem(PIPELINE_STORAGE_KEY)).toBeNull();
+  });
+
+  it("treats persisted converting state as a dead transaction (back to idle)", () => {
+    // Even though we don't write 'converting' ourselves, defensively guard
+    // against an older app build (or a manual storage edit) leaving one
+    // behind. Browser refresh + re-conversion is cheap (mineru caches by
+    // data_id, plus our IndexedDB cache).
+    sessionStorage.setItem(
+      PIPELINE_STORAGE_KEY,
+      JSON.stringify({ stage: "converting", coreUrl: CORE })
+    );
+    expect(loadPipelineState(CORE)).toEqual({ stage: "idle" });
+  });
 });
 
 describe("activeTaskId / isTaskStage", () => {

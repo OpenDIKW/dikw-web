@@ -250,6 +250,14 @@ export async function mockDikwApi(page: Page) {
     await route.fulfill({ status: 404, body: `No agent mock for ${path}` });
   });
 
+  // /web/* — dikw-web's own sidecar namespace, separate from /agent/* and
+  // /v1/*. Default to "mineru disabled" so legacy ImportPage tests don't
+  // see network noise. Per-test routes can override this with their own
+  // page.route() registered before navigation.
+  await page.route("**/web/mineru/health", async (route) => {
+    await route.fulfill({ json: { enabled: false, hasKey: false } });
+  });
+
   await page.route("**/v1/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;

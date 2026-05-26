@@ -1,9 +1,10 @@
 # dikw-web
 
 A read-only React/Vite knowledge workbench over [`dikw-core`](../dikw-core).
-The browser app consumes `dikw-core`'s `/v1` HTTP API; a small Pi-Agent
-sidecar runs alongside the dev server and exposes same-origin
-`/agent/*` routes for chat.
+The browser app consumes `dikw-core`'s `/v1` HTTP API; a small Node
+sidecar runs alongside the dev server and exposes same-origin `/agent/*`
+routes for chat plus `/web/*` routes for browser-side helpers (currently
+mineru-backed PDF / Office conversion for Import).
 
 ## Quick start
 
@@ -55,17 +56,24 @@ browser (React 19, hand-rolled CSS tokens)
    ├─── same-origin /v1/*   ──▶ Vite proxy ──▶ dikw-core (default core)
    │                        ──▶ direct fetch ──▶ dikw-core (custom URL)
    │
-   └─── same-origin /agent/* ──▶ Pi Agent sidecar (Node middleware in Vite)
-                                      └─── calls back into dikw-core as tools
-                                      └─── optional web_search (Tavily) / web_fetch (Jina)
+   ├─── same-origin /agent/* ──▶ Pi Agent sidecar (Node middleware in Vite)
+   │                                  └─── calls back into dikw-core as tools
+   │                                  └─── optional web_search (Tavily) / web_fetch (Jina)
+   │
+   └─── same-origin /web/*   ──▶ same sidecar process (server/web/)
+                                      └─── /mineru/convert (PDF/Office → md+assets via mineru.net)
+                                      └─── /mineru/health  (drives Import UI degradation)
 ```
 
-Two processes share a single Vite dev server:
+Two source trees share a single sidecar process (mounted into the Vite
+dev server as middleware, and into `dist-server/standalone.mjs` for prod):
 
 1. **Browser app** in `src/` — React 19 + TypeScript, no UI framework.
    Hand-rolled CSS token system in `src/styles.css`.
-2. **Agent sidecar** in `server/agent/` — mounted by `agentSidecarPlugin()`
-   in `vite.config.ts`. Sessions persist as JSON in `.agent-sessions/`
+2. **Sidecar** in `server/agent/` + `server/web/` — `/agent/*` mounted by
+   `agentSidecarPlugin()` (Pi Agent chat), `/web/*` mounted by
+   `webApiPlugin()` (browser helpers, currently mineru conversion). Both
+   live in `vite.config.ts`. Sessions persist as JSON in `.agent-sessions/`
    (gitignored).
 
 ## Routes
@@ -120,9 +128,9 @@ The browser only ever calls same-origin `/agent/*`. The sidecar:
 - Persists sessions as JSON in `.agent-sessions/`. Session files must
   not store LLM keys or browser session-storage values.
 
-Local credentials (LLM keys, optional web tool keys) live in
-`.env.agent.local` (gitignored via `*.local`). Use `.env.agent.example`
-as the template.
+Local credentials (LLM keys, optional web tool keys, `MinerUAPIKey` for
+Import PDF / Office conversion) live in `.env.agent.local` (gitignored
+via `*.local`). Use `.env.agent.example` as the template.
 
 ## Settings & state
 

@@ -17,6 +17,12 @@ import type {
 
 export type PipelineStage =
   | "idle"
+  /** Browser is calling the sidecar's /web/mineru/convert for one or more
+   *  non-markdown sources (PDF / Office formats). Like ``uploading`` this
+   *  stage is non-resumable across refresh — mineru's data_id cache plus
+   *  the browser's IndexedDB cache make a re-run cheap, so we don't need
+   *  to persist the in-flight batch id. */
+  | "converting"
   | "uploading"
   | "ingest"
   | "synth"
@@ -26,6 +32,29 @@ export type PipelineStage =
   | "done"
   | "failed"
   | "cancelled";
+
+export interface ConversionFileState {
+  inputSha: string;
+  fileName: string;
+  sizeBytes: number;
+  ext: string;
+  substage:
+    | "queued"
+    | "hashing"
+    | "uploading"
+    | "polling"
+    | "downloading"
+    | "done"
+    | "failed";
+  error?: { code: string; message: string };
+}
+
+export interface ConversionState {
+  files: Record<string, ConversionFileState>;
+  /** Display order — matches the order of files the user dropped. Keys
+   *  refer to ConversionFileState entries by ``inputSha``. */
+  inputOrder: string[];
+}
 
 export interface PipelineError {
   stage: PipelineStage;
@@ -49,6 +78,10 @@ export interface PipelineState {
   picked?: number[];
   applyReport?: ApplyReport;
   error?: PipelineError;
+  /** Snapshot of in-flight conversions for the ``converting`` stage. The
+   *  state is purely informational (drives the per-file progress UI) and
+   *  is intentionally NOT persisted — see savePipelineState. */
+  conversion?: ConversionState;
 }
 
 export const PIPELINE_STORAGE_KEY = "dikw-web.importPipeline";
@@ -95,6 +128,13 @@ export function loadPipelineState(currentCoreUrl: string): PipelineState {
   if (parsed.stage === "uploading") {
     return initialState();
   }
+  // Conversion (mineru round-trips) is also non-resumable in v1 — the
+  // browser-side mineru-convert call hung with the page. Rerunning is
+  // cheap because mineru caches by data_id, but the state isn't useful
+  // to keep around.
+  if (parsed.stage === "converting") {
+    return initialState();
+  }
   // A task stage without its task id is unrecoverable — treat as idle.
   if (parsed.stage === "ingest" && !parsed.ingestTaskId) return initialState();
   if (parsed.stage === "synth" && !parsed.synthTaskId) return initialState();
@@ -116,7 +156,7 @@ export function savePipelineState(
   // on the next mount. Keeping the previous persisted state intact (if any)
   // is the wrong move because the upload may already have started touching
   // the server; the truthful state in storage is "no active pipeline".
-  if (state.stage === "uploading") {
+  if (state.stage === "uploading" || state.stage === "converting") {
     sessionStorage.removeItem(PIPELINE_STORAGE_KEY);
     return;
   }

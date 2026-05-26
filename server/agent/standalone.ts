@@ -3,6 +3,8 @@ import { readFile, stat } from "node:fs/promises";
 import { extname, isAbsolute, join, normalize, resolve, sep } from "node:path";
 import { loadAgentConfig } from "./config.js";
 import { createDefaultAgentHandler, resolveSessionsDir } from "./http.js";
+import { createDefaultWebHandler } from "../web/http.js";
+import { loadWebConfig } from "../web/config.js";
 
 const HOST = process.env.DIKW_WEB_HOST?.trim() || "0.0.0.0";
 const PORT = Number(process.env.DIKW_WEB_PORT?.trim() || "4321");
@@ -51,6 +53,15 @@ async function main(): Promise<void> {
   }
 
   try {
+    const webConfig = await loadWebConfig({ cwd });
+    console.log(`[dikw-web] mineru enabled=${Boolean(webConfig.mineruApiKey)}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[dikw-web] web configuration error: ${message}`);
+    process.exit(1);
+  }
+
+  try {
     const stats = await stat(INDEX_HTML);
     if (!stats.isFile()) {
       throw new Error("index.html is not a regular file");
@@ -63,9 +74,10 @@ async function main(): Promise<void> {
   }
 
   const agentHandler = await createDefaultAgentHandler(cwd);
+  const webHandler = await createDefaultWebHandler(cwd);
 
   const server = createServer((req, res) => {
-    handleRequest(req, res, agentHandler).catch((error) => {
+    handleRequest(req, res, agentHandler, webHandler).catch((error) => {
       console.error("[dikw-web] request error", error);
       if (!res.headersSent) {
         res.statusCode = 500;
@@ -97,17 +109,25 @@ async function main(): Promise<void> {
 }
 
 type AgentHandler = Awaited<ReturnType<typeof createDefaultAgentHandler>>;
+type WebHandler = Awaited<ReturnType<typeof createDefaultWebHandler>>;
 
 async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
-  agentHandler: AgentHandler
+  agentHandler: AgentHandler,
+  webHandler: WebHandler
 ): Promise<void> {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (url.pathname === "/agent" || url.pathname.startsWith("/agent/")) {
     const rest = url.pathname.slice("/agent".length) || "/";
     req.url = `${rest}${url.search ?? ""}`;
     await agentHandler(req, res);
+    return;
+  }
+  if (url.pathname === "/web" || url.pathname.startsWith("/web/")) {
+    const rest = url.pathname.slice("/web".length) || "/";
+    req.url = `${rest}${url.search ?? ""}`;
+    await webHandler(req, res);
     return;
   }
   await serveStatic(req.method ?? "GET", url.pathname, req.headers.accept, res);

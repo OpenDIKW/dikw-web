@@ -4,6 +4,13 @@
 `/agent/*` routes to the browser. The browser never receives LLM keys;
 it only streams Agent events and reads persisted session metadata.
 
+The same sidecar process also serves `/web/*` for non-agent browser
+helpers (see `server/web/` — currently the mineru-backed PDF / Office
+converter consumed by ImportPage). Those routes do not call Pi Agent and
+do not touch `dikw-core`; they exist purely so the browser can offload
+external-API calls that would otherwise hit CORS or expose vendor keys.
+Keep new browser-helper endpoints under `/web/*`, not under `/agent/*`.
+
 ## Configuration
 
 Local credentials live in `.env.agent.local`, which is ignored by Git
@@ -27,6 +34,13 @@ Tavily for `web_search` (no proxy required) and Jina Reader for
 `web_fetch`. `DIKW_AGENT_BRAVE_API_KEY` is loaded into `AgentConfig` but
 not currently wired to any registered tool — the Brave client is
 retained in `WebToolClient.search` for future provider rotation.
+
+`MinerUAPIKey` (alias `DIKW_AGENT_MINERU_API_KEY`) is optional and is
+read by `server/web/config.ts`, not by `AgentConfig` — mineru is a
+browser-helper concern, not an agent tool. Missing key → `/web/mineru/*`
+returns `503 mineru_disabled` and ImportPage degrades to `.md/.pdf`
+only. Variable name `MinerUAPIKey` matches the `dikw-plugins/.env`
+convention so the same key file can be reused.
 
 When a key is missing, `loadAgentConfig` still succeeds and the
 corresponding tool throws a clear "requires `DIKW_AGENT_*`" error on

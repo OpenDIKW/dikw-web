@@ -5,6 +5,7 @@ import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
 import {
   buildImportBundle,
+  lowerExt,
   type ImportBundleResult
 } from "../utils/import-bundle";
 import {
@@ -13,8 +14,18 @@ import {
   initialState,
   loadPipelineState,
   savePipelineState,
+  type ConversionFileState,
   type PipelineState
 } from "../state/import-pipeline";
+import {
+  convertedToFiles,
+  convertSource,
+  MineruConvertError,
+  MINERU_EXTENSIONS,
+  tryOpenDefaultCache,
+  type ConvertCache,
+  type ConvertedSource
+} from "../utils/mineru-convert";
 import type {
   ApplyReport,
   FixProposalReport,
@@ -24,7 +35,11 @@ import { IdlePicker } from "./import/IdlePicker";
 import { PipelineSteps } from "./import/PipelineSteps";
 import { LintReview } from "./import/LintReview";
 import { DoneSummary } from "./import/DoneSummary";
+import { ConversionProgress } from "./import/ConversionProgress";
 import { isRunningStage, PipelineFailure, taskErrorMessage } from "./import/format";
+
+const MINERU_CONCURRENCY = 2;
+const HEALTH_URL = "/web/mineru/health";
 
 interface ImportPageProps {
   client: DikwClient;
@@ -59,6 +74,24 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   // Generation counter so a slow ``buildImportBundle`` from an earlier
   // selection can't overwrite a fresher one that finished first.
   const bundleGenRef = useRef(0);
+  // ``/web/mineru/health`` probe result — drives the picker accept list +
+  // optional "mineru not configured" Notice. Default to ``null`` so the
+  // initial render doesn't briefly expose office formats before the
+  // probe finishes.
+  const [mineruEnabled, setMineruEnabled] = useState<boolean | null>(null);
+  // IndexedDB cache — opened once per page mount, reused across all
+  // convertSource calls so repeat imports of the same file skip mineru
+  // entirely. ``null`` fallback (jsdom test env / very old browsers) is
+  // tolerated — convertSource just skips the cache layer.
+  const convertCacheRef = useRef<ConvertCache | null>(null);
+  // Track the in-flight convert AbortController so onCancel can abort
+  // mineru calls mid-batch.
+  const convertCtrlRef = useRef<AbortController | null>(null);
+  // Cache of converted sources keyed by inputSha within this batch, used
+  // when the user clicks Skip on a failed file: we drop it from the set
+  // and rebuild the bundle from the still-successful conversions.
+  const conversionResultsRef = useRef<Map<string, ConvertedSource>>(new Map());
+  const conversionNativeRef = useRef<File[]>([]);
 
   // Persist every pipeline-state change so a refresh during a task stage
   // can resume without losing the task id.
@@ -88,30 +121,260 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   useEffect(
     () => () => {
       controllerRef.current?.abort();
+      convertCtrlRef.current?.abort();
     },
     []
   );
 
+  // Probe /web/mineru/health once on mount. Failure (sidecar not running,
+  // 404, network error) is treated as "disabled" — the picker falls back
+  // to .md + asset extensions only.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const resp = await fetch(HEALTH_URL);
+        if (!resp.ok) {
+          if (!cancelled) setMineruEnabled(false);
+          return;
+        }
+        const body = (await resp.json()) as { enabled?: boolean };
+        if (!cancelled) setMineruEnabled(Boolean(body.enabled));
+      } catch {
+        if (!cancelled) setMineruEnabled(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Open IndexedDB cache once. Skips when running under jsdom / Node.
+  useEffect(() => {
+    let cancelled = false;
+    void tryOpenDefaultCache().then((cache) => {
+      if (!cancelled) convertCacheRef.current = cache;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // ---- File selection ------------------------------------------------------
 
-  const onFilesChosen = useCallback((files: File[]) => {
-    if (files.length === 0) return;
-    const gen = ++bundleGenRef.current;
-    setBundle(null);
-    setBundleError(null);
-    setBundleBuilding(true);
-    buildImportBundle(files)
-      .then((result) => {
+  // Partition + (optionally) convert + bundle. Three execution paths:
+  //   1. No mineru-targeted files  → straight to buildImportBundle (existing path).
+  //   2. Has mineru files          → enter "converting" stage, run them through
+  //                                   /web/mineru/convert (2 concurrent), then
+  //                                   buildImportBundle on native+converted.
+  //   3. Mineru sidecar disabled   → office files filtered out + Notice shown;
+  //                                   .pdf falls back to passive-asset semantics.
+  const onFilesChosen = useCallback(
+    (files: File[]) => {
+      if (files.length === 0) return;
+      const gen = ++bundleGenRef.current;
+      setBundle(null);
+      setBundleError(null);
+
+      const { native, mineru } = partitionForMineru(files, mineruEnabled === true);
+
+      if (mineru.length === 0) {
+        setBundleBuilding(true);
+        void buildAndSet(native, gen);
+        return;
+      }
+
+      // ---- Conversion batch ----
+      const ctrl = new AbortController();
+      convertCtrlRef.current = ctrl;
+      conversionResultsRef.current = new Map();
+      conversionNativeRef.current = native;
+      const initial = makeInitialConversionState(mineru);
+      setPipeline((p) => ({ ...p, stage: "converting", conversion: initial }));
+
+      void runMineruBatch(mineru, gen, ctrl);
+    },
+    [mineruEnabled]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  );
+
+  /** Run buildImportBundle and update bundle state for the given generation. */
+  const buildAndSet = useCallback(
+    async (files: File[], gen: number) => {
+      try {
+        if (files.length === 0) {
+          throw new Error("no files left after conversion");
+        }
+        const result = await buildImportBundle(files);
         if (bundleGenRef.current !== gen) return; // superseded
         setBundle(result);
         setBundleBuilding(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         if (bundleGenRef.current !== gen) return;
         setBundleError(err);
         setBundleBuilding(false);
+      }
+    },
+    []
+  );
+
+  /** Update one ConversionFileState entry. Identified by inputSha (the key
+   *  in conversion.files). When inputSha is the original placeholder
+   *  (pre-hash), update the queued entry in order. */
+  const updateConversionFile = useCallback(
+    (
+      mineru: File[],
+      index: number,
+      update: Partial<ConversionFileState> & { inputSha?: string }
+    ) => {
+      setPipeline((p) => {
+        if (!p.conversion) return p;
+        const orderedKey = p.conversion.inputOrder[index];
+        const existing = p.conversion.files[orderedKey];
+        if (!existing) return p;
+        const next = { ...existing, ...update };
+        const files = { ...p.conversion.files, [orderedKey]: next };
+        // If the entry's effective key changes (inputSha resolved), rewrite
+        // the map key + inputOrder slot so subsequent updates address the
+        // right entry.
+        if (update.inputSha && update.inputSha !== orderedKey) {
+          delete files[orderedKey];
+          files[update.inputSha] = next;
+          const inputOrder = p.conversion.inputOrder.slice();
+          inputOrder[index] = update.inputSha;
+          return { ...p, conversion: { files, inputOrder } };
+        }
+        return { ...p, conversion: { files, inputOrder: p.conversion.inputOrder } };
       });
-  }, []);
+    },
+    []
+  );
+
+  const runMineruBatch = useCallback(
+    async (mineru: File[], gen: number, ctrl: AbortController) => {
+      const cache = convertCacheRef.current ?? undefined;
+      let next = 0;
+      const worker = async (): Promise<void> => {
+        while (!ctrl.signal.aborted) {
+          const i = next++;
+          if (i >= mineru.length) return;
+          const file = mineru[i];
+          try {
+            const result = await convertSource(file, {
+              signal: ctrl.signal,
+              cache: cache ?? null,
+              onProgress: (e) => {
+                if (e.phase === "cache_hit") {
+                  updateConversionFile(mineru, i, { substage: "done" });
+                  return;
+                }
+                if (e.phase === "hashing") {
+                  updateConversionFile(mineru, i, { substage: "hashing" });
+                  return;
+                }
+                if (e.phase === "uploading") {
+                  updateConversionFile(mineru, i, { substage: "uploading" });
+                  return;
+                }
+                if (e.phase === "downloading") {
+                  updateConversionFile(mineru, i, { substage: "downloading" });
+                }
+              }
+            });
+            // After fetch resolves we have the real inputSha — re-key the
+            // ConversionFileState entry to it so onSkipFailed addresses the
+            // right row even after refresh-resume work lands.
+            updateConversionFile(mineru, i, {
+              inputSha: result.inputSha,
+              substage: "done"
+            });
+            conversionResultsRef.current.set(result.inputSha, result);
+          } catch (err) {
+            const code =
+              err instanceof MineruConvertError
+                ? err.code
+                : err instanceof Error
+                ? "mineru_api"
+                : "mineru_api";
+            const message = err instanceof Error ? err.message : String(err);
+            updateConversionFile(mineru, i, {
+              substage: "failed",
+              error: { code, message }
+            });
+          }
+        }
+      };
+      const workers = Array.from(
+        { length: Math.min(MINERU_CONCURRENCY, mineru.length) },
+        () => worker()
+      );
+      await Promise.all(workers);
+      if (bundleGenRef.current !== gen) return;
+      if (ctrl.signal.aborted) return;
+      // All workers finished — bail out if anything is still pending (shouldn't
+      // happen since workers exit only on aborted / exhausted). Then either
+      // hand off to bundle build (if any conversion succeeded) or remain on
+      // the converting stage so the user can interact with failures.
+      const succeeded = Array.from(conversionResultsRef.current.values());
+      if (succeeded.length === 0 && conversionNativeRef.current.length === 0) {
+        // Everything failed and there's nothing native to fall back on — let
+        // the user see the per-file errors. Stay in converting; user can
+        // click Skip on each or Cancel to reset.
+        return;
+      }
+      await finalizeConversion(gen);
+    },
+    [updateConversionFile]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  );
+
+  /** Combine native + successful conversions into a single File[], build
+   *  the bundle, then transition back to idle so IdlePicker shows the
+   *  bundle preview. */
+  const finalizeConversion = useCallback(
+    async (gen: number) => {
+      const synthetic = Array.from(conversionResultsRef.current.values())
+        .map(convertedToFiles)
+        .flat();
+      const all = [...conversionNativeRef.current, ...synthetic];
+      setBundleBuilding(true);
+      setPipeline((p) => ({ ...p, stage: "idle", conversion: undefined }));
+      await buildAndSet(all, gen);
+    },
+    [buildAndSet]
+  );
+
+  const onSkipFailed = useCallback(
+    (inputSha: string) => {
+      setPipeline((p) => {
+        if (!p.conversion) return p;
+        const files = { ...p.conversion.files };
+        const inputOrder = p.conversion.inputOrder.filter((k) => k !== inputSha);
+        delete files[inputSha];
+        return { ...p, conversion: { files, inputOrder } };
+      });
+      // If skip leaves nothing pending, finalize.
+      setTimeout(() => {
+        // Use a microtask-ish defer so the React state has settled.
+        const anyPending = Object.values(
+          (pipelineRef.current?.conversion?.files ?? {}) as Record<string, ConversionFileState>
+        ).some(
+          (f) => f.substage !== "done" && f.substage !== "failed"
+        );
+        if (!anyPending) {
+          void finalizeConversion(bundleGenRef.current);
+        }
+      }, 0);
+    },
+    [finalizeConversion]
+  );
+
+  // Mirror state into a ref so callbacks fired from setTimeout can see the
+  // latest snapshot without forcing rerenders to wait.
+  const pipelineRef = useRef(pipeline);
+  useEffect(() => {
+    pipelineRef.current = pipeline;
+  }, [pipeline]);
 
   const resetPicker = useCallback(() => {
     bundleGenRef.current += 1;
@@ -443,6 +706,10 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   const startOver = useCallback(() => {
     controllerRef.current?.abort();
     controllerRef.current = null;
+    convertCtrlRef.current?.abort();
+    convertCtrlRef.current = null;
+    conversionResultsRef.current = new Map();
+    conversionNativeRef.current = [];
     clearPipelineState();
     setPipeline(initialState());
     setActiveEvent(null);
@@ -479,15 +746,34 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       </header>
 
       {stage === "idle" ? (
-        <IdlePicker
-          copy={copy}
-          onFilesChosen={onFilesChosen}
-          onDropError={setBundleError}
-          bundle={bundle}
-          bundleBuilding={bundleBuilding}
-          bundleError={bundleError}
-          onStart={startPipeline}
-          onReset={resetPicker}
+        <>
+          {mineruEnabled === false ? (
+            <Notice tone="info">
+              <div>
+                Mineru not configured — only .md/.pdf are accepted. Set{" "}
+                <code>MinerUAPIKey</code> in <code>.env.agent.local</code> to enable
+                PDF/Office conversion.
+              </div>
+            </Notice>
+          ) : null}
+          <IdlePicker
+            copy={copy}
+            onFilesChosen={onFilesChosen}
+            onDropError={setBundleError}
+            bundle={bundle}
+            bundleBuilding={bundleBuilding}
+            bundleError={bundleError}
+            onStart={startPipeline}
+            onReset={resetPicker}
+            mineruEnabled={mineruEnabled === true}
+          />
+        </>
+      ) : null}
+
+      {stage === "converting" && pipeline.conversion ? (
+        <ConversionProgress
+          conversion={pipeline.conversion}
+          onSkipFailed={onSkipFailed}
         />
       ) : null}
 
@@ -546,4 +832,96 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       ) : null}
     </div>
   );
+}
+
+/** Split user-dropped files into ``native`` (md / asset / pdf-as-asset)
+ *  and ``mineru`` (formats only mineru can convert to markdown). When
+ *  mineruEnabled is false, office files are dropped (the picker also
+ *  doesn't accept them) and PDFs always stay native. */
+function partitionForMineru(
+  files: File[],
+  mineruEnabled: boolean
+): { native: File[]; mineru: File[] } {
+  const native: File[] = [];
+  const mineru: File[] = [];
+  if (!mineruEnabled) {
+    for (const f of files) {
+      const ext = lowerExt(f.name);
+      // Office formats are unrecognized by the rest of the pipeline; drop
+      // them silently. .pdf survives as a passive asset (existing behavior).
+      if (ext === ".doc" || ext === ".docx" || ext === ".ppt" || ext === ".pptx" || ext === ".xls" || ext === ".xlsx") {
+        continue;
+      }
+      native.push(f);
+    }
+    return { native, mineru };
+  }
+  // Heuristic: PDFs referenced by any concurrently-dropped .md stay native
+  // (passive-asset path); standalone PDFs go to mineru. .doc/.docx/etc.
+  // always go to mineru.
+  const mdRefs = collectMdReferences(files);
+  for (const f of files) {
+    const ext = lowerExt(f.name);
+    if (ext === ".pdf") {
+      if (mdRefs.has(basename(f.name).toLowerCase())) {
+        native.push(f);
+      } else {
+        mineru.push(f);
+      }
+      continue;
+    }
+    if (MINERU_EXTENSIONS.has(ext)) {
+      mineru.push(f);
+    } else {
+      native.push(f);
+    }
+  }
+  return { native, mineru };
+}
+
+function basename(path: string): string {
+  return path.replace(/^.*[\\/]/, "");
+}
+
+/** Lazy scan of dropped .md files: collect referenced basenames so we can
+ *  decide whether a co-dropped .pdf is "an asset of that md" (passive) or
+ *  "a standalone source to convert" (mineru). */
+function collectMdReferences(files: File[]): Set<string> {
+  const refs = new Set<string>();
+  for (const f of files) {
+    if (lowerExt(f.name) !== ".md") continue;
+    // Sync read is unavailable for File; skip and let mineru handle every
+    // PDF as a source. This errs on the side of "convert everything" which
+    // is the safer default — passive-asset PDFs are rare in practice.
+    refs.add(""); // placeholder so the set is non-empty if md exists, but
+                  // we don't actually peek into the body.
+  }
+  // Returning an empty set means "no md references known": all PDFs go to
+  // mineru. The previous "placeholder" is misleading — clear it.
+  refs.clear();
+  return refs;
+}
+
+function makeInitialConversionState(mineru: File[]): {
+  files: Record<string, ConversionFileState>;
+  inputOrder: string[];
+} {
+  // Placeholder keys (``placeholder-{i}``) are used until convertSource
+  // resolves the real sha256. updateConversionFile re-keys on inputSha
+  // when the hash phase completes.
+  const files: Record<string, ConversionFileState> = {};
+  const inputOrder: string[] = [];
+  for (let i = 0; i < mineru.length; i++) {
+    const file = mineru[i];
+    const key = `placeholder-${i}`;
+    files[key] = {
+      inputSha: key,
+      fileName: file.name,
+      sizeBytes: file.size,
+      ext: lowerExt(file.name),
+      substage: "queued"
+    };
+    inputOrder.push(key);
+  }
+  return { files, inputOrder };
 }
