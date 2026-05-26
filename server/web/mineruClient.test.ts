@@ -12,7 +12,7 @@ import {
   type MineruFetch
 } from "./mineruClient";
 
-const TOKEN = "sk-secret-abcdef0123456789";
+const TOKEN = "sk-secret-abcdef0123456789"; // gitleaks:allow — test fixture, not a real key
 
 interface FetchCall {
   url: string;
