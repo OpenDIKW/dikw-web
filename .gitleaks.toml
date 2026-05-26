@@ -1,0 +1,21 @@
+[extend]
+# Inherit gitleaks's built-in rules so we still scan for real secrets.
+useDefault = true
+
+# Allowlist for explicit, intentional test fixtures. Each entry is a literal
+# regex matched against secret strings. These tokens are hard-coded into the
+# mineru sidecar's unit-test fixtures (server/web/*.test.ts) — they exist
+# only to drive Authorization-header / redaction / scrub-output assertions
+# and have never been valid against mineru.net. gitleaks's generic-api-key
+# rule otherwise flags them by entropy + shape because they coincidentally
+# share the "sk-..." prefix used by real keys.
+[allowlist]
+description = "Test-only fixture tokens (never real keys)"
+regexes = [
+  '''sk-secret-abcdef0123456789''',
+  '''sk-mineru-deadbeef0123456789''',
+]
+paths = [
+  '''server/web/mineruClient\.test\.ts''',
+  '''server/web/http\.test\.ts''',
+]

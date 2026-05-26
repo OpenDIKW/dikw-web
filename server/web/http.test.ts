@@ -12,7 +12,7 @@ import { createWebHandler } from "./http";
 import { readTar } from "../../src/utils/tar-reader";
 import { gunzipSync } from "node:zlib";
 
-const TOKEN = "sk-mineru-deadbeef0123456789"; // gitleaks:allow — test fixture, not a real key
+const TOKEN = "sk-mineru-deadbeef0123456789";
 
 // ------ minimal req/res doubles ------
 
