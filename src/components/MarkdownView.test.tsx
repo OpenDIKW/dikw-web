@@ -308,6 +308,149 @@ describe("MarkdownView", () => {
     }
   });
 
+  it("renders standard ![alt](path) against the matching PageAsset url", () => {
+    const asset = makeAsset({
+      original_paths: [
+        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png"
+      ]
+    });
+    render(
+      <MarkdownView
+        body={
+          "Caption.\n\n![Kitchen](./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png)"
+        }
+        assets={[asset]}
+      />
+    );
+    const img = document.querySelector<HTMLImageElement>("img.markdown-image");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("src")).toBe(asset.url);
+    expect(img!.getAttribute("alt")).toBe("Kitchen");
+    expect(img!.getAttribute("loading")).toBe("lazy");
+  });
+
+  it("prefixes standard image asset URLs with assetBaseUrl when provided", () => {
+    const asset = makeAsset({
+      original_paths: [
+        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png"
+      ]
+    });
+    render(
+      <MarkdownView
+        body={
+          "![Kitchen](./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png)"
+        }
+        assets={[asset]}
+        assetBaseUrl="http://core.example:8765"
+      />
+    );
+    const img = document.querySelector<HTMLImageElement>("img.markdown-image");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("src")).toBe(`http://core.example:8765${asset.url}`);
+  });
+
+  it("lets standard remote image URLs pass through with markdown-image class for styling", () => {
+    render(<MarkdownView body={"![Cat](https://example.com/cat.png)"} assets={[]} />);
+    expect(document.querySelector(".md-broken-image")).toBeNull();
+    const img = document.querySelector<HTMLImageElement>(".markdown-body img");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("src")).toBe("https://example.com/cat.png");
+    // Class is kept so .markdown-image CSS applies uniformly; hydration is
+    // already gated on data-asset-src (absent for remote), so this is safe.
+    expect(img!.classList.contains("markdown-image")).toBe(true);
+    expect(img!.hasAttribute("data-asset-src")).toBe(false);
+  });
+
+  it("resolves standard ![](path) when markdown-it percent-encodes a non-ASCII path", () => {
+    const asset = makeAsset({
+      mime: "image/png",
+      asset_id: "2222222222222222222222222222222222222222222222222222222222222222",
+      url: "/v1/assets/2222222222222222222222222222222222222222222222222222222222222222",
+      original_paths: ["./images/封面.png"]
+    });
+    render(<MarkdownView body={"![cover](./images/封面.png)"} assets={[asset]} />);
+    const img = document.querySelector<HTMLImageElement>("img.markdown-image");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("src")).toBe(asset.url);
+    expect(document.querySelector(".md-broken-image")).toBeNull();
+  });
+
+  it("strips inline markup from standard image alt text per CommonMark", () => {
+    const asset = makeAsset({
+      original_paths: [
+        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png"
+      ]
+    });
+    render(
+      <MarkdownView
+        body={
+          "![Figure **1**: see _intro_](./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png)"
+        }
+        assets={[asset]}
+      />
+    );
+    const img = document.querySelector<HTMLImageElement>("img.markdown-image");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("alt")).toBe("Figure 1: see intro");
+  });
+
+  it("preserves the title attribute on standard image syntax for local assets", () => {
+    const asset = makeAsset({
+      original_paths: [
+        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png"
+      ]
+    });
+    render(
+      <MarkdownView
+        body={
+          '![Kitchen](./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png "厨房场景")'
+        }
+        assets={[asset]}
+      />
+    );
+    const img = document.querySelector<HTMLImageElement>("img.markdown-image");
+    expect(img).not.toBeNull();
+    expect(img!.getAttribute("title")).toBe("厨房场景");
+  });
+
+  it("keeps title on standard image hydration when assetToken is provided", () => {
+    const asset = makeAsset({
+      original_paths: [
+        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png"
+      ]
+    });
+    render(
+      <MarkdownView
+        body={
+          '![Kitchen](./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png "厨房场景")'
+        }
+        assets={[asset]}
+        assetToken="secret-token"
+      />
+    );
+    const img = document.querySelector<HTMLImageElement>("img.markdown-image");
+    expect(img).not.toBeNull();
+    expect(img!.dataset.assetSrc).toBe(asset.url);
+    expect(img!.getAttribute("title")).toBe("厨房场景");
+    expect(img!.getAttribute("src")).toBeNull();
+  });
+
+  it("renders empty ![]() as nothing rather than a broken-image warning", () => {
+    render(<MarkdownView body={"Caption.\n\n![]()\n\nMore."} assets={[]} />);
+    expect(document.querySelector(".md-broken-image")).toBeNull();
+    expect(document.querySelector(".markdown-body img")).toBeNull();
+  });
+
+  it("renders a broken-image placeholder for standard syntax when the asset is missing", () => {
+    render(
+      <MarkdownView body={"![Missing](./images/scenes/missing.png)"} assets={[]} />
+    );
+    const placeholder = document.querySelector(".md-broken-image");
+    expect(placeholder).not.toBeNull();
+    expect(placeholder!.textContent).toContain("./images/scenes/missing.png");
+    expect(document.querySelector("img.markdown-image")).toBeNull();
+  });
+
   it("renders a bar chart placeholder and invokes echarts setOption", async () => {
     echartsInitMock.mockClear();
     echartsSetOptionMock.mockClear();

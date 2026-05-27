@@ -94,18 +94,32 @@ blocks render asynchronously with Mermaid using `securityLevel:
 "strict"` and `htmlLabels: false`; render failures keep a readable code
 fallback.
 
-Obsidian image embeds resolve against `PageReadResult.assets[]` —
-either by exact match on `original_paths`, or by extracting the
-SHA-256 hex segment from the filename. Resolved embeds render as
+Both standard CommonMark `![alt](path)` and Obsidian `![[path]]` image
+embeds resolve against `PageReadResult.assets[]` — either by exact
+match on `original_paths`, or by extracting the SHA-256 hex segment
+from the filename. The standard-syntax renderer also retries the
+lookup with `decodeURIComponent` so non-ASCII paths (which markdown-it
+normalizeLink percent-encodes, e.g. `./封面.png`) match the raw form
+core stores in `original_paths`. Resolved embeds render as
 `<img class="markdown-image" loading="lazy">` pointing at the
 content-addressed `/v1/assets/{asset_id}` URL; the URL is stitched
 against the Settings-owned base URL so the default proxied core and a
-custom remote core both work. When the current session token is
-non-empty, images are hydrated through an authenticated `fetch` and a
+custom remote core both work. Title and alt attributes are preserved
+across remote, plain, and token-hydrated branches; alt text passes
+through markdown-it's `renderInlineAsText` so inline markup like
+`![**bold** plain](url)` ends up as `alt="bold plain"` per the
+CommonMark spec. When the current session token is non-empty, images
+are hydrated through an authenticated `fetch` and a
 `URL.createObjectURL` blob URL, because the bare `<img>` element
 cannot attach app-controlled headers; the effect cleanup revokes the
-blob URL. Assets that cannot be resolved show a small
-`.md-broken-image` placeholder labeled with the original path.
+blob URL. Remote URLs (`http(s)://`, `data:`, etc.) pass through
+verbatim — they aren't tracked in `original_paths`, but they keep
+the `markdown-image` class so the CSS in `src/styles.css` applies
+uniformly; the authenticated-hydration selector requires
+`data-asset-src` (absent here), so remote images stay inert. Local
+refs that cannot be resolved render a small `.md-broken-image`
+placeholder labeled with the original (decoded) path; empty `![]()`
+collapses to nothing to avoid noise in draft markdown.
 
 Chart blocks are written as `<details><summary>{bar|line|scatter|
 heatmap}</summary>` wrapping a markdown pipe table. The reader parses

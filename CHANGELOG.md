@@ -9,6 +9,42 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-05-27
+
+### Markdown reader: standard `![alt](path)` images resolve against PageAsset.assets
+
+- Standard CommonMark `![alt](path)` syntax now routes through the same
+  asset resolver as Obsidian `![[path]]` embeds. Previously only the
+  Obsidian variant matched `PageAsset.original_paths`; standard
+  references like `![Kitchen](./images/scenes/kitchen.png)` fell back
+  to markdown-it's default renderer, which emitted a literal
+  `<img src="./images/scenes/kitchen.png">` that the browser then
+  tried to load from the SPA host (404). The 10 images in
+  `sources/scenes.md` and similar locales-tagged corpus pages now
+  load from `/v1/assets/<sha256>` 200, with token-hydration when a
+  session token is configured.
+- Three correctness refinements while we were in the file:
+  - `alt` text passes through `self.renderInlineAsText(token.children)`
+    so `![**bold** plain](x)` renders `alt="bold plain"` per CommonMark,
+    not the raw source string.
+  - `title` attribute is preserved across remote, plain-src, and
+    token-hydrated branches (previously dropped on the two local paths).
+  - Non-ASCII paths resolve correctly: markdown-it normalizeLink
+    percent-encodes Unicode in standard syntax but `original_paths`
+    stores raw, so the resolver tries the literal src first and falls
+    back to `decodeURIComponent(src)` at the standard-image call site
+    (scoped to that path only; Obsidian resolution stays verbatim).
+- Behavior changes worth calling out:
+  - Empty `![]()` short-circuits to nothing instead of rendering the
+    default `<img src="">` — keeps drafts quiet.
+  - Local refs in surfaces that don't pass `assets` (e.g. ChatPage)
+    now render an explicit `.md-broken-image` placeholder where they
+    previously emitted an `<img>` the browser silently 404'd; the
+    explicit failure is intentional.
+  - Remote URLs (`http(s)://`, `data:`) keep the `markdown-image`
+    class for consistent CSS; authenticated-hydration stays inert on
+    them because the selector requires `data-asset-src`.
+
 ## [0.0.8] - 2026-05-27
 
 ### Import: PDF / Office support via mineru
