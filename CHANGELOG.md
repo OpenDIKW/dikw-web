@@ -9,6 +9,24 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-05-28
+
+### Chat: dedup right-rail Source list across streaming/session boundary
+
+- `ChatPage` was concatenating `streamingSources` onto `activeSession.sources`
+  without crossing the dedup boundary, so when a turn-N stream emitted a
+  source already committed by an earlier turn, React rendered the same
+  composite key (`${kind}-${path}-${title}`) twice and logged
+  "Encountered two children with the same key". Surfaced under the
+  auto-scroll stress fixture (24 sources × 2 turns → 24 duplicate-key
+  warnings).
+- Fix folds `streamingSources` into the session-base via `mergeSources`
+  (the same `path/title/kind` dedup function used inside the streaming
+  buffer), so identical sources appear once and order is preserved
+  (session first, then streaming-only newcomers).
+- Tool-call dedup was already safe via `mergeTools`' id-based merge — only
+  sources had the cross-boundary gap.
+
 ## [0.0.9] - 2026-05-27
 
 ### Markdown reader: standard `![alt](path)` images resolve against PageAsset.assets

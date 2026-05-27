@@ -256,7 +256,14 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   }
 
   const messages = activeSession?.messages ?? [];
-  const sources = [...(activeSession?.sources ?? []), ...streamingSources];
+  // Fold streaming sources into the session-base via mergeSources so a
+  // source committed in a previous turn isn't rendered twice when the same
+  // path/title/kind shows up again in this turn's stream — that produced
+  // duplicate React keys in the right-rail (composite key is path+title+kind).
+  const sources = streamingSources.reduce<AgentSource[]>(
+    (acc, next) => mergeSources(acc, next),
+    activeSession?.sources ?? []
+  );
   const toolEvents = [...(activeSession?.toolEvents ?? []), ...streamingTools];
 
   useLayoutEffect(() => {

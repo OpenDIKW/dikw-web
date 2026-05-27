@@ -1511,6 +1511,77 @@ describe("read console pages", () => {
     expect(safeLink).toHaveAttribute("href", "https://example.com/ok");
   });
 
+  it("dedups a streaming source that already exists on the active session", async () => {
+    // Reproduces the dup-key React warning observed in the auto-scroll stress
+    // e2e: turn 2's streaming emits the same wiki page that turn 1 already
+    // committed to session.sources. Without cross-boundary dedup the right-
+    // rail concatenates both buffers and produces identical React keys.
+    //
+    // A controlled stream pauses between the `source` event and the end of
+    // the stream so the intermediate render (both buffers populated) is
+    // observable; an inline `createAsyncEvents` array would race React to
+    // the final cleared-streaming state and hide the bug.
+    const sharedSource = { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" };
+    const activeSession = {
+      id: "session-1",
+      title: "Dedup",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: 2,
+      lastMessagePreview: "First answer",
+      messages: [
+        { id: "u1", role: "user", content: "First question", createdAt: "2026-05-13T00:00:00.000Z" },
+        { id: "a1", role: "assistant", content: "First answer", createdAt: "2026-05-13T00:00:01.000Z" }
+      ],
+      toolEvents: [],
+      sources: [sharedSource],
+      proposals: []
+    };
+    const controlledStream = createControlledAgentStream();
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => controlledStream.stream())
+    } as AgentClientLike;
+
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      render(<ChatPage agentClient={agentClient} />);
+      const context = await screen.findByRole("complementary", { name: "Session context" });
+      // Turn 1 already committed sharedSource — confirm starting state.
+      expect(within(context).getAllByText("wiki/architecture.md")).toHaveLength(1);
+
+      await userEvent.type(screen.getByLabelText("Message"), "Second question");
+      await userEvent.click(screen.getByRole("button", { name: /Send/ }));
+
+      controlledStream.push({
+        type: "source",
+        sessionId: "session-1",
+        source: sharedSource
+      });
+
+      // While the stream is still open, the cross-boundary dedup gap must
+      // not allow a duplicate entry to render.
+      await waitFor(() => {
+        const matches = within(context).getAllByText("wiki/architecture.md");
+        expect(matches).toHaveLength(1);
+      });
+
+      const dupKeyCalls = errorSpy.mock.calls.filter((call) =>
+        call.some((arg) => typeof arg === "string" && arg.includes("two children with the same key"))
+      );
+      expect(dupKeyCalls).toEqual([]);
+
+      controlledStream.finish();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it("keeps session sources and tool calls visible after a later reply without new context", async () => {
     const initialSession = {
       id: "session-1",
