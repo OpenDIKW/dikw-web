@@ -9,7 +9,7 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
-## [0.0.9] - 2026-05-28
+## [0.0.9] - 2026-05-27
 
 ### Markdown reader: standard `![alt](path)` images resolve against PageAsset.assets
 
