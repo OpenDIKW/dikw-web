@@ -23,6 +23,7 @@ import {
 } from "../utils/chart-spec";
 import { buildRequestUrl } from "../api/client";
 import { basename } from "../utils/format";
+import { isRemoteRef } from "../utils/md-asset-refs";
 
 interface MarkdownViewProps {
   body: string;
@@ -49,6 +50,7 @@ const markdown = new MarkdownIt({
 installWikiLinks(markdown);
 installMath(markdown);
 installObsidianImages(markdown);
+installStandardImages(markdown);
 installRendererRules(markdown);
 
 export function MarkdownView({
@@ -248,6 +250,79 @@ function installObsidianImages(md: MarkdownIt) {
       altText
     )}" loading="lazy" />`;
   };
+}
+
+// Standard CommonMark image syntax (``![alt](path)`` / ``![alt](path "title")``).
+// Mirrors installObsidianImages but works on markdown-it's default ``image`` token
+// so local refs land on /v1/assets/<id> instead of leaking to the SPA host.
+//
+// Accepts ``self: Renderer`` as the 5th argument so we can reuse
+// ``renderInlineAsText`` for alt — markdown-it's default behavior is to strip
+// inline markup from alt (CommonMark spec); a hand-rolled ``token.content``
+// would leak literal ``**`` / ``_`` into screen readers.
+function installStandardImages(md: MarkdownIt) {
+  md.renderer.rules.image = (tokens, index, options, env, self) => {
+    const token = tokens[index];
+    const src = token.attrGet("src") ?? "";
+    const title = token.attrGet("title") ?? "";
+    const ctx = (env as { dikwContext?: MarkdownContext })?.dikwContext;
+    const alt = self.renderInlineAsText(token.children ?? [], options, env);
+    const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
+
+    // Empty src (``![]()``) and whitespace-only refs are common in drafts and
+    // tool-generated markdown — render nothing rather than a noisy ⚠ marker.
+    if (!src.trim()) {
+      return "";
+    }
+
+    if (isRemoteRef(src)) {
+      // ``http(s)://``, ``data:``, etc. pass through verbatim — these aren't
+      // tracked in PageAsset.original_paths. ``markdown-image`` class IS kept
+      // so the CSS in src/styles.css applies uniformly; the auth-hydration
+      // selector requires ``data-asset-src`` (absent here), so it stays inert.
+      return `<img class="markdown-image" src="${escapeAttribute(
+        src
+      )}" alt="${escapeAttribute(alt)}"${titleAttr} loading="lazy" />`;
+    }
+
+    // Two-stage lookup: literal src first, then percent-decoded fallback.
+    // markdown-it normalizeLink percent-encodes non-ASCII characters in
+    // standard ``![](path)`` syntax (e.g. ``./封面.png`` → ``./%E5…``) but
+    // PageAsset.original_paths stores the raw author input by core's
+    // md_inspect. The decode retry is intentionally scoped to this site, NOT
+    // pushed into resolveAssetUrl, so Obsidian ``![[...]]`` resolution stays
+    // verbatim (its parser doesn't percent-encode and shouldn't get the
+    // cross-syntax leniency).
+    const decoded = decodePathForDisplay(src);
+    const resolved =
+      resolveAssetUrl(src, ctx) ??
+      (decoded !== src ? resolveAssetUrl(decoded, ctx) : null);
+    if (!resolved) {
+      // Echo the decoded form so the user sees what they wrote, not
+      // ``%E5%B0%81…``.
+      return `<span class="md-broken-image" title="asset not found">⚠ ${escapeHtml(
+        decoded
+      )}</span>`;
+    }
+    if (ctx?.assetToken) {
+      return `<img class="markdown-image" data-asset-src="${escapeAttribute(
+        resolved
+      )}" alt="${escapeAttribute(alt)}"${titleAttr} loading="lazy" />`;
+    }
+    return `<img class="markdown-image" src="${escapeAttribute(
+      resolved
+    )}" alt="${escapeAttribute(alt)}"${titleAttr} loading="lazy" />`;
+  };
+}
+
+/** Decode percent-escapes safely for display; if the string is malformed
+ *  (rare — markdown-it produces well-formed encoding) return the raw input. */
+function decodePathForDisplay(src: string): string {
+  try {
+    return decodeURIComponent(src);
+  } catch {
+    return src;
+  }
 }
 
 const SHA256_IN_PATH = /(?:^|\/)([0-9a-f]{64})\.[a-z0-9]+$/i;
