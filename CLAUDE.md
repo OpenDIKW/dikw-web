@@ -52,7 +52,7 @@ Strong success criteria let you loop independently; "make it work" requires cons
 
 Working when: fewer unnecessary diffs, fewer rewrites from over-engineering, clarifying questions land *before* implementation rather than after.
 
-## Delivery workflow
+## Delivery Loop
 
 End-to-end loop from request to landed PR. Run autonomously for behavior changes — don't wait for the user to prompt each step. Steps run in order; skip only with an explicit reason.
 
