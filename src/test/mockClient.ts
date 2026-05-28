@@ -15,7 +15,7 @@ export type MockDikwClient = DikwClient & {
   streamNdjson: AnyMock;
 };
 
-export function createMockClient(): MockDikwClient {
+export function createMockClient(coreId = ""): MockDikwClient {
   return {
     get: vi.fn(),
     post: vi.fn(),
@@ -32,6 +32,6 @@ export function createMockClient(): MockDikwClient {
     streamNdjson: vi.fn(),
     // Stable identifier matching the same-origin proxy default — pages that
     // bind state to ``client.coreId`` need a deterministic value in tests.
-    coreId: ""
+    coreId
   } as unknown as MockDikwClient;
 }

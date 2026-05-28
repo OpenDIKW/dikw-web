@@ -105,10 +105,11 @@ const dCandidatesFixture = [
 
 interface SetupOptions {
   writeFails?: boolean;
+  coreId?: string;
 }
 
 function setupClient(opts: SetupOptions = {}): MockDikwClient {
-  const client = createMockClient();
+  const client = createMockClient(opts.coreId);
   // Local copies so each test gets a fresh mutable state and reloads pick up
   // POST-induced changes.
   const listState: ListRow[] = baseList.map((row) => ({ ...row }));
@@ -734,6 +735,38 @@ describe("WisdomPage backed by dikw-core API", () => {
     await waitFor(() => {
       expect(within(reader).getByRole("button", { name: "Add to favorites" })).toBeInTheDocument();
     });
+  });
+
+  it("resets pages, selection and mode when the client coreId changes", async () => {
+    const clientA = setupClient({ coreId: "core-a" });
+    const { rerender } = render(<WisdomPage client={clientA} />);
+
+    // Wait for clientA's wisdom list to render with its default selection.
+    const reader = screen.getByRole("main", { name: "Wisdom reader" });
+    await waitFor(() => {
+      expect(within(reader).getByText("wisdom/principles/prefer-evidence.md")).toBeInTheDocument();
+    });
+
+    // Build a second client representing a different core that returns an
+    // empty wisdom list. The reset effect must clear clientA's selection so
+    // we don't continue to address clientA's path against the new client.
+    const clientB = createMockClient("core-b");
+    clientB.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") return Promise.resolve([]);
+      return Promise.reject(new Error(`unmocked GET ${path}`));
+    });
+
+    rerender(<WisdomPage client={clientB} />);
+
+    // The old selection's heading must no longer appear, and no detail fetch
+    // against clientB should have been issued for the stale path.
+    await waitFor(() => {
+      expect(within(reader).queryByText("wisdom/principles/prefer-evidence.md")).not.toBeInTheDocument();
+    });
+    expect(clientB.get).not.toHaveBeenCalledWith(
+      expect.stringContaining("/v1/base/pages/wisdom/principles/prefer-evidence.md"),
+      expect.anything()
+    );
   });
 
   it("refuses to Save an empty body and shows a toast", async () => {

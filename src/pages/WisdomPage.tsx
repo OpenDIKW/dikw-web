@@ -378,6 +378,40 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
     return () => controller.abort();
   }, [client, refPopover, kCandidates, dCandidates]);
 
+  // ── reset on core switch ────────────────────────────────────────────────
+
+  // When the user changes the connection target in Settings, the same
+  // mounted #wisdom page suddenly points at a different core. Without an
+  // explicit reset the previous core's hydrated rows linger in `pages`
+  // while `useAsyncResource` refetches in the background, and Edit / ☆
+  // could POST those stale paths and bodies to the new client. We reset in
+  // the render phase (React's "Adjusting State Based on Props" pattern) so
+  // the downstream detail/backlinks effects observe the cleared selection
+  // on the SAME render — a useEffect-based reset would let them fire one
+  // last time against the new client with the previous path.
+  const [trackedCoreId, setTrackedCoreId] = useState(client.coreId);
+  if (trackedCoreId !== client.coreId) {
+    setTrackedCoreId(client.coreId);
+    writeAbortRef.current?.abort();
+    writeAbortRef.current = null;
+    setPages([]);
+    setSelectedPath(null);
+    setDraft(null);
+    setMode("read");
+    setSaving(false);
+    setSavingMessage(null);
+    setOptimisticStatus(new Map());
+    preStarStatusRef.current = new Map();
+    setKCandidates(null);
+    setDCandidates(null);
+    setNewDialog(null);
+    setRefPopover(null);
+    setUnsavedTarget(null);
+    setToast(null);
+    setFilter("");
+    setStarredOnly(false);
+  }
+
   // ── resume in-flight write on mount ─────────────────────────────────────
 
   useEffect(() => {
