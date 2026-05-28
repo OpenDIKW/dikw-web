@@ -9,6 +9,7 @@ export type MockDikwClient = DikwClient & {
   requestJson: AnyMock;
   listTasks: AnyMock;
   getTask: AnyMock;
+  getTaskResult: AnyMock;
   streamRetrieve: AnyMock;
   streamTaskEvents: AnyMock;
   streamNdjson: AnyMock;
@@ -23,6 +24,9 @@ export function createMockClient(): MockDikwClient {
     // calls `.then` on undefined; tests override these as needed.
     listTasks: vi.fn().mockResolvedValue({ tasks: [], next_cursor: null, has_more: false }),
     getTask: vi.fn().mockResolvedValue(undefined),
+    // WisdomPage save flow polls task events then unwraps the terminal result.
+    // Stub both with empty defaults so an unconfigured test doesn't crash.
+    getTaskResult: vi.fn(),
     streamRetrieve: vi.fn(),
     streamTaskEvents: vi.fn(),
     streamNdjson: vi.fn(),

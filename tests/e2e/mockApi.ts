@@ -278,6 +278,16 @@ export async function mockDikwApi(page: Page) {
       return;
     }
     if (path === "/v1/base/pages") {
+      const layer = url.searchParams.get("layer");
+      // WisdomPage requests `layer=wisdom`; KnowledgePicker on edit requests
+      // `layer=knowledge`. e2e specs only exercise the page chrome (heading,
+      // filter, Starred chip), not list contents, so empty arrays are safe.
+      // Wiki / Base specs continue to call with no layer filter and need the
+      // full fixture.
+      if (layer === "wisdom" || layer === "knowledge" || layer === "source") {
+        await route.fulfill({ json: [] });
+        return;
+      }
       await route.fulfill({ json: wikiPagesFixture });
       return;
     }
