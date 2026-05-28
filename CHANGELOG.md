@@ -9,6 +9,51 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.12] - 2026-05-28
+
+### Wisdom: real dikw-core wiring (lists, reads, async writes, resume)
+
+- `#wisdom` is now backed by the live core HTTP API. List comes from
+  `GET /v1/base/pages?layer=wisdom&active=true` (via `useAsyncResource`),
+  body + frontmatter from `GET /v1/base/pages/{path}`, backlinks from
+  `GET /v1/base/pages/{path}/links?direction=in`. Saves go through the
+  async `POST /v1/base/wisdom` task: the page POSTs the submit, then
+  drains `client.streamTaskEvents(taskId)` until terminal and unwraps
+  the `WisdomWriteReport` via `client.getTaskResult`. The mock data
+  module `src/pages/__mock__/wisdom-data.ts` is deleted along with all
+  of its imports.
+- **Pending draft create flow**: the New dialog now constructs a
+  client-only `__pending__/{slug}` draft (no path in core yet). It
+  appears in the tree marked `(unsaved)`, lives in Edit mode, and the
+  first Save is what POSTs to core. Empty bodies are rejected client-
+  side before the request goes out (`min_length=1` is enforced by core).
+- **Favorite optimistic + rollback**: ☆ flips the chip immediately and
+  POSTs the full page with `no_embed=true` (core lacks a dedicated
+  PATCH/status endpoint). The optimistic update rolls back if the task
+  fails. `preStarStatus` is kept on a frontend `useRef` map — not
+  persisted, refresh resets it (acceptable for now).
+- **Resume on mount**: the in-flight write task_id is stored in
+  `sessionStorage["dikw-web.wisdomWrite"]` (per-core scoped). On mount,
+  if a non-terminal task is found, the page re-enters the saving state
+  and continues polling. Lives in `src/state/wisdom-write.ts` next to
+  the existing `import-pipeline.ts`.
+- **K / D candidates for the Add wikilink / Add source picker** are
+  lazy-loaded from `GET /v1/base/pages?layer=knowledge` and
+  `?layer=source` when the popover opens. Client-side filter keeps the
+  search-as-you-type UX; core has no search endpoint yet — that's the
+  next iteration's lever if D-layer page counts get large.
+- Tests: `wisdom.test.tsx` rewritten to mock `client.get / post /
+  streamTaskEvents / getTaskResult`, covering 14 scenarios (list,
+  detail fetch, pending draft, save round-trip, picker dedup, sources
+  attach, favorite optimistic + rollback, three dirty-edit confirm
+  paths, resume from sessionStorage, empty-body rejection).
+  `src/test/mockClient.ts` gains a `getTaskResult` vi.fn stub.
+  `tests/e2e/mockApi.ts` returns `[]` for `layer=wisdom/knowledge/source`
+  so chrome e2e specs still pass.
+- Out of scope (next iteration): real status dropdown (draft →
+  published / archived), delete / rename / move, K/D remote search,
+  Playwright spec specifically for the Wisdom write round-trip.
+
 ## [0.0.11] - 2026-05-28
 
 ### Wisdom: mock-driven page with three-pane layout, wikilink picker, inline backlinks
