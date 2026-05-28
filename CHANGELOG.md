@@ -9,6 +9,59 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.11] - 2026-05-28
+
+### Wisdom: mock-driven page with three-pane layout, wikilink picker, inline backlinks
+
+- `#wisdom` is now a fully interactive mock page driven by hardcoded
+  fixtures in `src/pages/__mock__/wisdom-data.ts` — **no `/v1/wisdom*`
+  requests at all** (the endpoint was retired). Three-pane layout:
+  left directory tree (folder-first, alphabetical), middle read/edit
+  tabs, right rail with Linked references + Sources (sources only
+  shown in Edit; Read merges backlinks inline). Reuses the WikiPage
+  `buildWikiTree` pattern and `MarkdownView` for the Read tab.
+- Read tab runs `injectInlineRefs` from `src/utils/source-inline-refs.ts`
+  to splice `[[title|literal]]` wikilinks into the body at first
+  occurrence of any backlink title; unmatched backlinks fall into a
+  bottom "Linked references" panel — same behavior as source-layer
+  pages. Wikilink clicks resolve against the wisdom multimap; W→W
+  resolves silently, K→K shows a 2.4s amber toast
+  ("[[title]] isn't a wisdom page in this mock.") via a new
+  `.wisdom-toast` block in `styles.css`.
+- Edit tab toolbar: "Add wikilink" popover merges K + W candidates
+  (deduped by path, per-item layer chips for k/w/d) into one picker
+  matching the "Add source" chip column; cursor-position-aware
+  `[[title]]` insertion. New dialog enforces kebab-case slug and
+  author with `newError.author` copy; lowercased path dedup against
+  existing pages.
+- Lifecycle: status is `draft | published | favorite | archived` with
+  a side `preStarStatus` field so toggling the star ☆ round-trips
+  through `favorite` without losing the prior state (favorite → ☆
+  back to `published`/`draft`/`archived`, not always `published`).
+- Header layout: timestamp → ☆ favorite → status pill stacked below
+  the path on the same `.reader-header--stacked` + `.reader-header__meta--inline`
+  modifiers WikiPage now uses, so Base reader and Wisdom share chrome.
+- Saving is a 800ms `setTimeout` that mutates the in-memory mock map
+  (no API). The timer lives in a ref so navigation/create cancels
+  the in-flight save instead of racing; popover closes on saving=true;
+  Esc handler is one effect with priority unsaved > newDialog > popover.
+- Dead-code cleanup: removed `WisdomItem`/`WisdomKind`/`WisdomStatus`
+  types, the `wisdomItemsFixture` from `src/test/fixtures.ts` and
+  `tests/e2e/fixtures.ts`, and the `/v1/wisdom` mock route from
+  `src/App.test.tsx` and `tests/e2e/mockApi.ts`.
+- Tests: 12 component tests in `src/pages/wisdom.test.tsx` covering
+  tree → read → edit → save, "Add wikilink" K/W picker, "Add source"
+  D picker, dirty-edit confirm + form preservation, and the
+  draft → favorite → draft lifecycle round-trip. e2e:
+  `i18n.spec.ts` + `navigation.spec.ts` switched to the new chrome
+  (`Filter wisdom pages` label, `Starred only` chip, `exact: true`
+  heading match).
+- Out of scope: real `GET /v1/base/pages?layer=WISDOM` /
+  `POST /v1/base/wisdom` wiring, async task polling,
+  `unresolved_wikilinks` round-trip, asset upload, status mutations
+  beyond ☆. Next iteration plugs the mock data source into real core
+  endpoints once visual/interaction sign-off lands.
+
 ## [0.0.10] - 2026-05-28
 
 ### Chat: dedup right-rail Source list across streaming/session boundary

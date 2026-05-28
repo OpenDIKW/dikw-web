@@ -630,11 +630,11 @@ function WikiReader({
       {error ? <Notice title={copy.pageErrorTitle} error={error} /> : null}
       {page ? (
         <>
-          <div className="reader-header reader-header--metadata-only">
+          <div className="reader-header reader-header--stacked">
             <div className="reader-header__path">{page.path}</div>
-            <div className="reader-header__meta">
-              <span className="soft-label">{page.layer} · {formatAnchorCount(page.anchors.length)}</span>
+            <div className="reader-header__meta reader-header__meta--inline">
               <span className="soft-label">{formatUnixSeconds(doc?.mtime)}</span>
+              <span className="soft-label">{page.layer} · {formatAnchorCount(page.anchors.length)}</span>
             </div>
           </div>
           <WikiReaderTabs activeTab={activeTab} onSelect={setActiveTab} copy={copy} />

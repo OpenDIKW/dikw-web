@@ -321,20 +321,6 @@ export const wikiPageProvenanceFixture: Record<string, PageProvenanceResult> = {
   }
 };
 
-export const wisdomItemsFixture = [
-  {
-    item_id: "wisdom-1",
-    kind: "principle",
-    status: "candidate",
-    path: "wiki/architecture.md",
-    title: "Prefer evidence",
-    body: "Prefer cited evidence over unsupported summaries.",
-    confidence: 0.86,
-    created_ts: 1777819200,
-    approved_ts: null
-  }
-];
-
 export const hitFixture = {
   doc_id: "wiki-architecture",
   chunk_id: 101,

@@ -36,7 +36,7 @@ test("loads overview and navigates with localized sidebar labels and settings", 
   await expect(page.getByRole("button", { name: /产物\s+Artifacts/ })).toHaveCount(0);
 
   await knowledgeNav.getByRole("button", { name: "Wisdom", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Wisdom" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Wisdom", exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Settings" }).click();
   await expect(page).toHaveURL(/#settings$/);

@@ -1,6 +1,4 @@
 export type Layer = "source" | "wiki" | "wisdom";
-export type WisdomKind = "principle" | "lesson" | "pattern";
-export type WisdomStatus = "candidate" | "approved" | "archived";
 export type TaskStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
 
 export interface ApiErrorEnvelope {
@@ -325,18 +323,6 @@ export interface ApplyReport {
   skipped: Array<Record<string, unknown>>;
   wiki_paths_changed: string[];
   proposal_task_id?: string | null;
-}
-
-export interface WisdomItem {
-  item_id: string;
-  kind: WisdomKind;
-  status: WisdomStatus;
-  path: string | null;
-  title: string;
-  body: string;
-  confidence: number;
-  created_ts: number;
-  approved_ts: number | null;
 }
 
 export interface IngestError {

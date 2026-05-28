@@ -8,8 +8,7 @@ import {
   graphResultFixture,
   statusFixture,
   wikiPageBodiesFixture,
-  wikiPagesFixture,
-  wisdomItemsFixture
+  wikiPagesFixture
 } from "./test/fixtures";
 
 function jsonResponse(body: unknown): Promise<Response> {
@@ -42,9 +41,6 @@ function stubApi() {
     if (url.pathname.startsWith("/v1/base/pages/")) {
       const selectedPath = decodeURIComponent(url.pathname.replace("/v1/base/pages/", ""));
       return jsonResponse(wikiPageBodiesFixture[selectedPath]);
-    }
-    if (url.pathname === "/v1/wisdom") {
-      return jsonResponse(wisdomItemsFixture);
     }
     if (url.pathname === "/v1/tasks") {
       return jsonResponse({ tasks: [], next_cursor: null, has_more: false });

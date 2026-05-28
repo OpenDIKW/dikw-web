@@ -10,8 +10,7 @@ import type {
   TaskEvent,
   TaskListPage,
   TaskRow,
-  TaskRowSummary,
-  WisdomItem
+  TaskRowSummary
 } from "../types";
 
 export const infoFixture: InfoResponse = {
@@ -253,20 +252,6 @@ export const retrieveEventsFixture: RetrieveStreamEvent[] = [
         }
       ]
     }
-  }
-];
-
-export const wisdomItemsFixture: WisdomItem[] = [
-  {
-    item_id: "wisdom-1",
-    kind: "principle",
-    status: "candidate",
-    path: "wiki/architecture.md",
-    title: "Prefer evidence",
-    body: "Prefer cited evidence over unsupported summaries.",
-    confidence: 0.86,
-    created_ts: 1777819200,
-    approved_ts: null
   }
 ];
 
