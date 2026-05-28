@@ -281,4 +281,33 @@ describe("WisdomPage interaction mock", () => {
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     expect(within(reader).getByText("wisdom/principles/prefer-evidence.md")).toBeInTheDocument();
   });
+
+  it("warns before collapsing a folder that contains a dirty page", async () => {
+    const client = createMockClient();
+    render(<WisdomPage client={client} />);
+
+    const reader = screen.getByRole("main", { name: "Wisdom reader" });
+    await userEvent.click(within(reader).getByRole("tab", { name: "Edit" }));
+    const textarea = within(reader).getByLabelText("Wisdom body") as HTMLTextAreaElement;
+    await userEvent.type(textarea, " — collapse me");
+
+    const tree = screen.getByRole("tree", { name: "Wisdom directory" });
+    // The selected page lives under principles/; clicking the folder collapses it.
+    await userEvent.click(within(tree).getByRole("button", { name: "principles" }));
+
+    const dialog = await screen.findByRole("alertdialog", { name: "Discard unsaved changes?" });
+    // Cancel: folder stays open, draft survives, selection stays.
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(within(reader).getByText("wisdom/principles/prefer-evidence.md")).toBeInTheDocument();
+    expect((within(reader).getByLabelText("Wisdom body") as HTMLTextAreaElement).value).toContain("collapse me");
+
+    // Discard: folder actually collapses + selection clears + body is gone.
+    await userEvent.click(within(tree).getByRole("button", { name: "principles" }));
+    const dialog2 = await screen.findByRole("alertdialog", { name: "Discard unsaved changes?" });
+    await userEvent.click(within(dialog2).getByRole("button", { name: "Discard changes" }));
+    await waitFor(() => {
+      expect(within(reader).queryByText("wisdom/principles/prefer-evidence.md")).not.toBeInTheDocument();
+    });
+    expect(within(tree).queryByRole("button", { name: /Prefer evidence/ })).not.toBeInTheDocument();
+  });
 });

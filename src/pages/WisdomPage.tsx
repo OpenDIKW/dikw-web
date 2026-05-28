@@ -49,7 +49,8 @@ type RefMode = "wikilink" | "source";
 type UnsavedTarget =
   | { kind: "switch"; path: string }
   | { kind: "read" }
-  | { kind: "create"; page: WisdomMockPage };
+  | { kind: "create"; page: WisdomMockPage }
+  | { kind: "collapseDir"; dirId: string };
 
 const SAVE_DELAY_MS = 800;
 
@@ -156,6 +157,15 @@ export function WisdomPage({ client: _client, locale = "en" }: WisdomPageProps) 
     } else if (target.kind === "read") {
       setMode("read");
       setDraft(null);
+    } else if (target.kind === "collapseDir") {
+      setExpandedDirs((prev) => {
+        const next = new Set(prev);
+        next.delete(target.dirId);
+        return next;
+      });
+      setSelectedPath(null);
+      setMode("read");
+      setDraft(null);
     } else {
       applyCreate(target.page);
     }
@@ -168,22 +178,20 @@ export function WisdomPage({ client: _client, locale = "en" }: WisdomPageProps) 
 
   const toggleDir = (id: string) => {
     const isClosing = expandedTreeIds.has(id);
+    // Collapsing a directory that contains the currently selected page must
+    // also clear the selection — otherwise collectPathAncestors below would
+    // immediately re-expand it. That clears the draft, so route through
+    // requestNavigate to prompt before discarding unsaved edits.
+    if (isClosing && selectedPath && pathIsInsideDirectory(selectedPath, id)) {
+      requestNavigate({ kind: "collapseDir", dirId: id });
+      return;
+    }
     setExpandedDirs((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-    // If we're collapsing a directory that contains the currently selected
-    // page, clear the selection so the selectedPath-ancestor force-expand
-    // (collectPathAncestors below) doesn't immediately re-expand it.
-    if (isClosing && selectedPath && pathIsInsideDirectory(selectedPath, id)) {
-      cancelPendingSave();
-      setSelectedPath(null);
-      setMode("read");
-      setDraft(null);
-      setRefPopover(null);
-    }
   };
 
   const enterEditMode = () => {
