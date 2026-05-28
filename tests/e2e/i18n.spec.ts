@@ -83,8 +83,9 @@ test("default English locale keeps page-level chrome free of Chinese fallback te
   await expect(page.getByText("Events not loaded")).toBeVisible();
 
   await page.goto("/#wisdom");
-  await expect(page.getByLabel("Status")).toBeVisible();
-  await expect(page.getByLabel("Kind")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Wisdom", exact: true })).toBeVisible();
+  await expect(page.getByLabel("Filter wisdom pages")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Starred only/ })).toBeVisible();
 
   await page.goto("/#graph");
   await expect(page.getByText("4 nodes")).toBeVisible();

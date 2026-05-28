@@ -1284,10 +1284,19 @@ textarea:focus {
   min-width: max-content;
 }
 
-.reader-header--metadata-only {
-  align-items: center;
+.reader-header--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
   padding-bottom: 12px;
   border-bottom: 1px solid var(--reader-border);
+}
+
+.reader-header__meta--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
 }
 
 .markdown-view {
@@ -3736,6 +3745,15 @@ html[data-theme="dark"] .markdown-body blockquote {
     min-width: 0;
   }
 
+  /* The new --stacked + --inline modifier ships row-direction at base
+     specificity; force a column collapse on narrow viewports so the
+     timestamp / star / status chip stack instead of overflowing. */
+  .reader-header__meta--inline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
   .detail-list--inline {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5299,4 +5317,422 @@ html[data-theme="dark"] .graph-pixi-stage {
   .wiki-outline-jump {
     transition: none;
   }
+}
+
+/* Wisdom interaction mock: layout + editor + dialogs + popover. */
+.wisdom-reader {
+  padding: 18px 22px;
+}
+
+.wisdom-aside {
+  display: grid;
+  gap: 18px;
+  max-width: 860px;
+  margin: 24px auto 0;
+}
+
+.wisdom-aside .wiki-backlinks {
+  margin: 0;
+  padding-top: 14px;
+}
+
+.wisdom-source-path {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  color: var(--reader-text, var(--text));
+  overflow-wrap: anywhere;
+}
+
+.wisdom-editor {
+  display: grid;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--reader-bg, var(--surface));
+  overflow: hidden;
+}
+
+.wisdom-editor__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.wisdom-editor__body-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--reader-bg, var(--surface)) 86%, var(--surface-2));
+}
+
+.wisdom-editor__textarea {
+  min-height: 360px;
+  padding: 14px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--reader-text, var(--text));
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  line-height: 1.65;
+  resize: vertical;
+}
+
+.wisdom-editor__textarea:focus {
+  outline: 0;
+}
+
+.wisdom-editor:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.wisdom-editor__sources {
+  display: grid;
+  gap: 8px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid var(--line);
+  background: color-mix(in srgb, var(--reader-bg, var(--surface)) 92%, var(--surface-2));
+}
+
+.wisdom-editor__sources h3 {
+  margin: 0;
+}
+
+.wisdom-editor__body-header h3 {
+  margin: 0;
+}
+
+.wisdom-editor__add-button {
+  min-height: 26px;
+  padding: 0 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.wisdom-editor__add-button:hover {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--accent-strong);
+}
+
+.wisdom-editor__sources .wiki-backlinks__item {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wisdom-editor__sources-empty {
+  margin: 0;
+}
+
+.wisdom-edit-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.wisdom-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.wisdom-source-remove {
+  width: 28px;
+  min-height: 28px;
+}
+
+.wisdom-popover-shroud {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--text) 32%, transparent);
+}
+
+.wisdom-popover,
+.wisdom-dialog {
+  width: min(520px, 100%);
+  max-height: min(560px, calc(100vh - 64px));
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: 0 18px 48px color-mix(in srgb, var(--text) 22%, transparent);
+}
+
+.wisdom-dialog {
+  grid-template-rows: auto auto auto;
+  max-height: none;
+}
+
+.wisdom-dialog--narrow {
+  width: min(420px, 100%);
+}
+
+.wisdom-popover__header,
+.wisdom-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.wisdom-dialog__header h2 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.wisdom-popover__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wisdom-popover__title h2 {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.2;
+}
+
+.wisdom-popover__search {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--muted);
+  min-height: 34px;
+}
+
+.wisdom-popover__search:focus-within {
+  border-color: var(--line-strong);
+}
+
+.wisdom-popover__search input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--text);
+}
+
+.wisdom-popover__search input:focus {
+  box-shadow: none;
+}
+
+.wisdom-popover__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  display: grid;
+  gap: 4px;
+}
+
+.wisdom-popover__item {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.wisdom-popover__item:hover {
+  border-color: var(--line-strong);
+  background: var(--accent-soft);
+}
+
+.wisdom-popover__item-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wisdom-popover__item-layer {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.wisdom-popover__item-layer--k {
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent-strong);
+}
+
+.wisdom-popover__item-layer--w {
+  background: color-mix(in srgb, var(--green) 18%, var(--surface));
+  color: var(--green);
+}
+
+.wisdom-popover__item-layer--d {
+  background: color-mix(in srgb, var(--amber) 18%, var(--surface));
+  color: var(--amber);
+}
+
+.wisdom-popover__item strong {
+  font-size: 13.5px;
+}
+
+.wisdom-popover__item small {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}
+
+.wisdom-popover__item span {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.wisdom-popover__empty {
+  padding: 18px 8px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.wisdom-dialog__form {
+  display: grid;
+  gap: 10px;
+}
+
+.wisdom-dialog__hint {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.wisdom-dialog__error {
+  margin: 0;
+  color: var(--red);
+  font-size: 13px;
+}
+
+.wisdom-dialog__body {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.wisdom-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.status-pill--wisdom-draft {
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  color: var(--amber);
+}
+
+.status-pill--wisdom-published {
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+  color: var(--green);
+}
+
+.status-pill--wisdom-favorite {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent-strong);
+}
+
+.status-pill--wisdom-archived {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.wisdom-star {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.wisdom-star:hover {
+  background: var(--surface-2);
+  color: var(--accent-strong);
+}
+
+.wisdom-star.is-on {
+  background: transparent;
+  color: var(--accent-strong);
+}
+
+.wisdom-star.is-on:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.wisdom-starred-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: start;
+  width: fit-content;
+  padding: 3px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.wisdom-starred-chip:hover {
+  border-color: var(--line-strong);
+  color: var(--accent-strong);
+}
+
+.wisdom-starred-chip.is-on {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent-strong);
+}
+
+.wisdom-toast {
+  position: sticky;
+  top: 8px;
+  align-self: center;
+  max-width: 480px;
+  margin: 0 auto 12px;
+  padding: 8px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--amber) 14%, var(--surface));
+  color: var(--amber);
+  font-size: 13px;
+  text-align: center;
+  z-index: 6;
 }

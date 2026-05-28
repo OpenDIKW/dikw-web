@@ -7,7 +7,6 @@ import { ChatPage } from "./ChatPage";
 import { RetrievePage } from "./RetrievePage";
 import { TasksPage } from "./TasksPage";
 import { WikiPage } from "./WikiPage";
-import { WisdomPage } from "./WisdomPage";
 import type { AgentClientLike } from "./agentTypes";
 import type { AgentStreamEvent } from "../agent/types";
 import {
@@ -28,8 +27,7 @@ import {
   toTaskListPage,
   toTaskSummary,
   wikiPageBodiesFixture,
-  wikiPagesFixture,
-  wisdomItemsFixture
+  wikiPagesFixture
 } from "../test/fixtures";
 import { createMockClient } from "../test/mockClient";
 import { DikwClientError } from "../api/client";
@@ -1156,53 +1154,9 @@ describe("read console pages", () => {
     expect(client.get).toHaveBeenCalledTimes(2);
   });
 
-  it("loads wisdom items and refetches when filters change", async () => {
-    const client = createMockClient();
-    client.get.mockResolvedValue(wisdomItemsFixture);
-
-    render(<WisdomPage client={client} />);
-
-    expect(await screen.findByRole("heading", { name: "Prefer evidence" })).toBeInTheDocument();
-    await userEvent.selectOptions(screen.getByLabelText("Status"), "approved");
-
-    await waitFor(() => {
-      expect(client.get).toHaveBeenLastCalledWith(
-        "/v1/wisdom",
-        expect.objectContaining({
-          params: expect.objectContaining({ status: "approved" })
-        })
-      );
-    });
-  });
-
-  it("presents wisdom as a selectable library with a detail reader", async () => {
-    const client = createMockClient();
-    client.get.mockResolvedValue([
-      wisdomItemsFixture[0],
-      {
-        ...wisdomItemsFixture[0],
-        item_id: "wisdom-2",
-        kind: "lesson",
-        status: "approved",
-        title: "Trace sources",
-        body: "Link each claim to its source path.",
-        confidence: 0.91
-      }
-    ]);
-
-    render(<WisdomPage client={client} />);
-
-    const library = await screen.findByRole("list", { name: "Wisdom library" });
-    expect(within(library).getByRole("button", { name: /Prefer evidence/ })).toBeInTheDocument();
-    const detail = screen.getByRole("region", { name: "Wisdom detail" });
-    expect(within(detail).getByRole("heading", { name: "Prefer evidence" })).toBeInTheDocument();
-
-    await userEvent.click(within(library).getByRole("button", { name: /Trace sources/ }));
-
-    expect(within(detail).getByRole("heading", { name: "Trace sources" })).toBeInTheDocument();
-    expect(within(detail).getByText("Link each claim to its source path.")).toBeInTheDocument();
-    expect(within(detail).getByText("approved", { selector: ".status-pill" })).toBeInTheDocument();
-  });
+  // WisdomPage is now a hardcoded mock — its interactions are exercised in
+  // src/pages/wisdom.test.tsx. The legacy /v1/wisdom contract is no longer
+  // called, so the two previous tests here have moved.
 
   it("runs chat streams without calling the removed query endpoint", async () => {
     const agentClient: AgentClientLike = {

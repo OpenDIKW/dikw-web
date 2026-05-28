@@ -13,8 +13,7 @@ import {
   wikiPageBodiesFixture,
   wikiPageLinksFixture,
   wikiPageProvenanceFixture,
-  wikiPagesFixture,
-  wisdomItemsFixture
+  wikiPagesFixture
 } from "./fixtures";
 
 export async function mockDikwApi(page: Page) {
@@ -310,10 +309,6 @@ export async function mockDikwApi(page: Page) {
         return;
       }
       await route.fulfill({ status: 404, body: `unknown asset ${assetId}` });
-      return;
-    }
-    if (path === "/v1/wisdom") {
-      await route.fulfill({ json: wisdomItemsFixture });
       return;
     }
     if (path === "/v1/tasks") {
