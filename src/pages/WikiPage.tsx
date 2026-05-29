@@ -72,18 +72,25 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     }
   }, [initialPath]);
 
+  // Base view shows only the source + knowledge layers; wisdom has its own
+  // #wisdom page. Filter once here and reuse `basePages` for every lookup
+  // (tree, default selection, backlinks/provenance joins, wikilink preview,
+  // file count) so wisdom can't leak into #base through a join or preview.
+  const basePages = useMemo(
+    () => (pages.data ?? []).filter((doc) => doc.layer === "source" || doc.layer === "knowledge"),
+    [pages.data]
+  );
+
   const visiblePages = useMemo(() => {
     const needle = filter.trim().toLowerCase();
-    // Base view shows only the source + knowledge layers; wisdom has its own #wisdom page.
-    const docs = (pages.data ?? []).filter((doc) => doc.layer === "source" || doc.layer === "knowledge");
     if (!needle) {
-      return docs;
+      return basePages;
     }
-    return docs.filter((doc) => {
+    return basePages.filter((doc) => {
       const haystack = `${doc.path} ${doc.title ?? ""}`.toLowerCase();
       return haystack.includes(needle);
     });
-  }, [filter, pages.data]);
+  }, [filter, basePages]);
 
   const tree = useMemo(() => buildWikiTree(visiblePages), [visiblePages]);
   const expandedTreeIds = useMemo(() => {
@@ -299,7 +306,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   }
 
   function openWikiLink(target: string) {
-    const match = findPageForTarget(target, pages.data ?? []);
+    const match = findPageForTarget(target, basePages);
     if (!match) {
       setPreview({ kind: "not-found", target });
       return;
@@ -308,7 +315,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   }
 
   function openBacklink(path: string) {
-    const doc = pages.data?.find((entry) => entry.path === path);
+    const doc = basePages.find((entry) => entry.path === path);
     if (doc) {
       previewDoc(doc);
       return;
@@ -349,17 +356,17 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     setPreview({ kind: "idle" });
   }
 
-  const selectedDoc = pages.data?.find((doc) => doc.path === page?.path) ?? null;
+  const selectedDoc = basePages.find((doc) => doc.path === page?.path) ?? null;
   const sourceReferences = useMemo<SourceReference[]>(() => {
     // Only trust each response whose `path` matches the page on screen now;
     // a source→source switch updates `page` before the in-flight /links or
     // /provenance call settles.
     const linked =
-      backlinks && backlinks.path === page?.path ? resolveBacklinks(backlinks.incoming, pages.data ?? []) : [];
+      backlinks && backlinks.path === page?.path ? resolveBacklinks(backlinks.incoming, basePages) : [];
     const sourced =
-      derived && derived.path === page?.path ? resolveDerivedPages(derived.derived_pages, pages.data ?? []) : [];
+      derived && derived.path === page?.path ? resolveDerivedPages(derived.derived_pages, basePages) : [];
     return mergeSourceReferences(linked, sourced);
-  }, [backlinks, derived, page?.path, pages.data]);
+  }, [backlinks, derived, page?.path, basePages]);
 
   // Source 层 read tab 在 body 中首次出现的 K 页 title 上注入合成 wikilink。
   // 非 source 层不动 body;empty refs 时直接退化为原 body + 空 matched set。
@@ -370,10 +377,10 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     if (!page || page.layer !== "source") {
       return { body: page?.body ?? "", matchedPaths: new Set<string>() };
     }
-    const knownPaths = new Set((pages.data ?? []).map((p) => p.path));
+    const knownPaths = new Set(basePages.map((p) => p.path));
     const eligibleRefs = sourceReferences.filter((ref) => knownPaths.has(ref.path));
     return injectInlineRefs(page.body, eligibleRefs);
-  }, [page, sourceReferences, pages.data]);
+  }, [page, sourceReferences, basePages]);
 
   const unlinkedReferences = useMemo<SourceReference[]>(
     () => sourceReferences.filter((ref) => !enhancedSourceBody.matchedPaths.has(ref.path)),
@@ -399,7 +406,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
             <div>
               <h2>{copy.directoryTitle}</h2>
             </div>
-            <span className="soft-label">{formatFileCount(pages.data?.length ?? 0)}</span>
+            <span className="soft-label">{formatFileCount(basePages.length)}</span>
           </div>
           <label className="wiki-search">
             <Search size={15} aria-hidden="true" />
@@ -740,7 +747,14 @@ function WikiInfoPanel({
   const frontmatter = page.frontmatter ?? {};
   const tags = asStringList(frontmatter.tags);
   const sources = asStringList(frontmatter.sources);
-  const frontmatterRows = Object.entries(frontmatter).filter(([key]) => key !== "tags" && key !== "sources");
+  // Fixed rows below already show path/layer/anchors/updated, and tags/sources
+  // render as chips — exclude those keys (and empty values) so the grid never
+  // shows a duplicate or blank row.
+  const reservedKeys = new Set(["path", "layer", "anchors", "updated", "tags", "sources"]);
+  const frontmatterRows = Object.entries(frontmatter)
+    .filter(([key]) => !reservedKeys.has(key))
+    .map(([key, value]) => [key, stringifyFrontmatterValue(value)] as const)
+    .filter(([, value]) => value !== "");
   return (
     <section className="wiki-reader-tab-panel wiki-info-panel" role="tabpanel" aria-label={copy.infoPanel}>
       <dl className="wiki-info-grid">
@@ -763,7 +777,7 @@ function WikiInfoPanel({
         {frontmatterRows.map(([key, value]) => (
           <div key={key}>
             <dt>{key}</dt>
-            <dd>{stringifyFrontmatterValue(value)}</dd>
+            <dd>{value}</dd>
           </div>
         ))}
       </dl>

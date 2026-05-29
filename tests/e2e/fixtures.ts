@@ -1,6 +1,6 @@
 export const infoFixture = {
   engine_version: "0.0.1",
-  base_root: "C:\\demo\\wiki",
+  base_root: "C:\\demo\\base",
   storage_backend: "sqlite",
   providers: {
     llm: "anthropic_compat",
@@ -28,9 +28,7 @@ export const healthFixture = {
       model: "MiniMax-M2.7",
       base_url: "https://api.example.test/v1",
       max_retries: 2,
-      max_tokens_query: 1024,
       max_tokens_synth: 2048,
-      max_tokens_distill: 2048,
       timeout_seconds: 60,
       api_key_present: true
     },
@@ -53,11 +51,10 @@ export const healthFixture = {
 };
 
 export const statusFixture = {
-  documents_by_layer: { source: 1, wiki: 3, wisdom: 1 },
+  documents_by_layer: { source: 1, knowledge: 3, wisdom: 1 },
   chunks: 31,
   embeddings: 31,
   links: 3,
-  wisdom_by_status: { candidate: 1, approved: 1, archived: 0 },
   last_knowledge_log_ts: 1777819200,
   assets: 0,
   asset_embeddings: 0
@@ -65,7 +62,7 @@ export const statusFixture = {
 
 export const wikiPagesFixture = [
   {
-    doc_id: "wiki-architecture",
+    doc_id: "knowledge-architecture",
     path: "knowledge/concepts/architecture.md",
     path_key: "knowledge/concepts/architecture.md",
     title: "Architecture",
@@ -75,7 +72,7 @@ export const wikiPagesFixture = [
     active: true
   },
   {
-    doc_id: "wiki-synthesis",
+    doc_id: "knowledge-synthesis",
     path: "knowledge/concepts/synthesis.md",
     path_key: "knowledge/concepts/synthesis.md",
     title: "Synthesis",
@@ -85,7 +82,7 @@ export const wikiPagesFixture = [
     active: true
   },
   {
-    doc_id: "wiki-orphan",
+    doc_id: "knowledge-orphan",
     path: "knowledge/concepts/orphan.md",
     path_key: "knowledge/concepts/orphan.md",
     title: "Orphan",
@@ -206,7 +203,7 @@ export const graphResultFixture = {
 
 export const wikiPageBodiesFixture = {
   "knowledge/concepts/architecture.md": {
-    doc_id: "wiki-architecture",
+    doc_id: "knowledge-architecture",
     path: "knowledge/concepts/architecture.md",
     layer: "knowledge",
     title: "Architecture",
@@ -216,7 +213,7 @@ export const wikiPageBodiesFixture = {
     frontmatter: { title: "Architecture", tags: ["DIKW"], sources: ["source/a.md"], status: "draft" }
   },
   "knowledge/concepts/synthesis.md": {
-    doc_id: "wiki-synthesis",
+    doc_id: "knowledge-synthesis",
     path: "knowledge/concepts/synthesis.md",
     layer: "knowledge",
     title: "Synthesis",
@@ -225,7 +222,7 @@ export const wikiPageBodiesFixture = {
     assets: []
   },
   "knowledge/concepts/orphan.md": {
-    doc_id: "wiki-orphan",
+    doc_id: "knowledge-orphan",
     path: "knowledge/concepts/orphan.md",
     layer: "knowledge",
     title: "Orphan",
@@ -301,7 +298,7 @@ export const wikiPageLinksFixture: Record<string, PageLinksResult> = {
     outgoing: [],
     incoming: [
       {
-        src_doc_id: "wiki-architecture",
+        src_doc_id: "knowledge-architecture",
         src_path: "knowledge/concepts/architecture.md",
         link_type: "wikilink",
         anchor: null,
@@ -316,14 +313,14 @@ export const wikiPageProvenanceFixture: Record<string, PageProvenanceResult> = {
     path: "sources/architecture.md",
     derived_from: [],
     derived_pages: [
-      { doc_id: "wiki-architecture", path: "knowledge/concepts/architecture.md", title: "Architecture" },
-      { doc_id: "wiki-synthesis", path: "knowledge/concepts/synthesis.md", title: "Synthesis" }
+      { doc_id: "knowledge-architecture", path: "knowledge/concepts/architecture.md", title: "Architecture" },
+      { doc_id: "knowledge-synthesis", path: "knowledge/concepts/synthesis.md", title: "Synthesis" }
     ]
   }
 };
 
 export const hitFixture = {
-  doc_id: "wiki-architecture",
+  doc_id: "knowledge-architecture",
   chunk_id: 101,
   seq: 1,
   score: 0.982,
