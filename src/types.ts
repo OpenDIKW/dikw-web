@@ -1,4 +1,4 @@
-export type Layer = "source" | "wiki" | "wisdom";
+export type Layer = "source" | "knowledge" | "wisdom";
 export type TaskStatus = "pending" | "running" | "succeeded" | "failed" | "cancelled";
 
 export interface ApiErrorEnvelope {
@@ -11,7 +11,7 @@ export interface ApiErrorEnvelope {
 
 export interface InfoResponse {
   engine_version: string;
-  wiki_root: string;
+  base_root: string;
   storage_backend: string;
   providers: {
     llm: string;
@@ -33,7 +33,7 @@ export interface HealthReport {
 
 export interface LayerCounts {
   sources: number;
-  wiki_pages: number;
+  knowledge_pages: number;
   wisdom_items: number;
   chunks: number;
 }
@@ -48,9 +48,7 @@ export interface LlmInfo {
   model: string;
   base_url: string | null;
   max_retries: number;
-  max_tokens_query: number;
   max_tokens_synth: number;
-  max_tokens_distill: number;
   timeout_seconds: number;
   api_key_present: boolean;
 }
@@ -87,8 +85,7 @@ export interface StorageCounts {
   chunks: number;
   embeddings: number;
   links: number;
-  wisdom_by_status: Record<string, number>;
-  last_wiki_log_ts: number | null;
+  last_knowledge_log_ts: number | null;
   assets: number;
   asset_embeddings: number;
 }
@@ -137,6 +134,10 @@ export interface PageReadResult {
   body: string;
   anchors: PageAnchor[];
   assets: PageAsset[];
+  // Server-parsed YAML frontmatter (dikw-core 0.4.0+). Optional on the web side:
+  // core always returns it (defaults to {}), but keeping it optional spares the
+  // many existing PageReadResult mocks from a required-field churn.
+  frontmatter?: Record<string, unknown>;
 }
 
 export type LinkType = "wikilink" | "markdown" | "url";
@@ -321,7 +322,7 @@ export interface FixProposalReport {
 export interface ApplyReport {
   applied: FixOperation[];
   skipped: Array<Record<string, unknown>>;
-  wiki_paths_changed: string[];
+  knowledge_paths_changed: string[];
   proposal_task_id?: string | null;
 }
 

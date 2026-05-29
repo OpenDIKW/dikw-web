@@ -118,7 +118,7 @@ function applyReport(overrides: Partial<ApplyReport> = {}): ApplyReport {
       { kind: "update_page", path: "sources/a.md" }
     ],
     skipped: [],
-    wiki_paths_changed: ["sources/a.md"],
+    knowledge_paths_changed: ["sources/a.md"],
     proposal_task_id: null,
     ...overrides
   };

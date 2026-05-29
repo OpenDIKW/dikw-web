@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("dark Wiki reader uses low-glare surfaces with readable contrast", async ({ page }) => {
-  await page.goto("/#wiki");
+  await page.goto("/#base");
 
   const reader = page.locator(".wiki-reader");
   await expect(reader).toBeVisible();
@@ -108,7 +108,7 @@ test("dark Wiki reader uses low-glare surfaces with readable contrast", async ({
 });
 
 test("dark Wiki reader keeps details and Mermaid diagrams on reader surfaces", async ({ page }) => {
-  await page.goto("/#wiki");
+  await page.goto("/#base");
 
   await page.getByLabel("Filter").fill("active-learning");
   await page.getByRole("treeitem", { name: "Active Learning Medium" }).getByRole("button").click();

@@ -7,33 +7,33 @@ import { layoutGalaxyGraph, toGalaxyGraph } from "./galaxyGraph";
 
 const pages: DocumentRecord[] = [
   {
-    doc_id: "wiki-architecture",
-    path: "wiki/architecture.md",
-    path_key: "wiki/architecture.md",
+    doc_id: "knowledge-architecture",
+    path: "knowledge/architecture.md",
+    path_key: "knowledge/architecture.md",
     title: "Architecture",
     hash: "hash-a",
     mtime: 1777819200,
-    layer: "wiki",
+    layer: "knowledge",
     active: true
   },
   {
-    doc_id: "wiki-synthesis",
-    path: "wiki/synthesis.md",
-    path_key: "wiki/synthesis.md",
+    doc_id: "knowledge-synthesis",
+    path: "knowledge/synthesis.md",
+    path_key: "knowledge/synthesis.md",
     title: "Synthesis",
     hash: "hash-s",
     mtime: 1777819300,
-    layer: "wiki",
+    layer: "knowledge",
     active: true
   },
   {
-    doc_id: "wiki-orphan",
-    path: "wiki/orphan.md",
-    path_key: "wiki/orphan.md",
+    doc_id: "knowledge-orphan",
+    path: "knowledge/orphan.md",
+    path_key: "knowledge/orphan.md",
     title: "Orphan",
     hash: "hash-o",
     mtime: 1777819400,
-    layer: "wiki",
+    layer: "knowledge",
     active: true
   },
   {
@@ -49,28 +49,28 @@ const pages: DocumentRecord[] = [
 ];
 
 const bodies: Record<string, PageReadResult> = {
-  "wiki/architecture.md": {
-    doc_id: "wiki-architecture",
-    path: "wiki/architecture.md",
-    layer: "wiki",
+  "knowledge/architecture.md": {
+    doc_id: "knowledge-architecture",
+    path: "knowledge/architecture.md",
+    layer: "knowledge",
     title: "Architecture",
     body: "# Architecture\n\nSee [[Synthesis#Details|the synthesis page]] and again [[Synthesis#Details]]. Missing [[Missing Concept]].",
     anchors: [],
     assets: []
   },
-  "wiki/synthesis.md": {
-    doc_id: "wiki-synthesis",
-    path: "wiki/synthesis.md",
-    layer: "wiki",
+  "knowledge/synthesis.md": {
+    doc_id: "knowledge-synthesis",
+    path: "knowledge/synthesis.md",
+    layer: "knowledge",
     title: "Synthesis",
     body: "# Synthesis\n\nSynthesis Body.",
     anchors: [],
     assets: []
   },
-  "wiki/orphan.md": {
-    doc_id: "wiki-orphan",
-    path: "wiki/orphan.md",
-    layer: "wiki",
+  "knowledge/orphan.md": {
+    doc_id: "knowledge-orphan",
+    path: "knowledge/orphan.md",
+    layer: "knowledge",
     title: "Orphan",
     body: "# Orphan\n\nNo links.",
     anchors: [],
@@ -94,20 +94,20 @@ describe("knowledge graph builder", () => {
       generated_at: "2026-05-14T10:00:00Z",
       nodes: [
         {
-          id: "wiki/architecture.md",
-          path: "wiki/architecture.md",
+          id: "knowledge/architecture.md",
+          path: "knowledge/architecture.md",
           title: "Architecture",
-          layer: "wiki",
+          layer: "knowledge",
           active: true,
           mtime: 1777819200,
           inbound: 0,
           outbound: 1
         },
         {
-          id: "wiki/synthesis.md",
-          path: "wiki/synthesis.md",
+          id: "knowledge/synthesis.md",
+          path: "knowledge/synthesis.md",
           title: "Synthesis",
-          layer: "wiki",
+          layer: "knowledge",
           active: true,
           mtime: 1777819300,
           inbound: 1,
@@ -116,9 +116,9 @@ describe("knowledge graph builder", () => {
       ],
       edges: [
         {
-          id: "wiki/architecture.md->wiki/synthesis.md",
-          source: "wiki/architecture.md",
-          target: "wiki/synthesis.md",
+          id: "knowledge/architecture.md->knowledge/synthesis.md",
+          source: "knowledge/architecture.md",
+          target: "knowledge/synthesis.md",
           type: "wikilink",
           target_text: "Synthesis",
           anchor: "Details",
@@ -127,7 +127,7 @@ describe("knowledge graph builder", () => {
       ],
       unresolved: [
         {
-          source: "wiki/architecture.md",
+          source: "knowledge/architecture.md",
           target_text: "Missing Concept",
           anchor: null,
           count: 2
@@ -144,24 +144,24 @@ describe("knowledge graph builder", () => {
 
     expect(graph.stats).toEqual({ nodeCount: 2, edgeCount: 1, unresolvedCount: 2 });
     expect(graph.nodes[0]).toMatchObject({
-      id: "wiki/architecture.md",
+      id: "knowledge/architecture.md",
       title: "Architecture",
-      path: "wiki/architecture.md",
-      layer: "wiki",
+      path: "knowledge/architecture.md",
+      layer: "knowledge",
       inbound: 0,
       outbound: 1,
       linkCount: 1
     });
     expect(graph.edges[0]).toMatchObject({
-      id: "wiki/architecture.md->wiki/synthesis.md",
-      source: "wiki/architecture.md",
-      target: "wiki/synthesis.md",
+      id: "knowledge/architecture.md->knowledge/synthesis.md",
+      source: "knowledge/architecture.md",
+      target: "knowledge/synthesis.md",
       anchor: "Details",
       weight: 3
     });
     expect(graph.unresolvedLinks).toEqual([
       {
-        source: "wiki/architecture.md",
+        source: "knowledge/architecture.md",
         target: "Missing Concept",
         anchor: null,
         count: 2
@@ -173,13 +173,13 @@ describe("knowledge graph builder", () => {
     const graph = buildKnowledgeGraph(pages, bodies);
 
     expect(graph.stats).toMatchObject({ nodeCount: 4, edgeCount: 1, unresolvedCount: 1 });
-    expect(graph.nodes.find((node) => node.id === "wiki/architecture.md")).toMatchObject({
+    expect(graph.nodes.find((node) => node.id === "knowledge/architecture.md")).toMatchObject({
       title: "Architecture",
       outbound: 1,
       inbound: 0,
       linkCount: 1
     });
-    expect(graph.nodes.find((node) => node.id === "wiki/synthesis.md")).toMatchObject({
+    expect(graph.nodes.find((node) => node.id === "knowledge/synthesis.md")).toMatchObject({
       title: "Synthesis",
       outbound: 0,
       inbound: 1,
@@ -187,16 +187,16 @@ describe("knowledge graph builder", () => {
     });
     expect(graph.edges).toEqual([
       expect.objectContaining({
-        id: "wiki/architecture.md->wiki/synthesis.md",
-        source: "wiki/architecture.md",
-        target: "wiki/synthesis.md",
+        id: "knowledge/architecture.md->knowledge/synthesis.md",
+        source: "knowledge/architecture.md",
+        target: "knowledge/synthesis.md",
         anchor: "Details",
         weight: 2
       })
     ]);
     expect(graph.unresolvedLinks).toEqual([
       expect.objectContaining({
-        source: "wiki/architecture.md",
+        source: "knowledge/architecture.md",
         target: "Missing Concept"
       })
     ]);
@@ -207,11 +207,11 @@ describe("knowledge graph builder", () => {
 
     expect(
       filterKnowledgeGraph(graph, {
-        layer: "wiki",
+        layer: "knowledge",
         query: "",
         hideOrphans: true
       }).nodes.map((node) => node.id)
-    ).toEqual(["wiki/architecture.md", "wiki/synthesis.md"]);
+    ).toEqual(["knowledge/architecture.md", "knowledge/synthesis.md"]);
 
     expect(
       filterKnowledgeGraph(graph, {
@@ -251,9 +251,9 @@ describe("knowledge graph builder", () => {
     const second = toGalaxyGraph(graph);
 
     expect(first).toEqual(second);
-    expect(first.nodes.find((node) => node.id === "wiki/architecture.md")).toMatchObject({
+    expect(first.nodes.find((node) => node.id === "knowledge/architecture.md")).toMatchObject({
       degree: 1,
-      layer: "wiki",
+      layer: "knowledge",
       radius: expect.any(Number),
       clusterId: expect.any(Number)
     });
@@ -262,8 +262,8 @@ describe("knowledge graph builder", () => {
       layer: "source"
     });
     expect(first.edges[0]).toMatchObject({
-      source: "wiki/architecture.md",
-      target: "wiki/synthesis.md",
+      source: "knowledge/architecture.md",
+      target: "knowledge/synthesis.md",
       weight: 2,
       thickness: expect.any(Number)
     });
@@ -349,17 +349,17 @@ describe("findPageForTarget", () => {
         active: true
       },
       {
-        doc_id: "wiki-arch",
-        path: "wiki/architecture.md",
-        path_key: "wiki/architecture.md",
+        doc_id: "knowledge-arch",
+        path: "knowledge/architecture.md",
+        path_key: "knowledge/architecture.md",
         title: "Architecture",
         hash: "h2",
         mtime: 0,
-        layer: "wiki",
+        layer: "knowledge",
         active: true
       }
     ];
-    expect(findPageForTarget("Architecture", pages)?.path).toBe("wiki/architecture.md");
+    expect(findPageForTarget("Architecture", pages)?.path).toBe("knowledge/architecture.md");
   });
 
   it("returns the K page even when target uses the full wiki path form", () => {
@@ -375,25 +375,25 @@ describe("findPageForTarget", () => {
         active: true
       },
       {
-        doc_id: "wiki-arch",
-        path: "wiki/architecture.md",
-        path_key: "wiki/architecture.md",
+        doc_id: "knowledge-arch",
+        path: "knowledge/architecture.md",
+        path_key: "knowledge/architecture.md",
         title: "Architecture",
         hash: "h2",
         mtime: 0,
-        layer: "wiki",
+        layer: "knowledge",
         active: true
       }
     ];
-    expect(findPageForTarget("wiki/architecture.md", pages)?.path).toBe("wiki/architecture.md");
+    expect(findPageForTarget("knowledge/architecture.md", pages)?.path).toBe("knowledge/architecture.md");
   });
 });
 
 function makeLargeHubGraph(nodeCount: number, groupCount: number): KnowledgeGraph {
   const nodes = Array.from({ length: nodeCount }, (_, index) => {
     const group = index % groupCount;
-    const layer = index % 7 === 0 ? ("source" as const) : ("wiki" as const);
-    const pathRoot = layer === "source" ? "sources" : "wiki";
+    const layer = index % 7 === 0 ? ("source" as const) : ("knowledge" as const);
+    const pathRoot = layer === "source" ? "sources" : "knowledge";
     const pathGroup = layer === "source" ? `corpus-${group}` : `topic-${group}`;
     const id = `${pathRoot}/${pathGroup}/note-${index}.md`;
     return {

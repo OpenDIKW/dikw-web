@@ -36,11 +36,11 @@ describe("agent HTTP sidecar", () => {
         await store.recordToolEvent(sessionId, toolEvent);
         await onEvent({ type: "tool_event", sessionId, event: toolEvent });
         await onEvent({ type: "message_delta", sessionId, delta: "Layered answer." });
-        await store.recordSource(sessionId, { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" });
+        await store.recordSource(sessionId, { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" });
         await onEvent({
           type: "source",
           sessionId,
-          source: { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }
+          source: { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }
         });
         await store.appendAssistantMessage(sessionId, "Layered answer.");
         await onEvent({ type: "agent_end", sessionId });
@@ -81,7 +81,7 @@ describe("agent HTTP sidecar", () => {
     };
     expect(reopened.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
     expect(reopened.toolEvents[0]).toMatchObject({ id: "tool-1" });
-    expect(reopened.sources[0].path).toBe("wiki/architecture.md");
+    expect(reopened.sources[0].path).toBe("knowledge/architecture.md");
 
     const summaries = (await (await fetch(`${baseUrl}/sessions`)).json()) as Array<{ id: string; messageCount: number }>;
     expect(summaries).toEqual([expect.objectContaining({ id: created.id, messageCount: 2 })]);

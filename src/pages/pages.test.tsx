@@ -116,7 +116,7 @@ describe("read console pages", () => {
     render(<WikiPage client={client} />);
 
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
-    expect(screen.getByText("wiki · 1 anchor")).toBeInTheDocument();
+    expect(screen.getByText("knowledge · 1 anchor")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Synthesis" }));
     expect(await screen.findByText("Synthesis Body.")).toBeInTheDocument();
   });
@@ -135,7 +135,7 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           outgoing: [],
           incoming: [
-            { src_doc_id: "wiki-architecture", src_path: "wiki/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
+            { src_doc_id: "knowledge-architecture", src_path: "knowledge/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
           ]
         } satisfies PageLinksResult);
       }
@@ -149,7 +149,7 @@ describe("read console pages", () => {
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -173,7 +173,7 @@ describe("read console pages", () => {
 
     await userEvent.click(inlineButton);
     const preview = await screen.findByRole("region", { name: "Wiki link preview" });
-    expect(within(preview).getByText("wiki/architecture.md")).toBeInTheDocument();
+    expect(within(preview).getByText("knowledge/architecture.md")).toBeInTheDocument();
   });
 
   it("inlines matched K-pages into the source body and lists unmatched ones in the panel", async () => {
@@ -187,7 +187,7 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           outgoing: [],
           incoming: [
-            { src_doc_id: "wiki-architecture", src_path: "wiki/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
+            { src_doc_id: "knowledge-architecture", src_path: "knowledge/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
           ]
         } satisfies PageLinksResult);
       }
@@ -196,14 +196,14 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           derived_from: [],
           derived_pages: [
-            { doc_id: "wiki-architecture", path: "wiki/architecture.md", title: "Architecture" },
-            { doc_id: "wiki-synthesis", path: "wiki/synthesis.md", title: "Synthesis" }
+            { doc_id: "knowledge-architecture", path: "knowledge/architecture.md", title: "Architecture" },
+            { doc_id: "knowledge-synthesis", path: "knowledge/synthesis.md", title: "Synthesis" }
           ]
         });
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -248,13 +248,13 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           derived_from: [],
           derived_pages: [
-            { doc_id: "wiki-architecture", path: "wiki/architecture.md", title: "Architecture" }
+            { doc_id: "knowledge-architecture", path: "knowledge/architecture.md", title: "Architecture" }
           ]
         });
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -271,7 +271,7 @@ describe("read console pages", () => {
     await userEvent.click(inlineButton);
 
     const preview = await screen.findByRole("region", { name: "Wiki link preview" });
-    expect(within(preview).getByText("wiki/architecture.md")).toBeInTheDocument();
+    expect(within(preview).getByText("knowledge/architecture.md")).toBeInTheDocument();
   });
 
   it("renders the original source body verbatim in the Source tab (no inline injection)", async () => {
@@ -292,13 +292,13 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           derived_from: [],
           derived_pages: [
-            { doc_id: "wiki-architecture", path: "wiki/architecture.md", title: "Architecture" }
+            { doc_id: "knowledge-architecture", path: "knowledge/architecture.md", title: "Architecture" }
           ]
         });
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -333,7 +333,7 @@ describe("read console pages", () => {
     const client = createMockClient();
     client.get.mockImplementation((path: string) => {
       if (path === "/v1/base/pages") {
-        // Note: wiki/fresh-k.md intentionally NOT in the page list.
+        // Note: knowledge/fresh-k.md intentionally NOT in the page list.
         return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
       }
       if (path.endsWith("/links")) {
@@ -348,17 +348,17 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           derived_from: [],
           derived_pages: [
-            { doc_id: "wiki-fresh-k", path: "wiki/fresh-k.md", title: "Fresh K-page" }
+            { doc_id: "knowledge-fresh-k", path: "knowledge/fresh-k.md", title: "Fresh K-page" }
           ]
         });
       }
-      if (path === "/v1/base/pages/wiki/fresh-k.md") {
+      if (path === "/v1/base/pages/knowledge/fresh-k.md") {
         // Preview fetch goes straight to core by path — pages.data is not
         // consulted for the body read.
         return Promise.resolve({
-          doc_id: "wiki-fresh-k",
-          path: "wiki/fresh-k.md",
-          layer: "wiki",
+          doc_id: "knowledge-fresh-k",
+          path: "knowledge/fresh-k.md",
+          layer: "knowledge",
           title: "Fresh K-page",
           body: "Body of fresh K-page.",
           anchors: [],
@@ -367,7 +367,7 @@ describe("read console pages", () => {
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -384,7 +384,7 @@ describe("read console pages", () => {
     await userEvent.click(freshButton);
 
     const preview = await screen.findByRole("region", { name: "Wiki link preview" });
-    expect(within(preview).getByText("wiki/fresh-k.md")).toBeInTheDocument();
+    expect(within(preview).getByText("knowledge/fresh-k.md")).toBeInTheDocument();
     // The selection-effect at L114 (WikiPage) forces any selectedPath
     // outside visiblePages back to the default page, so the "Open as
     // main document" button would silently fail for a cache-lag stub.
@@ -395,13 +395,13 @@ describe("read console pages", () => {
   it("keeps a cache-lag K-page in the bottom panel even when its title literally appears in the source body", async () => {
     // 没有这个保护时:injectInlineRefs 会把 "Emergent" 字面命中后从 panel
     // 移除,但 inline 按钮的 openWikiLink("Emergent") → findPageForTarget
-    // 在 pages.data 里找不到 wiki/emergent.md,返回 not-found —— dead link。
+    // 在 pages.data 里找不到 knowledge/emergent.md,返回 not-found —— dead link。
     // 修复后:cache-lag ref 不参与 inline 注入,留在 panel,由 openBacklink
     // 的 path-based fallback 直接打开 preview。
     const client = createMockClient();
     client.get.mockImplementation((path: string) => {
       if (path === "/v1/base/pages") {
-        // wiki/emergent.md 故意没放进 page list,模拟 cache lag。
+        // knowledge/emergent.md 故意没放进 page list,模拟 cache lag。
         return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
       }
       if (path.endsWith("/links")) {
@@ -416,7 +416,7 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           derived_from: [],
           derived_pages: [
-            { doc_id: "wiki-emergent", path: "wiki/emergent.md", title: "Emergent" }
+            { doc_id: "knowledge-emergent", path: "knowledge/emergent.md", title: "Emergent" }
           ]
         });
       }
@@ -432,11 +432,11 @@ describe("read console pages", () => {
           assets: []
         } satisfies PageReadResult);
       }
-      if (path === "/v1/base/pages/wiki/emergent.md") {
+      if (path === "/v1/base/pages/knowledge/emergent.md") {
         return Promise.resolve({
-          doc_id: "wiki-emergent",
-          path: "wiki/emergent.md",
-          layer: "wiki",
+          doc_id: "knowledge-emergent",
+          path: "knowledge/emergent.md",
+          layer: "knowledge",
           title: "Emergent",
           body: "Body of Emergent.",
           anchors: [],
@@ -445,7 +445,7 @@ describe("read console pages", () => {
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -472,7 +472,7 @@ describe("read console pages", () => {
     // 点击 panel 里的按钮 → preview 打开(由 openBacklink path-based fallback 兜底)。
     await userEvent.click(panelButton);
     const preview = await screen.findByRole("region", { name: "Wiki link preview" });
-    expect(within(preview).getByText("wiki/emergent.md")).toBeInTheDocument();
+    expect(within(preview).getByText("knowledge/emergent.md")).toBeInTheDocument();
   });
 
   it.each([
@@ -489,7 +489,7 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           outgoing: [],
           incoming: [
-            { src_doc_id: "wiki-architecture", src_path: "wiki/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
+            { src_doc_id: "knowledge-architecture", src_path: "knowledge/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
           ]
         } satisfies PageLinksResult);
       }
@@ -498,7 +498,7 @@ describe("read console pages", () => {
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -572,7 +572,7 @@ describe("read console pages", () => {
         return Promise.resolve({
           path: target,
           derived_from: [],
-          derived_pages: [{ doc_id: "wiki-synthesis", path: "wiki/synthesis.md", title: "Synthesis" }]
+          derived_pages: [{ doc_id: "knowledge-synthesis", path: "knowledge/synthesis.md", title: "Synthesis" }]
         });
       }
       if (path.startsWith("/v1/base/pages/")) {
@@ -615,7 +615,7 @@ describe("read console pages", () => {
       resolveStaleProvenance?.({
         path: "sources/synthesis-notes.md",
         derived_from: [],
-        derived_pages: [{ doc_id: "wiki-architecture", path: "wiki/architecture.md", title: "Architecture" }]
+        derived_pages: [{ doc_id: "knowledge-architecture", path: "knowledge/architecture.md", title: "Architecture" }]
       });
     });
 
@@ -632,7 +632,7 @@ describe("read console pages", () => {
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["wiki/architecture.md"]);
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -642,9 +642,81 @@ describe("read console pages", () => {
     expect(screen.queryByLabelText("Layer")).not.toBeInTheDocument();
     const directory = await screen.findByRole("tree", { name: "Base directory" });
     expect(within(directory).getByRole("treeitem", { name: "base" })).toBeInTheDocument();
-    expect(within(directory).getByRole("treeitem", { name: "wiki" })).toBeInTheDocument();
+    expect(within(directory).getByRole("treeitem", { name: "knowledge" })).toBeInTheDocument();
     expect(within(directory).getByRole("treeitem", { name: "sources" })).toBeInTheDocument();
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
+  });
+
+  it("excludes wisdom pages from the base directory tree", async () => {
+    const client = createMockClient();
+    const wisdomPage: DocumentRecord = {
+      doc_id: "wisdom-first-principles",
+      path: "wisdom/elon-musk/first-principles.md",
+      path_key: "wisdom/elon-musk/first-principles.md",
+      title: "First principles",
+      hash: "hash-w",
+      mtime: 1777819500,
+      layer: "wisdom",
+      active: true
+    };
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture, wisdomPage]);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+
+    const directory = await screen.findByRole("tree", { name: "Base directory" });
+    expect(within(directory).getByRole("treeitem", { name: "knowledge" })).toBeInTheDocument();
+    expect(within(directory).getByRole("treeitem", { name: "sources" })).toBeInTheDocument();
+    // wisdom has its own #wisdom page and must not surface in the Base tree.
+    expect(within(directory).queryByRole("treeitem", { name: "wisdom" })).not.toBeInTheDocument();
+    expect(within(directory).queryByText("First principles")).not.toBeInTheDocument();
+  });
+
+  it("filters wisdom pages out of a source page's provenance references", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.endsWith("/links")) {
+        const target = decodeURIComponent(path.replace("/v1/base/pages/", "").replace(/\/links$/, ""));
+        return Promise.resolve({ path: target, outgoing: [], incoming: [] });
+      }
+      if (path.endsWith("/provenance")) {
+        const target = decodeURIComponent(path.replace("/v1/base/pages/", "").replace(/\/provenance$/, ""));
+        // knowledge/synthesis.md is in the page list (resolves to layer knowledge);
+        // the wisdom path is NOT, so resolveDerivedPages infers layer "wisdom" via
+        // its cache-lag fallback. Base must drop that wisdom ref.
+        return Promise.resolve({
+          path: target,
+          derived_from: [],
+          derived_pages: [
+            { doc_id: "knowledge-synthesis", path: "knowledge/synthesis.md", title: "Synthesis" },
+            { doc_id: "wisdom-lesson", path: "wisdom/lessons/alpha.md", title: "Wisdom Lesson Alpha" }
+          ]
+        });
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["sources/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} initialPath="sources/architecture.md" />);
+
+    const reader = await screen.findByRole("main", { name: "Wiki reader" });
+    // The knowledge provenance ref renders; the wisdom one is filtered out of Base.
+    await waitFor(() => expect(within(reader).getByText("Synthesis")).toBeInTheDocument());
+    expect(within(reader).queryByText("Wisdom Lesson Alpha")).not.toBeInTheDocument();
   });
 
   it("preserves an initial wiki path while the page list is still loading", async () => {
@@ -667,54 +739,54 @@ describe("read console pages", () => {
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
 
-    render(<WikiPage client={client} initialPath="wiki/synthesis.md" />);
+    render(<WikiPage client={client} initialPath="knowledge/synthesis.md" />);
 
     resolvePages(wikiPagesFixture);
 
     expect(await screen.findByText("Synthesis Body.")).toBeInTheDocument();
     expect(screen.queryByText("Layered DIKW notes.")).not.toBeInTheDocument();
-    expect(bodyReads).toContain("wiki/synthesis.md");
-    expect(bodyReads).not.toContain("wiki/architecture.md");
+    expect(bodyReads).toContain("knowledge/synthesis.md");
+    expect(bodyReads).not.toContain("knowledge/architecture.md");
   });
 
   it("renders wiki pages as a directory tree and opens wikilinks in the preview panel", async () => {
     const client = createMockClient();
     const treePages: DocumentRecord[] = [
       {
-        doc_id: "wiki-dikw-core",
-        path: "wiki/entities/dikw-core.md",
-        path_key: "wiki/entities/dikw-core.md",
+        doc_id: "knowledge-dikw-core",
+        path: "knowledge/entities/dikw-core.md",
+        path_key: "knowledge/entities/dikw-core.md",
         title: "dikw-core",
         hash: "hash-core",
         mtime: 1777820000,
-        layer: "wiki",
+        layer: "knowledge",
         active: true
       },
       {
-        doc_id: "wiki-dikw-pyramid",
-        path: "wiki/concepts/pyramid-diagram.md",
-        path_key: "wiki/concepts/pyramid-diagram.md",
+        doc_id: "knowledge-dikw-pyramid",
+        path: "knowledge/concepts/pyramid-diagram.md",
+        path_key: "knowledge/concepts/pyramid-diagram.md",
         title: "DIKW 金字塔",
         hash: "hash-pyramid",
         mtime: 1777820100,
-        layer: "wiki",
+        layer: "knowledge",
         active: true
       }
     ];
     const treeBodies: Record<string, PageReadResult> = {
-      "wiki/entities/dikw-core.md": {
-        doc_id: "wiki-dikw-core",
-        path: "wiki/entities/dikw-core.md",
-        layer: "wiki",
+      "knowledge/entities/dikw-core.md": {
+        doc_id: "knowledge-dikw-core",
+        path: "knowledge/entities/dikw-core.md",
+        layer: "knowledge",
         title: "dikw-core",
         body: "# dikw-core\n\nRead about [[DIKW pyramid]].",
         anchors: [{ chunk_id: 301, seq: 1, start: 0, end: 22 }],
         assets: []
       },
-      "wiki/concepts/pyramid-diagram.md": {
-        doc_id: "wiki-dikw-pyramid",
-        path: "wiki/concepts/pyramid-diagram.md",
-        layer: "wiki",
+      "knowledge/concepts/pyramid-diagram.md": {
+        doc_id: "knowledge-dikw-pyramid",
+        path: "knowledge/concepts/pyramid-diagram.md",
+        layer: "knowledge",
         title: "DIKW 金字塔",
         body: "# DIKW 金字塔\n\nPreview body for the pyramid concept.",
         anchors: [{ chunk_id: 302, seq: 1, start: 0, end: 34 }],
@@ -736,7 +808,7 @@ describe("read console pages", () => {
 
     const directory = await screen.findByRole("tree", { name: "Base directory" });
     expect(within(directory).getByRole("treeitem", { name: "base" })).toBeInTheDocument();
-    expect(within(directory).getByRole("treeitem", { name: /wiki/ })).toBeInTheDocument();
+    expect(within(directory).getByRole("treeitem", { name: /knowledge/ })).toBeInTheDocument();
     await screen.findByRole("heading", { name: "dikw-core", level: 1 });
     expect(within(directory).getByRole("treeitem", { name: /entities/ })).toBeInTheDocument();
     expect(await within(directory).findByRole("button", { name: /dikw-core/ })).toBeInTheDocument();
@@ -747,7 +819,7 @@ describe("read console pages", () => {
 
     const preview = screen.getByRole("region", { name: "Wiki link preview" });
     expect(within(preview).getByRole("heading", { name: "DIKW 金字塔" })).toBeInTheDocument();
-    expect(within(preview).getByText("wiki/concepts/pyramid-diagram.md")).toBeInTheDocument();
+    expect(within(preview).getByText("knowledge/concepts/pyramid-diagram.md")).toBeInTheDocument();
     expect(within(preview).getByText("Preview body for the pyramid concept.")).toBeInTheDocument();
     expect(within(screen.getByRole("main", { name: "Wiki reader" })).getByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
 
@@ -769,23 +841,23 @@ describe("read console pages", () => {
       if (path === "/v1/base/pages") {
         return Promise.resolve([
           {
-            doc_id: "wiki-dikw-core",
-            path: "wiki/entities/dikw-core.md",
-            path_key: "wiki/entities/dikw-core.md",
+            doc_id: "knowledge-dikw-core",
+            path: "knowledge/entities/dikw-core.md",
+            path_key: "knowledge/entities/dikw-core.md",
             title: "dikw-core",
             hash: "hash-core",
             mtime: 1777820000,
-            layer: "wiki",
+            layer: "knowledge",
             active: true
           },
           {
-            doc_id: "wiki-dikw-pyramid",
-            path: "wiki/concepts/dikw-pyramid.md",
-            path_key: "wiki/concepts/dikw-pyramid.md",
+            doc_id: "knowledge-dikw-pyramid",
+            path: "knowledge/concepts/dikw-pyramid.md",
+            path_key: "knowledge/concepts/dikw-pyramid.md",
             title: "DIKW pyramid",
             hash: "hash-pyramid",
             mtime: 1777820100,
-            layer: "wiki",
+            layer: "knowledge",
             active: true
           }
         ] satisfies DocumentRecord[]);
@@ -795,7 +867,7 @@ describe("read console pages", () => {
         return Promise.resolve({
           doc_id: selectedPath,
           path: selectedPath,
-          layer: "wiki",
+          layer: "knowledge",
           title: selectedPath.includes("pyramid") ? "DIKW pyramid" : "dikw-core",
           body: selectedPath.includes("pyramid") ? "# DIKW pyramid\n\nPyramid body." : "# dikw-core\n\nCore body.",
           anchors: [],
@@ -811,7 +883,7 @@ describe("read console pages", () => {
     await userEvent.type(screen.getByLabelText("Filter"), "pyramid");
 
     const directory = screen.getByRole("tree", { name: "Base directory" });
-    expect(within(directory).getByRole("treeitem", { name: "wiki" })).toHaveAttribute("aria-expanded", "true");
+    expect(within(directory).getByRole("treeitem", { name: "knowledge" })).toHaveAttribute("aria-expanded", "true");
     expect(within(directory).getByRole("treeitem", { name: "concepts" })).toHaveAttribute("aria-expanded", "true");
     expect(await within(directory).findByRole("button", { name: /DIKW pyramid/ })).toBeInTheDocument();
     expect(within(directory).queryByRole("button", { name: /dikw-core/ })).not.toBeInTheDocument();
@@ -824,23 +896,23 @@ describe("read console pages", () => {
       if (path === "/v1/base/pages") {
         return Promise.resolve([
           {
-            doc_id: "wiki-dikw-core",
-            path: "wiki/entities/dikw-core.md",
-            path_key: "wiki/entities/dikw-core.md",
+            doc_id: "knowledge-dikw-core",
+            path: "knowledge/entities/dikw-core.md",
+            path_key: "knowledge/entities/dikw-core.md",
             title: "dikw-core",
             hash: "hash-core",
             mtime: 1777820000,
-            layer: "wiki",
+            layer: "knowledge",
             active: true
           },
           {
-            doc_id: "wiki-dikw-pyramid",
-            path: "wiki/concepts/dikw-pyramid.md",
-            path_key: "wiki/concepts/dikw-pyramid.md",
+            doc_id: "knowledge-dikw-pyramid",
+            path: "knowledge/concepts/dikw-pyramid.md",
+            path_key: "knowledge/concepts/dikw-pyramid.md",
             title: "DIKW pyramid",
             hash: "hash-pyramid",
             mtime: 1777820100,
-            layer: "wiki",
+            layer: "knowledge",
             active: true
           }
         ] satisfies DocumentRecord[]);
@@ -851,7 +923,7 @@ describe("read console pages", () => {
         return Promise.resolve({
           doc_id: selectedPath,
           path: selectedPath,
-          layer: "wiki",
+          layer: "knowledge",
           title: selectedPath.includes("pyramid") ? "DIKW pyramid" : "dikw-core",
           body: selectedPath.includes("pyramid") ? "# DIKW pyramid\n\nPyramid body." : "# dikw-core\n\nCore body with [[DIKW pyramid]].",
           anchors: [],
@@ -892,22 +964,22 @@ describe("read console pages", () => {
       if (path === "/v1/base/pages") {
         return Promise.resolve([
           {
-            doc_id: "wiki-dikw-core",
-            path: "wiki/entities/dikw-core.md",
-            path_key: "wiki/entities/dikw-core.md",
+            doc_id: "knowledge-dikw-core",
+            path: "knowledge/entities/dikw-core.md",
+            path_key: "knowledge/entities/dikw-core.md",
             title: "dikw-core",
             hash: "hash-core",
             mtime: 1777820000,
-            layer: "wiki",
+            layer: "knowledge",
             active: true
           }
         ] satisfies DocumentRecord[]);
       }
       if (path.startsWith("/v1/base/pages/")) {
         return Promise.resolve({
-          doc_id: "wiki-dikw-core",
-          path: "wiki/entities/dikw-core.md",
-          layer: "wiki",
+          doc_id: "knowledge-dikw-core",
+          path: "knowledge/entities/dikw-core.md",
+          layer: "knowledge",
           title: "dikw-core",
           body: "# dikw-core\n\nSee [[Missing Concept]].",
           anchors: [],
@@ -966,6 +1038,7 @@ describe("read console pages", () => {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
         return Promise.resolve({
           ...wikiPageBodiesFixture[selectedPath],
+          frontmatter: { title: "Architecture", tags: ["DIKW"], sources: ["source/a.md"], status: "draft" },
           body:
             "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\nstatus: draft\n---\n\n# Architecture\n\nLayered DIKW notes.\n\n[Jump to data flow](#data-flow)\n\n## Data flow\n\nSee [[Synthesis]]."
         });
@@ -983,7 +1056,7 @@ describe("read console pages", () => {
 
     await userEvent.click(within(reader).getByRole("tab", { name: "Info" }));
 
-    expect(within(reader).getAllByText("wiki/architecture.md").length).toBeGreaterThan(0);
+    expect(within(reader).getAllByText("knowledge/architecture.md").length).toBeGreaterThan(0);
     expect(within(reader).getByText("draft")).toBeInTheDocument();
     expect(within(reader).getByText("#DIKW")).toBeInTheDocument();
     expect(within(reader).getByText("source/a.md")).toBeInTheDocument();
@@ -1007,7 +1080,7 @@ describe("read console pages", () => {
     const scrollIntoView = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
-    window.location.hash = "#wiki";
+    window.location.hash = "#base";
     client.get.mockImplementation((path: string) => {
       if (path === "/v1/base/pages") {
         return Promise.resolve(wikiPagesFixture);
@@ -1027,7 +1100,7 @@ describe("read console pages", () => {
 
       await userEvent.click(await screen.findByRole("link", { name: "Jump to Data flow" }));
 
-      expect(window.location.hash).toBe("#wiki");
+      expect(window.location.hash).toBe("#base");
       expect(scrollIntoView).toHaveBeenCalledTimes(1);
       expect(screen.getByRole("heading", { name: "Architecture", level: 1 })).toBeInTheDocument();
     } finally {
@@ -1125,7 +1198,7 @@ describe("read console pages", () => {
 
     await userEvent.click(within(detail).getByRole("button", { name: "Open in Base" }));
 
-    expect(openedPaths).toEqual(["wiki/architecture.md"]);
+    expect(openedPaths).toEqual(["knowledge/architecture.md"]);
   });
 
   it("Refresh button clears focus and refetches; no separate Reset focus button", async () => {
@@ -1198,7 +1271,7 @@ describe("read console pages", () => {
             createdAt: "2026-05-13T00:00:00.500Z"
           }
         ],
-        sources: [{ path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }],
+        sources: [{ path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }],
         proposals: []
       }),
       renameSession: vi.fn(),
@@ -1221,7 +1294,7 @@ describe("read console pages", () => {
           {
             type: "source",
             sessionId: "session-1",
-            source: { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }
+            source: { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }
           },
           { type: "agent_end", sessionId: "session-1" }
         ] satisfies AgentStreamEvent[])
@@ -1235,7 +1308,7 @@ describe("read console pages", () => {
     expect(screen.getByText("evidence", { selector: "strong" })).toBeInTheDocument();
     expect(screen.getByText("retrieve_knowledge")).toHaveClass("tool-call__name");
     expect(screen.getByTitle("Succeeded")).toHaveClass("tool-call--succeeded");
-    expect(screen.getByText("wiki/architecture.md")).toBeInTheDocument();
+    expect(screen.getByText("knowledge/architecture.md")).toBeInTheDocument();
     expect(agentClient.sendMessage).toHaveBeenCalledWith("session-1", "What is DIKW?", expect.any(AbortSignal));
   });
 
@@ -1359,8 +1432,8 @@ describe("read console pages", () => {
         }
       ],
       sources: [
-        { path: "wiki/first.md", title: "First", layer: "wiki" },
-        { path: "wiki/second.md", title: "Second", layer: "wiki" }
+        { path: "knowledge/first.md", title: "First", layer: "knowledge" },
+        { path: "knowledge/second.md", title: "Second", layer: "knowledge" }
       ],
       proposals: []
     };
@@ -1378,8 +1451,8 @@ describe("read console pages", () => {
 
     await waitFor(() => expect(screen.getAllByText("Second answer").length).toBeGreaterThan(0));
     const context = screen.getByRole("complementary", { name: "Session context" });
-    expect(within(context).getByText("wiki/first.md")).toBeInTheDocument();
-    expect(within(context).getByText("wiki/second.md")).toBeInTheDocument();
+    expect(within(context).getByText("knowledge/first.md")).toBeInTheDocument();
+    expect(within(context).getByText("knowledge/second.md")).toBeInTheDocument();
     expect(within(context).getByText("read_page")).toBeInTheDocument();
     expect(within(context).getByText("retrieve_knowledge")).toBeInTheDocument();
   });
@@ -1399,7 +1472,7 @@ describe("read console pages", () => {
       toolEvents: [],
       sources: [
         { path: "https://example.com/a", title: "Example A", excerpt: "external snippet", kind: "web" as const },
-        { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }
+        { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }
       ],
       proposals: []
     };
@@ -1423,8 +1496,8 @@ describe("read console pages", () => {
     expect(within(context).getByText("Web")).toBeInTheDocument();
     expect(within(context).getByText("external snippet")).toBeInTheDocument();
 
-    expect(within(context).getByText("wiki/architecture.md")).toBeInTheDocument();
-    expect(within(context).getByText("wiki")).toBeInTheDocument();
+    expect(within(context).getByText("knowledge/architecture.md")).toBeInTheDocument();
+    expect(within(context).getByText("knowledge")).toBeInTheDocument();
   });
 
   it("refuses to render a web source whose stored path is unsafe", async () => {
@@ -1475,7 +1548,7 @@ describe("read console pages", () => {
     // the stream so the intermediate render (both buffers populated) is
     // observable; an inline `createAsyncEvents` array would race React to
     // the final cleared-streaming state and hide the bug.
-    const sharedSource = { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" };
+    const sharedSource = { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" };
     const activeSession = {
       id: "session-1",
       title: "Dedup",
@@ -1507,7 +1580,7 @@ describe("read console pages", () => {
       render(<ChatPage agentClient={agentClient} />);
       const context = await screen.findByRole("complementary", { name: "Session context" });
       // Turn 1 already committed sharedSource — confirm starting state.
-      expect(within(context).getAllByText("wiki/architecture.md")).toHaveLength(1);
+      expect(within(context).getAllByText("knowledge/architecture.md")).toHaveLength(1);
 
       await userEvent.type(screen.getByLabelText("Message"), "Second question");
       await userEvent.click(screen.getByRole("button", { name: /Send/ }));
@@ -1521,7 +1594,7 @@ describe("read console pages", () => {
       // While the stream is still open, the cross-boundary dedup gap must
       // not allow a duplicate entry to render.
       await waitFor(() => {
-        const matches = within(context).getAllByText("wiki/architecture.md");
+        const matches = within(context).getAllByText("knowledge/architecture.md");
         expect(matches).toHaveLength(1);
       });
 
@@ -1557,7 +1630,7 @@ describe("read console pages", () => {
           createdAt: "2026-05-13T00:00:00.500Z"
         }
       ],
-      sources: [{ path: "wiki/architecture.md", title: "Architecture", layer: "wiki" }],
+      sources: [{ path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }],
       proposals: []
     };
     const refreshedSession = {
@@ -1587,14 +1660,14 @@ describe("read console pages", () => {
     } as AgentClientLike;
 
     render(<ChatPage agentClient={agentClient} />);
-    expect(await screen.findByText("wiki/architecture.md")).toBeInTheDocument();
+    expect(await screen.findByText("knowledge/architecture.md")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Message"), "Check health");
     await userEvent.click(screen.getByRole("button", { name: /Send/ }));
 
     const context = screen.getByRole("complementary", { name: "Session context" });
     await waitFor(() => expect(screen.getAllByText("Health failed.").length).toBeGreaterThan(0));
-    expect(within(context).getByText("wiki/architecture.md")).toBeInTheDocument();
+    expect(within(context).getByText("knowledge/architecture.md")).toBeInTheDocument();
     expect(within(context).getByText("retrieve_knowledge")).toBeInTheDocument();
   });
 

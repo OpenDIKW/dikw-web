@@ -32,7 +32,7 @@ import { TasksPage } from "./pages/TasksPage";
 import { WikiPage } from "./pages/WikiPage";
 import { WisdomPage } from "./pages/WisdomPage";
 
-type ViewId = "overview" | "chat" | "retrieve" | "wiki" | "graph" | "wisdom" | "tasks" | "import" | "settings";
+type ViewId = "overview" | "chat" | "retrieve" | "base" | "graph" | "wisdom" | "tasks" | "import" | "settings";
 type NavLabelKey = keyof (typeof translations)["en"]["nav"];
 
 const serverKey = "dikw-web.serverUrl";
@@ -52,7 +52,7 @@ const navGroups: Array<{ id: NavGroupId; items: NavItem[] }> = [
     items: [
       { id: "overview", labelKey: "overview", icon: LayoutDashboard },
       { id: "import", labelKey: "import", icon: Upload },
-      { id: "wiki", labelKey: "wiki", icon: BookOpen },
+      { id: "base", labelKey: "base", icon: BookOpen },
       { id: "graph", labelKey: "graph", icon: Network },
       { id: "wisdom", labelKey: "wisdom", icon: Gem }
     ]
@@ -156,7 +156,7 @@ export function App() {
 
   function openWikiPath(path: string) {
     setWikiInitialPath(path);
-    openView("wiki");
+    openView("base");
   }
 
   function clearConnection() {
@@ -226,7 +226,7 @@ export function App() {
           {activeView === "overview" ? <OverviewPage client={client} locale={locale} /> : null}
           {activeView === "chat" ? <ChatPage agentClient={agentClient} client={client} locale={locale} /> : null}
           {activeView === "retrieve" ? <RetrievePage client={client} locale={locale} /> : null}
-          {activeView === "wiki" ? (
+          {activeView === "base" ? (
             <WikiPage
               client={client}
               initialPath={wikiInitialPath}

@@ -21,7 +21,7 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   await expect(page.getByText("1 link")).toBeVisible();
   await expect(page.getByText("1 unresolved")).toBeVisible();
   const legend = page.getByLabel("Graph legend");
-  await expect(legend.getByText("Wiki", { exact: true })).toBeVisible();
+  await expect(legend.getByText("Knowledge", { exact: true })).toBeVisible();
   await expect(legend.getByText("Source", { exact: true })).toBeVisible();
   await expect(page.getByRole("img", { name: "Base graph" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Architecture source graph node" })).toBeVisible();
@@ -41,7 +41,7 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
 
   await detail.getByRole("button", { name: "Open in Base" }).click();
 
-  await expect(page).toHaveURL(/#wiki$/);
+  await expect(page).toHaveURL(/#base$/);
   await expect(page.getByRole("main", { name: "Wiki reader" }).getByRole("heading", { name: "Architecture" })).toBeVisible();
 });
 
@@ -54,7 +54,7 @@ test("opens source graph nodes in the matching knowledge document", async ({ pag
 
   await detail.getByRole("button", { name: "Open in Base" }).click();
 
-  await expect(page).toHaveURL(/#wiki$/);
+  await expect(page).toHaveURL(/#base$/);
   const reader = page.getByRole("main", { name: "Wiki reader" });
   await expect(reader.getByText("sources/architecture.md")).toBeVisible();
   await expect(reader.getByRole("heading", { name: "Architecture source" })).toBeVisible();

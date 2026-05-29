@@ -59,7 +59,7 @@ test("loads overview and navigates with localized sidebar labels and settings", 
 test("major pages avoid horizontal overflow on desktop and mobile", async ({ page }) => {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const route of ["overview", "chat", "wiki", "graph", "tasks", "wisdom", "settings"]) {
+    for (const route of ["overview", "chat", "base", "graph", "tasks", "wisdom", "settings"]) {
       await page.goto(`/#${route}`);
       await expect
         .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1))

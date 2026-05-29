@@ -61,14 +61,14 @@ describe("FileSessionStore", () => {
         status: "succeeded",
         createdAt: "2026-05-13T00:00:00.000Z"
       });
-      await store.recordSource(session.id, { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" });
-      await store.recordSource(session.id, { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" });
+      await store.recordSource(session.id, { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" });
+      await store.recordSource(session.id, { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" });
       await store.appendAssistantMessage(session.id, "Layered answer.");
 
       const reopened = await new FileSessionStore(root).getSession(session.id);
       expect(reopened.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
       expect(reopened.toolEvents[0]).toMatchObject({ id: "tool-1", status: "succeeded" });
-      expect(reopened.sources).toEqual([expect.objectContaining({ path: "wiki/architecture.md" })]);
+      expect(reopened.sources).toEqual([expect.objectContaining({ path: "knowledge/architecture.md" })]);
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -80,9 +80,9 @@ describe("FileSessionStore", () => {
       const store = new FileSessionStore(root);
       const session = await store.createSession();
 
-      await store.recordSource(session.id, { path: "wiki/architecture.md", title: "Architecture", layer: "wiki" });
+      await store.recordSource(session.id, { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" });
       await store.recordSource(session.id, {
-        path: "wiki/architecture.md",
+        path: "knowledge/architecture.md",
         title: "Architecture",
         excerpt: "from web",
         kind: "web"
@@ -90,8 +90,8 @@ describe("FileSessionStore", () => {
 
       const reopened = await new FileSessionStore(root).getSession(session.id);
       expect(reopened.sources).toEqual([
-        expect.objectContaining({ path: "wiki/architecture.md", layer: "wiki" }),
-        expect.objectContaining({ path: "wiki/architecture.md", kind: "web", excerpt: "from web" })
+        expect.objectContaining({ path: "knowledge/architecture.md", layer: "knowledge" }),
+        expect.objectContaining({ path: "knowledge/architecture.md", kind: "web", excerpt: "from web" })
       ]);
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -122,16 +122,16 @@ describe("FileSessionStore", () => {
         kind: "web"
       });
       await store.recordSource(session.id, {
-        path: "wiki/architecture.md",
+        path: "knowledge/architecture.md",
         title: "Architecture",
-        layer: "wiki"
+        layer: "knowledge"
       });
 
       const reopened = await new FileSessionStore(root).getSession(session.id);
       expect(reopened.sources).toEqual([
         expect.objectContaining({ path: "https://example.com/a", kind: "web", excerpt: "first" }),
         expect.objectContaining({ path: "https://example.com/b", kind: "web" }),
-        expect.objectContaining({ path: "wiki/architecture.md", layer: "wiki" })
+        expect.objectContaining({ path: "knowledge/architecture.md", layer: "knowledge" })
       ]);
     } finally {
       await rm(root, { recursive: true, force: true });

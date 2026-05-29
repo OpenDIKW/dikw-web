@@ -65,13 +65,13 @@ Wiki reader changes should land as vertical UI slices:
 
 1. App shell first: assert removed routes, such as `#artifacts`, fall back
    to Overview and have no sidebar item.
-2. Page test next: open `#wiki`, assert the default `Read` tab,
+2. Page test next: open `#base`, assert the default `Read` tab,
    rendered HTML body, and absence of any report-generation button.
 3. Add tab behavior one slice at a time: `Info` for frontmatter and
    core metadata, `Outline` for headings and wikilinks, and `Source`
    for raw Markdown.
 4. Link regression stays close to the user bug: clicking in-document
-   heading links must not change the app hash away from `#wiki`, and
+   heading links must not change the app hash away from `#base`, and
    wikilinks must open the right preview panel instead of navigating the
    main document.
 5. E2E smoke covers the same browser path with mocked `/v1` data and
@@ -187,7 +187,7 @@ Locale and theme regressions should be caught at the browser boundary:
    against Markdown bodies, task results, raw JSON, paths, provider
    names, or model names because those are core/user data.
 4. Add a dark Wiki reader E2E test before changing styles. It should set
-   `dikw-web.theme=dark`, open `#wiki`, compute text/background contrast
+   `dikw-web.theme=dark`, open `#base`, compute text/background contrast
    for reader paragraphs, headings, code, tables, quotes, tabs, and
    metadata, and reject visible near-white backgrounds in `.wiki-reader`.
 5. Only after those tests fail, move page chrome into `translations` and

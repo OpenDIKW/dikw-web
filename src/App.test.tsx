@@ -119,7 +119,7 @@ describe("App shell", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Base" }));
     expect(await screen.findByRole("heading", { name: "Base" })).toBeInTheDocument();
-    expect(window.location.hash).toBe("#wiki");
+    expect(window.location.hash).toBe("#base");
 
     await userEvent.click(screen.getByRole("button", { name: "Graph" }));
     expect(await screen.findByRole("heading", { name: "Graph" })).toBeInTheDocument();
@@ -159,6 +159,16 @@ describe("App shell", () => {
     expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
   });
 
+  it("hard-removes the legacy #wiki route and falls back to overview", async () => {
+    stubApi();
+    window.location.hash = "#wiki";
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Base" })).not.toBeInTheDocument();
+  });
+
   it("persists locale and theme preferences in local storage", async () => {
     stubApi();
     window.matchMedia = vi.fn().mockReturnValue({
@@ -196,7 +206,7 @@ describe("App shell", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Architecture graph node" }));
     await userEvent.click(screen.getByRole("button", { name: "Open in Base" }));
 
-    expect(window.location.hash).toBe("#wiki");
+    expect(window.location.hash).toBe("#base");
     expect(await screen.findByRole("heading", { name: "Architecture", level: 1 })).toBeInTheDocument();
   });
 

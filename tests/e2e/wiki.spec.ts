@@ -6,7 +6,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("reads a wiki page and follows a wikilink", async ({ page }) => {
-  await page.goto("/#wiki");
+  await page.goto("/#base");
 
   await expect(page.getByRole("heading", { name: "Base", exact: true })).toBeVisible();
   await expect(page.getByRole("tree", { name: "Base directory" })).toBeVisible();
@@ -22,12 +22,12 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
   await expect(reader).not.toContainText("<table>");
 
   await reader.getByRole("link", { name: "Jump to links" }).click();
-  await expect(page).toHaveURL(/#wiki$/);
+  await expect(page).toHaveURL(/#base$/);
   await expect(reader.getByRole("heading", { name: "Architecture" })).toBeVisible();
 
   await page.getByRole("tab", { name: "Info" }).click();
   const infoPanel = page.getByRole("tabpanel", { name: "Info" });
-  await expect(infoPanel.getByText("wiki/concepts/architecture.md")).toBeVisible();
+  await expect(infoPanel.getByText("knowledge/concepts/architecture.md")).toBeVisible();
   await expect(infoPanel.getByText("draft")).toBeVisible();
   await expect(infoPanel.getByText("#DIKW")).toBeVisible();
   await expect(infoPanel.getByText("source/a.md")).toBeVisible();
@@ -64,7 +64,7 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
 });
 
 test("jumps to a heading via the Outline tab and exposes a back-to-top button", async ({ page }) => {
-  await page.goto("/#wiki");
+  await page.goto("/#base");
 
   const reader = page.getByRole("main", { name: "Wiki reader" });
   await expect(reader.getByText(/Layered DIKW notes/)).toBeVisible();
@@ -110,7 +110,7 @@ test("jumps to a heading via the Outline tab and exposes a back-to-top button", 
 });
 
 test("source page inlines K-page title in body and keeps unmatched refs in the panel", async ({ page }) => {
-  await page.goto("/#wiki");
+  await page.goto("/#base");
 
   const tree = page.getByRole("tree", { name: "Base directory" });
   await tree.getByRole("button", { name: "sources", exact: true }).click();
@@ -147,7 +147,7 @@ test("source page inlines K-page title in body and keeps unmatched refs in the p
 });
 
 test("renders source details blocks with Mermaid diagrams", async ({ page }) => {
-  await page.goto("/#wiki");
+  await page.goto("/#base");
 
   await page.getByLabel("Filter").fill("active-learning");
   await page.getByRole("treeitem", { name: "Active Learning Medium" }).getByRole("button").click();
@@ -159,5 +159,5 @@ test("renders source details blocks with Mermaid diagrams", async ({ page }) => 
   await reader.getByText("flowchart").click();
   await expect(reader.locator(".markdown-details")).toBeVisible();
   await expect(reader.locator(".mermaid-diagram svg")).toBeVisible();
-  await expect(page).toHaveURL(/#wiki$/);
+  await expect(page).toHaveURL(/#base$/);
 });

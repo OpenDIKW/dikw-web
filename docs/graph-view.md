@@ -14,7 +14,7 @@ copy Obsidian behavior wholesale and does not modify base content.
 - Rendering: PixiJS canvas with a deterministic clustered layout and
   accessible DOM node hit targets.
 - Navigation: the detail panel button `Open in Base` switches to
-  `#wiki` and passes the selected path directly to `WikiPage`.
+  `#base` and passes the selected path directly to `WikiPage`.
 
 `dikw-core` returns the complete active graph in one request:
 `base_revision`, `generated_at`, `nodes[]`, `edges[]`, `unresolved[]`,

@@ -30,8 +30,8 @@ describe("DIKW agent tools", () => {
           { status: 200, headers: { "Content-Type": "application/x-ndjson" } }
         );
       }
-      if (url.pathname === "/v1/base/pages/wiki%2Farchitecture.md") {
-        return Response.json({ path: "wiki/architecture.md", title: "Architecture", body: "# Architecture" });
+      if (url.pathname === "/v1/base/pages/knowledge%2Farchitecture.md") {
+        return Response.json({ path: "knowledge/architecture.md", title: "Architecture", body: "# Architecture" });
       }
       return Response.json({ ok: true });
     });
@@ -44,12 +44,12 @@ describe("DIKW agent tools", () => {
     expect(readPage).toBeDefined();
 
     const retrieveResult = await retrieve!.execute("call-1", { q: "DIKW", limit: 3 });
-    const pageResult = await readPage!.execute("call-2", { path: "wiki/architecture.md" });
+    const pageResult = await readPage!.execute("call-2", { path: "knowledge/architecture.md" });
 
     expect(retrieveResult.details).toEqual({ chunks: [], page_refs: [] });
-    expect(pageResult.details).toMatchObject({ path: "wiki/architecture.md", title: "Architecture" });
+    expect(pageResult.details).toMatchObject({ path: "knowledge/architecture.md", title: "Architecture" });
     expect(calls.map((call) => call.path)).toContain("/v1/retrieve");
-    expect(calls.map((call) => call.path)).toContain("/v1/base/pages/wiki%2Farchitecture.md");
+    expect(calls.map((call) => call.path)).toContain("/v1/base/pages/knowledge%2Farchitecture.md");
     expect(calls.map((call) => call.path)).not.toContain("/v1/query");
   });
 });

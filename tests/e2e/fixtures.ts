@@ -1,6 +1,6 @@
 export const infoFixture = {
   engine_version: "0.0.1",
-  wiki_root: "C:\\demo\\wiki",
+  base_root: "C:\\demo\\base",
   storage_backend: "sqlite",
   providers: {
     llm: "anthropic_compat",
@@ -18,7 +18,7 @@ export const healthFixture = {
   storage_engine: "sqlite",
   layer_counts: {
     sources: 1,
-    wiki_pages: 3,
+    knowledge_pages: 3,
     wisdom_items: 4,
     chunks: 31
   },
@@ -28,9 +28,7 @@ export const healthFixture = {
       model: "MiniMax-M2.7",
       base_url: "https://api.example.test/v1",
       max_retries: 2,
-      max_tokens_query: 1024,
       max_tokens_synth: 2048,
-      max_tokens_distill: 2048,
       timeout_seconds: 60,
       api_key_present: true
     },
@@ -53,45 +51,44 @@ export const healthFixture = {
 };
 
 export const statusFixture = {
-  documents_by_layer: { source: 1, wiki: 3, wisdom: 1 },
+  documents_by_layer: { source: 1, knowledge: 3, wisdom: 1 },
   chunks: 31,
   embeddings: 31,
   links: 3,
-  wisdom_by_status: { candidate: 1, approved: 1, archived: 0 },
-  last_wiki_log_ts: 1777819200,
+  last_knowledge_log_ts: 1777819200,
   assets: 0,
   asset_embeddings: 0
 };
 
 export const wikiPagesFixture = [
   {
-    doc_id: "wiki-architecture",
-    path: "wiki/concepts/architecture.md",
-    path_key: "wiki/concepts/architecture.md",
+    doc_id: "knowledge-architecture",
+    path: "knowledge/concepts/architecture.md",
+    path_key: "knowledge/concepts/architecture.md",
     title: "Architecture",
     hash: "hash-a",
     mtime: 1777819200,
-    layer: "wiki",
+    layer: "knowledge",
     active: true
   },
   {
-    doc_id: "wiki-synthesis",
-    path: "wiki/concepts/synthesis.md",
-    path_key: "wiki/concepts/synthesis.md",
+    doc_id: "knowledge-synthesis",
+    path: "knowledge/concepts/synthesis.md",
+    path_key: "knowledge/concepts/synthesis.md",
     title: "Synthesis",
     hash: "hash-s",
     mtime: 1777819300,
-    layer: "wiki",
+    layer: "knowledge",
     active: true
   },
   {
-    doc_id: "wiki-orphan",
-    path: "wiki/concepts/orphan.md",
-    path_key: "wiki/concepts/orphan.md",
+    doc_id: "knowledge-orphan",
+    path: "knowledge/concepts/orphan.md",
+    path_key: "knowledge/concepts/orphan.md",
     title: "Orphan",
     hash: "hash-o",
     mtime: 1777819400,
-    layer: "wiki",
+    layer: "knowledge",
     active: true
   },
   {
@@ -138,30 +135,30 @@ export const graphResultFixture = {
   generated_at: "2026-05-14T10:00:00Z",
   nodes: [
     {
-      id: "wiki/concepts/architecture.md",
-      path: "wiki/concepts/architecture.md",
+      id: "knowledge/concepts/architecture.md",
+      path: "knowledge/concepts/architecture.md",
       title: "Architecture",
-      layer: "wiki",
+      layer: "knowledge",
       active: true,
       mtime: 1777819200,
       inbound: 0,
       outbound: 1
     },
     {
-      id: "wiki/concepts/synthesis.md",
-      path: "wiki/concepts/synthesis.md",
+      id: "knowledge/concepts/synthesis.md",
+      path: "knowledge/concepts/synthesis.md",
       title: "Synthesis",
-      layer: "wiki",
+      layer: "knowledge",
       active: true,
       mtime: 1777819300,
       inbound: 1,
       outbound: 0
     },
     {
-      id: "wiki/concepts/orphan.md",
-      path: "wiki/concepts/orphan.md",
+      id: "knowledge/concepts/orphan.md",
+      path: "knowledge/concepts/orphan.md",
       title: "Orphan",
-      layer: "wiki",
+      layer: "knowledge",
       active: true,
       mtime: 1777819400,
       inbound: 0,
@@ -180,9 +177,9 @@ export const graphResultFixture = {
   ],
   edges: [
     {
-      id: "wiki/concepts/architecture.md->wiki/concepts/synthesis.md",
-      source: "wiki/concepts/architecture.md",
-      target: "wiki/concepts/synthesis.md",
+      id: "knowledge/concepts/architecture.md->knowledge/concepts/synthesis.md",
+      source: "knowledge/concepts/architecture.md",
+      target: "knowledge/concepts/synthesis.md",
       type: "wikilink",
       target_text: "Synthesis",
       anchor: null,
@@ -191,7 +188,7 @@ export const graphResultFixture = {
   ],
   unresolved: [
     {
-      source: "wiki/concepts/architecture.md",
+      source: "knowledge/concepts/architecture.md",
       target_text: "Missing Concept",
       anchor: null,
       count: 1
@@ -205,28 +202,29 @@ export const graphResultFixture = {
 };
 
 export const wikiPageBodiesFixture = {
-  "wiki/concepts/architecture.md": {
-    doc_id: "wiki-architecture",
-    path: "wiki/concepts/architecture.md",
-    layer: "wiki",
+  "knowledge/concepts/architecture.md": {
+    doc_id: "knowledge-architecture",
+    path: "knowledge/concepts/architecture.md",
+    layer: "knowledge",
     title: "Architecture",
     body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\nstatus: draft\n---\n\n# Architecture\n\nLayered DIKW notes with `inline code`.\n\n> Evidence should stay readable in dark mode.\n\n| Layer | Purpose |\n| --- | --- |\n| Knowledge | Durable notes |\n\nInline chemistry $\\mathrm { C O } _ { 2 }$ stays readable.\n\n$$x^2 + y^2 = z^2$$\n\n<table><caption>Hybrid studies</caption><thead><tr><th>First principles</th><th>Training method</th></tr></thead><tbody><tr><td>Mass balance</td><td>FBA</td></tr></tbody></table>\n\n```ts\nconst layer = \"knowledge\";\n```\n\n[Jump to links](#links)\n\n## Links\n\nSee [[Synthesis]] and [[Missing Concept]].",
     anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }],
-    assets: []
+    assets: [],
+    frontmatter: { title: "Architecture", tags: ["DIKW"], sources: ["source/a.md"], status: "draft" }
   },
-  "wiki/concepts/synthesis.md": {
-    doc_id: "wiki-synthesis",
-    path: "wiki/concepts/synthesis.md",
-    layer: "wiki",
+  "knowledge/concepts/synthesis.md": {
+    doc_id: "knowledge-synthesis",
+    path: "knowledge/concepts/synthesis.md",
+    layer: "knowledge",
     title: "Synthesis",
     body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body.",
     anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }],
     assets: []
   },
-  "wiki/concepts/orphan.md": {
-    doc_id: "wiki-orphan",
-    path: "wiki/concepts/orphan.md",
-    layer: "wiki",
+  "knowledge/concepts/orphan.md": {
+    doc_id: "knowledge-orphan",
+    path: "knowledge/concepts/orphan.md",
+    layer: "knowledge",
     title: "Orphan",
     body: "# Orphan\n\nNo graph links yet.",
     anchors: [],
@@ -300,8 +298,8 @@ export const wikiPageLinksFixture: Record<string, PageLinksResult> = {
     outgoing: [],
     incoming: [
       {
-        src_doc_id: "wiki-architecture",
-        src_path: "wiki/concepts/architecture.md",
+        src_doc_id: "knowledge-architecture",
+        src_path: "knowledge/concepts/architecture.md",
         link_type: "wikilink",
         anchor: null,
         line: 3
@@ -315,22 +313,22 @@ export const wikiPageProvenanceFixture: Record<string, PageProvenanceResult> = {
     path: "sources/architecture.md",
     derived_from: [],
     derived_pages: [
-      { doc_id: "wiki-architecture", path: "wiki/concepts/architecture.md", title: "Architecture" },
-      { doc_id: "wiki-synthesis", path: "wiki/concepts/synthesis.md", title: "Synthesis" }
+      { doc_id: "knowledge-architecture", path: "knowledge/concepts/architecture.md", title: "Architecture" },
+      { doc_id: "knowledge-synthesis", path: "knowledge/concepts/synthesis.md", title: "Synthesis" }
     ]
   }
 };
 
 export const hitFixture = {
-  doc_id: "wiki-architecture",
+  doc_id: "knowledge-architecture",
   chunk_id: 101,
   seq: 1,
   score: 0.982,
   snippet: "Layered DIKW notes.",
-  path: "wiki/concepts/architecture.md",
+  path: "knowledge/concepts/architecture.md",
   title: "Architecture",
   asset_refs: [],
-  layer: "wiki",
+  layer: "knowledge",
   start: 0,
   end: 21,
   text: "Layered DIKW notes."
@@ -347,8 +345,8 @@ export const retrieveEventsFixture = [
       chunks: [hitFixture],
       page_refs: [
         {
-          path: "wiki/concepts/architecture.md",
-          layer: "wiki",
+          path: "knowledge/concepts/architecture.md",
+          layer: "knowledge",
           title: "Architecture",
           score: 0.982,
           hit_chunk_ids: [101]

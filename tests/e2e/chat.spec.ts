@@ -62,8 +62,8 @@ test("shows session-level sources and tool calls across replies", async ({ page 
   await expect(page.getByText("Layered answer.").last()).toBeVisible();
 
   const context = page.getByRole("complementary", { name: "Session context" });
-  await expect(context.getByText("wiki/concepts/architecture-1.md")).toBeVisible();
-  await expect(context.getByText("wiki/concepts/architecture-2.md")).toBeVisible();
+  await expect(context.getByText("knowledge/concepts/architecture-1.md")).toBeVisible();
+  await expect(context.getByText("knowledge/concepts/architecture-2.md")).toBeVisible();
   await expect(context.getByText("retrieve_knowledge")).toHaveCount(2);
 });
 
@@ -109,7 +109,7 @@ test("keeps chat output panels pinned to the newest content by default", async (
   await expect(
     page.getByTestId("agent-conversation-scroll").getByText("Auto scroll line 1-48: evidence-backed chat output keeps growing.")
   ).toBeVisible();
-  await expect(page.getByText("wiki/concepts/auto-scroll-source-24.md")).toBeVisible();
+  await expect(page.getByText("knowledge/concepts/auto-scroll-source-24.md")).toBeVisible();
   await expect(page.getByText("retrieve_knowledge_24")).toBeVisible();
 
   await expect.poll(() => panelMetrics(page, ".agent-conversation-scroll")).toMatchObject({ hasOverflow: true, nearBottom: true });
