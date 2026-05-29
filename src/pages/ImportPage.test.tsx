@@ -50,6 +50,23 @@ function succeededStream(): AsyncGenerator<TaskEvent> {
   })();
 }
 
+/** A stream that yields progress but NO ``final`` event, then ends — the
+ *  reported race where ``/events`` reports the task terminal on a page whose
+ *  ``events[]`` tail doesn't carry the final event. consumeTask must reconcile
+ *  against the authoritative task row rather than treat this as a failure. */
+function progressOnlyStream(): AsyncGenerator<TaskEvent> {
+  return (async function* () {
+    yield {
+      type: "progress",
+      seq: 1,
+      ts: new Date().toISOString(),
+      phase: "scan",
+      current: 1,
+      total: 1
+    } as TaskEvent;
+  })();
+}
+
 function handle(taskId: string, op: string): TaskHandle {
   return {
     task_id: taskId,
@@ -454,5 +471,57 @@ describe("ImportPage — failure and cancel", () => {
     });
     render(<ImportPage client={createMockClient()} locale="en" />);
     expect(await screen.findByText("Import cancelled")).toBeInTheDocument();
+  });
+});
+
+describe("ImportPage — event-stream race reconciliation", () => {
+  it("treats a succeeded task whose stream drained without a final event as success", async () => {
+    // Reproduces the reported bug: ingest succeeds server-side (Tasks page
+    // shows succeeded) but the event-stream poll terminated on a page that
+    // reported the task terminal without carrying the final event, so
+    // consumeTask saw no final. The pipeline must reconcile against the
+    // authoritative row instead of showing "ingest failed".
+    const client = createMockClient();
+    const finalEvent: TaskEvent = {
+      type: "final",
+      seq: -1,
+      ts: new Date().toISOString(),
+      status: "succeeded",
+      result: {},
+      error: null
+    };
+    const getTaskFinalEvent = vi.fn().mockResolvedValue(finalEvent);
+    Object.assign(client, {
+      importBundle: vi.fn().mockResolvedValue(importResponse()),
+      startIngest: vi.fn().mockResolvedValue(handle("ingest-1", "ingest")),
+      startSynth: vi.fn().mockResolvedValue(handle("synth-1", "synth")),
+      startLintPropose: vi
+        .fn()
+        .mockResolvedValue(handle("propose-1", "lint.propose")),
+      // Every stage's stream ends WITHOUT a final event — the race.
+      streamTaskEvents: vi.fn(() => progressOnlyStream()),
+      getTaskFinalEvent,
+      getTaskResult: vi.fn().mockResolvedValue({ proposals: [] })
+    });
+    render(<ImportPage client={client} locale="en" />);
+
+    const input = screen.getByTestId("import-file-input") as HTMLInputElement;
+    selectFile(input, file("V/a.md", "Body text.\n"));
+    await userEvent.click(await screen.findByTestId("import-start"));
+
+    // Lands on done (propose returned zero proposals) — never the failure
+    // Notice — because each finalless stream reconciled to the succeeded row.
+    await screen.findByTestId("import-done");
+    expect(screen.queryByText("Import failed")).not.toBeInTheDocument();
+    expect(screen.queryByText("ingest failed")).not.toBeInTheDocument();
+    // Reconcile fired for each task stage that drained without a final.
+    expect(getTaskFinalEvent).toHaveBeenCalledWith(
+      "ingest-1",
+      expect.any(AbortSignal)
+    );
+    expect(getTaskFinalEvent).toHaveBeenCalledWith(
+      "synth-1",
+      expect.any(AbortSignal)
+    );
   });
 });

@@ -10,6 +10,7 @@ export type MockDikwClient = DikwClient & {
   listTasks: AnyMock;
   getTask: AnyMock;
   getTaskResult: AnyMock;
+  getTaskFinalEvent: AnyMock;
   streamRetrieve: AnyMock;
   streamTaskEvents: AnyMock;
   streamNdjson: AnyMock;
@@ -27,6 +28,10 @@ export function createMockClient(coreId = ""): MockDikwClient {
     // WisdomPage save flow polls task events then unwraps the terminal result.
     // Stub both with empty defaults so an unconfigured test doesn't crash.
     getTaskResult: vi.fn(),
+    // ImportPage's consumeTask reconciles here only when the event stream
+    // drained without a final event; default null so configured streams that
+    // already carry a final aren't affected.
+    getTaskFinalEvent: vi.fn().mockResolvedValue(null),
     streamRetrieve: vi.fn(),
     streamTaskEvents: vi.fn(),
     streamNdjson: vi.fn(),
