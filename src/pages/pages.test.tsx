@@ -680,6 +680,45 @@ describe("read console pages", () => {
     expect(within(directory).queryByText("First principles")).not.toBeInTheDocument();
   });
 
+  it("filters wisdom pages out of a source page's provenance references", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+      }
+      if (path.endsWith("/links")) {
+        const target = decodeURIComponent(path.replace("/v1/base/pages/", "").replace(/\/links$/, ""));
+        return Promise.resolve({ path: target, outgoing: [], incoming: [] });
+      }
+      if (path.endsWith("/provenance")) {
+        const target = decodeURIComponent(path.replace("/v1/base/pages/", "").replace(/\/provenance$/, ""));
+        // knowledge/synthesis.md is in the page list (resolves to layer knowledge);
+        // the wisdom path is NOT, so resolveDerivedPages infers layer "wisdom" via
+        // its cache-lag fallback. Base must drop that wisdom ref.
+        return Promise.resolve({
+          path: target,
+          derived_from: [],
+          derived_pages: [
+            { doc_id: "knowledge-synthesis", path: "knowledge/synthesis.md", title: "Synthesis" },
+            { doc_id: "wisdom-lesson", path: "wisdom/lessons/alpha.md", title: "Wisdom Lesson Alpha" }
+          ]
+        });
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["sources/architecture.md"]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} initialPath="sources/architecture.md" />);
+
+    const reader = await screen.findByRole("main", { name: "Wiki reader" });
+    // The knowledge provenance ref renders; the wisdom one is filtered out of Base.
+    await waitFor(() => expect(within(reader).getByText("Synthesis")).toBeInTheDocument());
+    expect(within(reader).queryByText("Wisdom Lesson Alpha")).not.toBeInTheDocument();
+  });
+
   it("preserves an initial wiki path while the page list is still loading", async () => {
     const client = createMockClient();
     let resolvePages: (pages: DocumentRecord[]) => void = () => undefined;

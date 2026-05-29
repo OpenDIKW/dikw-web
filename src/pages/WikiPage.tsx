@@ -365,7 +365,11 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
       backlinks && backlinks.path === page?.path ? resolveBacklinks(backlinks.incoming, basePages) : [];
     const sourced =
       derived && derived.path === page?.path ? resolveDerivedPages(derived.derived_pages, basePages) : [];
-    return mergeSourceReferences(linked, sourced);
+    // Base exposes only source + knowledge. resolveDerivedPages emits a
+    // cache-lag fallback for any provenance path not in basePages (inferring
+    // `wisdom` for `wisdom/...`), so drop wisdom refs here too — otherwise a
+    // source page's wisdom provenance would still surface/preview from #base.
+    return mergeSourceReferences(linked, sourced).filter((ref) => ref.layer !== "wisdom");
   }, [backlinks, derived, page?.path, basePages]);
 
   // Source 层 read tab 在 body 中首次出现的 K 页 title 上注入合成 wikilink。
