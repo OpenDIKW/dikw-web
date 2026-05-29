@@ -9,6 +9,22 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.14] - 2026-05-29
+
+### Fix: import pipeline misreporting a succeeded task as failed
+
+- **`consumeTask` now reconciles against the authoritative task row** when the
+  event stream drains without a `type:"final"` event. `streamTaskEvents` stops
+  polling when `task_status` goes terminal + `has_more:false`, but the import
+  pipeline read *success* from a captured `final` event — two signals that can
+  disagree within a single `/events` response (live `task_status` vs. a lagging
+  `events[]` tail). The race surfaced as "Import failed / ingest failed" while
+  the Tasks page (which reads `GET /v1/tasks/{id}`) showed the very same task
+  succeeded. New `DikwClient.getTaskFinalEvent` reads that authoritative row and
+  synthesizes the terminal verdict, so a succeeded ingest/synth/lint task is no
+  longer misreported as a failure. Mirrors WisdomPage's existing
+  drain-then-read-result pattern.
+
 ## [0.0.13] - 2026-05-29
 
 ### Adapt to dikw-core 0.4.0: K-layer `wiki` → `knowledge`

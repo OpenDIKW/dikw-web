@@ -396,6 +396,16 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         setActiveEvent(event);
         if (event.type === "final") final = event;
       }
+      // The event stream stops when ``task_status`` goes terminal +
+      // ``has_more:false``, which can race ahead of the ``final`` event
+      // becoming visible in the log — leaving ``final`` null for a task that
+      // actually succeeded. (Symptom: Import shows "<stage> failed" while the
+      // Tasks page, which reads the authoritative row, shows succeeded.)
+      // Reconcile against that same authoritative row instead of misreporting
+      // a success as a failure.
+      if (!final && !signal.aborted) {
+        final = await client.getTaskFinalEvent(taskId, signal);
+      }
       return final;
     },
     [client]

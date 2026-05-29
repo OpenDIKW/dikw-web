@@ -167,6 +167,74 @@ describe("DikwClient.streamTaskEvents (cursor-paged)", () => {
   });
 });
 
+describe("DikwClient.getTaskFinalEvent (authoritative reconcile)", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  function taskRow(overrides: Partial<TaskRow> = {}): TaskRow {
+    return {
+      task_id: "t-1",
+      op: "ingest",
+      status: "succeeded",
+      created_at: "2026-05-29T11:31:22Z",
+      started_at: "2026-05-29T11:31:22Z",
+      finished_at: "2026-05-29T11:31:33Z",
+      params_digest: "ee56d64205e62d21",
+      result: { scanned: 70, added: 0, errors: [] },
+      error: null,
+      ...overrides
+    };
+  }
+
+  it("synthesizes a final event from the authoritative task row when terminal", async () => {
+    fetchSpy.mockResolvedValueOnce(jsonResponse(taskRow()));
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const final = await client.getTaskFinalEvent("t-1");
+
+    expect(final).toEqual({
+      type: "final",
+      seq: -1,
+      ts: "2026-05-29T11:31:33Z",
+      status: "succeeded",
+      result: { scanned: 70, added: 0, errors: [] },
+      error: null
+    });
+    const url = new URL(String(fetchSpy.mock.calls[0][0]));
+    expect(url.pathname).toBe("/v1/tasks/t-1");
+  });
+
+  it("carries a failed row's error so the caller can surface it", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(
+        taskRow({ status: "failed", result: null, error: { message: "boom" } })
+      )
+    );
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const final = await client.getTaskFinalEvent("t-1");
+
+    expect(final?.status).toBe("failed");
+    expect(final?.error).toEqual({ message: "boom" });
+  });
+
+  it("returns null when the task is still non-terminal", async () => {
+    fetchSpy.mockResolvedValueOnce(
+      jsonResponse(taskRow({ status: "running", finished_at: null, result: null }))
+    );
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    expect(await client.getTaskFinalEvent("t-1")).toBeNull();
+  });
+});
+
 describe("DikwClient.listTasks (cursor envelope)", () => {
   let fetchSpy: ReturnType<typeof vi.spyOn>;
 

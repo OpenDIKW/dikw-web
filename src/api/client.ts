@@ -152,6 +152,37 @@ export class DikwClient {
     return envelope.result;
   }
 
+  /**
+   * Authoritative terminal verdict for a task, shaped as a synthetic
+   * ``type:"final"`` event. ``streamTaskEvents`` decides *when to stop polling*
+   * from ``task_status`` + ``has_more``, but pipeline callers read *success*
+   * from a captured ``final`` event. Those two signals can disagree within a
+   * single ``/events`` response: ``task_status`` is read live (already
+   * terminal) while the ``events[]`` tail lags, so a page can report
+   * ``{task_status:"succeeded", has_more:false, events:[]}`` and the stream
+   * ends without ever yielding the ``final`` event. ``GET /v1/tasks/{id}``
+   * reads the authoritative row (the same source the Tasks list shows), so it
+   * never loses that race — use it to reconcile when the stream drained without
+   * a ``final``. Returns ``null`` if the task is somehow still non-terminal.
+   */
+  async getTaskFinalEvent(
+    taskId: string,
+    signal?: AbortSignal
+  ): Promise<Extract<TaskEvent, { type: "final" }> | null> {
+    const row = await this.getTask(taskId, signal);
+    if (!isTerminalStatus(row.status)) {
+      return null;
+    }
+    return {
+      type: "final",
+      seq: -1,
+      ts: row.finished_at ?? row.created_at,
+      status: row.status,
+      result: row.result,
+      error: row.error
+    };
+  }
+
   cancelTask(taskId: string, signal?: AbortSignal): Promise<unknown> {
     return this.requestJson<unknown>(
       `/v1/tasks/${encodeURIComponent(taskId)}/cancel`,
@@ -436,6 +467,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isTerminalStatus(status: TaskStatus): boolean {
+function isTerminalStatus(
+  status: TaskStatus
+): status is "succeeded" | "failed" | "cancelled" {
   return status === "succeeded" || status === "failed" || status === "cancelled";
 }

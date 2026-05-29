@@ -265,6 +265,19 @@ available in a collapsed details block.
 `heartbeat` events remain transport noise and are dropped by
 `DikwClient.streamNdjson`.
 
+`streamTaskEvents` decides *when to stop polling* from `task_status` +
+`has_more`, but that is a distinct signal from the `type:"final"` event a
+pipeline reads for its *success* verdict. Within a single `/events` response the
+two can disagree — `task_status` is read live (can already be terminal) while
+the `events[]` tail lags — so a page may report
+`{task_status:"succeeded", has_more:false, events:[]}` and the stream ends
+without ever yielding the `final` event. Consumers that gate on the verdict must
+reconcile: ImportPage's `consumeTask` falls back to
+`DikwClient.getTaskFinalEvent` (authoritative `GET /v1/tasks/{id}`) and
+WisdomPage's `pollWriteTask` drains then reads `getTaskResult`. Both read the
+same authoritative row the Tasks list shows, so a succeeded task is never
+misreported as failed.
+
 ## Import
 
 The Import page is the only web surface that writes to `dikw-core`. It
