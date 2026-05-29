@@ -109,10 +109,10 @@ export function createDikwTools(options: DikwToolsOptions): AgentTool<any>[] {
       label: "List Pages",
       description: "List active base pages.",
       parameters: Type.Object({
-        layer: Type.Optional(Type.Union([Type.Literal("wiki"), Type.Literal("source"), Type.Literal("all")]))
+        layer: Type.Optional(Type.Union([Type.Literal("knowledge"), Type.Literal("source"), Type.Literal("all")]))
       }),
       execute: async (_toolCallId, rawParams: unknown) => {
-        const params = rawParams as { layer?: "wiki" | "source" | "all" };
+        const params = rawParams as { layer?: "knowledge" | "source" | "all" };
         return result(
           await client.getJson("/v1/base/pages", {
             active: true,
@@ -126,7 +126,7 @@ export function createDikwTools(options: DikwToolsOptions): AgentTool<any>[] {
       label: "Read Page",
       description: "Read a base page body by path.",
       parameters: Type.Object({
-        path: Type.String({ description: "Base page path, for example wiki/architecture.md" })
+        path: Type.String({ description: "Base page path, for example knowledge/architecture.md" })
       }),
       execute: async (_toolCallId, rawParams: unknown) => {
         const params = rawParams as { path: string };

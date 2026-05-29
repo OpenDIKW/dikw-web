@@ -9,6 +9,33 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.13] - 2026-05-29
+
+### Adapt to dikw-core 0.4.0: K-layer `wiki` → `knowledge`
+
+- **Contract rename across `src/types.ts` and every consumer** to match
+  dikw-core 0.4.0 (`refactor!: rename K-layer "wiki" to "knowledge"`):
+  `Layer` is now `"source" | "knowledge" | "wisdom"`; `InfoResponse.wiki_root`
+  → `base_root`; `LayerCounts.wiki_pages` → `knowledge_pages`;
+  `StorageCounts.last_wiki_log_ts` → `last_knowledge_log_ts`;
+  `ApplyReport.wiki_paths_changed` → `knowledge_paths_changed`. No dual-name
+  compatibility — core rebuilds on incompatibility and keeps no shims.
+- **Dead fields dropped** that 0.3.0/0.4.0 stopped returning:
+  `StorageCounts.wisdom_by_status` (wisdom is a first-class document layer
+  now, with no candidate status) and `LlmInfo.max_tokens_query` /
+  `max_tokens_distill`. Overview's stale "N candidates" detail on the Wisdom
+  card is removed with it.
+- **`PageReadResult.frontmatter`** (new in 0.4.0, server-parsed YAML) is
+  surfaced read-only in the Base reader's Info tab, replacing the prior
+  client-side body parse as the metadata source.
+- **Base page now shows only `source` + `knowledge`**; wisdom is reachable
+  exclusively via the dedicated `#wisdom` page.
+- **The `#wiki` route is gone** — the Base page lives at `#base` (matching the
+  "Base" / "知识库" label and the `/v1/base/*` endpoint family). Legacy `#wiki`
+  no longer resolves and falls back to `#overview` (no redirect). The in-page
+  `[[wikilink]]` syntax is unchanged.
+- The sidecar agent `list_pages` tool's `layer` enum is `knowledge` (not `wiki`).
+
 ## [0.0.12] - 2026-05-28
 
 ### Wisdom: real dikw-core wiring (lists, reads, async writes, resume)

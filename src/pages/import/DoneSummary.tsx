@@ -39,7 +39,7 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
             className="secondary-button"
             data-testid="import-done-open-wiki"
             onClick={() => {
-              window.location.hash = "wiki";
+              window.location.hash = "base";
             }}
           >
             <BookOpen size={16} />

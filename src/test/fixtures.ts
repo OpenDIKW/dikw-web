@@ -15,7 +15,7 @@ import type {
 
 export const infoFixture: InfoResponse = {
   engine_version: "0.0.1",
-  wiki_root: "C:\\demo\\wiki",
+  base_root: "C:\\demo\\base",
   storage_backend: "sqlite",
   providers: {
     llm: "anthropic_compat",
@@ -33,7 +33,7 @@ export const healthFixture: HealthReport = {
   storage_engine: "sqlite",
   layer_counts: {
     sources: 2,
-    wiki_pages: 2,
+    knowledge_pages: 2,
     wisdom_items: 4,
     chunks: 31
   },
@@ -43,9 +43,7 @@ export const healthFixture: HealthReport = {
       model: "MiniMax-M2.7",
       base_url: "https://api.example.test/v1",
       max_retries: 2,
-      max_tokens_query: 1024,
       max_tokens_synth: 2048,
-      max_tokens_distill: 2048,
       timeout_seconds: 60,
       api_key_present: true
     },
@@ -68,35 +66,34 @@ export const healthFixture: HealthReport = {
 };
 
 export const statusFixture: StorageCounts = {
-  documents_by_layer: { source: 2, wiki: 2, wisdom: 1 },
+  documents_by_layer: { source: 2, knowledge: 2, wisdom: 1 },
   chunks: 31,
   embeddings: 31,
   links: 3,
-  wisdom_by_status: { candidate: 1, approved: 1, archived: 0 },
-  last_wiki_log_ts: 1777819200,
+  last_knowledge_log_ts: 1777819200,
   assets: 0,
   asset_embeddings: 0
 };
 
 export const wikiPagesFixture: DocumentRecord[] = [
   {
-    doc_id: "wiki-architecture",
-    path: "wiki/architecture.md",
-    path_key: "wiki/architecture.md",
+    doc_id: "knowledge-architecture",
+    path: "knowledge/architecture.md",
+    path_key: "knowledge/architecture.md",
     title: "Architecture",
     hash: "hash-a",
     mtime: 1777819200,
-    layer: "wiki",
+    layer: "knowledge",
     active: true
   },
   {
-    doc_id: "wiki-synthesis",
-    path: "wiki/synthesis.md",
-    path_key: "wiki/synthesis.md",
+    doc_id: "knowledge-synthesis",
+    path: "knowledge/synthesis.md",
+    path_key: "knowledge/synthesis.md",
     title: "Synthesis",
     hash: "hash-s",
     mtime: 1777819300,
-    layer: "wiki",
+    layer: "knowledge",
     active: true
   }
 ];
@@ -119,30 +116,30 @@ export const graphResultFixture: GraphResult = {
   generated_at: "2026-05-14T10:00:00Z",
   nodes: [
     {
-      id: "wiki/architecture.md",
-      path: "wiki/architecture.md",
+      id: "knowledge/architecture.md",
+      path: "knowledge/architecture.md",
       title: "Architecture",
-      layer: "wiki",
+      layer: "knowledge",
       active: true,
       mtime: 1777819200,
       inbound: 0,
       outbound: 1
     },
     {
-      id: "wiki/synthesis.md",
-      path: "wiki/synthesis.md",
+      id: "knowledge/synthesis.md",
+      path: "knowledge/synthesis.md",
       title: "Synthesis",
-      layer: "wiki",
+      layer: "knowledge",
       active: true,
       mtime: 1777819300,
       inbound: 1,
       outbound: 0
     },
     {
-      id: "wiki/orphan.md",
-      path: "wiki/orphan.md",
+      id: "knowledge/orphan.md",
+      path: "knowledge/orphan.md",
       title: "Orphan",
-      layer: "wiki",
+      layer: "knowledge",
       active: true,
       mtime: 1777819400,
       inbound: 0,
@@ -161,9 +158,9 @@ export const graphResultFixture: GraphResult = {
   ],
   edges: [
     {
-      id: "wiki/architecture.md->wiki/synthesis.md",
-      source: "wiki/architecture.md",
-      target: "wiki/synthesis.md",
+      id: "knowledge/architecture.md->knowledge/synthesis.md",
+      source: "knowledge/architecture.md",
+      target: "knowledge/synthesis.md",
       type: "wikilink",
       target_text: "Synthesis",
       anchor: "Details",
@@ -172,7 +169,7 @@ export const graphResultFixture: GraphResult = {
   ],
   unresolved: [
     {
-      source: "wiki/architecture.md",
+      source: "knowledge/architecture.md",
       target_text: "Missing Concept",
       anchor: null,
       count: 2
@@ -186,23 +183,25 @@ export const graphResultFixture: GraphResult = {
 };
 
 export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
-  "wiki/architecture.md": {
-    doc_id: "wiki-architecture",
-    path: "wiki/architecture.md",
-    layer: "wiki",
+  "knowledge/architecture.md": {
+    doc_id: "knowledge-architecture",
+    path: "knowledge/architecture.md",
+    layer: "knowledge",
     title: "Architecture",
     body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\n---\n\n# Architecture\n\nLayered DIKW notes.\n\nSee [[Synthesis]].",
     anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }],
-    assets: []
+    assets: [],
+    frontmatter: { title: "Architecture", tags: ["DIKW"], sources: ["source/a.md"] }
   },
-  "wiki/synthesis.md": {
-    doc_id: "wiki-synthesis",
-    path: "wiki/synthesis.md",
-    layer: "wiki",
+  "knowledge/synthesis.md": {
+    doc_id: "knowledge-synthesis",
+    path: "knowledge/synthesis.md",
+    layer: "knowledge",
     title: "Synthesis",
     body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body.",
     anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }],
-    assets: []
+    assets: [],
+    frontmatter: { title: "Synthesis" }
   },
   "sources/architecture.md": {
     doc_id: "source-architecture",
@@ -214,20 +213,21 @@ export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
     // and Synthesis should fall to the bottom Unlinked-references panel.
     body: "# Architecture source\n\nThe Architecture is the main topic of this source.",
     anchors: [{ chunk_id: 201, seq: 1, start: 0, end: 38 }],
-    assets: []
+    assets: [],
+    frontmatter: {}
   }
 };
 
 export const hitFixture: Hit = {
-  doc_id: "wiki-architecture",
+  doc_id: "knowledge-architecture",
   chunk_id: 101,
   seq: 1,
   score: 0.982,
   snippet: "Layered DIKW notes.",
-  path: "wiki/architecture.md",
+  path: "knowledge/architecture.md",
   title: "Architecture",
   asset_refs: [],
-  layer: "wiki",
+  layer: "knowledge",
   start: 0,
   end: 21,
   text: "Layered DIKW notes."
@@ -244,8 +244,8 @@ export const retrieveEventsFixture: RetrieveStreamEvent[] = [
       chunks: [hitFixture],
       page_refs: [
         {
-          path: "wiki/architecture.md",
-          layer: "wiki",
+          path: "knowledge/architecture.md",
+          layer: "knowledge",
           title: "Architecture",
           score: 0.982,
           hit_chunk_ids: [101]

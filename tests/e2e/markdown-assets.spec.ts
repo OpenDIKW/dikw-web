@@ -8,7 +8,7 @@ test.describe("Source markdown — images and charts", () => {
   });
 
   test("renders Obsidian image embed against /v1/assets and shows charts", async ({ page }) => {
-    await page.goto("/#wiki");
+    await page.goto("/#base");
 
     const tree = page.getByRole("tree", { name: "Base directory" });
     await tree.getByRole("treeitem", { name: "sources" }).waitFor();

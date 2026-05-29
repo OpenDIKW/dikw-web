@@ -40,12 +40,14 @@ Overview reads:
 - `GET /v1/health` for server identity, base root, storage engine,
   layer counts, and resolved provider metadata.
 - `GET /v1/status` for detailed counters such as embeddings, links,
-  wisdom status buckets, assets, and the last wiki log timestamp.
+  assets, and the last knowledge log timestamp (`last_knowledge_log_ts`).
+  dikw-core 0.4.0 no longer returns the `wisdom_by_status` buckets.
 - `GET /v1/info` only for auth posture.
 
 The metric cards use `health.layer_counts` as the source of truth for
-source documents, wiki pages, wisdom items, and chunks. Wisdom items do
-not come from `status.documents_by_layer.wisdom`.
+source documents, knowledge pages (`layer_counts.knowledge_pages`),
+wisdom items, and chunks. Wisdom items do not come from
+`status.documents_by_layer.wisdom`.
 
 ## Base Pages
 
@@ -55,11 +57,14 @@ The knowledge page uses the cross-layer page reader:
 - `GET /v1/base/pages/{path}` for the selected page body.
 
 `PageReadResult` includes `doc_id`, `path`, `layer`, `title`, `body`,
-`anchors[]`, and `assets[]`. The reader displays path, layer, anchor
-count, update metadata, and the markdown body. The web app does not
-render a layer dropdown on the knowledge page; it shows the base tree
-directly and keeps wiki/source grouping visible through paths and
-metadata. The legacy `/v1/wiki/pages` endpoint is not used.
+`anchors[]`, `assets[]`, and `frontmatter` (server-parsed YAML, new in
+dikw-core 0.4.0; defaults to `{}`). The reader displays path, layer,
+anchor count, update metadata, and the markdown body. The web app does
+not render a layer dropdown on the Base page; it shows the base tree
+directly, filtered to the `source` + `knowledge` layers (wisdom has its
+own `#wisdom` page), and keeps knowledge/source grouping visible through
+paths and metadata. The K-layer wire value is `knowledge` (renamed from
+`wiki` in 0.4.0). The legacy `/v1/wiki/pages` endpoint is not used.
 
 `assets[]` is the deduped union of every asset referenced by any chunk
 of the page. Each `PageAsset` carries `asset_id` (SHA-256 hex),
@@ -69,19 +74,19 @@ the streamable URL), `media_meta`, and `url`. `url` is always
 server-relative — the wire-template is `/v1/assets/{asset_id}`. The
 list is empty for text-only pages.
 
-The Wiki middle pane derives all reading tabs from the selected
+The Base middle pane derives all reading tabs from the selected
 `PageReadResult`:
 
 - `Read` renders the markdown body as a polished, read-only article.
   Frontmatter is not shown in this tab.
-- `Info` renders frontmatter, path, layer, anchor count, and update
-  metadata.
+- `Info` renders the server-parsed `PageReadResult.frontmatter`
+  (read-only) alongside path, layer, anchor count, and update metadata.
 - `Outline` derives headings and wikilinks from the markdown body.
 - `Source` renders the raw markdown body for verification.
 
 Markdown internal anchor links stay inside the current Wiki view. They
 scroll the selected article instead of rewriting the application hash
-route away from `#wiki`.
+route away from `#base`.
 
 `PageReadResult.body` remains raw Markdown as returned by `dikw-core`.
 Rendering Markdown pipe tables, sanitized raw HTML tables, safe details
@@ -108,7 +113,7 @@ merges them in a single `Linked references` panel.
   lists K-pages that name this path in their frontmatter `sources:`
   list (`doc_id`, `path`, `title`). The layer-safe contract that
   core enforces: for a source page, `derived_from` is expected to be
-  empty; for a wiki page, `derived_pages` is expected to be empty.
+  empty; for a knowledge page, `derived_pages` is expected to be empty.
   The reader emits a dev-mode `console.warn` if it observes a
   violation, but does not crash. Pre-`0.2.6` cores return 404 / 405
   — the reader catches these silently and degrades to `/links`-only;

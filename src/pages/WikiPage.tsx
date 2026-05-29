@@ -74,7 +74,8 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
 
   const visiblePages = useMemo(() => {
     const needle = filter.trim().toLowerCase();
-    const docs = pages.data ?? [];
+    // Base view shows only the source + knowledge layers; wisdom has its own #wisdom page.
+    const docs = (pages.data ?? []).filter((doc) => doc.layer === "source" || doc.layer === "knowledge");
     if (!needle) {
       return docs;
     }
@@ -654,8 +655,8 @@ function WikiReader({
               ) : null}
             </section>
           ) : null}
-          {activeTab === "info" && parsed ? (
-            <WikiInfoPanel page={page} doc={doc} meta={parsed.meta} copy={copy} />
+          {activeTab === "info" ? (
+            <WikiInfoPanel page={page} doc={doc} copy={copy} />
           ) : null}
           {activeTab === "outline" ? (
             <WikiOutlinePanel
@@ -727,17 +728,19 @@ function WikiReaderTabs({
 function WikiInfoPanel({
   page,
   doc,
-  meta,
   copy
 }: {
   page: PageReadResult;
   doc: DocumentRecord | null;
-  meta: Record<string, string | string[] | undefined>;
   copy: WikiCopy;
 }) {
-  const metaRows = Object.entries(meta).filter(([, value]) => typeof value === "string" && value.length > 0) as Array<[string, string]>;
-  const tags = asStringList(meta.tags);
-  const sources = asStringList(meta.sources);
+  // Surface the server-parsed frontmatter (PageReadResult.frontmatter, 0.4.0+)
+  // read-only. tags/sources get a dedicated chip treatment below, so they are
+  // kept out of the key/value grid to avoid duplicate rows.
+  const frontmatter = page.frontmatter ?? {};
+  const tags = asStringList(frontmatter.tags);
+  const sources = asStringList(frontmatter.sources);
+  const frontmatterRows = Object.entries(frontmatter).filter(([key]) => key !== "tags" && key !== "sources");
   return (
     <section className="wiki-reader-tab-panel wiki-info-panel" role="tabpanel" aria-label={copy.infoPanel}>
       <dl className="wiki-info-grid">
@@ -757,10 +760,10 @@ function WikiInfoPanel({
           <dt>updated</dt>
           <dd>{formatUnixSeconds(doc?.mtime)}</dd>
         </div>
-        {metaRows.map(([key, value]) => (
+        {frontmatterRows.map(([key, value]) => (
           <div key={key}>
             <dt>{key}</dt>
-            <dd>{value}</dd>
+            <dd>{stringifyFrontmatterValue(value)}</dd>
           </div>
         ))}
       </dl>
@@ -1022,7 +1025,7 @@ function treeNodeRank(parent: WikiTreeNode, node: WikiTreeNode): number {
   if (parent.id !== "base" || node.doc) {
     return 10;
   }
-  if (node.name === "wiki") {
+  if (node.name === "knowledge") {
     return 0;
   }
   if (node.name === "sources" || node.name === "source") {
@@ -1032,7 +1035,7 @@ function treeNodeRank(parent: WikiTreeNode, node: WikiTreeNode): number {
 }
 
 function pickDefaultPagePath(docs: DocumentRecord[]): string | null {
-  return (docs.find((doc) => doc.layer === "wiki" || doc.path.startsWith("wiki/")) ?? docs[0] ?? null)?.path ?? null;
+  return (docs.find((doc) => doc.layer === "knowledge" || doc.path.startsWith("knowledge/")) ?? docs[0] ?? null)?.path ?? null;
 }
 
 function collectDirectoryIds(nodes: WikiTreeNode[], target: Set<string>) {
@@ -1075,14 +1078,30 @@ function extractWikiLinkTargets(body: string): string[] {
   return Array.from(targets);
 }
 
-function asStringList(value: string | string[] | undefined): string[] {
+function asStringList(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return value;
+    return value.filter((entry): entry is string => typeof entry === "string");
   }
   if (typeof value === "string" && value) {
     return [value];
   }
   return [];
+}
+
+function stringifyFrontmatterValue(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map((entry) => (typeof entry === "string" ? entry : JSON.stringify(entry))).join(", ");
+  }
+  if (value === null || value === undefined) {
+    return "";
+  }
+  if (typeof value === "object") {
+    return JSON.stringify(value);
+  }
+  return String(value);
 }
 
 function displayFileName(doc: DocumentRecord): string {

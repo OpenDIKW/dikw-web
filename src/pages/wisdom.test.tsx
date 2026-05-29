@@ -74,7 +74,7 @@ const baseLinks: Record<string, Array<{ src_path: string; src_doc_id: string; li
 const kCandidatesFixture = [
   {
     doc_id: "k-dikw",
-    path: "wiki/concepts/dikw-layered-model.md",
+    path: "knowledge/concepts/dikw-layered-model.md",
     title: "DIKW layered model",
     mtime: 1745000000,
     layer: "knowledge" as const,
@@ -82,7 +82,7 @@ const kCandidatesFixture = [
   },
   {
     doc_id: "k-postmortem",
-    path: "wiki/templates/postmortem.md",
+    path: "knowledge/templates/postmortem.md",
     title: "Postmortem template",
     mtime: 1745000100,
     layer: "knowledge" as const,
@@ -587,7 +587,7 @@ describe("WisdomPage backed by dikw-core API", () => {
           path: "wisdom/principles/prefer-evidence.md",
           outgoing: [],
           incoming: [
-            { src_path: "wiki/concepts/postmortem.md", src_doc_id: "k-1", link_type: "wikilink" },
+            { src_path: "knowledge/concepts/postmortem.md", src_doc_id: "k-1", link_type: "wikilink" },
             { src_path: "wisdom/delivery/release-checklist.md", src_doc_id: "doc-release", link_type: "wikilink" }
           ]
         });
@@ -604,7 +604,7 @@ describe("WisdomPage backed by dikw-core API", () => {
     await waitFor(() => {
       expect(within(reader).getByRole("button", { name: "Release checklist" })).toBeInTheDocument();
     });
-    expect(within(reader).queryByText("wiki/concepts/postmortem.md")).not.toBeInTheDocument();
+    expect(within(reader).queryByText("knowledge/concepts/postmortem.md")).not.toBeInTheDocument();
   });
 
   it("disables the star while edits are dirty so favorite can't drop the draft", async () => {

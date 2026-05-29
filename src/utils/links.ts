@@ -19,7 +19,7 @@ export interface SourceReference extends BacklinkRef {
  * join against the already-loaded base page list to recover title and layer,
  * deduping multiple edges from the same source page. Links whose source is not
  * an active page are dropped; an optional `layers` filter keeps only the wanted
- * layers (e.g. wiki/wisdom).
+ * layers (e.g. knowledge/wisdom).
  */
 export function resolveBacklinks(
   incoming: IncomingLink[],
@@ -63,7 +63,7 @@ export function resolveBacklinks(
  * render the entry using the wire title rather than silently dropping it.
  *
  * The `opts.layers` filter is intentionally omitted: provenance edges always
- * point at K-pages (wiki / wisdom) per the core contract, so callers never
+ * point at K-pages (knowledge / wisdom) per the core contract, so callers never
  * need to filter to a subset.
  */
 export function resolveDerivedPages(derived: DerivedPage[], pages: DocumentRecord[]): BacklinkRef[] {
@@ -85,10 +85,10 @@ export function resolveDerivedPages(derived: DerivedPage[], pages: DocumentRecor
     } else {
       // pages.data hasn't caught up with this K-page yet; render with the
       // wire title and a path-inferred layer. provenance edges only point
-      // at wiki / wisdom per the core contract, so a `wisdom/` prefix
-      // signals wisdom and everything else defaults to wiki. The reader
+      // at knowledge / wisdom per the core contract, so a `wisdom/` prefix
+      // signals wisdom and everything else defaults to knowledge. The reader
       // will get the exact layer back when the next pages reload lands.
-      const fallbackLayer: Layer = entry.path.startsWith("wisdom/") ? "wisdom" : "wiki";
+      const fallbackLayer: Layer = entry.path.startsWith("wisdom/") ? "wisdom" : "knowledge";
       refs.push({ path: entry.path, title: entry.title ?? entry.path, layer: fallbackLayer });
     }
   }

@@ -4,7 +4,7 @@ import { mockDikwApi } from "./mockApi";
 const englishRoutes = [
   { hash: "overview", heading: "Overview" },
   { hash: "chat", heading: "Chat" },
-  { hash: "wiki", heading: "Base" },
+  { hash: "base", heading: "Base" },
   { hash: "graph", heading: "Graph" },
   { hash: "tasks", heading: "Tasks" },
   { hash: "wisdom", heading: "Wisdom" },
@@ -14,7 +14,7 @@ const englishRoutes = [
 const chineseRoutes = [
   { hash: "overview", heading: "工作台概览" },
   { hash: "chat", heading: "会话" },
-  { hash: "wiki", heading: "知识库" },
+  { hash: "base", heading: "知识库" },
   { hash: "graph", heading: "知识图谱" },
   { hash: "tasks", heading: "任务" },
   { hash: "wisdom", heading: "认知沉淀" },
@@ -22,7 +22,7 @@ const chineseRoutes = [
 ];
 
 const cjkText = /[\u3400-\u9fff]/;
-const businessRoutes = ["overview", "chat", "retrieve", "wiki", "graph", "tasks", "wisdom"];
+const businessRoutes = ["overview", "chat", "retrieve", "base", "graph", "tasks", "wisdom"];
 
 test.beforeEach(async ({ page }) => {
   await mockDikwApi(page);

@@ -6,12 +6,12 @@ describe("sourcesFromTool", () => {
   it("maps retrieve_knowledge page_refs to core sources", () => {
     const sources = sourcesFromTool("retrieve_knowledge", {
       page_refs: [
-        { path: "wiki/architecture.md", title: "Architecture", layer: "wiki", score: 0.42 },
+        { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge", score: 0.42 },
         { path: "" }
       ]
     });
     expect(sources).toEqual([
-      { path: "wiki/architecture.md", title: "Architecture", layer: "wiki", score: 0.42 }
+      { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge", score: 0.42 }
     ]);
   });
 

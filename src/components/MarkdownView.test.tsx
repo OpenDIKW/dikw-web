@@ -551,7 +551,7 @@ describe("MarkdownView", () => {
     const scrollIntoView = vi.fn();
     const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
     HTMLElement.prototype.scrollIntoView = scrollIntoView;
-    window.location.hash = "#wiki";
+    window.location.hash = "#base";
 
     try {
       render(<MarkdownView body={"[第1章](#第1章)\n\n# 第1章\n\n正文。"} />);
@@ -559,7 +559,7 @@ describe("MarkdownView", () => {
 
       await userEvent.click(screen.getByRole("link", { name: "第1章" }));
 
-      expect(window.location.hash).toBe("#wiki");
+      expect(window.location.hash).toBe("#base");
       expect(scrollIntoView).toHaveBeenCalledTimes(1);
     } finally {
       HTMLElement.prototype.scrollIntoView = originalScrollIntoView;

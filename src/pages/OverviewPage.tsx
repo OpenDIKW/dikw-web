@@ -57,11 +57,10 @@ export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
         />
         <MetricCard label="Data" value={formatNumber(data?.health.layer_counts.sources)} detail="source documents" />
         <MetricCard label="Information" value={formatNumber(data?.health.layer_counts.chunks)} detail={`${formatNumber(data?.status.embeddings)} embeddings`} />
-        <MetricCard label="Knowledge" value={formatNumber(data?.health.layer_counts.wiki_pages)} detail={`${formatNumber(data?.status.links)} links`} />
+        <MetricCard label="Knowledge" value={formatNumber(data?.health.layer_counts.knowledge_pages)} detail={`${formatNumber(data?.status.links)} links`} />
         <MetricCard
           label="Wisdom"
           value={formatNumber(data?.health.layer_counts.wisdom_items)}
-          detail={`${formatNumber(data?.status.wisdom_by_status?.candidate)} candidates`}
         />
         <MetricCard label="Assets" value={formatNumber(data?.status.assets)} detail={`${formatNumber(data?.status.asset_embeddings)} asset embeddings`} />
       </section>
@@ -84,7 +83,7 @@ export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
               </div>
               <div>
                 <dt>last log</dt>
-                <dd>{formatUnixSeconds(data.status.last_wiki_log_ts)}</dd>
+                <dd>{formatUnixSeconds(data.status.last_knowledge_log_ts)}</dd>
               </div>
             </dl>
           </div>

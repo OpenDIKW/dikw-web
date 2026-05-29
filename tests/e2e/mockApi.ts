@@ -95,7 +95,7 @@ export async function mockDikwApi(page: Page) {
               createdAt: "2026-05-13T00:00:00.500Z"
             }
           ],
-          sources: [{ path: "wiki/concepts/architecture.md", title: "Architecture", layer: "wiki" }]
+          sources: [{ path: "knowledge/concepts/architecture.md", title: "Architecture", layer: "knowledge" }]
         };
       }
       await route.fulfill({ json: agentSession });
@@ -204,11 +204,11 @@ export async function mockDikwApi(page: Page) {
           ];
       const sources = isAutoScrollStress
         ? Array.from({ length: 24 }, (_, index) => ({
-            path: `wiki/concepts/auto-scroll-source-${index + 1}.md`,
+            path: `knowledge/concepts/auto-scroll-source-${index + 1}.md`,
             title: `Auto Scroll Source ${index + 1}`,
-            layer: "wiki"
+            layer: "knowledge"
           }))
-        : [{ path: `wiki/concepts/architecture-${turnNumber}.md`, title: `Architecture ${turnNumber}`, layer: "wiki" }];
+        : [{ path: `knowledge/concepts/architecture-${turnNumber}.md`, title: `Architecture ${turnNumber}`, layer: "knowledge" }];
       agentSession = {
         ...agentSession,
         title: agentSession.title === "New chat" ? userMessage.slice(0, 40) : agentSession.title,

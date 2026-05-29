@@ -153,7 +153,7 @@ export function GraphPage({
               <div className="graph-legend" aria-label="Graph legend">
                 <span className="graph-legend__chip">
                   <span className="graph-legend__dot" aria-hidden="true" />
-                  Wiki
+                  Knowledge
                 </span>
                 <span className="graph-legend__chip">
                   <span className="graph-legend__dot graph-legend__dot--source" aria-hidden="true" />

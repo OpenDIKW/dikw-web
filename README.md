@@ -81,8 +81,8 @@ dev server as middleware, and into `dist-server/standalone.mjs` for prod):
 Hash-based. Settings owns connection state.
 
 - `#chat` — canonical chat. Legacy `#query` redirects here.
-- `#wiki` — Base reader (sidebar label "Base", page heading "Base" in en / "知识库" in zh-CN). Tree from `/v1/base/pages?active=true`;
-  body from `/v1/base/pages/{path}`. Tabs: Read / Info / Outline / Source.
+- `#base` — Base reader (sidebar label "Base", page heading "Base" in en / "知识库" in zh-CN). Shows the `source` + `knowledge` layers; wisdom lives on `#wisdom`. Tree from `/v1/base/pages?active=true`;
+  body from `/v1/base/pages/{path}`. Tabs: Read / Info / Outline / Source. The legacy `#wiki` hash no longer resolves (falls back to `#overview`).
 - `#graph` — read-only knowledge map; consumes
   `/v1/base/graph?active=true`. Pixi.js + d3-force.
 - `#overview`, `#wisdom`, `#tasks`, `#retrieve`, `#settings` — see
