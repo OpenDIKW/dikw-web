@@ -260,7 +260,11 @@ reviewed apply above). To gate against concurrent submissions it polls
 `GET /v1/tasks?status=running&limit=1` (then `status=pending`) on a short
 interval — authoritative regardless of the active `status`/`op` filter —
 and disables the fire buttons while any such task exists. The detail-panel
-Stop then cancels that task via `POST /v1/tasks/{id}/cancel`.
+Stop then cancels the *selected* task via `POST /v1/tasks/{id}/cancel`.
+Because the gate ignores the filter but Stop only acts on the selected row,
+a running task hidden by an active filter releases the gate only when it
+finishes on its own (or after the filter is cleared so it can be selected
+and Stopped).
 
 ## Task Events
 

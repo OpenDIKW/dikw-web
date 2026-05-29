@@ -2241,7 +2241,10 @@ describe("read console pages", () => {
     expect(within(listPanel).getByText("bulk-task-03")).toBeInTheDocument();
     expect(within(listPanel).queryByText("bulk-task-04")).not.toBeInTheDocument();
 
-    const lastArgs = client.listTasks.mock.calls.at(-1)?.[0] as { op?: string; cursor?: string };
+    // Exclude the busy poll's limit:1 calls; assert on the real page load.
+    const lastArgs = client.listTasks.mock.calls
+      .filter((c) => (c[0] as { limit?: number } | undefined)?.limit === 20)
+      .at(-1)?.[0] as { op?: string; cursor?: string };
     expect(lastArgs.op).toBe("ingest");
     expect(lastArgs.cursor).toBeUndefined();
   });
@@ -2894,6 +2897,8 @@ describe("read console pages", () => {
 
     await waitFor(() => expect(synth).toBeDisabled());
     expect(screen.getByRole("button", { name: "Ingest" })).toBeDisabled();
+    // The running indicator explains the disabled window even before a task id exists.
+    expect(screen.getByText("Task running")).toBeInTheDocument();
 
     await userEvent.click(synth); // disabled → no-op
     expect(client.startSynth).toHaveBeenCalledTimes(1);

@@ -297,36 +297,35 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   }
 
   // Fire a maintenance op, then refresh the list and follow the new task.
-  const fireOp = useCallback(
-    async (start: (signal: AbortSignal) => Promise<TaskHandle>) => {
-      if (busy) return;
-      setActionPending(true);
-      setActionError(null);
-      const controller = new AbortController();
-      try {
-        const handle = await start(controller.signal);
-        // The op is now running. Invalidate any in-flight poll so it can't
-        // clobber the optimistic target, then hand off from actionPending.
-        busyPollGenRef.current += 1;
-        setBusyTaskId(handle.task_id);
-        setActionPending(false);
-        await loadFirstPage();
-        void follow({
-          task_id: handle.task_id,
-          op: handle.op,
-          status: handle.status,
-          created_at: handle.created_at,
-          started_at: null,
-          finished_at: null,
-          params_digest: ""
-        });
-      } catch (error) {
-        setActionPending(false);
-        setActionError(error);
-      }
-    },
-    [busy, loadFirstPage, follow]
-  );
+  // Plain function (not memoized): its closure reads `busy`/`follow`, which
+  // change identity every render, so a useCallback here would never hold.
+  const fireOp = async (start: (signal: AbortSignal) => Promise<TaskHandle>) => {
+    if (busy) return;
+    setActionPending(true);
+    setActionError(null);
+    const controller = new AbortController();
+    try {
+      const handle = await start(controller.signal);
+      // The op is now running. Invalidate any in-flight poll so it can't
+      // clobber the optimistic target, then hand off from actionPending.
+      busyPollGenRef.current += 1;
+      setBusyTaskId(handle.task_id);
+      setActionPending(false);
+      await loadFirstPage();
+      void follow({
+        task_id: handle.task_id,
+        op: handle.op,
+        status: handle.status,
+        created_at: handle.created_at,
+        started_at: null,
+        finished_at: null,
+        params_digest: ""
+      });
+    } catch (error) {
+      setActionPending(false);
+      setActionError(error);
+    }
+  };
 
   const onIngest = () => void fireOp((signal) => client.startIngest({}, signal));
   const onSynth = () => void fireOp((signal) => client.startSynth({}, signal));
@@ -338,7 +337,10 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   };
 
   // Detail-panel Stop: cancel the selected running/pending task on core.
-  const cancelSelected = useCallback(async () => {
+  // We intentionally do NOT cancelFollow() here — if this task is being
+  // followed, the live stream renders the resulting final(cancelled) event as
+  // confirmation and then settles `following` on its own.
+  const cancelSelected = async () => {
     if (!selected || isTerminalTask(selected.status)) return;
     const id = selected.task_id;
     setActionError(null);
@@ -350,7 +352,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     } catch (error) {
       setActionError(error);
     }
-  }, [selected, client, loadFirstPage]);
+  };
 
   return (
     <div className="page-stack">
@@ -391,7 +393,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
           <button className="secondary-button" type="button" onClick={onLintApply} disabled={!canApply}>
             {copy.actions.lintApply}
           </button>
-          {busyTaskId ? (
+          {busy ? (
             <span className="task-actions__live" aria-live="polite">
               <span className="live-dot" aria-hidden="true" />
               {copy.actions.running}
