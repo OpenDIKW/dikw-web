@@ -2193,11 +2193,16 @@ describe("read console pages", () => {
 
   it("点击 Load more 带上 next_cursor 追加下一页；到底后按钮消失", async () => {
     const client = createMockClient();
-    client.listTasks
-      .mockResolvedValueOnce(
-        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
-      )
-      .mockResolvedValueOnce(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+    let listLoad = 0;
+    client.listTasks.mockImplementation((params: { limit?: number }) => {
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
+      listLoad += 1;
+      return Promise.resolve(
+        listLoad === 1
+          ? toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+          : toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false })
+      );
+    });
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
@@ -2212,7 +2217,8 @@ describe("read console pages", () => {
     expect(within(listPanel).getByText("bulk-task-25")).toBeInTheDocument();
     expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Load more/ })).not.toBeInTheDocument();
-    expect(client.listTasks).toHaveBeenLastCalledWith(expect.objectContaining({ cursor: "cursor-2" }));
+    const loadCalls = client.listTasks.mock.calls.filter((c) => (c[0] as { limit?: number } | undefined)?.limit === 20);
+    expect(loadCalls.at(-1)?.[0]).toEqual(expect.objectContaining({ cursor: "cursor-2" }));
   });
 
   it("更改 Op 过滤后重新拉取首页（带 op、不带 cursor）", async () => {
@@ -2292,11 +2298,16 @@ describe("read console pages", () => {
 
   it("Load more 追加后保持当前选中项", async () => {
     const client = createMockClient();
-    client.listTasks
-      .mockResolvedValueOnce(
-        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
-      )
-      .mockResolvedValueOnce(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+    let listLoad = 0;
+    client.listTasks.mockImplementation((params: { limit?: number }) => {
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
+      listLoad += 1;
+      return Promise.resolve(
+        listLoad === 1
+          ? toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+          : toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false })
+      );
+    });
     client.getTask.mockImplementation((id: string) =>
       Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
     );
@@ -2317,14 +2328,16 @@ describe("read console pages", () => {
 
   it("Load more 命中 invalid_cursor 时回落到首页", async () => {
     const client = createMockClient();
-    client.listTasks
-      .mockResolvedValueOnce(
-        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "stale", hasMore: true })
-      )
-      .mockRejectedValueOnce(new DikwClientError({ status: 400, code: "invalid_cursor", message: "invalid cursor" }))
-      .mockResolvedValueOnce(
-        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
-      );
+    let listLoad = 0;
+    client.listTasks.mockImplementation((params: { limit?: number; cursor?: string }) => {
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
+      listLoad += 1;
+      if (listLoad === 1)
+        return Promise.resolve(toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "stale", hasMore: true }));
+      if (listLoad === 2)
+        return Promise.reject(new DikwClientError({ status: 400, code: "invalid_cursor", message: "invalid cursor" }));
+      return Promise.resolve(toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true }));
+    });
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
@@ -2333,22 +2346,25 @@ describe("read console pages", () => {
     await userEvent.click(screen.getByRole("button", { name: "Load more" }));
 
     await waitFor(() => {
-      expect(client.listTasks).toHaveBeenCalledTimes(3);
+      expect(client.listTasks.mock.calls.filter((c) => (c[0] as { limit?: number } | undefined)?.limit === 20).length).toBe(3);
     });
-    const lastArgs = client.listTasks.mock.calls.at(-1)?.[0] as { cursor?: string };
-    expect(lastArgs.cursor).toBeUndefined();
+    const loadCalls = client.listTasks.mock.calls.filter((c) => (c[0] as { limit?: number } | undefined)?.limit === 20);
+    expect((loadCalls.at(-1)?.[0] as { cursor?: string } | undefined)?.cursor).toBeUndefined();
     expect(screen.getAllByText("bulk-task-01").length).toBeGreaterThan(0);
     expect(screen.queryByText("Could not read task list")).not.toBeInTheDocument();
   });
 
   it("Load more 失败后重试成功时清除错误提示", async () => {
     const client = createMockClient();
-    client.listTasks
-      .mockResolvedValueOnce(
-        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
-      )
-      .mockRejectedValueOnce(new DikwClientError({ status: 500, code: "internal", message: "boom" }))
-      .mockResolvedValueOnce(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+    let listLoad = 0;
+    client.listTasks.mockImplementation((params: { limit?: number }) => {
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
+      listLoad += 1;
+      if (listLoad === 1)
+        return Promise.resolve(toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true }));
+      if (listLoad === 2) return Promise.reject(new DikwClientError({ status: 500, code: "internal", message: "boom" }));
+      return Promise.resolve(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+    });
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
@@ -2365,7 +2381,8 @@ describe("read console pages", () => {
   it("Load more 进行中切换筛选时丢弃过期追加结果", async () => {
     const client = createMockClient();
     let resolveStale: (() => void) | null = null;
-    client.listTasks.mockImplementation((params: { status?: string; cursor?: string }) => {
+    client.listTasks.mockImplementation((params: { status?: string; cursor?: string; limit?: number }) => {
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
       if (params.cursor) {
         return new Promise<TaskListPage>((resolve) => {
           resolveStale = () => resolve(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
@@ -2407,7 +2424,8 @@ describe("read console pages", () => {
     const client = createMockClient();
     let initialDone = false;
     let resolveStaleRefresh: (() => void) | null = null;
-    client.listTasks.mockImplementation((params: { status?: string; cursor?: string }) => {
+    client.listTasks.mockImplementation((params: { status?: string; cursor?: string; limit?: number }) => {
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
       if (params.status === "succeeded") {
         return Promise.resolve(
           toTaskListPage([toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "filtered-1", status: "succeeded" })])
@@ -2450,7 +2468,8 @@ describe("read console pages", () => {
     const client = createMockClient();
     let resolveStaleMore: (() => void) | null = null;
     let initialDone = false;
-    client.listTasks.mockImplementation((params: { status?: string; cursor?: string }) => {
+    client.listTasks.mockImplementation((params: { status?: string; cursor?: string; limit?: number }) => {
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
       if (params.cursor) {
         // The in-flight Load more — held open until after Refresh resets the list.
         return new Promise<TaskListPage>((resolve) => {
@@ -2480,7 +2499,9 @@ describe("read console pages", () => {
     await waitFor(() => expect(resolveStaleMore).not.toBeNull());
 
     await userEvent.click(screen.getByRole("button", { name: "Refresh tasks" }));
-    await waitFor(() => expect(client.listTasks).toHaveBeenCalledTimes(3));
+    await waitFor(() =>
+      expect(client.listTasks.mock.calls.filter((c) => (c[0] as { limit?: number } | undefined)?.limit === 20).length).toBe(3)
+    );
 
     await act(async () => {
       resolveStaleMore?.();
@@ -2797,6 +2818,186 @@ describe("read console pages", () => {
     await waitFor(() => {
       expect(signal.aborted).toBe(true);
     });
+  });
+
+  // --- Operation action buttons (Ingest / Synth / Lint Propose / Lint Apply) ---
+
+  const idleList = (summaries: ReturnType<typeof toTaskSummary>[] = []) =>
+    (params: { status?: string; limit?: number; cursor?: string }) =>
+      // Busy poll uses limit:1; serve it empty so the page reads "idle".
+      Promise.resolve(params.limit === 1 ? toTaskListPage([]) : toTaskListPage(summaries));
+
+  it("renders the four operation buttons, enabled when idle", async () => {
+    const client = createMockClient();
+    client.listTasks.mockImplementation(idleList());
+    render(<TasksPage client={client} />);
+
+    const ingest = await screen.findByRole("button", { name: "Ingest" });
+    expect(ingest).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Synth" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Lint Propose" })).toBeEnabled();
+    // Lint Apply needs a selected succeeded lint.propose task; none here.
+    expect(screen.getByRole("button", { name: "Lint Apply" })).toBeDisabled();
+
+    const actions = ingest.closest(".task-actions") as HTMLElement;
+    expect(actions).toBeInTheDocument();
+    // No toolbar Stop — cancel lives on the detail panel.
+    expect(within(actions).queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
+  });
+
+  it("fires ingest and follows the newly created task", async () => {
+    const client = createMockClient();
+    const runningSummary = toTaskSummary({
+      ...manyTaskRowsFixture[0],
+      task_id: "ingest-9",
+      op: "ingest",
+      status: "running",
+      finished_at: null
+    });
+    let started = false;
+    client.listTasks.mockImplementation((params: { status?: string; limit?: number; cursor?: string }) => {
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
+      return Promise.resolve(toTaskListPage(started ? [runningSummary] : []));
+    });
+    client.startIngest.mockImplementation(() => {
+      started = true;
+      return Promise.resolve({ task_id: "ingest-9", op: "ingest", status: "running", created_at: "t", links: {} });
+    });
+    client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
+
+    render(<TasksPage client={client} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Ingest" }));
+
+    await waitFor(() => expect(client.startIngest).toHaveBeenCalledWith({}, expect.any(AbortSignal)));
+    await waitFor(() =>
+      expect(client.streamTaskEvents).toHaveBeenCalledWith("ingest-9", undefined, expect.any(AbortSignal))
+    );
+    expect(await screen.findByRole("heading", { name: "ingest" })).toBeInTheDocument();
+  });
+
+  it("disables fire buttons immediately and ignores a double submit", async () => {
+    const client = createMockClient();
+    client.listTasks.mockImplementation(idleList());
+    const deferred: { resolve: (() => void) | null } = { resolve: null };
+    client.startSynth.mockImplementation(
+      () =>
+        new Promise<unknown>((resolve) => {
+          deferred.resolve = () =>
+            resolve({ task_id: "synth-1", op: "synth", status: "running", created_at: "t", links: {} });
+        })
+    );
+    client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
+
+    render(<TasksPage client={client} />);
+    const synth = await screen.findByRole("button", { name: "Synth" });
+    await userEvent.click(synth);
+
+    await waitFor(() => expect(synth).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Ingest" })).toBeDisabled();
+
+    await userEvent.click(synth); // disabled → no-op
+    expect(client.startSynth).toHaveBeenCalledTimes(1);
+
+    deferred.resolve?.();
+  });
+
+  it("disables fire buttons and shows a running indicator while a task runs", async () => {
+    const client = createMockClient();
+    const runningSummary = toTaskSummary({
+      ...manyTaskRowsFixture[0],
+      task_id: "ext-running",
+      op: "ingest",
+      status: "running",
+      finished_at: null
+    });
+    client.listTasks.mockImplementation((params: { status?: string; limit?: number }) => {
+      if (params.limit === 1 && params.status === "running") return Promise.resolve(toTaskListPage([runningSummary]));
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
+      return Promise.resolve(toTaskListPage([runningSummary]));
+    });
+    client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
+
+    render(<TasksPage client={client} />);
+
+    expect(await screen.findByText("Task running")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ingest" })).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Synth" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Lint Propose" })).toBeDisabled();
+  });
+
+  it("cancels the running task from the detail-panel Stop button and re-enables", async () => {
+    const client = createMockClient();
+    let running = true;
+    const summary = (status: TaskRow["status"]) =>
+      toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "ext-running", op: "ingest", status, finished_at: null });
+    client.listTasks.mockImplementation((params: { status?: string; limit?: number }) => {
+      if (params.limit === 1 && params.status === "running") return Promise.resolve(toTaskListPage(running ? [summary("running")] : []));
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
+      return Promise.resolve(toTaskListPage([summary(running ? "running" : "cancelled")]));
+    });
+    client.cancelTask.mockImplementation(() => { running = false; return Promise.resolve({}); });
+    client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByRole("heading", { name: "ingest" });
+    const stop = screen.getByRole("button", { name: "Stop" });
+    expect(stop).toBeEnabled();
+
+    await userEvent.click(stop);
+
+    expect(client.cancelTask).toHaveBeenCalledWith("ext-running");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ingest" })).toBeEnabled());
+  });
+
+  it("disables the detail-panel Stop button for a terminal task", async () => {
+    const client = createMockClient();
+    client.listTasks.mockImplementation(
+      idleList([toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "done-1", op: "ingest", status: "succeeded" })])
+    );
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByRole("heading", { name: "ingest" });
+    expect(screen.getByRole("button", { name: "Stop" })).toBeDisabled();
+  });
+
+  it("enables Lint Apply only for a succeeded lint.propose task and applies all proposals", async () => {
+    const client = createMockClient();
+    const propose = toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "propose-1", op: "lint.propose", status: "succeeded" });
+    const evalTask = toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "eval-1", op: "eval", status: "succeeded" });
+    client.listTasks.mockImplementation(idleList([propose, evalTask]));
+    client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
+    client.startLintApply.mockResolvedValue({ task_id: "apply-1", op: "lint.apply", status: "running", created_at: "t", links: {} });
+
+    render(<TasksPage client={client} />);
+    await screen.findByRole("heading", { name: "lint.propose" });
+    expect(screen.getByRole("button", { name: "Lint Apply" })).toBeEnabled();
+
+    await userEvent.click(screen.getByText("eval-1").closest("button") as HTMLElement);
+    await screen.findByRole("heading", { name: "eval" });
+    expect(screen.getByRole("button", { name: "Lint Apply" })).toBeDisabled();
+
+    await userEvent.click(screen.getByText("propose-1").closest("button") as HTMLElement);
+    await screen.findByRole("heading", { name: "lint.propose" });
+    await userEvent.click(screen.getByRole("button", { name: "Lint Apply" }));
+
+    expect(client.startLintApply).toHaveBeenCalledWith(
+      { proposalTaskId: "propose-1", pick: null },
+      expect.any(AbortSignal)
+    );
+    expect(screen.queryByText("Action could not be completed")).not.toBeInTheDocument();
+  });
+
+  it("surfaces an error notice when a fire op fails", async () => {
+    const client = createMockClient();
+    client.listTasks.mockImplementation(idleList());
+    client.startSynth.mockRejectedValue(new DikwClientError({ status: 500, code: "internal", message: "boom" }));
+
+    render(<TasksPage client={client} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Synth" }));
+
+    expect(await screen.findByText("Action could not be completed")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Synth" })).toBeEnabled());
   });
 });
 

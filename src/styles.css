@@ -309,6 +309,23 @@ button:disabled {
   justify-content: flex-end;
 }
 
+.task-actions {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.task-actions__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .content {
   min-width: 0;
   padding: 24px;
@@ -3881,6 +3898,11 @@ html[data-theme="dark"] .markdown-body blockquote {
   .button-row {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .task-actions {
+    margin-left: 0;
+    width: 100%;
   }
 
   .graph-force-controls {

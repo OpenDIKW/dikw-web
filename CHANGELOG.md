@@ -9,6 +9,28 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.16] - 2026-05-29
+
+### Feature: fire maintenance ops from the Tasks page toolbar
+
+- The `#tasks` filter-bar gains **Ingest / Synth / Lint Propose / Lint Apply**
+  buttons to the right of the Status / Op controls. Ingest, Synth, and Lint
+  Propose start their respective core tasks with default params; **Lint Apply**
+  runs against the currently-selected succeeded `lint.propose` task and applies
+  **all** proposals (`pick:null`, no review gate) — it is disabled unless such a
+  task is selected.
+- After firing, the page refreshes the list, selects the new task, and follows
+  its live event stream (reusing the existing `follow()` machinery).
+- A short background poll of `/v1/tasks` (`running`, then `pending`) detects when
+  core is busy — authoritatively, regardless of the active Status/Op filter — and
+  disables the four fire buttons while any such task exists, showing a "Task
+  running" indicator. The detail-panel **Stop** button changes from a client-only
+  event-stream detach to a real `POST /v1/tasks/{id}/cancel`; cancelling the
+  running task re-enables the fire buttons. Follow / Load events still only
+  stream events.
+- `TasksPage` becomes a second write surface alongside `#import` (docs updated in
+  `CLAUDE.md` and `docs/core-contract.md`).
+
 ## [0.0.15] - 2026-05-29
 
 ### Fix: live progress during mineru PDF / Office conversion
