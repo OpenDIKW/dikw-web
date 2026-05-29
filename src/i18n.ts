@@ -342,12 +342,14 @@ export const translations = {
           queuedOne: "{n} file queued",
           queuedMany: "{n} files queued",
           skip: "Skip",
+          hint: "Large files can take a minute or two.",
+          elapsedLabel: "elapsed",
           substages: {
             queued: "queued",
-            hashing: "hashing",
-            uploading: "uploading to mineru",
-            polling: "waiting on mineru",
-            downloading: "downloading result",
+            hashing: "reading file…",
+            uploading: "Converting on mineru…",
+            polling: "Converting on mineru…",
+            downloading: "Finishing up…",
             done: "done",
             failed: "failed"
           }
@@ -713,12 +715,14 @@ export const translations = {
           queuedOne: "已排队 {n} 个文件",
           queuedMany: "已排队 {n} 个文件",
           skip: "跳过",
+          hint: "大文件可能要一两分钟。",
+          elapsedLabel: "已用时",
           substages: {
             queued: "已排队",
-            hashing: "计算指纹",
-            uploading: "上传至 mineru",
-            polling: "等待 mineru",
-            downloading: "下载结果",
+            hashing: "读取文件…",
+            uploading: "正在 mineru 转换…",
+            polling: "正在 mineru 转换…",
+            downloading: "即将完成…",
             done: "完成",
             failed: "失败"
           }
