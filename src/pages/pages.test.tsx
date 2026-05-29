@@ -642,7 +642,12 @@ describe("read console pages", () => {
     expect(screen.queryByLabelText("Layer")).not.toBeInTheDocument();
     const directory = await screen.findByRole("tree", { name: "Base directory" });
     expect(within(directory).getByRole("treeitem", { name: "base" })).toBeInTheDocument();
-    expect(within(directory).getByRole("treeitem", { name: "knowledge" })).toBeInTheDocument();
+    // The root treeitem renders with the tree container, but its children
+    // (knowledge/sources) populate a tick later once the pages list resolves —
+    // await one child before asserting the rest synchronously to avoid a race.
+    expect(
+      await within(directory).findByRole("treeitem", { name: "knowledge" })
+    ).toBeInTheDocument();
     expect(within(directory).getByRole("treeitem", { name: "sources" })).toBeInTheDocument();
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
   });
@@ -673,7 +678,11 @@ describe("read console pages", () => {
     render(<WikiPage client={client} />);
 
     const directory = await screen.findByRole("tree", { name: "Base directory" });
-    expect(within(directory).getByRole("treeitem", { name: "knowledge" })).toBeInTheDocument();
+    // Children (knowledge/sources) populate a tick after the tree container —
+    // await one so the negative wisdom assertion below isn't a false green.
+    expect(
+      await within(directory).findByRole("treeitem", { name: "knowledge" })
+    ).toBeInTheDocument();
     expect(within(directory).getByRole("treeitem", { name: "sources" })).toBeInTheDocument();
     // wisdom has its own #wisdom page and must not surface in the Base tree.
     expect(within(directory).queryByRole("treeitem", { name: "wisdom" })).not.toBeInTheDocument();
@@ -808,7 +817,10 @@ describe("read console pages", () => {
 
     const directory = await screen.findByRole("tree", { name: "Base directory" });
     expect(within(directory).getByRole("treeitem", { name: "base" })).toBeInTheDocument();
-    expect(within(directory).getByRole("treeitem", { name: /knowledge/ })).toBeInTheDocument();
+    // Children populate after the pages list resolves — await before asserting.
+    expect(
+      await within(directory).findByRole("treeitem", { name: /knowledge/ })
+    ).toBeInTheDocument();
     await screen.findByRole("heading", { name: "dikw-core", level: 1 });
     expect(within(directory).getByRole("treeitem", { name: /entities/ })).toBeInTheDocument();
     expect(await within(directory).findByRole("button", { name: /dikw-core/ })).toBeInTheDocument();

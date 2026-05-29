@@ -9,6 +9,26 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.15] - 2026-05-29
+
+### Fix: live progress during mineru PDF / Office conversion
+
+- **The `converting` stage no longer looks frozen.** Three issues fixed: (1) the
+  `<Loader2 className="spin">` icon never animated because `.spin` had no rule in
+  `styles.css` (the spin keyframe was only wired to chat-page classes); (2) the
+  single `fetch` covering upload + the multi-minute mineru server conversion +
+  download was labelled "uploading to mineru" the whole time, while the intended
+  `polling` / "waiting on mineru" substage was never emitted; (3) no elapsed timer
+  or progress bar, so a long wait showed no motion.
+- `ConversionProgress` now fixes `.spin` (reuses `pr4-spin`), shows a per-row live
+  elapsed timer (reuses `formatElapsed` + a 1s tick like `PipelineSteps`), shows an
+  indeterminate progress bar on active rows (reuses `@keyframes import-indet`),
+  relabels the in-flight wait "Converting on mineru…" with a "can take a minute or
+  two" hint, respects `prefers-reduced-motion`, and styles the rows into a proper
+  panel. `ConversionFileState` gains an in-memory `startedAt`. The mineru conversion
+  is a black box (no progress stream), so progress is honestly indeterminate rather
+  than a fake percentage.
+
 ## [0.0.14] - 2026-05-29
 
 ### Fix: import pipeline misreporting a succeeded task as failed

@@ -269,7 +269,13 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
                   return;
                 }
                 if (e.phase === "hashing") {
-                  updateConversionFile(mineru, i, { substage: "hashing" });
+                  // hashing is convertSource's first event on every path
+                  // (fires before the cache check), so stamp the per-file
+                  // start here to drive the elapsed timer in ConversionProgress.
+                  updateConversionFile(mineru, i, {
+                    substage: "hashing",
+                    startedAt: Date.now()
+                  });
                   return;
                 }
                 if (e.phase === "uploading") {

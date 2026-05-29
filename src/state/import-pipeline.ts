@@ -46,6 +46,10 @@ export interface ConversionFileState {
     | "downloading"
     | "done"
     | "failed";
+  /** Epoch ms when this file started processing (left the ``queued`` state).
+   *  Drives the per-row elapsed timer in ConversionProgress. In-memory only —
+   *  the ``converting`` stage is never persisted (see savePipelineState). */
+  startedAt?: number;
   error?: { code: string; message: string };
 }
 
