@@ -193,6 +193,48 @@ function makeFixtureZip(map: Map<string, Uint8Array>): Uint8Array {
   return buf;
 }
 
+/** Standard mineru.net pipeline double: submit → upload → poll → download
+ *  the given result zip. */
+function mineruFetchMock(fixtureZip: Uint8Array): typeof fetch {
+  return (async (url: URL | RequestInfo, init?: RequestInit) => {
+    const u = String(url);
+    if (u === "https://mineru.net/api/v4/file-urls/batch") {
+      return new Response(
+        JSON.stringify({
+          code: 0,
+          data: {
+            batch_id: "batch-id-1",
+            file_urls: ["https://oss.example/up?sig=x"]
+          }
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (u === "https://oss.example/up?sig=x" && init?.method === "PUT") {
+      return new Response("", { status: 200 });
+    }
+    if (u.startsWith("https://mineru.net/api/v4/extract-results/batch/")) {
+      return new Response(
+        JSON.stringify({
+          code: 0,
+          data: {
+            extract_result: [
+              { state: "done", full_zip_url: "https://cdn.example/result.zip" }
+            ]
+          }
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (u === "https://cdn.example/result.zip") {
+      const fresh = new ArrayBuffer(fixtureZip.byteLength);
+      new Uint8Array(fresh).set(fixtureZip);
+      return new Response(new Blob([fresh]), { status: 200 });
+    }
+    throw new Error(`unexpected fetch to ${u}`);
+  }) as unknown as typeof fetch;
+}
+
 // ------ tests ------
 
 describe("/web/mineru/health", () => {
@@ -340,6 +382,47 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     expect(md).toContain('original_filename: "test.pdf"');
     // Image ref rewritten to wikilink form.
     expect(md).toContain("![[assets/images/fig.png]]");
+  });
+
+  it("preserves the originalFilename query in frontmatter while naming the markdown after the (shortened) upload", async () => {
+    const fileBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+    const inputSha = sha256Hex(fileBytes);
+    const fixtureZip = makeFixtureZip(
+      new Map([["full.md", new TextEncoder().encode("# Title\n")]])
+    );
+    const fetchMock = mineruFetchMock(fixtureZip);
+
+    // The browser uploads under a shortened name but forwards the true
+    // original so frontmatter stays honest.
+    const original = "真实的非常长的原始文件名超过二十五个字符的文档.pdf";
+    const { body, contentType } = makeMultipart(
+      "shortname.pdf",
+      "application/pdf",
+      fileBytes
+    );
+    const handler = createWebHandler({
+      config: { mineruApiKey: TOKEN },
+      fetch: fetchMock
+    });
+    const req = makeReq({
+      method: "POST",
+      url: `/mineru/convert?inputSha=${inputSha}&originalFilename=${encodeURIComponent(original)}`,
+      headers: { "content-type": contentType },
+      body
+    });
+    const { res, captured } = makeRes();
+    await handler(req, res);
+    const r = await captured;
+    expect(r.status).toBe(200);
+    const entries = readTar(new Uint8Array(gunzipSync(r.body)));
+    // Markdown named after the uploaded (shortened) filename → matches the
+    // browser's `${stem}.md` lookup.
+    expect(entries.map((e) => e.archivePath)).toContain("shortname.md");
+    const md = new TextDecoder().decode(
+      entries.find((e) => e.archivePath === "shortname.md")!.data
+    );
+    // Frontmatter keeps the true original, not the shortened upload name.
+    expect(md).toContain(`original_filename: "${original}"`);
   });
 
   it("maps mineru_auth error to HTTP 401", async () => {

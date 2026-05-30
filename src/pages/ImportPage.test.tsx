@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ImportPage } from "./ImportPage";
@@ -153,7 +153,8 @@ describe("ImportPage — idle picker", () => {
     render(<ImportPage client={client} locale="en" />);
     expect(screen.getByRole("heading", { name: "Import" })).toBeInTheDocument();
     expect(screen.getByText("Choose files")).toBeInTheDocument();
-    expect(screen.getByText("Choose folder")).toBeInTheDocument();
+    // Directory upload was removed — only the file picker remains.
+    expect(screen.queryByText("Choose folder")).not.toBeInTheDocument();
     expect(screen.getByTestId("import-dropzone")).toBeInTheDocument();
   });
 
@@ -182,7 +183,7 @@ describe("ImportPage — idle picker", () => {
     expect(within(included).getByText("sources/a.md")).toBeInTheDocument();
   });
 
-  it("surfaces skipped files in their own column with a reason tag", async () => {
+  it("auto-filters unsupported formats at selection with a notice", async () => {
     const client = createMockClient();
     render(<ImportPage client={client} locale="en" />);
 
@@ -190,17 +191,87 @@ describe("ImportPage — idle picker", () => {
     selectFile(
       input,
       file("V/a.md", "Body text with no embeds.\n"),
-      // .txt is not in MD_EXTENSIONS or ASSET_EXTENSIONS — ``scanFiles`` will
-      // emit a ``unsupported_extension`` skipped entry.
+      // .txt is unsupported — filtered at selection, never bundled.
       file("V/notes.txt", "Plain notes")
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("import-preview")).toBeInTheDocument();
     });
+    // The unsupported file is reported in a picker notice, not the skipped list.
+    expect(
+      screen.getByText("Skipped 1 file(s) in an unsupported format.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("notes.txt")).not.toBeInTheDocument();
+    // The supported markdown is still bundled.
+    const included = screen.getByTestId("import-included-list");
+    expect(within(included).getByText("sources/a.md")).toBeInTheDocument();
+  });
+
+  it("surfaces content-level skips in their own column with a reason tag", async () => {
+    const client = createMockClient();
+    render(<ImportPage client={client} locale="en" />);
+
+    const input = screen.getByTestId("import-file-input") as HTMLInputElement;
+    selectFile(
+      input,
+      file("V/a.md", "Body text with no embeds.\n"),
+      // Empty body after frontmatter → ``inspectMarkdownFiles`` emits an
+      // ``empty_body`` skip; the extension is supported so it still reaches
+      // the bundler (unlike unsupported extensions, filtered earlier).
+      file("V/empty.md", "")
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("import-preview")).toBeInTheDocument();
+    });
     const skipped = screen.getByTestId("import-skipped-list");
-    expect(within(skipped).getByText("notes.txt")).toBeInTheDocument();
-    expect(within(skipped).getByText("unsupported")).toBeInTheDocument();
+    expect(within(skipped).getByText("empty.md")).toBeInTheDocument();
+    expect(within(skipped).getByText("empty body")).toBeInTheDocument();
+  });
+
+  it("clears a stale preview when a later selection is entirely filtered", async () => {
+    const client = createMockClient();
+    render(<ImportPage client={client} locale="en" />);
+    const input = screen.getByTestId("import-file-input") as HTMLInputElement;
+
+    // A valid selection first → bundle preview appears.
+    selectFile(input, file("V/a.md", "Body text with no embeds.\n"));
+    await waitFor(() => {
+      expect(screen.getByTestId("import-preview")).toBeInTheDocument();
+    });
+
+    // Then a selection where every file is unsupported.
+    selectFile(input, file("V/archive.zip", "PK fake zip"));
+    await waitFor(() => {
+      expect(
+        screen.getByText("Skipped 1 file(s) in an unsupported format.")
+      ).toBeInTheDocument();
+    });
+    // The stale preview must be gone so the previous file can't be imported.
+    expect(screen.queryByTestId("import-preview")).not.toBeInTheDocument();
+  });
+
+  it("ignores a dropped folder and surfaces a hint", async () => {
+    const client = createMockClient();
+    render(<ImportPage client={client} locale="en" />);
+
+    const dropzone = screen.getByTestId("import-dropzone");
+    const dirEntry = { isDirectory: true, isFile: false };
+    const dataTransfer = {
+      items: [
+        { kind: "file", webkitGetAsEntry: () => dirEntry, getAsFile: () => null }
+      ],
+      files: []
+    };
+    fireEvent.drop(dropzone, { dataTransfer });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Folders aren't supported — drop individual files.")
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId("import-preview")).not.toBeInTheDocument();
   });
 });
 

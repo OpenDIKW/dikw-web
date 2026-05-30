@@ -1,10 +1,12 @@
 import { useCallback, useRef, useState } from "react";
-import { FileText, FolderOpen, Upload } from "lucide-react";
+import { FileText, Upload } from "lucide-react";
 import { Notice } from "../../components/Notice";
 import {
   ImportBundleError,
+  lowerExt,
   type ImportBundleResult
 } from "../../utils/import-bundle";
+import { isSelectableExt } from "../../utils/import-extensions";
 import { BundlePreview } from "./BundlePreview";
 import { readDroppedItems } from "./readDroppedItems";
 import type { ImportCopy } from "./format";
@@ -41,12 +43,41 @@ export function IdlePicker({
 }: IdlePickerProps) {
   const accept = mineruEnabled ? MINERU_ACCEPT : NATIVE_ACCEPT;
   const fileRef = useRef<HTMLInputElement>(null);
-  const folderRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  // Surfaces selection-time hints: unsupported formats filtered out, and
+  // (drag path only) a dropped folder that was ignored.
+  const [pickerNotice, setPickerNotice] = useState<string[] | null>(null);
   // dragenter/dragleave fire per child element — counting them keeps the
   // "is-dragging" class from flickering as the cursor moves over the icon
   // and copy children inside the dropzone.
   const dragDepth = useRef(0);
+
+  // Single choke point for both the file picker and the drop path: filter to
+  // selectable formats, build any hint messages, and forward only the
+  // supported files to the bundler.
+  const handleChosen = useCallback(
+    (rawFiles: File[], skippedDirectory: boolean) => {
+      const messages: string[] = [];
+      if (skippedDirectory) messages.push(copy.folderNotSupported);
+      const supported = rawFiles.filter((f) =>
+        isSelectableExt(lowerExt(f.name), mineruEnabled)
+      );
+      const filtered = rawFiles.length - supported.length;
+      if (filtered > 0) {
+        messages.push(copy.filteredUnsupported.replace("{n}", String(filtered)));
+      }
+      setPickerNotice(messages.length > 0 ? messages : null);
+      if (supported.length > 0) {
+        onFilesChosen(supported);
+      } else if (rawFiles.length > 0) {
+        // Files were chosen/dropped but every one was filtered out: clear any
+        // stale preview so the previously-selected files can't be started
+        // behind the "filtered" notice.
+        onReset();
+      }
+    },
+    [copy, mineruEnabled, onFilesChosen, onReset]
+  );
 
   const onDrop = useCallback(
     (event: React.DragEvent<HTMLDivElement>) => {
@@ -59,16 +90,21 @@ export function IdlePicker({
       // the promise here, route failures into the bundleError pipeline so
       // the existing Notice surfaces them.
       readDroppedItems(event.dataTransfer).then(
-        (files) => {
-          if (files.length > 0) onFilesChosen(files);
+        ({ files, skippedDirectory }) => {
+          handleChosen(files, skippedDirectory);
         },
         (err) => {
           onDropError(err);
         }
       );
     },
-    [onFilesChosen, onDropError]
+    [handleChosen, onDropError]
   );
+
+  const handleReset = useCallback(() => {
+    setPickerNotice(null);
+    onReset();
+  }, [onReset]);
 
   return (
     <>
@@ -105,14 +141,6 @@ export function IdlePicker({
               <FileText size={16} />
               {copy.pickFiles}
             </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => folderRef.current?.click()}
-            >
-              <FolderOpen size={16} />
-              {copy.pickFolder}
-            </button>
           </div>
         </div>
         <input
@@ -124,28 +152,21 @@ export function IdlePicker({
           onChange={(e) => {
             const list = e.target.files;
             if (!list) return;
-            onFilesChosen(Array.from(list));
+            handleChosen(Array.from(list), false);
             // Reset so picking the same file twice re-fires onChange.
             e.target.value = "";
           }}
           data-testid="import-file-input"
         />
-        <input
-          ref={folderRef}
-          type="file"
-          // @ts-expect-error — webkitdirectory is a non-standard but widely-supported attribute.
-          webkitdirectory=""
-          directory=""
-          className="import-input-hidden"
-          onChange={(e) => {
-            const list = e.target.files;
-            if (!list) return;
-            onFilesChosen(Array.from(list));
-            e.target.value = "";
-          }}
-          data-testid="import-folder-input"
-        />
       </section>
+
+      {pickerNotice ? (
+        <Notice tone="info">
+          {pickerNotice.map((message, i) => (
+            <div key={i}>{message}</div>
+          ))}
+        </Notice>
+      ) : null}
 
       {bundleBuilding ? (
         <Notice tone="info">
@@ -169,7 +190,7 @@ export function IdlePicker({
           copy={copy}
           bundle={bundle}
           onStart={onStart}
-          onReset={onReset}
+          onReset={handleReset}
         />
       ) : null}
     </>

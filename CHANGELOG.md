@@ -9,6 +9,24 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.18] - 2026-05-30
+
+### Changed: Import upload is file-only, with auto-filtering and shorter MinerU filenames
+
+- **Directory upload removed.** The Import picker no longer offers a "Choose
+  folder" button, and dropped folders are ignored with a hint — only individual
+  files are accepted (the file input still takes multiple files at once).
+- **Unsupported formats are filtered at selection.** Files whose extension can't
+  be imported are dropped as soon as they're picked or dropped and reported in a
+  short notice, instead of cluttering the bundle preview's skipped column (which
+  now surfaces only content-level issues like empty bodies).
+- **Long MinerU filenames are shortened before conversion.** MinerU errors on
+  very long names, so mineru-bound files are uploaded under a ≤25-char stem
+  (Unicode preserved, extension kept, bytes unchanged → dedup unaffected). The
+  true original filename is forwarded via a new `originalFilename` query on
+  `/web/mineru/convert` so the converted page's frontmatter `original_filename`
+  stays complete.
+
 ## [0.0.17] - 2026-05-30
 
 ### Fixed: three UI / path-consistency issues

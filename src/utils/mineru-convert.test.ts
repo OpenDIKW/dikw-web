@@ -71,6 +71,28 @@ describe("convertSource", () => {
     expect(fetchFn).toHaveBeenCalledTimes(1);
   });
 
+  it("appends the originalFilename query when provided, omits it otherwise", async () => {
+    const file = new File([new Uint8Array([1, 2, 3])], "short.pdf", {
+      type: "application/pdf"
+    });
+    const urls: string[] = [];
+    const fetchFn = vi.fn(async (input: URL | RequestInfo) => {
+      urls.push(String(input));
+      return makeTarGzResponse("short", "# Body\n", []);
+    }) as unknown as typeof fetch;
+
+    await convertSource(file, {
+      fetch: fetchFn,
+      originalFilename: "真实的非常长的原始文件名.pdf"
+    });
+    expect(urls[0]).toContain(
+      `originalFilename=${encodeURIComponent("真实的非常长的原始文件名.pdf")}`
+    );
+
+    await convertSource(file, { fetch: fetchFn });
+    expect(urls[1]).not.toContain("originalFilename=");
+  });
+
   it("hits the cache on second call (no fetch)", async () => {
     const file = new File([new Uint8Array([5, 6, 7])], "x.docx");
     const fetchFn = vi.fn(async () => makeTarGzResponse("x", "# X\n", [])) as unknown as typeof fetch;
