@@ -322,13 +322,33 @@ export class DikwClient {
   ): AsyncGenerator<TaskEvent> {
     const path = `/v1/tasks/${encodeURIComponent(taskId)}/events`;
     let cursor = fromSeq;
+    let failures = 0;
 
     while (true) {
-      const page = await this.requestJson<EventsPage>(path, {
-        method: "GET",
-        params: { from_seq: cursor, wait: 30 },
-        signal
-      });
+      let page: EventsPage;
+      try {
+        page = await this.requestJson<EventsPage>(path, {
+          method: "GET",
+          params: { from_seq: cursor, wait: 30 },
+          signal
+        });
+        failures = 0;
+      } catch (error) {
+        // A long follow can sit behind a proxy/tunnel that transiently drops or
+        // 5xx's the connection. The poll is resumable from the unchanged
+        // ``cursor`` (advanced only after a successful page below), so a
+        // transient gateway/network failure should reconnect rather than abort
+        // the follow. Cancellation and non-transient errors (4xx) propagate.
+        if (signal?.aborted || !isRetryableFollowError(error)) {
+          throw error;
+        }
+        failures += 1;
+        if (failures > FOLLOW_MAX_RETRIES) {
+          throw error;
+        }
+        await abortableDelay(followBackoffMs(failures), signal);
+        continue;
+      }
 
       for (const event of page.events) {
         yield event;
@@ -471,4 +491,55 @@ function isTerminalStatus(
   status: TaskStatus
 ): status is "succeeded" | "failed" | "cancelled" {
   return status === "succeeded" || status === "failed" || status === "cancelled";
+}
+
+// ── task-follow transient-error resilience ──────────────────────────────────
+// ``streamTaskEvents`` long-polls ``GET /v1/tasks/{id}/events`` and is resumable
+// from the last ``from_seq`` cursor (advanced only after a successful page). A
+// reverse proxy / tunnel (Cloudflare, nginx, Caddy) can drop or 5xx a long-lived
+// connection mid-task while the task keeps running server-side, so a transient
+// poll failure should reconnect — not abort the follow and misreport a running
+// task as failed.
+const FOLLOW_RETRY_BASE_MS = 1000;
+const FOLLOW_RETRY_CAP_MS = 15000;
+const FOLLOW_MAX_RETRIES = 8;
+
+/** Capped exponential backoff: 1s, 2s, 4s, 8s, 15s, 15s… (``attempt`` is 1-based,
+ *  the count of consecutive failures). */
+function followBackoffMs(attempt: number): number {
+  return Math.min(FOLLOW_RETRY_BASE_MS * 2 ** (attempt - 1), FOLLOW_RETRY_CAP_MS);
+}
+
+/** Transient transport failures worth reconnecting on: upstream 5xx (502/503/504
+ *  from a proxy/tunnel) and network-level fetch failures (``TypeError``). Client
+ *  errors (4xx, incl. auth/404) and aborts are NOT retried. */
+function isRetryableFollowError(error: unknown): boolean {
+  if (error instanceof DikwClientError) {
+    return error.status >= 500;
+  }
+  if (error instanceof DOMException && error.name === "AbortError") {
+    return false;
+  }
+  return error instanceof TypeError;
+}
+
+/** ``setTimeout`` as a promise that rejects with ``AbortError`` the moment the
+ *  signal fires, so a cancel during backoff exits promptly instead of waiting
+ *  out the full delay. */
+function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }

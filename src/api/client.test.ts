@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DikwClient, buildRequestUrl, normalizeBaseUrl } from "./client";
+import { DikwClient, DikwClientError, buildRequestUrl, normalizeBaseUrl } from "./client";
 import type {
   EventsPage,
   TaskEvent,
@@ -164,6 +164,167 @@ describe("DikwClient.streamTaskEvents (cursor-paged)", () => {
         // 第二次循环时 signal.aborted=true，fetch 抛出 AbortError
       }
     }).rejects.toThrowError(/abort/i);
+  });
+});
+
+describe("DikwClient.streamTaskEvents — transient gateway/network resilience", () => {
+  let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, "fetch");
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+    vi.useRealTimers();
+  });
+
+  /** A raw non-JSON gateway/proxy error body — what a tunnel actually returns
+   *  on a 5xx, exercising the ``http_<status>`` fallback in errorFromResponse. */
+  function errorResponse(status: number, body = "upstream error"): Response {
+    return new Response(body, { status });
+  }
+
+  function runningPage(seq: number): EventsPage {
+    return {
+      task_id: "t",
+      task_status: "running",
+      events: [
+        {
+          type: "task_started",
+          seq,
+          ts: "2026-05-30T00:00:00Z",
+          task_id: "t",
+          op: "synth"
+        } as TaskEvent
+      ],
+      next_from_seq: seq + 1,
+      has_more: false,
+      last_seq: seq
+    };
+  }
+
+  function terminalPage(seq: number): EventsPage {
+    return {
+      task_id: "t",
+      task_status: "succeeded",
+      events: [
+        {
+          type: "final",
+          seq,
+          ts: "2026-05-30T00:00:05Z",
+          status: "succeeded",
+          result: { added: 1 },
+          error: null
+        } as TaskEvent
+      ],
+      next_from_seq: seq + 1,
+      has_more: false,
+      last_seq: seq
+    };
+  }
+
+  it("retries a transient 502 and resumes the poll from the same from_seq", async () => {
+    fetchSpy
+      .mockResolvedValueOnce(jsonResponse(runningPage(1))) // ok → cursor advances to 2
+      .mockResolvedValueOnce(errorResponse(502)) // transient 502 → retry, cursor stays 2
+      .mockResolvedValueOnce(jsonResponse(terminalPage(2))); // ok terminal
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const seen: TaskEvent[] = [];
+    const drain = (async () => {
+      for await (const event of client.streamTaskEvents("t")) seen.push(event);
+    })();
+    await vi.runAllTimersAsync();
+    await drain;
+
+    expect(seen.map((event) => event.type)).toEqual(["task_started", "final"]);
+    // The failed poll and its retry both target from_seq=2 — the cursor never
+    // advanced past the page that errored.
+    const cursors = fetchSpy.mock.calls.map(([input]: [RequestInfo | URL, ...unknown[]]) =>
+      new URL(String(input)).searchParams.get("from_seq")
+    );
+    expect(cursors).toEqual([null, "2", "2"]);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries a network-level fetch failure (TypeError) and reconnects", async () => {
+    fetchSpy
+      .mockRejectedValueOnce(new TypeError("Failed to fetch")) // dropped connection → retry
+      .mockResolvedValueOnce(jsonResponse(terminalPage(1)));
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const seen: TaskEvent[] = [];
+    const drain = (async () => {
+      for await (const event of client.streamTaskEvents("t")) seen.push(event);
+    })();
+    await vi.runAllTimersAsync();
+    await drain;
+
+    expect(seen.map((event) => event.type)).toEqual(["final"]);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up after the retry cap is exceeded and rethrows the last error", async () => {
+    fetchSpy.mockImplementation(async () => errorResponse(502)); // fresh body per poll; upstream stays down
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const drain = (async () => {
+      for await (const _event of client.streamTaskEvents("t")) {
+        // drain to exhaustion
+      }
+    })();
+    const settled = drain.then(() => null).catch((error) => error);
+    await vi.runAllTimersAsync();
+    const error = await settled;
+
+    expect(error).toBeInstanceOf(DikwClientError);
+    expect((error as DikwClientError).status).toBe(502);
+    // first attempt + 8 retries (FOLLOW_MAX_RETRIES) = 9 polls before giving up
+    expect(fetchSpy).toHaveBeenCalledTimes(9);
+  });
+
+  it("does NOT retry a non-transient 4xx (404)", async () => {
+    fetchSpy.mockResolvedValueOnce(errorResponse(404, "task not found"));
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const drain = (async () => {
+      for await (const _event of client.streamTaskEvents("t")) {
+        // drain
+      }
+    })();
+    const settled = drain.then(() => null).catch((error) => error);
+    await vi.runAllTimersAsync();
+    const error = await settled;
+
+    expect(error).toBeInstanceOf(DikwClientError);
+    expect((error as DikwClientError).status).toBe(404);
+    expect(fetchSpy).toHaveBeenCalledTimes(1); // threw immediately, no retry
+  });
+
+  it("aborts promptly when the signal fires during backoff", async () => {
+    const controller = new AbortController();
+    fetchSpy.mockImplementation(async () => errorResponse(503)); // 503 → enters backoff
+
+    const client = new DikwClient({ baseUrl: "http://core.test" });
+    const drain = (async () => {
+      for await (const _event of client.streamTaskEvents(
+        "t",
+        undefined,
+        controller.signal
+      )) {
+        // drain
+      }
+    })();
+    const settled = drain.then(() => null).catch((error) => error);
+    await vi.advanceTimersByTimeAsync(0); // first poll fails → into abortableDelay
+    controller.abort(); // fire the abort mid-backoff
+    await vi.advanceTimersByTimeAsync(0); // flush the rejection
+    const error = await settled;
+
+    expect((error as Error).name).toBe("AbortError");
+    expect(fetchSpy).toHaveBeenCalledTimes(1); // no retry poll after abort
   });
 });
 

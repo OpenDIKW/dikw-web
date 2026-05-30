@@ -411,9 +411,19 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   const consumeTask = useCallback(
     async (taskId: string, signal: AbortSignal) => {
       let final: Extract<TaskEvent, { type: "final" }> | null = null;
-      for await (const event of client.streamTaskEvents(taskId, 0, signal)) {
-        setActiveEvent(event);
-        if (event.type === "final") final = event;
+      try {
+        for await (const event of client.streamTaskEvents(taskId, 0, signal)) {
+          setActiveEvent(event);
+          if (event.type === "final") final = event;
+        }
+      } catch (error) {
+        // A genuine user cancel re-throws so the pipeline reports "cancelled".
+        if (signal.aborted) throw error;
+        // Otherwise the follow stream errored after exhausting its transient
+        // retries (or hit a non-transient gateway/network error). The task runs
+        // server-side and may already have succeeded — fall through to the same
+        // authoritative-row reconciliation used for the clean-stop race below,
+        // rather than misreporting a completed task as a failed stage. (#56)
       }
       // The event stream stops when ``task_status`` goes terminal +
       // ``has_more:false``, which can race ahead of the ``final`` event

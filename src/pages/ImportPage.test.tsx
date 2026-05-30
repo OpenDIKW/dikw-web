@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { ImportPage } from "./ImportPage";
 import { createMockClient, type MockDikwClient } from "../test/mockClient";
+import { DikwClientError } from "../api/client";
 import {
   PIPELINE_STORAGE_KEY,
   type PipelineState
@@ -64,6 +65,25 @@ function progressOnlyStream(): AsyncGenerator<TaskEvent> {
       current: 1,
       total: 1
     } as TaskEvent;
+  })();
+}
+
+/** A stream that yields one progress event and then THROWS — the reported #56
+ *  bug: a follow poll surfaces a transient gateway/network error (here after
+ *  streamTaskEvents has exhausted its own retries, or a non-transient one), so
+ *  the `for await` throws. consumeTask must reconcile against the authoritative
+ *  row instead of letting a still-running/succeeded task abort the import. */
+function throwingStream(error: unknown): AsyncGenerator<TaskEvent> {
+  return (async function* () {
+    yield {
+      type: "progress",
+      seq: 1,
+      ts: new Date().toISOString(),
+      phase: "synth",
+      current: 1,
+      total: 1
+    } as TaskEvent;
+    throw error;
   })();
 }
 
@@ -590,6 +610,58 @@ describe("ImportPage — event-stream race reconciliation", () => {
       "ingest-1",
       expect.any(AbortSignal)
     );
+    expect(getTaskFinalEvent).toHaveBeenCalledWith(
+      "synth-1",
+      expect.any(AbortSignal)
+    );
+  });
+
+  it("treats a follow stream that threw a gateway error as success when the row succeeded (#56)", async () => {
+    // The reported failure: a long synth follow poll hits a transient 502 from
+    // a proxy/tunnel; the `for await` throws even though synth succeeds
+    // server-side. consumeTask must catch the throw and reconcile against the
+    // authoritative task row rather than reporting "synth failed".
+    const client = createMockClient();
+    const finalEvent: TaskEvent = {
+      type: "final",
+      seq: -1,
+      ts: new Date().toISOString(),
+      status: "succeeded",
+      result: {},
+      error: null
+    };
+    const getTaskFinalEvent = vi.fn().mockResolvedValue(finalEvent);
+    Object.assign(client, {
+      importBundle: vi.fn().mockResolvedValue(importResponse()),
+      startIngest: vi.fn().mockResolvedValue(handle("ingest-1", "ingest")),
+      startSynth: vi.fn().mockResolvedValue(handle("synth-1", "synth")),
+      startLintPropose: vi
+        .fn()
+        .mockResolvedValue(handle("propose-1", "lint.propose")),
+      // Every stage's follow throws a 502 mid-stream (retries exhausted).
+      streamTaskEvents: vi.fn(() =>
+        throwingStream(
+          new DikwClientError({
+            status: 502,
+            code: "http_502",
+            message: "Error 502: Bad gateway"
+          })
+        )
+      ),
+      getTaskFinalEvent,
+      getTaskResult: vi.fn().mockResolvedValue({ proposals: [] })
+    });
+    render(<ImportPage client={client} locale="en" />);
+
+    const input = screen.getByTestId("import-file-input") as HTMLInputElement;
+    selectFile(input, file("V/a.md", "Body text.\n"));
+    await userEvent.click(await screen.findByTestId("import-start"));
+
+    // Lands on done — never the failure Notice — because each thrown follow
+    // reconciled to the succeeded authoritative row.
+    await screen.findByTestId("import-done");
+    expect(screen.queryByText("Import failed")).not.toBeInTheDocument();
+    expect(screen.queryByText(/synth failed/i)).not.toBeInTheDocument();
     expect(getTaskFinalEvent).toHaveBeenCalledWith(
       "synth-1",
       expect.any(AbortSignal)

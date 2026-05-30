@@ -9,6 +9,30 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.19] - 2026-05-30
+
+### Fixed: import survives transient gateway errors; Wisdom metric aligns
+
+- **Import no longer aborts on a transient gateway/network blip during task
+  follow** ([#56]). When `dikw-core` sits behind a reverse proxy / tunnel
+  (Cloudflare, nginx, Caddy) that occasionally drops or 5xx's a long-lived
+  connection, a single failed poll during a multi-minute stage (typically
+  `synth` with a slow LLM) used to mark the whole import "failed" even though
+  the task succeeded server-side. `DikwClient.streamTaskEvents` now silently
+  reconnects on an upstream 5xx (502/503/504) or a network-level `fetch` error,
+  resuming from the unchanged `from_seq` cursor with capped exponential backoff
+  (1s→15s, up to 8 retries); cancellation and non-transient 4xx errors still
+  propagate at once. If retries are exhausted, `ImportPage`'s `consumeTask`
+  extends the existing `getTaskFinalEvent` reconciliation to a *thrown* poll, so
+  a stage that finished during the outage lands `done` instead of a spurious
+  failure. The same resilience benefits the Tasks and Wisdom follow paths.
+- **Wisdom Overview metric is vertically aligned.** The Wisdom card had no
+  caption row, so its number sat ~23px below the others in the metric strip.
+  It now carries a `"wisdom items"` caption like every other card, restoring a
+  shared baseline.
+
+[#56]: https://github.com/OpenDIKW/dikw-web/issues/56
+
 ## [0.0.18] - 2026-05-30
 
 ### Changed: Import upload is file-only, with auto-filtering and shorter MinerU filenames

@@ -292,6 +292,20 @@ WisdomPage's `pollWriteTask` drains then reads `getTaskResult`. Both read the
 same authoritative row the Tasks list shows, so a succeeded task is never
 misreported as failed.
 
+The follow is also resilient to *transient* gateway/network failures. Each poll
+only advances the `from_seq` cursor after it succeeds, so `streamTaskEvents`
+silently reconnects on an upstream 5xx (502/503/504 from a proxy/tunnel) or a
+network-level `fetch` error — resuming from the unchanged cursor with capped
+exponential backoff (1s→15s, up to 8 retries) — rather than aborting the follow.
+Cancellation (the `AbortSignal`) and non-transient 4xx errors propagate
+immediately. If the retry budget is exhausted, `consumeTask` extends the same
+`getTaskFinalEvent` reconciliation to a *thrown* poll, so a long stage (e.g. a
+multi-minute `synth`) that completes server-side during a brief tunnel outage
+still lands `done` instead of a spurious stage failure. (A stage that is *still
+running* when the budget is exhausted — i.e. an outage longer than the whole
+retry window — has no terminal row to reconcile against and is still reported
+failed, since its outcome genuinely can't be determined from the client.)
+
 ## Import
 
 The Import page is the primary web surface that writes to `dikw-core`
