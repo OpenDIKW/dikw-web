@@ -27,7 +27,7 @@ per-task sequence cursor used to long-poll a task's events.
 _Avoid_: list cursor, offset
 
 **Task** (operational):
-An envelope for a long-running core op (ingest / synth / distill / eval /
+An envelope for a long-running core op (ingest / synth / eval /
 lint), tracked by `task_id`. Not a DIKW domain entity.
 _Avoid_: job, run
 
