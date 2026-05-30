@@ -38,6 +38,10 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const [eventPageIndex, setEventPageIndex] = useState(0);
   const [eventStickTail, setEventStickTail] = useState(true);
   const [taskPatches, setTaskPatches] = useState<Record<string, TaskPatch>>({});
+  // The task currently being followed. Kept so the detail pane can render it
+  // even when the active Status/Op filter excludes it from the list (e.g. a
+  // freshly-fired op that doesn't match the filter).
+  const [followedRow, setFollowedRow] = useState<TaskListItem | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const eventTapeTaskIdRef = useRef<string | null>(null);
 
@@ -132,20 +136,32 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
       }),
     [rows, taskPatches]
   );
-  const selected = useMemo(
-    () => visibleTasks.find((task) => task.task_id === selectedId) ?? null,
-    [selectedId, visibleTasks]
-  );
+  const selected = useMemo(() => {
+    const fromList = visibleTasks.find((task) => task.task_id === selectedId);
+    if (fromList) return fromList;
+    // Followed task that the active filter keeps out of the list: render it
+    // from the followed row, applying any final-event patch.
+    if (followedRow && followedRow.task_id === selectedId) {
+      const patch = taskPatches[followedRow.task_id];
+      return patch ? { ...followedRow, ...patch } : followedRow;
+    }
+    return null;
+  }, [selectedId, visibleTasks, followedRow, taskPatches]);
   // Lint Apply runs against the selected, succeeded lint.propose task.
   const canApply =
     !busy && selected !== null && selected.op === "lint.propose" && selected.status === "succeeded";
 
   useEffect(() => {
+    // Never auto-reselect away from a task we're actively following — it may be
+    // absent from the filtered list yet still streaming in the detail pane.
+    // (Both null must NOT count as "following", or the initial auto-select is
+    // suppressed when nothing is selected yet.)
+    const following = eventTapeTaskIdRef.current !== null && eventTapeTaskIdRef.current === selectedId;
     if (!rows.length) {
-      if (selectedId !== null) setSelectedId(null);
+      if (selectedId !== null && !following) setSelectedId(null);
       return;
     }
-    if (!selectedId || !rows.some((task) => task.task_id === selectedId)) {
+    if (!following && (!selectedId || !rows.some((task) => task.task_id === selectedId))) {
       setSelectedId(rows[0].task_id);
     }
   }, [rows, selectedId]);
@@ -258,6 +274,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     const controller = new AbortController();
     controllerRef.current = controller;
     eventTapeTaskIdRef.current = row.task_id;
+    setFollowedRow(row);
     setSelectedId(row.task_id);
     setEvents([]);
     setEventsError(null);

@@ -2878,6 +2878,27 @@ describe("read console pages", () => {
     expect(await screen.findByRole("heading", { name: "ingest" })).toBeInTheDocument();
   });
 
+  it("keeps the fired task selected even when the active filter excludes it", async () => {
+    const client = createMockClient();
+    // Every page load returns only a synth task — the new ingest task never
+    // matches, simulating an active Status/Op filter that excludes it.
+    const other = toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "synth-old", op: "synth", status: "succeeded" });
+    client.listTasks.mockImplementation((params: { limit?: number }) => {
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
+      return Promise.resolve(toTaskListPage([other]));
+    });
+    client.startIngest.mockResolvedValue({ task_id: "ingest-9", op: "ingest", status: "running", created_at: "t", links: {} });
+    client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
+
+    render(<TasksPage client={client} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Ingest" }));
+
+    await waitFor(() => expect(client.startIngest).toHaveBeenCalled());
+    // Detail panel follows the fired task, not the filtered-out list's first row.
+    expect(await screen.findByRole("heading", { name: "ingest" })).toBeInTheDocument();
+    expect(document.querySelector(".reader-header__path")?.textContent).toBe("ingest-9");
+  });
+
   it("disables fire buttons immediately and ignores a double submit", async () => {
     const client = createMockClient();
     client.listTasks.mockImplementation(idleList());

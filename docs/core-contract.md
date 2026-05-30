@@ -295,7 +295,7 @@ misreported as failed.
 ## Import
 
 The Import page is the primary web surface that writes to `dikw-core`
-(the Tasks page toolbar is the other — see "Task list" below). It
+(the Tasks page toolbar is the other — see "Task list" above). It
 runs a four-stage pipeline rooted at `POST /v1/import`. PDF / Office
 formats route through an optional `converting` pre-stage owned by the
 web sidecar (`POST /web/mineru/convert` — see `docs/agent.md` for the
