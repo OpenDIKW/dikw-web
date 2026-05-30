@@ -26,11 +26,12 @@ file format introduced in `[0.0.1.0]` was dropped.
   disables the four fire buttons while any such task exists, showing a "Task
   running" indicator for the whole disabled window (including the brief submit
   window before a task id exists). The detail-panel **Stop** button changes from
-  a client-only event-stream detach to a real `POST /v1/tasks/{id}/cancel`;
-  cancelling the running task re-enables the fire buttons. Follow / Load events
-  still only stream events. A running task hidden by an active Status/Op filter
-  can't be selected to Stop until the filter is cleared — it otherwise releases
-  the gate when it finishes on its own.
+  a client-only event-stream detach to a real `POST /v1/tasks/{id}/cancel`,
+  then re-probes the gate authoritatively — the fire buttons re-enable only when
+  no running/pending task remains (a queued task keeps the gate closed). Follow /
+  Load events still only stream events. A running task hidden by an active
+  Status/Op filter can't be selected to Stop until the filter is cleared — it
+  otherwise releases the gate when it finishes on its own.
 - `TasksPage` becomes a second write surface alongside `#import` (docs updated in
   `CLAUDE.md` and `docs/core-contract.md`).
 

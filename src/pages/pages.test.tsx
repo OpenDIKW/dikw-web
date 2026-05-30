@@ -2975,6 +2975,33 @@ describe("read console pages", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Ingest" })).toBeEnabled());
   });
 
+  it("keeps the gate closed after cancelling one task while another is still queued", async () => {
+    const client = createMockClient();
+    let rCancelled = false;
+    const R = (status: TaskRow["status"]) =>
+      toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "task-r", op: "ingest", status, finished_at: null });
+    const P = toTaskSummary({ ...manyTaskRowsFixture[1], task_id: "task-p", op: "synth", status: "pending", finished_at: null });
+    client.listTasks.mockImplementation((params: { status?: string; limit?: number }) => {
+      if (params.limit === 1 && params.status === "running") return Promise.resolve(toTaskListPage(rCancelled ? [] : [R("running")]));
+      if (params.limit === 1 && params.status === "pending") return Promise.resolve(toTaskListPage([P]));
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
+      return Promise.resolve(toTaskListPage([R(rCancelled ? "cancelled" : "running"), P]));
+    });
+    client.cancelTask.mockImplementation(() => { rCancelled = true; return Promise.resolve({}); });
+    client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
+
+    render(<TasksPage client={client} />);
+    await screen.findByRole("heading", { name: "ingest" }); // task-r selected (rows[0])
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ingest" })).toBeDisabled());
+
+    await userEvent.click(screen.getByRole("button", { name: "Stop" }));
+    expect(client.cancelTask).toHaveBeenCalledWith("task-r");
+
+    // task-p is still pending → the busy gate must NOT re-open.
+    await waitFor(() => expect(screen.getByText("Task running")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Ingest" })).toBeDisabled();
+  });
+
   it("disables the detail-panel Stop button for a terminal task", async () => {
     const client = createMockClient();
     client.listTasks.mockImplementation(

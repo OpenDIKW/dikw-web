@@ -215,41 +215,46 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
-  // Authoritatively detect whether core is busy, independent of the list
-  // filter: poll for any running (else pending) task. Self-scheduling timeout
-  // chain so ticks never overlap; only writes `busyTaskId`, never the
-  // filter-scoped list state. Restarts when the client (core URL) changes.
+  // One authoritative busy probe, independent of the list filter: latch the id
+  // of any running (else pending) task. A generation guard drops the result if
+  // a newer probe (or a fired op) superseded this one. Only writes
+  // `busyTaskId`, never the filter-scoped list state.
+  const refreshBusy = useCallback(async () => {
+    const gen = ++busyPollGenRef.current;
+    busyPollControllerRef.current?.abort();
+    const controller = new AbortController();
+    busyPollControllerRef.current = controller;
+    try {
+      const running = await client.listTasks({ status: "running", limit: 1 }, controller.signal);
+      if (busyPollGenRef.current !== gen) return;
+      let target = running.tasks[0]?.task_id ?? null;
+      if (!target) {
+        const pending = await client.listTasks({ status: "pending", limit: 1 }, controller.signal);
+        if (busyPollGenRef.current !== gen) return;
+        target = pending.tasks[0]?.task_id ?? null;
+      }
+      setBusyTaskId(target);
+    } catch {
+      // Transient probe failure — keep the last known busy state.
+    }
+  }, [client]);
+
+  // Poll the busy state on a self-scheduling timer so probes never overlap.
+  // Restarts when the client (core URL) changes.
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const tick = async () => {
-      const gen = ++busyPollGenRef.current;
-      busyPollControllerRef.current?.abort();
-      const controller = new AbortController();
-      busyPollControllerRef.current = controller;
-      try {
-        const running = await client.listTasks({ status: "running", limit: 1 }, controller.signal);
-        if (cancelled || busyPollGenRef.current !== gen) return;
-        let target = running.tasks[0]?.task_id ?? null;
-        if (!target) {
-          const pending = await client.listTasks({ status: "pending", limit: 1 }, controller.signal);
-          if (cancelled || busyPollGenRef.current !== gen) return;
-          target = pending.tasks[0]?.task_id ?? null;
-        }
-        setBusyTaskId(target);
-      } catch {
-        // Transient poll failure — keep the last known busy state.
-      } finally {
-        if (!cancelled) timer = setTimeout(() => void tick(), BUSY_POLL_MS);
-      }
+    const loop = async () => {
+      await refreshBusy();
+      if (!cancelled) timer = setTimeout(() => void loop(), BUSY_POLL_MS);
     };
-    void tick();
+    void loop();
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
       busyPollControllerRef.current?.abort();
     };
-  }, [client]);
+  }, [refreshBusy]);
 
   function cancelFollow() {
     controllerRef.current?.abort();
@@ -356,16 +361,18 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   // Detail-panel Stop: cancel the selected running/pending task on core.
   // We intentionally do NOT cancelFollow() here — if this task is being
   // followed, the live stream renders the resulting final(cancelled) event as
-  // confirmation and then settles `following` on its own.
+  // confirmation and then settles `following` on its own. Re-probe the busy
+  // gate authoritatively rather than optimistically clearing it: another task
+  // may still be running/pending (queued behind this one), and the gate must
+  // stay closed while any exists.
   const cancelSelected = async () => {
     if (!selected || isTerminalTask(selected.status)) return;
     const id = selected.task_id;
     setActionError(null);
     try {
       await client.cancelTask(id);
-      busyPollGenRef.current += 1;
-      setBusyTaskId((current) => (current === id ? null : current));
       void loadFirstPage();
+      await refreshBusy();
     } catch (error) {
       setActionError(error);
     }
