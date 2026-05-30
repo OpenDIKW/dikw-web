@@ -161,8 +161,6 @@ async function runMaintenanceProposal(
       ? "/v1/ingest"
       : action === "synth"
         ? "/v1/synth"
-        : action === "distill"
-        ? "/v1/distill"
         : "/v1/lint/propose";
   const headers: Record<string, string> = { Accept: "application/json", "Content-Type": "application/json" };
   if (connection.token) {

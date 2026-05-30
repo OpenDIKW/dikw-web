@@ -52,6 +52,17 @@ describe("DIKW agent tools", () => {
     expect(calls.map((call) => call.path)).toContain("/v1/base/pages/knowledge%2Farchitecture.md");
     expect(calls.map((call) => call.path)).not.toContain("/v1/query");
   });
+
+  it("offers maintenance proposal actions without the dead distill op", () => {
+    const tools = createDikwTools({ coreUrl: "http://127.0.0.1:8765" });
+    const action = (
+      findTool(tools, "propose_maintenance_action").parameters as {
+        properties: { action: { anyOf?: Array<{ const?: string }> } };
+      }
+    ).properties.action;
+    const literals = (action.anyOf ?? []).map((entry) => entry.const);
+    expect(literals).toEqual(["ingest", "synth", "lint_propose"]);
+  });
 });
 
 // Brave is retained as dead code (WebToolClient.search). Not exposed via the agent
