@@ -230,6 +230,28 @@ describe("ImportPage — idle picker", () => {
     expect(within(skipped).getByText("empty body")).toBeInTheDocument();
   });
 
+  it("clears a stale preview when a later selection is entirely filtered", async () => {
+    const client = createMockClient();
+    render(<ImportPage client={client} locale="en" />);
+    const input = screen.getByTestId("import-file-input") as HTMLInputElement;
+
+    // A valid selection first → bundle preview appears.
+    selectFile(input, file("V/a.md", "Body text with no embeds.\n"));
+    await waitFor(() => {
+      expect(screen.getByTestId("import-preview")).toBeInTheDocument();
+    });
+
+    // Then a selection where every file is unsupported.
+    selectFile(input, file("V/archive.zip", "PK fake zip"));
+    await waitFor(() => {
+      expect(
+        screen.getByText("Skipped 1 file(s) in an unsupported format.")
+      ).toBeInTheDocument();
+    });
+    // The stale preview must be gone so the previous file can't be imported.
+    expect(screen.queryByTestId("import-preview")).not.toBeInTheDocument();
+  });
+
   it("ignores a dropped folder and surfaces a hint", async () => {
     const client = createMockClient();
     render(<ImportPage client={client} locale="en" />);

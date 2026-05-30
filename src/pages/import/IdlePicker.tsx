@@ -67,9 +67,16 @@ export function IdlePicker({
         messages.push(copy.filteredUnsupported.replace("{n}", String(filtered)));
       }
       setPickerNotice(messages.length > 0 ? messages : null);
-      if (supported.length > 0) onFilesChosen(supported);
+      if (supported.length > 0) {
+        onFilesChosen(supported);
+      } else if (rawFiles.length > 0) {
+        // Files were chosen/dropped but every one was filtered out: clear any
+        // stale preview so the previously-selected files can't be started
+        // behind the "filtered" notice.
+        onReset();
+      }
     },
-    [copy, mineruEnabled, onFilesChosen]
+    [copy, mineruEnabled, onFilesChosen, onReset]
   );
 
   const onDrop = useCallback(
