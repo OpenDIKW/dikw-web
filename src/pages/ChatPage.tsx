@@ -464,8 +464,10 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                   {sources.map((source) => {
                     const isWeb = source.kind === "web";
                     // Legacy sessions persisted before dikw-core's wiki/ -> knowledge/
-                    // rename still carry wiki/ core paths; normalize for display.
+                    // rename still carry wiki/ core paths and a "wiki" layer; normalize
+                    // both for display (the K layer was renamed in the same change).
                     const displayPath = isWeb ? source.path : normalizeKnowledgePath(source.path);
+                    const displayLayer = source.layer === "wiki" ? "knowledge" : source.layer ?? "base";
                     const safeHref = isWeb && isSafeBrowserWebUrl(source.path) ? source.path : null;
                     return (
                       <article
@@ -473,7 +475,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                         key={`${source.kind ?? "core"}-${displayPath}-${source.title ?? ""}`}
                       >
                         <div className="citation-item__meta">
-                          <span>{isWeb ? copy.sourcesWebBadge : source.layer ?? "base"}</span>
+                          <span>{isWeb ? copy.sourcesWebBadge : displayLayer}</span>
                           {typeof source.score === "number" ? <span>{source.score.toFixed(3)}</span> : null}
                         </div>
                         <div className="citation-item__path">

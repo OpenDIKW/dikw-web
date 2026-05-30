@@ -1550,11 +1550,12 @@ describe("read console pages", () => {
     expect(safeLink).toHaveAttribute("href", "https://example.com/ok");
   });
 
-  it("normalizes a legacy wiki/ core source path to knowledge/ in the right rail", async () => {
+  it("normalizes a legacy wiki/ core source path and layer to knowledge/ in the right rail", async () => {
     // Sessions persisted before dikw-core's 0.4.0 wiki/ -> knowledge/ rename
-    // still carry wiki/ source paths; the right rail must display them as
-    // knowledge/ so old sessions match current core. Source-layer paths and
-    // the frozen assistant body are left untouched.
+    // carry both wiki/ source paths and a "wiki" layer; the right rail must
+    // display them as knowledge/ and "knowledge" so old sessions match current
+    // core. Source-layer (sources/) paths and the frozen assistant body are
+    // left untouched.
     const activeSession = {
       id: "session-1",
       title: "Legacy session",
@@ -1568,7 +1569,7 @@ describe("read console pages", () => {
       ],
       toolEvents: [],
       sources: [
-        { path: "wiki/entities/zhan-na.md", title: "Zhan Na", layer: "knowledge" },
+        { path: "wiki/entities/zhan-na.md", title: "Zhan Na", layer: "wiki" },
         { path: "sources/elon-musk.md", title: "Elon Musk", layer: "source" }
       ],
       proposals: []
@@ -1589,6 +1590,9 @@ describe("read console pages", () => {
     expect(within(context).getByText("knowledge/entities/zhan-na.md")).toBeInTheDocument();
     expect(within(context).queryByText("wiki/entities/zhan-na.md")).toBeNull();
     expect(within(context).getByText("sources/elon-musk.md")).toBeInTheDocument();
+    // the legacy "wiki" layer badge renders as "knowledge"
+    expect(within(context).getByText("knowledge")).toBeInTheDocument();
+    expect(within(context).queryByText("wiki")).toBeNull();
   });
 
   it("collapses a page recorded under both wiki/ and knowledge/ into one source row", async () => {
