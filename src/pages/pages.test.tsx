@@ -2848,6 +2848,29 @@ describe("read console pages", () => {
     expect(within(actions).queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
   });
 
+  it("keeps fire buttons disabled until the first busy probe resolves", async () => {
+    const client = createMockClient();
+    const running = toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "pre-running", op: "ingest", status: "running", finished_at: null });
+    const deferred: { resolve: (() => void) | null } = { resolve: null };
+    client.listTasks.mockImplementation((params: { status?: string; limit?: number }) => {
+      if (params.limit === 1 && params.status === "running") {
+        return new Promise((res) => { deferred.resolve = () => res(toTaskListPage([running])); });
+      }
+      if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
+      return Promise.resolve(toTaskListPage([running]));
+    });
+    client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
+
+    render(<TasksPage client={client} />);
+    // Gate must start closed: until the probe resolves we don't know core is idle.
+    const ingest = await screen.findByRole("button", { name: "Ingest" });
+    expect(ingest).toBeDisabled();
+
+    deferred.resolve?.();
+    await waitFor(() => expect(screen.getByText("Task running")).toBeInTheDocument());
+    expect(ingest).toBeDisabled();
+  });
+
   it("fires ingest and follows the newly created task", async () => {
     const client = createMockClient();
     const runningSummary = toTaskSummary({

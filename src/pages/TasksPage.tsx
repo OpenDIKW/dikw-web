@@ -62,9 +62,15 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<unknown>(null);
+  // The gate starts CLOSED: until the first probe confirms core's state we
+  // can't know it's idle, so the fire buttons must not be clickable yet.
+  const [busyProbed, setBusyProbed] = useState(false);
   const busyPollControllerRef = useRef<AbortController | null>(null);
   const busyPollGenRef = useRef(0);
-  const busy = actionPending || busyTaskId !== null;
+  const busy = actionPending || busyTaskId !== null || !busyProbed;
+  // The "Task running" indicator reflects a real reason (a detected task or an
+  // in-flight submit) — not the brief initial probe window.
+  const showBusyIndicator = actionPending || busyTaskId !== null;
 
   const loadFirstPage = useCallback(
     async (signal?: AbortSignal) => {
@@ -234,8 +240,11 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         target = pending.tasks[0]?.task_id ?? null;
       }
       setBusyTaskId(target);
+      // A probe definitively resolved core's busy state — open the gate.
+      setBusyProbed(true);
     } catch {
-      // Transient probe failure — keep the last known busy state.
+      // Transient probe failure — keep the last known busy state (and, on the
+      // very first probe, keep the gate closed until one succeeds).
     }
   }, [client]);
 
@@ -417,7 +426,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
           <button className="secondary-button" type="button" onClick={onLintApply} disabled={!canApply}>
             {copy.actions.lintApply}
           </button>
-          {busy ? (
+          {showBusyIndicator ? (
             <span className="task-actions__live" aria-live="polite">
               <span className="live-dot" aria-hidden="true" />
               {copy.actions.running}
