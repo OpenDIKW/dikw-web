@@ -198,7 +198,7 @@ export function createDikwTools(options: DikwToolsOptions): AgentTool<any>[] {
       label: "Propose Maintenance",
       description: "Propose a maintenance task. This never executes the task; the user must confirm in the UI.",
       parameters: Type.Object({
-        action: Type.Union([Type.Literal("ingest"), Type.Literal("synth"), Type.Literal("distill"), Type.Literal("lint_propose")]),
+        action: Type.Union([Type.Literal("ingest"), Type.Literal("synth"), Type.Literal("lint_propose")]),
         description: Type.String(),
         params: Type.Optional(Type.Record(Type.String(), Type.Any()))
       }),

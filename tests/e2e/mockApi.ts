@@ -204,8 +204,10 @@ export async function mockDikwApi(page: Page) {
           ];
       const sources = isAutoScrollStress
         ? Array.from({ length: 24 }, (_, index) => ({
-            path: `knowledge/concepts/auto-scroll-source-${index + 1}.md`,
-            title: `Auto Scroll Source ${index + 1}`,
+            // Turn-distinct paths (like the tool ids above) so a later turn adds
+            // net-new sources — the right rail dedups identical pages across turns.
+            path: `knowledge/concepts/auto-scroll-source-${turnNumber}-${index + 1}.md`,
+            title: `Auto Scroll Source ${turnNumber}-${index + 1}`,
             layer: "knowledge"
           }))
         : [{ path: `knowledge/concepts/architecture-${turnNumber}.md`, title: `Architecture ${turnNumber}`, layer: "knowledge" }];

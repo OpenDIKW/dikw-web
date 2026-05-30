@@ -109,7 +109,7 @@ test("keeps chat output panels pinned to the newest content by default", async (
   await expect(
     page.getByTestId("agent-conversation-scroll").getByText("Auto scroll line 1-48: evidence-backed chat output keeps growing.")
   ).toBeVisible();
-  await expect(page.getByText("knowledge/concepts/auto-scroll-source-24.md")).toBeVisible();
+  await expect(page.getByText("knowledge/concepts/auto-scroll-source-1-24.md")).toBeVisible();
   await expect(page.getByText("retrieve_knowledge_24")).toBeVisible();
 
   await expect.poll(() => panelMetrics(page, ".agent-conversation-scroll")).toMatchObject({ hasOverflow: true, nearBottom: true });

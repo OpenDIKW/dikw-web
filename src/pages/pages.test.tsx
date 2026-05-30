@@ -1550,6 +1550,128 @@ describe("read console pages", () => {
     expect(safeLink).toHaveAttribute("href", "https://example.com/ok");
   });
 
+  it("normalizes a legacy wiki/ core source path and layer to knowledge/ in the right rail", async () => {
+    // Sessions persisted before dikw-core's 0.4.0 wiki/ -> knowledge/ rename
+    // carry both wiki/ source paths and a "wiki" layer; the right rail must
+    // display them as knowledge/ and "knowledge" so old sessions match current
+    // core. Source-layer (sources/) paths and the frozen assistant body are
+    // left untouched.
+    const activeSession = {
+      id: "session-1",
+      title: "Legacy session",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: 2,
+      lastMessagePreview: "Legacy answer",
+      messages: [
+        { id: "u1", role: "user", content: "who is zhan na", createdAt: "2026-05-13T00:00:00.000Z" },
+        { id: "a1", role: "assistant", content: "Legacy answer", createdAt: "2026-05-13T00:00:01.000Z" }
+      ],
+      toolEvents: [],
+      sources: [
+        { path: "wiki/entities/zhan-na.md", title: "Zhan Na", layer: "wiki" },
+        { path: "sources/elon-musk.md", title: "Elon Musk", layer: "source" }
+      ],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    const context = await screen.findByRole("complementary", { name: "Session context" });
+    expect(within(context).getByText("knowledge/entities/zhan-na.md")).toBeInTheDocument();
+    expect(within(context).queryByText("wiki/entities/zhan-na.md")).toBeNull();
+    expect(within(context).getByText("sources/elon-musk.md")).toBeInTheDocument();
+    // the legacy "wiki" layer badge renders as "knowledge"
+    expect(within(context).getByText("knowledge")).toBeInTheDocument();
+    expect(within(context).queryByText("wiki")).toBeNull();
+  });
+
+  it("collapses a page recorded under both wiki/ and knowledge/ into one source row", async () => {
+    // A long-lived session spanning the rename can persist the same page under
+    // both prefixes; normalized dedup must render it once (one stable React key),
+    // not as two identical-looking rows.
+    const activeSession = {
+      id: "session-1",
+      title: "Spanning session",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: 2,
+      lastMessagePreview: "Answer",
+      messages: [
+        { id: "u1", role: "user", content: "who is elon", createdAt: "2026-05-13T00:00:00.000Z" },
+        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z" }
+      ],
+      toolEvents: [],
+      sources: [
+        { path: "wiki/entities/elon-musk.md", title: "Elon Musk", layer: "knowledge" },
+        { path: "knowledge/entities/elon-musk.md", title: "Elon Musk", layer: "knowledge" }
+      ],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    const context = await screen.findByRole("complementary", { name: "Session context" });
+    expect(within(context).getAllByText("knowledge/entities/elon-musk.md")).toHaveLength(1);
+    expect(within(context).queryByText("wiki/entities/elon-musk.md")).toBeNull();
+  });
+
+  it("dedups normalized-equal sources whose absent title differs only by null vs undefined", async () => {
+    // The right-rail React key collapses title null / undefined / "" to "", so
+    // dedup must bucket them together too — otherwise a normalized-equal pair
+    // survives as two rows that share an identical key.
+    const activeSession = {
+      id: "session-1",
+      title: "Untitled sources",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: 2,
+      lastMessagePreview: "Answer",
+      messages: [
+        { id: "u1", role: "user", content: "q", createdAt: "2026-05-13T00:00:00.000Z" },
+        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z" }
+      ],
+      toolEvents: [],
+      sources: [
+        { path: "wiki/notes/x.md", title: null, layer: "knowledge" },
+        { path: "knowledge/notes/x.md", layer: "knowledge" }
+      ],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    const context = await screen.findByRole("complementary", { name: "Session context" });
+    expect(within(context).getAllByText("knowledge/notes/x.md")).toHaveLength(1);
+  });
+
   it("dedups a streaming source that already exists on the active session", async () => {
     // Reproduces the dup-key React warning observed in the auto-scroll stress
     // e2e: turn 2's streaming emits the same wiki page that turn 1 already
@@ -1915,6 +2037,23 @@ describe("read console pages", () => {
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
     expect(screen.getByText("Architecture")).toBeInTheDocument();
     expect(client.streamRetrieve).toHaveBeenCalledWith({ q: "DIKW", limit: 10 }, expect.any(AbortSignal));
+  });
+
+  it("offers current task ops as Op filter suggestions and drops the dead distill op", async () => {
+    const client = createMockClient();
+    client.listTasks.mockResolvedValue(toTaskListPage([]));
+
+    render(<TasksPage client={client} />);
+
+    const opInput = await screen.findByPlaceholderText(/ingest \/ synth/);
+    expect(opInput.getAttribute("placeholder") ?? "").not.toContain("distill");
+    const listId = opInput.getAttribute("list");
+    expect(listId).toBeTruthy();
+
+    const datalist = document.getElementById(listId as string);
+    expect(datalist).not.toBeNull();
+    const values = Array.from(datalist!.querySelectorAll("option")).map((option) => option.getAttribute("value"));
+    expect(values).toEqual(["ingest", "synth", "lint.propose", "lint.apply"]);
   });
 
   it("summarizes eval tasks and loads event timelines without expanding raw JSON", async () => {

@@ -67,3 +67,31 @@ test("major pages avoid horizontal overflow on desktop and mobile", async ({ pag
     }
   }
 });
+
+test("keeps the Settings nav reachable when main content is taller than the viewport", async ({ page }) => {
+  // Viewport tall enough to comfortably fit the sidebar's own content (so the
+  // sidebar's internal overflow-y doesn't hide Settings), yet far shorter than
+  // the 3000px spacer below so the page itself must scroll.
+  await page.setViewportSize({ width: 1280, height: 700 });
+  await page.goto("/#base");
+
+  const settings = page.getByRole("button", { name: "Settings" });
+  await expect(settings).toBeVisible();
+
+  // Force the workspace far taller than the viewport. A sidebar that grows with
+  // the grid row (instead of pinning to the viewport) drops its Settings footer
+  // below the fold.
+  await page.evaluate(() => {
+    const workspace = document.querySelector(".workspace");
+    if (!workspace) throw new Error("expected .workspace to exist so the test creates real overflow");
+    const spacer = document.createElement("div");
+    spacer.style.height = "3000px";
+    workspace.appendChild(spacer);
+  });
+
+  // Visible at the top of a tall page...
+  await expect(settings).toBeInViewport();
+  // ...and still visible after scrolling the page to the bottom.
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect(settings).toBeInViewport();
+});

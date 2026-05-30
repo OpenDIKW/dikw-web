@@ -23,6 +23,7 @@ type TaskListItem = TaskRowSummary & {
 type TasksCopy = (typeof translations)["en"]["pages"]["tasks"];
 
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
+const TASK_OP_SUGGESTIONS = ["ingest", "synth", "lint.propose", "lint.apply"] as const;
 const PAGE_LIMIT = 20;
 const EVENT_PAGE_SIZE = 20;
 const BUSY_POLL_MS = 4000;
@@ -411,7 +412,17 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         </label>
         <label className="field">
           <span>{copy.opLabel}</span>
-          <input value={op} onChange={(event) => setOp(event.target.value)} placeholder="ingest / synth / distill" />
+          <input
+            value={op}
+            onChange={(event) => setOp(event.target.value)}
+            placeholder="ingest / synth / lint.propose / lint.apply"
+            list="task-op-options"
+          />
+          <datalist id="task-op-options">
+            {TASK_OP_SUGGESTIONS.map((value) => (
+              <option value={value} key={value} />
+            ))}
+          </datalist>
         </label>
         <div className="task-actions">
           <button className="secondary-button" type="button" onClick={onIngest} disabled={busy}>

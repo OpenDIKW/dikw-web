@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { sourcesFromTool } from "./runtime";
+import { proposalFromTool, sourcesFromTool } from "./runtime";
 
 describe("sourcesFromTool", () => {
   it("maps retrieve_knowledge page_refs to core sources", () => {
@@ -74,5 +74,24 @@ describe("sourcesFromTool", () => {
     expect(sourcesFromTool("web_fetch", { url: "http://localhost/x" })).toEqual([]);
     expect(sourcesFromTool("web_fetch", { url: "javascript:1" })).toEqual([]);
     expect(sourcesFromTool("web_fetch", { url: "" })).toEqual([]);
+  });
+});
+
+describe("proposalFromTool", () => {
+  it("builds a proposal for a supported maintenance action", () => {
+    const proposal = proposalFromTool("propose_maintenance_action", {
+      proposal: { action: "lint_propose", description: "Lint the base" }
+    });
+    expect(proposal).toMatchObject({ action: "lint_propose", description: "Lint the base", status: "pending" });
+  });
+
+  it("ignores the removed distill action", () => {
+    expect(
+      proposalFromTool("propose_maintenance_action", { proposal: { action: "distill", description: "x" } })
+    ).toBeNull();
+  });
+
+  it("returns null for tools other than propose_maintenance_action", () => {
+    expect(proposalFromTool("retrieve_knowledge", { page_refs: [] })).toBeNull();
   });
 });

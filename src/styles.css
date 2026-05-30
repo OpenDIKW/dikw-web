@@ -118,6 +118,14 @@ button:disabled {
   border-right: 1px solid var(--line);
   background: var(--surface);
   color: var(--text);
+  /* Pin to the viewport so the Settings footer stays reachable no matter how
+     tall the main content grows; the sidebar scrolls internally if its own
+     items overflow. */
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .brand {
@@ -3778,6 +3786,7 @@ html[data-theme="dark"] .markdown-body blockquote {
     flex-direction: row;
     align-items: center;
     gap: 10px;
+    height: auto;
     overflow: auto;
     padding: 10px;
   }

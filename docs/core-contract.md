@@ -203,9 +203,9 @@ to `#chat` for compatibility only. Session titles are stored by the
 sidecar and can be renamed with `PATCH /agent/sessions/{id}`; this does
 not add or change any `dikw-core` endpoint.
 
-Maintenance endpoints such as `/v1/ingest`, `/v1/synth`,
-`/v1/distill`, and `/v1/lint/propose` may only be called after the
-Agent creates a proposal and the user confirms it in the UI.
+Maintenance endpoints such as `/v1/ingest`, `/v1/synth`, and
+`/v1/lint/propose` may only be called after the Agent creates a
+proposal and the user confirms it in the UI.
 
 ### Sidecar-only external tools
 

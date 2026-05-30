@@ -205,12 +205,12 @@ function safeWebUrl(value: unknown): string | null {
   }
 }
 
-function proposalFromTool(toolName: string, details: unknown): AgentProposal | null {
+export function proposalFromTool(toolName: string, details: unknown): AgentProposal | null {
   if (toolName !== "propose_maintenance_action" || !isRecord(details) || !isRecord(details.proposal)) {
     return null;
   }
   const action = details.proposal.action;
-  if (action !== "ingest" && action !== "synth" && action !== "distill" && action !== "lint_propose") {
+  if (action !== "ingest" && action !== "synth" && action !== "lint_propose") {
     return null;
   }
   const now = new Date().toISOString();

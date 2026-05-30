@@ -9,6 +9,32 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.17] - 2026-05-30
+
+### Fixed: three UI / path-consistency issues
+
+- **Sidebar Settings stays reachable.** The left sidebar is now pinned to the
+  viewport (`position: sticky; height: 100vh; overflow-y: auto`) so its Settings
+  footer no longer scrolls out of view when a page's main content is taller than
+  the window. The mobile (≤900px) horizontal sidebar is unchanged.
+- **Chat normalizes legacy `wiki/` sources.** Sessions persisted before
+  dikw-core's 0.4.0 `wiki/` → `knowledge/` rename still carry `wiki/` source
+  paths and a `wiki` layer; the right-rail Sources list now displays both as
+  `knowledge/` / `knowledge` (paths via a new `normalizeKnowledgePath` helper)
+  and dedups a page recorded under both prefixes into a single row. Live core
+  already returns `knowledge/`, so new sessions are unaffected, and a frozen
+  assistant message body is left untouched.
+- **Tasks Op filter drops the dead `distill` hint.** The Op input placeholder no
+  longer suggests `distill` (removed from core) and gains a `<datalist>` of the
+  current ops — `ingest`, `synth`, `lint.propose`, `lint.apply` — so they can be
+  searched/selected; free-text entry (e.g. `wisdom.write`) still works.
+
+### Removed
+
+- Dropped the dead `distill` maintenance action from the agent: the proposal
+  tool no longer offers it and `/v1/distill` (now `404` on core, superseded by
+  `/v1/lint/propose`) is no longer routed.
+
 ## [0.0.16] - 2026-05-29
 
 ### Feature: fire maintenance ops from the Tasks page toolbar
