@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.75.4",
-    "@earendil-works/pi-ai": "^0.75.4",
+    "@earendil-works/pi-ai": "^0.78.0",
     "d3-force": "^3.0.0",
     "echarts": "^6.1.0",
     "katex": "^0.17.0",
