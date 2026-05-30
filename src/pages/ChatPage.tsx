@@ -19,6 +19,7 @@ import { AgentClient } from "../api/agentClient";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
+import { normalizeKnowledgePath } from "../utils/knowledge-path";
 import { translations, type Locale } from "../i18n";
 import type { AgentClientLike } from "./agentTypes";
 import type { AgentMessage, AgentSession, AgentSource, AgentToolEvent, SessionSummary } from "../agent/types";
@@ -460,11 +461,14 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                 >
                   {sources.map((source) => {
                     const isWeb = source.kind === "web";
+                    // Legacy sessions persisted before dikw-core's wiki/ -> knowledge/
+                    // rename still carry wiki/ core paths; normalize for display.
+                    const displayPath = isWeb ? source.path : normalizeKnowledgePath(source.path);
                     const safeHref = isWeb && isSafeBrowserWebUrl(source.path) ? source.path : null;
                     return (
                       <article
                         className={`citation-item${isWeb ? " citation-item--web" : ""}`}
-                        key={`${source.kind ?? "core"}-${source.path}-${source.title ?? ""}`}
+                        key={`${source.kind ?? "core"}-${displayPath}-${source.title ?? ""}`}
                       >
                         <div className="citation-item__meta">
                           <span>{isWeb ? copy.sourcesWebBadge : source.layer ?? "base"}</span>
@@ -476,7 +480,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                               {safeHref}
                             </a>
                           ) : (
-                            source.path
+                            displayPath
                           )}
                         </div>
                         {source.title ? <p>{source.title}</p> : null}
