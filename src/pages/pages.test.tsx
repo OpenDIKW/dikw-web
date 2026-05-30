@@ -54,7 +54,11 @@ describe("read console pages", () => {
     expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();
     expect(screen.getByText("C:\\demo\\base")).toBeInTheDocument();
     expect(screen.getByText((_, element) => element?.textContent === "anthropic_compat · MiniMax-M2.7")).toBeInTheDocument();
-    expect(within(screen.getByText("Wisdom").closest("section") as HTMLElement).getByText("4")).toBeInTheDocument();
+    const wisdomCard = screen.getByText("Wisdom").closest("section") as HTMLElement;
+    expect(within(wisdomCard).getByText("4")).toBeInTheDocument();
+    // The Wisdom card carries a caption row like every other metric so its
+    // number sits on the same baseline (no collapsed third grid row).
+    expect(within(wisdomCard).getByText("wisdom items")).toBeInTheDocument();
   });
 
   it("refreshes overview status from the header action", async () => {
