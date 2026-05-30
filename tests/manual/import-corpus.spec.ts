@@ -7,6 +7,20 @@
 // Run:  npx playwright test tests/manual/import-corpus.spec.ts --config=playwright.config.ts --project=chromium --headed --workers=1
 
 import { expect, test } from "@playwright/test";
+import { readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
+
+/** Recursively collect absolute file paths under ``root`` so we can feed a
+ *  whole corpus into the multi-file <input> (directory upload was removed). */
+function collectFiles(root: string): string[] {
+  const out: string[] = [];
+  for (const name of readdirSync(root)) {
+    const full = join(root, name);
+    if (statSync(full).isDirectory()) out.push(...collectFiles(full));
+    else out.push(full);
+  }
+  return out;
+}
 
 // Override via env var so the spec is portable across checkouts.
 // e.g. DIKW_IMPORT_CORPUS_ROOT=/path/to/corpus npx playwright test ...
@@ -36,11 +50,10 @@ test("redesigned picker accepts the corpus folder and renders preview", async ({
     fullPage: true
   });
 
-  // For webkitdirectory inputs, Playwright requires the directory path
-  // itself — it walks the tree and synthesizes the right webkitRelativePath
-  // values for each entry.
-  const folderInput = page.locator('[data-testid="import-folder-input"]');
-  await folderInput.setInputFiles(CORPUS_ROOT!);
+  // Directory upload was removed; feed every file in the corpus into the
+  // multi-file input instead.
+  const fileInput = page.locator('[data-testid="import-file-input"]');
+  await fileInput.setInputFiles(collectFiles(CORPUS_ROOT!));
 
   // BundlePreview should appear within a few seconds (build is in-browser).
   await expect(page.getByTestId("import-preview")).toBeVisible({
@@ -60,11 +73,12 @@ test("redesigned picker accepts the corpus folder and renders preview", async ({
   console.log(`[preview] included rows: ${includedRowCount}`);
   expect(includedRowCount).toBeGreaterThan(0);
 
+  // Unsupported formats are now filtered at selection, so the skipped column
+  // may be absent when every remaining file is bundleable.
   const skipped = page.getByTestId("import-skipped-list");
-  await expect(skipped).toBeVisible();
-  const skippedRowCount = await skipped
-    .locator(".import-file-row")
-    .count();
+  const skippedRowCount = (await skipped.count())
+    ? await skipped.locator(".import-file-row").count()
+    : 0;
   console.log(`[preview] skipped rows: ${skippedRowCount}`);
 
   // Start button must be enabled when a bundle is built.
@@ -80,8 +94,8 @@ test("redesigned pipeline runs the corpus end-to-end against live core", async (
   await page.goto("/#import");
   await expect(page.getByRole("heading", { name: "Import" })).toBeVisible();
 
-  const folderInput = page.locator('[data-testid="import-folder-input"]');
-  await folderInput.setInputFiles(CORPUS_ROOT!);
+  const fileInput = page.locator('[data-testid="import-file-input"]');
+  await fileInput.setInputFiles(collectFiles(CORPUS_ROOT!));
   await expect(page.getByTestId("import-preview")).toBeVisible({
     timeout: 30_000
   });
