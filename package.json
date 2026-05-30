@@ -20,7 +20,7 @@
     "verify": "npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "^0.75.4",
+    "@earendil-works/pi-agent-core": "^0.78.0",
     "@earendil-works/pi-ai": "^0.75.4",
     "d3-force": "^3.0.0",
     "echarts": "^6.1.0",
