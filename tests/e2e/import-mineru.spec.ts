@@ -135,9 +135,11 @@ test("dropping a .docx routes through /web/mineru/convert and shows bundle previ
   await expect(page.getByTestId("import-preview")).toBeVisible({ timeout: 5000 });
   expect(convertCalls.length).toBe(1);
   expect(convertCalls[0]).toContain("inputSha=");
+  // The true original filename is always forwarded to the sidecar.
+  expect(convertCalls[0]).toContain("originalFilename=");
 });
 
-test("mineru disabled: office files dropped silently, Notice surfaced, .md still works", async ({
+test("mineru disabled: office files filtered at selection with a notice, .md still works", async ({
   page
 }) => {
   // Default mockApi already returns enabled=false. Install a defensive
@@ -164,16 +166,20 @@ test("mineru disabled: office files dropped silently, Notice surfaced, .md still
       buffer: Buffer.from("# Note\n")
     },
     // Office files survive setInputFiles (the accept attr is for the UI
-    // picker only; programmatic setInputFiles bypasses it) — they should
-    // be dropped silently by partitionForMineru.
+    // picker only; programmatic setInputFiles bypasses it) — with mineru
+    // disabled they are filtered at selection and never converted.
     {
       name: "ignored.docx",
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04])
     }
   ]);
-  // Bundle preview shows for the .md, and the convert route was never hit.
+  // Bundle preview shows for the .md, the office file is reported as filtered,
+  // and the convert route was never hit.
   await expect(page.getByTestId("import-preview")).toBeVisible();
+  await expect(
+    page.getByText("Skipped 1 file(s) in an unsupported format.")
+  ).toBeVisible();
   expect(unexpectedConvertCalls).toBe(0);
 });
 

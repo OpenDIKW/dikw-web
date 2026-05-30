@@ -141,6 +141,12 @@ async function handleConvert(
   const modelVersion = ext === ".pdf" ? "vlm" : null;
   const stem = stemOf(fileName);
   const dataId = inputSha.slice(0, 32);
+  // The browser shortens long filenames before uploading (MinerU errors on
+  // them) but passes the true original here so frontmatter stays honest.
+  // Strip CR/LF so a pathological name can't break the YAML block. Falls back
+  // to the (possibly shortened) multipart filename when absent.
+  const originalFilename =
+    url.searchParams.get("originalFilename")?.replace(/[\r\n]+/g, " ") || fileName;
 
   // Abort the mineru pipeline only on premature client disconnect — not on
   // normal completion. `aborted` fires for "client gave up"; `close` fires
@@ -165,7 +171,7 @@ async function handleConvert(
     const extracted = extractResultZip(zipBytes);
     const markdownWithFrontmatter = injectFrontmatter(
       extracted.markdown,
-      fileName,
+      originalFilename,
       inputSha
     );
     const tarBytes = buildResponseTar(stem, markdownWithFrontmatter, extracted.assets);

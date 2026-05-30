@@ -26,6 +26,7 @@ import {
   type ConvertCache,
   type ConvertedSource
 } from "../utils/mineru-convert";
+import { shortenFileName } from "../utils/shorten-filename";
 import type {
   ApplyReport,
   FixProposalReport,
@@ -259,10 +260,22 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           const i = next++;
           if (i >= mineru.length) return;
           const file = mineru[i];
+          // MinerU errors on very long filenames. Send a shortened name (the
+          // bytes are unchanged, so inputSha / dedup are unaffected) but pass
+          // the true original through so the sidecar keeps it in frontmatter.
+          const shortName = shortenFileName(file.name);
+          const fileForConvert =
+            shortName === file.name
+              ? file
+              : new File([file], shortName, {
+                  type: file.type,
+                  lastModified: file.lastModified
+                });
           try {
-            const result = await convertSource(file, {
+            const result = await convertSource(fileForConvert, {
               signal: ctrl.signal,
               cache: cache ?? null,
+              originalFilename: file.name,
               onProgress: (e) => {
                 if (e.phase === "cache_hit") {
                   updateConversionFile(mineru, i, { substage: "done" });

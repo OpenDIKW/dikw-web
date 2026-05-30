@@ -53,6 +53,10 @@ export interface ConvertOptions {
   signal?: AbortSignal;
   onProgress?: (e: ConvertProgress) => void;
   cache?: ConvertCache | null;
+  /** When set, forwarded to the sidecar so it records the true original
+   *  filename in frontmatter even though the uploaded File was renamed
+   *  (shortened) for MinerU. Defaults to the uploaded File's name. */
+  originalFilename?: string;
   /** Override for tests. */
   fetch?: typeof fetch;
 }
@@ -97,7 +101,10 @@ export async function convertSource(
   opts.onProgress?.({ phase: "uploading" });
   const fd = new FormData();
   fd.append("file", file);
-  const url = `/web/mineru/convert?inputSha=${encodeURIComponent(inputSha)}`;
+  let url = `/web/mineru/convert?inputSha=${encodeURIComponent(inputSha)}`;
+  if (opts.originalFilename) {
+    url += `&originalFilename=${encodeURIComponent(opts.originalFilename)}`;
+  }
   let response: Response;
   try {
     response = await fetchFn(url, { method: "POST", body: fd, signal });
