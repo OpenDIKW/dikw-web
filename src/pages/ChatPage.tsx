@@ -604,7 +604,7 @@ function mergeSources(items: AgentSource[], next: AgentSource): AgentSource[] {
   return items.some(
     (item) =>
       normalizeKnowledgePath(item.path) === nextPath &&
-      item.title === next.title &&
+      (item.title ?? "") === (next.title ?? "") &&
       (item.kind ?? "core") === nextKind
   )
     ? items

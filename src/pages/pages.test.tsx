@@ -1630,6 +1630,44 @@ describe("read console pages", () => {
     expect(within(context).queryByText("wiki/entities/elon-musk.md")).toBeNull();
   });
 
+  it("dedups normalized-equal sources whose absent title differs only by null vs undefined", async () => {
+    // The right-rail React key collapses title null / undefined / "" to "", so
+    // dedup must bucket them together too — otherwise a normalized-equal pair
+    // survives as two rows that share an identical key.
+    const activeSession = {
+      id: "session-1",
+      title: "Untitled sources",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: 2,
+      lastMessagePreview: "Answer",
+      messages: [
+        { id: "u1", role: "user", content: "q", createdAt: "2026-05-13T00:00:00.000Z" },
+        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z" }
+      ],
+      toolEvents: [],
+      sources: [
+        { path: "wiki/notes/x.md", title: null, layer: "knowledge" },
+        { path: "knowledge/notes/x.md", layer: "knowledge" }
+      ],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    const context = await screen.findByRole("complementary", { name: "Session context" });
+    expect(within(context).getAllByText("knowledge/notes/x.md")).toHaveLength(1);
+  });
+
   it("dedups a streaming source that already exists on the active session", async () => {
     // Reproduces the dup-key React warning observed in the auto-scroll stress
     // e2e: turn 2's streaming emits the same wiki page that turn 1 already
