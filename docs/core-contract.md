@@ -303,9 +303,17 @@ sidecar layout); the resulting markdown + assets are bundled exactly
 like a user-authored `.md` source. The `/v1/import` wire shape is
 unchanged. Same input bytes → identical `package_sha256` (mineru
 `cache_tolerance` + browser IndexedDB by SHA-256 + byte-stable tar
-packaging), so core's existing dedup continues to apply.
+packaging), so core's existing dedup continues to apply. Long
+mineru-bound filenames are shortened (≤25-char stem, extension kept,
+bytes unchanged) before upload because MinerU errors on very long
+names; the browser passes the true original as the `originalFilename`
+query — `POST /web/mineru/convert?inputSha=<sha>&originalFilename=<encoded>` —
+so the converted page's frontmatter `original_filename` stays complete.
 
-1. **Bundle**: the browser scans selected files, resolves markdown asset
+1. **Bundle**: the browser scans the selected files (file-only selection —
+   directory upload was removed; unsupported extensions are filtered out at
+   selection before bundling, so the skipped column carries only content-level
+   issues like empty bodies), resolves markdown asset
    references (sibling-of-md → project-root, matching `md_inspect.py`),
    hashes each unique file (`crypto.subtle.digest('SHA-256')`), writes a
    USTAR tar, and gzips it via `CompressionStream('gzip')`. The manifest
