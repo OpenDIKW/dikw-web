@@ -69,7 +69,10 @@ test("major pages avoid horizontal overflow on desktop and mobile", async ({ pag
 });
 
 test("keeps the Settings nav reachable when main content is taller than the viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 1280, height: 480 });
+  // Viewport tall enough to comfortably fit the sidebar's own content (so the
+  // sidebar's internal overflow-y doesn't hide Settings), yet far shorter than
+  // the 3000px spacer below so the page itself must scroll.
+  await page.setViewportSize({ width: 1280, height: 700 });
   await page.goto("/#base");
 
   const settings = page.getByRole("button", { name: "Settings" });
