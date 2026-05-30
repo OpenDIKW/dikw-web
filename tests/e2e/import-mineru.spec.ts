@@ -139,6 +139,51 @@ test("dropping a .docx routes through /web/mineru/convert and shows bundle previ
   expect(convertCalls[0]).toContain("originalFilename=");
 });
 
+test("shortens a long office filename for MinerU while forwarding the true original", async ({
+  page
+}) => {
+  await page.route("**/web/mineru/health", async (route) => {
+    await route.fulfill({ json: { enabled: true, hasKey: true } });
+  });
+  // 26 code points → shortenFileName caps the stem at 25.
+  const longStem = "这是一个非常长的中文文件名超过二十五个字符的演示文档";
+  const longName = `${longStem}.docx`;
+  const shortStem = Array.from(longStem).slice(0, 25).join("");
+  const convertCalls: string[] = [];
+  await page.route("**/web/mineru/convert**", async (route) => {
+    convertCalls.push(route.request().url());
+    // Respond with the markdown named after the SHORTENED stem — the browser
+    // looks up `${stem}.md` from the upload name, so the preview only appears
+    // if ImportPage actually uploaded under the shortened name.
+    const fixture = makeConvertResponse(shortStem, "# Demo\n\nBody from mineru.\n", []);
+    await route.fulfill({
+      status: 200,
+      headers: { "Content-Type": fixture.contentType },
+      body: fixture.body
+    });
+  });
+
+  await page.goto("/#import");
+  await expect(page.getByRole("heading", { name: "Import" })).toBeVisible();
+  const fileInput = page.locator('[data-testid="import-file-input"]');
+  await fileInput.setInputFiles([
+    {
+      name: longName,
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0xde, 0xad])
+    }
+  ]);
+
+  // Preview appears only when the browser requested the shortened `${stem}.md`.
+  await expect(page.getByTestId("import-preview")).toBeVisible({ timeout: 5000 });
+  expect(convertCalls.length).toBe(1);
+  // The true (long) original is forwarded so frontmatter provenance stays intact.
+  expect(convertCalls[0]).toContain(
+    `originalFilename=${encodeURIComponent(longName)}`
+  );
+});
+
 test("mineru disabled: office files filtered at selection with a notice, .md still works", async ({
   page
 }) => {
