@@ -82,9 +82,11 @@ test("keeps the Settings nav reachable when main content is taller than the view
   // the grid row (instead of pinning to the viewport) drops its Settings footer
   // below the fold.
   await page.evaluate(() => {
+    const workspace = document.querySelector(".workspace");
+    if (!workspace) throw new Error("expected .workspace to exist so the test creates real overflow");
     const spacer = document.createElement("div");
     spacer.style.height = "3000px";
-    document.querySelector(".workspace")?.appendChild(spacer);
+    workspace.appendChild(spacer);
   });
 
   // Visible at the top of a tall page...
