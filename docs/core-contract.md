@@ -252,6 +252,20 @@ Note: the list `cursor` and the event `from_seq`
 keyset-by-`(created_at, task_id)` vs. sequence-by-`seq`. Do not
 interchange them.
 
+Beyond reading, `TasksPage` also *writes* from its toolbar: it fires
+`POST /v1/ingest`, `/v1/synth`, `/v1/lint/propose`, and `/v1/lint/apply`
+(the last with `pick:null` = apply-all against the selected succeeded
+`lint.propose` task — no review gate, unlike the Import pipeline's
+reviewed apply above). To gate against concurrent submissions it polls
+`GET /v1/tasks?status=running&limit=1` (then `status=pending`) on a short
+interval — authoritative regardless of the active `status`/`op` filter —
+and disables the fire buttons while any such task exists. The detail-panel
+Stop then cancels the *selected* task via `POST /v1/tasks/{id}/cancel`.
+Because the gate ignores the filter but Stop only acts on the selected row,
+a running task hidden by an active filter releases the gate only when it
+finishes on its own (or after the filter is cleared so it can be selected
+and Stopped).
+
 ## Task Events
 
 Task events are NDJSON from `GET /v1/tasks/{id}/events`.
@@ -280,7 +294,8 @@ misreported as failed.
 
 ## Import
 
-The Import page is the only web surface that writes to `dikw-core`. It
+The Import page is the primary web surface that writes to `dikw-core`
+(the Tasks page toolbar is the other — see "Task list" above). It
 runs a four-stage pipeline rooted at `POST /v1/import`. PDF / Office
 formats route through an optional `converting` pre-stage owned by the
 web sidecar (`POST /web/mineru/convert` — see `docs/agent.md` for the

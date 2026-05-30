@@ -14,7 +14,17 @@ export type MockDikwClient = DikwClient & {
   streamRetrieve: AnyMock;
   streamTaskEvents: AnyMock;
   streamNdjson: AnyMock;
+  startIngest: AnyMock;
+  startSynth: AnyMock;
+  startLintPropose: AnyMock;
+  startLintApply: AnyMock;
+  cancelTask: AnyMock;
 };
+
+// Minimal ``TaskHandle`` for the TasksPage fire-op flow; override per test.
+function defaultHandle(op: string) {
+  return { task_id: `${op}-task`, op, status: "running", created_at: "2026-05-29T00:00:00Z", links: {} };
+}
 
 export function createMockClient(coreId = ""): MockDikwClient {
   return {
@@ -35,6 +45,14 @@ export function createMockClient(coreId = ""): MockDikwClient {
     streamRetrieve: vi.fn(),
     streamTaskEvents: vi.fn(),
     streamNdjson: vi.fn(),
+    // TasksPage toolbar fire-ops + detail-panel cancel. Defaults return a
+    // running TaskHandle so a fire transitions straight into follow; tests
+    // override to assert args or simulate failures.
+    startIngest: vi.fn().mockResolvedValue(defaultHandle("ingest")),
+    startSynth: vi.fn().mockResolvedValue(defaultHandle("synth")),
+    startLintPropose: vi.fn().mockResolvedValue(defaultHandle("lint.propose")),
+    startLintApply: vi.fn().mockResolvedValue(defaultHandle("lint.apply")),
+    cancelTask: vi.fn().mockResolvedValue({}),
     // Stable identifier matching the same-origin proxy default — pages that
     // bind state to ``client.coreId`` need a deterministic value in tests.
     coreId

@@ -229,6 +229,14 @@ export const translations = {
         processed: "Processed",
         loadMore: "Load more",
         loadingMore: "Loading…",
+        actions: {
+          ingest: "Ingest",
+          synth: "Synth",
+          lintPropose: "Lint Propose",
+          lintApply: "Lint Apply",
+          running: "Task running",
+          errorTitle: "Action could not be completed"
+        },
         eventPagination: {
           prev: "Prev",
           next: "Next",
@@ -605,6 +613,14 @@ export const translations = {
         processed: "已处理",
         loadMore: "加载更多",
         loadingMore: "加载中…",
+        actions: {
+          ingest: "采集",
+          synth: "合成",
+          lintPropose: "Lint 提案",
+          lintApply: "Lint 应用",
+          running: "任务运行中",
+          errorTitle: "操作未能完成"
+        },
         eventPagination: {
           prev: "上一页",
           next: "下一页",

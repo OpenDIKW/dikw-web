@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pause, Play, RefreshCw } from "lucide-react";
+import { Play, RefreshCw, Square } from "lucide-react";
 import { DikwClient, DikwClientError } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
 import { translations, type Locale } from "../i18n";
-import type { IngestError, TaskEvent, TaskRow, TaskRowSummary, TaskStatus } from "../types";
+import type { IngestError, TaskEvent, TaskHandle, TaskRow, TaskRowSummary, TaskStatus } from "../types";
 import { formatDuration, formatIso, formatNumber, formatScore, isTerminalTask } from "../utils/format";
 
 interface TasksPageProps {
@@ -25,6 +25,7 @@ type TasksCopy = (typeof translations)["en"]["pages"]["tasks"];
 const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
 const PAGE_LIMIT = 20;
 const EVENT_PAGE_SIZE = 20;
+const BUSY_POLL_MS = 4000;
 
 export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const copy = translations[locale].pages.tasks;
@@ -37,6 +38,10 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const [eventPageIndex, setEventPageIndex] = useState(0);
   const [eventStickTail, setEventStickTail] = useState(true);
   const [taskPatches, setTaskPatches] = useState<Record<string, TaskPatch>>({});
+  // The task currently being followed. Kept so the detail pane can render it
+  // even when the active Status/Op filter excludes it from the list (e.g. a
+  // freshly-fired op that doesn't match the filter).
+  const [followedRow, setFollowedRow] = useState<TaskListItem | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   const eventTapeTaskIdRef = useRef<string | null>(null);
 
@@ -49,6 +54,23 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const [hasMore, setHasMore] = useState(false);
   const [listError, setListError] = useState<unknown>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // Toolbar operation actions (ingest / synth / lint propose+apply).
+  // `busyTaskId` is the poll-observed running/pending task that gates the fire
+  // buttons; `actionPending` covers the brief click→POST window before a task
+  // id exists. The detail-panel Stop cancels `busyTaskId`'s task.
+  const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
+  const [actionPending, setActionPending] = useState(false);
+  const [actionError, setActionError] = useState<unknown>(null);
+  // The gate starts CLOSED: until the first probe confirms core's state we
+  // can't know it's idle, so the fire buttons must not be clickable yet.
+  const [busyProbed, setBusyProbed] = useState(false);
+  const busyPollControllerRef = useRef<AbortController | null>(null);
+  const busyPollGenRef = useRef(0);
+  const busy = actionPending || busyTaskId !== null || !busyProbed;
+  // The "Task running" indicator reflects a real reason (a detected task or an
+  // in-flight submit) — not the brief initial probe window.
+  const showBusyIndicator = actionPending || busyTaskId !== null;
 
   const loadFirstPage = useCallback(
     async (signal?: AbortSignal) => {
@@ -120,17 +142,32 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
       }),
     [rows, taskPatches]
   );
-  const selected = useMemo(
-    () => visibleTasks.find((task) => task.task_id === selectedId) ?? null,
-    [selectedId, visibleTasks]
-  );
+  const selected = useMemo(() => {
+    const fromList = visibleTasks.find((task) => task.task_id === selectedId);
+    if (fromList) return fromList;
+    // Followed task that the active filter keeps out of the list: render it
+    // from the followed row, applying any final-event patch.
+    if (followedRow && followedRow.task_id === selectedId) {
+      const patch = taskPatches[followedRow.task_id];
+      return patch ? { ...followedRow, ...patch } : followedRow;
+    }
+    return null;
+  }, [selectedId, visibleTasks, followedRow, taskPatches]);
+  // Lint Apply runs against the selected, succeeded lint.propose task.
+  const canApply =
+    !busy && selected !== null && selected.op === "lint.propose" && selected.status === "succeeded";
 
   useEffect(() => {
+    // Never auto-reselect away from a task we're actively following — it may be
+    // absent from the filtered list yet still streaming in the detail pane.
+    // (Both null must NOT count as "following", or the initial auto-select is
+    // suppressed when nothing is selected yet.)
+    const following = eventTapeTaskIdRef.current !== null && eventTapeTaskIdRef.current === selectedId;
     if (!rows.length) {
-      if (selectedId !== null) setSelectedId(null);
+      if (selectedId !== null && !following) setSelectedId(null);
       return;
     }
-    if (!selectedId || !rows.some((task) => task.task_id === selectedId)) {
+    if (!following && (!selectedId || !rows.some((task) => task.task_id === selectedId))) {
       setSelectedId(rows[0].task_id);
     }
   }, [rows, selectedId]);
@@ -184,6 +221,50 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
 
   useEffect(() => () => controllerRef.current?.abort(), []);
 
+  // One authoritative busy probe, independent of the list filter: latch the id
+  // of any running (else pending) task. A generation guard drops the result if
+  // a newer probe (or a fired op) superseded this one. Only writes
+  // `busyTaskId`, never the filter-scoped list state.
+  const refreshBusy = useCallback(async () => {
+    const gen = ++busyPollGenRef.current;
+    busyPollControllerRef.current?.abort();
+    const controller = new AbortController();
+    busyPollControllerRef.current = controller;
+    try {
+      const running = await client.listTasks({ status: "running", limit: 1 }, controller.signal);
+      if (busyPollGenRef.current !== gen) return;
+      let target = running.tasks[0]?.task_id ?? null;
+      if (!target) {
+        const pending = await client.listTasks({ status: "pending", limit: 1 }, controller.signal);
+        if (busyPollGenRef.current !== gen) return;
+        target = pending.tasks[0]?.task_id ?? null;
+      }
+      setBusyTaskId(target);
+      // A probe definitively resolved core's busy state — open the gate.
+      setBusyProbed(true);
+    } catch {
+      // Transient probe failure — keep the last known busy state (and, on the
+      // very first probe, keep the gate closed until one succeeds).
+    }
+  }, [client]);
+
+  // Poll the busy state on a self-scheduling timer so probes never overlap.
+  // Restarts when the client (core URL) changes.
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const loop = async () => {
+      await refreshBusy();
+      if (!cancelled) timer = setTimeout(() => void loop(), BUSY_POLL_MS);
+    };
+    void loop();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+      busyPollControllerRef.current?.abort();
+    };
+  }, [refreshBusy]);
+
   function cancelFollow() {
     controllerRef.current?.abort();
     controllerRef.current = null;
@@ -207,6 +288,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     const controller = new AbortController();
     controllerRef.current = controller;
     eventTapeTaskIdRef.current = row.task_id;
+    setFollowedRow(row);
     setSelectedId(row.task_id);
     setEvents([]);
     setEventsError(null);
@@ -236,10 +318,6 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     }
   }
 
-  function stopFollow() {
-    cancelFollow();
-  }
-
   function refreshTasks() {
     hydratedRef.current.clear();
     setTaskPatches({});
@@ -248,6 +326,66 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
       void follow(selected);
     }
   }
+
+  // Fire a maintenance op, then refresh the list and follow the new task.
+  // Plain function (not memoized): its closure reads `busy`/`follow`, which
+  // change identity every render, so a useCallback here would never hold.
+  const fireOp = async (start: (signal: AbortSignal) => Promise<TaskHandle>) => {
+    if (busy) return;
+    setActionPending(true);
+    setActionError(null);
+    const controller = new AbortController();
+    try {
+      const handle = await start(controller.signal);
+      // The op is now running. Invalidate any in-flight poll so it can't
+      // clobber the optimistic target, then hand off from actionPending.
+      busyPollGenRef.current += 1;
+      setBusyTaskId(handle.task_id);
+      setActionPending(false);
+      await loadFirstPage();
+      void follow({
+        task_id: handle.task_id,
+        op: handle.op,
+        status: handle.status,
+        created_at: handle.created_at,
+        started_at: null,
+        finished_at: null,
+        params_digest: ""
+      });
+    } catch (error) {
+      setActionPending(false);
+      setActionError(error);
+    }
+  };
+
+  const onIngest = () => void fireOp((signal) => client.startIngest({}, signal));
+  const onSynth = () => void fireOp((signal) => client.startSynth({}, signal));
+  const onLintPropose = () => void fireOp((signal) => client.startLintPropose({}, signal));
+  const onLintApply = () => {
+    if (!canApply || !selected) return;
+    const proposalTaskId = selected.task_id;
+    void fireOp((signal) => client.startLintApply({ proposalTaskId, pick: null }, signal));
+  };
+
+  // Detail-panel Stop: cancel the selected running/pending task on core.
+  // We intentionally do NOT cancelFollow() here — if this task is being
+  // followed, the live stream renders the resulting final(cancelled) event as
+  // confirmation and then settles `following` on its own. Re-probe the busy
+  // gate authoritatively rather than optimistically clearing it: another task
+  // may still be running/pending (queued behind this one), and the gate must
+  // stay closed while any exists.
+  const cancelSelected = async () => {
+    if (!selected || isTerminalTask(selected.status)) return;
+    const id = selected.task_id;
+    setActionError(null);
+    try {
+      await client.cancelTask(id);
+      void loadFirstPage();
+      await refreshBusy();
+    } catch (error) {
+      setActionError(error);
+    }
+  };
 
   return (
     <div className="page-stack">
@@ -275,8 +413,29 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
           <span>{copy.opLabel}</span>
           <input value={op} onChange={(event) => setOp(event.target.value)} placeholder="ingest / synth / distill" />
         </label>
+        <div className="task-actions">
+          <button className="secondary-button" type="button" onClick={onIngest} disabled={busy}>
+            {copy.actions.ingest}
+          </button>
+          <button className="secondary-button" type="button" onClick={onSynth} disabled={busy}>
+            {copy.actions.synth}
+          </button>
+          <button className="secondary-button" type="button" onClick={onLintPropose} disabled={busy}>
+            {copy.actions.lintPropose}
+          </button>
+          <button className="secondary-button" type="button" onClick={onLintApply} disabled={!canApply}>
+            {copy.actions.lintApply}
+          </button>
+          {showBusyIndicator ? (
+            <span className="task-actions__live" aria-live="polite">
+              <span className="live-dot" aria-hidden="true" />
+              {copy.actions.running}
+            </span>
+          ) : null}
+        </div>
       </section>
 
+      {actionError ? <Notice title={copy.actions.errorTitle} error={actionError} /> : null}
       {listError ? <Notice title={copy.listErrorTitle} error={listError} /> : null}
 
       <section className="tasks-layout">
@@ -360,8 +519,13 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
                   <Play size={16} />
                   {isTerminalTask(selected.status) ? "Load events" : "Follow"}
                 </button>
-                <button className="secondary-button" type="button" onClick={stopFollow} disabled={!following}>
-                  <Pause size={16} />
+                <button
+                  className="secondary-button secondary-button--danger"
+                  type="button"
+                  onClick={() => void cancelSelected()}
+                  disabled={isTerminalTask(selected.status)}
+                >
+                  <Square size={16} />
                   Stop
                 </button>
               </div>
