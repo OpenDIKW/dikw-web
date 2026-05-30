@@ -257,13 +257,15 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   }
 
   const messages = activeSession?.messages ?? [];
-  // Fold streaming sources into the session-base via mergeSources so a
-  // source committed in a previous turn isn't rendered twice when the same
-  // path/title/kind shows up again in this turn's stream — that produced
-  // duplicate React keys in the right-rail (composite key is path+title+kind).
-  const sources = streamingSources.reduce<AgentSource[]>(
+  // Dedup the full source list (persisted session base + this turn's stream)
+  // via mergeSources so the same page isn't rendered twice — whether it recurs
+  // across turns or appears under both the legacy `wiki/` and current
+  // `knowledge/` prefixes in a session that spans dikw-core's 0.4.0 rename.
+  // Dedup and the right-rail React key both key on the normalized path + title
+  // + kind, so a normalized-equal pair can't collide.
+  const sources = [...(activeSession?.sources ?? []), ...streamingSources].reduce<AgentSource[]>(
     (acc, next) => mergeSources(acc, next),
-    activeSession?.sources ?? []
+    []
   );
   const toolEvents = [...(activeSession?.toolEvents ?? []), ...streamingTools];
 
@@ -598,8 +600,12 @@ function localMessage(role: AgentMessage["role"], content: string): AgentMessage
 
 function mergeSources(items: AgentSource[], next: AgentSource): AgentSource[] {
   const nextKind = next.kind ?? "core";
+  const nextPath = normalizeKnowledgePath(next.path);
   return items.some(
-    (item) => item.path === next.path && item.title === next.title && (item.kind ?? "core") === nextKind
+    (item) =>
+      normalizeKnowledgePath(item.path) === nextPath &&
+      item.title === next.title &&
+      (item.kind ?? "core") === nextKind
   )
     ? items
     : [...items, next];

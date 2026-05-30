@@ -151,17 +151,29 @@ interface CoreConnection {
   token?: string;
 }
 
+export function maintenanceEndpoint(action: AgentMaintenanceAction): string {
+  switch (action) {
+    case "ingest":
+      return "/v1/ingest";
+    case "synth":
+      return "/v1/synth";
+    case "lint_propose":
+      return "/v1/lint/propose";
+    default: {
+      // Reject unknown actions (e.g. a `distill` proposal persisted before it was
+      // removed) instead of silently falling through to lint.propose.
+      const unreachable: never = action;
+      throw new Error(`unknown maintenance action: ${String(unreachable)}`);
+    }
+  }
+}
+
 async function runMaintenanceProposal(
   action: AgentMaintenanceAction,
   params: Record<string, unknown>,
   connection: CoreConnection
 ): Promise<{ task_id?: string }> {
-  const endpoint =
-    action === "ingest"
-      ? "/v1/ingest"
-      : action === "synth"
-        ? "/v1/synth"
-        : "/v1/lint/propose";
+  const endpoint = maintenanceEndpoint(action);
   const headers: Record<string, string> = { Accept: "application/json", "Content-Type": "application/json" };
   if (connection.token) {
     headers.Authorization = `Bearer ${connection.token}`;

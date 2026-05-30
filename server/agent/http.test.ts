@@ -4,9 +4,21 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import { createAgentHandler } from "./http";
+import { createAgentHandler, maintenanceEndpoint } from "./http";
 import { FileSessionStore } from "./sessionStore";
 import type { AgentRunner } from "./runtime";
+
+describe("maintenanceEndpoint", () => {
+  it("maps each supported maintenance action to its core endpoint", () => {
+    expect(maintenanceEndpoint("ingest")).toBe("/v1/ingest");
+    expect(maintenanceEndpoint("synth")).toBe("/v1/synth");
+    expect(maintenanceEndpoint("lint_propose")).toBe("/v1/lint/propose");
+  });
+
+  it("throws on an unknown action (e.g. a stale distill proposal) instead of silently routing", () => {
+    expect(() => maintenanceEndpoint("distill" as never)).toThrow(/unknown maintenance action/);
+  });
+});
 
 describe("agent HTTP sidecar", () => {
   const cleanups: Array<() => Promise<void> | void> = [];

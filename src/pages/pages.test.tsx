@@ -1591,6 +1591,45 @@ describe("read console pages", () => {
     expect(within(context).getByText("sources/elon-musk.md")).toBeInTheDocument();
   });
 
+  it("collapses a page recorded under both wiki/ and knowledge/ into one source row", async () => {
+    // A long-lived session spanning the rename can persist the same page under
+    // both prefixes; normalized dedup must render it once (one stable React key),
+    // not as two identical-looking rows.
+    const activeSession = {
+      id: "session-1",
+      title: "Spanning session",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:01.000Z",
+      messageCount: 2,
+      lastMessagePreview: "Answer",
+      messages: [
+        { id: "u1", role: "user", content: "who is elon", createdAt: "2026-05-13T00:00:00.000Z" },
+        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z" }
+      ],
+      toolEvents: [],
+      sources: [
+        { path: "wiki/entities/elon-musk.md", title: "Elon Musk", layer: "knowledge" },
+        { path: "knowledge/entities/elon-musk.md", title: "Elon Musk", layer: "knowledge" }
+      ],
+      proposals: []
+    };
+    const agentClient = {
+      listSessions: vi.fn().mockResolvedValue([activeSession]),
+      createSession: vi.fn().mockResolvedValue(activeSession),
+      getSession: vi.fn().mockResolvedValue(activeSession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+    } as AgentClientLike;
+
+    render(<ChatPage agentClient={agentClient} />);
+
+    const context = await screen.findByRole("complementary", { name: "Session context" });
+    expect(within(context).getAllByText("knowledge/entities/elon-musk.md")).toHaveLength(1);
+    expect(within(context).queryByText("wiki/entities/elon-musk.md")).toBeNull();
+  });
+
   it("dedups a streaming source that already exists on the active session", async () => {
     // Reproduces the dup-key React warning observed in the auto-scroll stress
     // e2e: turn 2's streaming emits the same wiki page that turn 1 already
