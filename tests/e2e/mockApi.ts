@@ -24,6 +24,12 @@ export async function mockDikwApi(page: Page) {
     await route.fulfill({ status: 204, body: "" });
   });
 
+  // Branding is fetched at app bootstrap; force a 404 so e2e always exercises
+  // the default OpenDIKW branding regardless of any stray local public/config.json.
+  await page.route("**/config.json", async (route) => {
+    await route.fulfill({ status: 404, contentType: "text/plain", body: "not found" });
+  });
+
   let hasAgentSession = false;
   let agentSession = {
     id: "session-1",

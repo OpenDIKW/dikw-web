@@ -73,4 +73,16 @@ describe("loadBranding", () => {
     );
     expect(await loadBranding()).toEqual(defaultBranding);
   });
+
+  it("falls back to defaults when the fetch never settles (timeout)", async () => {
+    vi.useFakeTimers();
+    try {
+      stubFetch(() => new Promise<Response>(() => {}));
+      const pending = loadBranding();
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(await pending).toEqual(defaultBranding);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
