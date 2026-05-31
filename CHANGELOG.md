@@ -9,6 +9,25 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.20] - 2026-05-31
+
+### Added: configurable logo text + brand-tracking tab title
+
+- **The sidebar logo text and browser tab title are now configurable at
+  runtime.** They default to `OpenDIKW` but can be overridden — without
+  rebuilding — by a `config.json` served from the static root
+  (`{ "brand": { "name": { "en": …, "zh-CN": … } } }`), fetched once during
+  app bootstrap. A missing or malformed file falls back to the defaults, so
+  existing deployments are unaffected. `name` is per-locale and the tab
+  title follows the resolved brand name; the logo image and favicon stay
+  fixed. See `public/config.example.json` and the README "Branding" section.
+- **The top-bar breadcrumb root is now a fixed `Workbench` / `工作台`
+  label** instead of the hard-coded brand name, decoupling the
+  "workbench home" crumb from branding.
+- **The agent system prompt is brand-neutral** ("a helpful knowledge base
+  agent") so white-labeled deployments don't surface the `OpenDIKW` name in
+  chat.
+
 ## [0.0.19] - 2026-05-30
 
 ### Fixed: import survives transient gateway errors; Wisdom metric aligns

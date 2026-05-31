@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { DikwClient, normalizeBaseUrl } from "./api/client";
 import { AgentClient } from "./api/agentClient";
+import { defaultBranding, type Branding } from "./config/branding";
 import {
   isLocale,
   isThemePreference,
@@ -76,7 +77,7 @@ const allViewIds: ViewId[] = [
   settingsNavItem.id
 ];
 
-export function App() {
+export function App({ branding = defaultBranding }: { branding?: Branding }) {
   const [activeView, setActiveView] = useState<ViewId>(() => viewFromHash());
   const [serverUrl, setServerUrl] = useState(() => sessionStorage.getItem(serverKey) ?? defaultServerUrl);
   const [token, setToken] = useState(() => sessionStorage.getItem(tokenKey) ?? "");
@@ -95,6 +96,7 @@ export function App() {
   );
   const agentClient = useMemo(() => new AgentClient({ coreUrl: serverUrl, token }), [serverUrl, token]);
   const copy = translations[locale];
+  const brandName = branding.name[locale];
 
   useEffect(() => {
     if (serverUrl) {
@@ -115,6 +117,10 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(localeStorageKey, locale);
   }, [locale]);
+
+  useEffect(() => {
+    document.title = brandName;
+  }, [brandName]);
 
   useEffect(() => {
     localStorage.setItem(themeStorageKey, theme);
@@ -174,10 +180,10 @@ export function App() {
       <aside className="sidebar">
         <div className="brand">
           <div className="brand__mark">
-            <img className="brand__logo" src="/opendikw-avatar.png" alt="OpenDIKW" />
+            <img className="brand__logo" src="/opendikw-avatar.png" alt={brandName} />
           </div>
           <div>
-            <strong>OpenDIKW</strong>
+            <strong>{brandName}</strong>
             <span>{copy.brandSubtitle}</span>
           </div>
         </div>
@@ -209,7 +215,7 @@ export function App() {
       <div className="workspace">
         <header className="topbar">
           <nav className="topbar__crumb" aria-label="Breadcrumb">
-            <span className="topbar__crumb-root">OpenDIKW</span>
+            <span className="topbar__crumb-root">{copy.breadcrumbRoot}</span>
             <span className="topbar__crumb-sep" aria-hidden="true">／</span>
             <span className="topbar__crumb-leaf">{activeLabel}</span>
           </nav>

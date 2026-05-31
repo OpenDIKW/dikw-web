@@ -34,6 +34,7 @@ test("default English locale keeps page chrome single-language", async ({ page }
   const knowledgeNav = page.getByRole("navigation", { name: "Knowledge" });
   await expect(knowledgeNav.getByRole("button", { name: "Overview", exact: true })).toBeVisible();
   await expect(knowledgeNav.getByRole("button", { name: "概览", exact: true })).toHaveCount(0);
+  await expect(page.locator(".topbar__crumb-root")).toHaveText("Workbench");
 
   for (const route of englishRoutes) {
     await page.goto(`/#${route.hash}`);
@@ -51,6 +52,7 @@ test("Chinese locale keeps page chrome single-language", async ({ page }) => {
   const knowledgeNav = page.getByRole("navigation", { name: "知识" });
   await expect(knowledgeNav.getByRole("button", { name: "概览", exact: true })).toBeVisible();
   await expect(knowledgeNav.getByRole("button", { name: "Overview", exact: true })).toHaveCount(0);
+  await expect(page.locator(".topbar__crumb-root")).toHaveText("工作台");
 
   for (const route of chineseRoutes) {
     await page.goto(`/#${route.hash}`);

@@ -11,3 +11,5 @@ vite*.log
 *.local
 .agent-sessions/
 .claude/
+# Runtime branding override (per-deployment; copy from public/config.example.json)
+/public/config.json

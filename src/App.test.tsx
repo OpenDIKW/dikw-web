@@ -210,4 +210,40 @@ describe("App shell", () => {
     expect(await screen.findByRole("heading", { name: "Architecture", level: 1 })).toBeInTheDocument();
   });
 
+  it("renders the configured brand name, logo alt, tab title, and Workbench breadcrumb", async () => {
+    stubApi();
+    window.location.hash = "#overview";
+
+    render(<App branding={{ name: { en: "Maibo-DIKW", "zh-CN": "迈博知识库" } }} />);
+
+    expect(screen.getByText("Maibo-DIKW")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Maibo-DIKW" })).toBeInTheDocument();
+    expect(screen.getByText("Workbench")).toBeInTheDocument();
+    await waitFor(() => expect(document.title).toBe("Maibo-DIKW"));
+  });
+
+  it("localizes the configured brand name, tab title, and breadcrumb for zh-CN", async () => {
+    stubApi();
+    localStorage.setItem("dikw-web.locale", "zh-CN");
+    window.location.hash = "#overview";
+
+    render(<App branding={{ name: { en: "Maibo-DIKW", "zh-CN": "迈博知识库" } }} />);
+
+    expect(screen.getByText("迈博知识库")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "迈博知识库" })).toBeInTheDocument();
+    expect(screen.getByText("工作台")).toBeInTheDocument();
+    await waitFor(() => expect(document.title).toBe("迈博知识库"));
+  });
+
+  it("defaults to OpenDIKW branding with a Workbench breadcrumb when unconfigured", async () => {
+    stubApi();
+    window.location.hash = "#overview";
+
+    render(<App />);
+
+    expect(screen.getByText("OpenDIKW")).toBeInTheDocument();
+    expect(screen.getByText("Workbench")).toBeInTheDocument();
+    await waitFor(() => expect(document.title).toBe("OpenDIKW"));
+  });
+
 });

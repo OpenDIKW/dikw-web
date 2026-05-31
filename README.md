@@ -141,6 +141,25 @@ via `*.local`). Use `.env.agent.example` as the template.
 - `dikw-web.theme` (localStorage) — `system` / `light` / `dark`,
   defaults to `system`. Applied as `html[data-theme="..."]`.
 
+## Branding (white-label)
+
+The sidebar logo text and browser tab title default to `OpenDIKW`
+(`src/config/branding.ts`). To rebrand without rebuilding, drop a
+`config.json` into the served static root (`public/` in dev, `dist/` or a
+mounted volume in prod) — copy the shape from
+[`public/config.example.json`](public/config.example.json):
+
+```json
+{ "brand": { "name": { "en": "Maibo-DIKW", "zh-CN": "迈博知识库" } } }
+```
+
+The app fetches `/config.json` once at startup; a missing or malformed file
+falls back to the `OpenDIKW` defaults. `name` is per-locale (a bare string
+applies to all locales) and the tab title follows it. `config.json` is
+gitignored so per-deployment branding never lands in the repo. The logo
+image and favicon are fixed — only text is configurable. The breadcrumb
+root is a fixed `Workbench` / `工作台` label, independent of the brand.
+
 ## Testing
 
 TDD for behavior changes: failing test first, smallest change to green,
