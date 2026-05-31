@@ -113,6 +113,12 @@ Both prefixes are served by the same Node process in dev and in the standalone `
 - `serverUrl` and `token` live in `sessionStorage`; `locale` and `theme` live in `localStorage`. Keys are namespaced `dikw-web.*`.
 - The top bar may show connection target/token posture but must never display the token value.
 
+### Branding (runtime config)
+
+- The sidebar logo text and the browser tab title come from `src/config/branding.ts` (`defaultBranding` = `OpenDIKW`), optionally overridden at runtime by a `public/config.json` (`{ "brand": { "name": { "en": …, "zh-CN": … } } }`) fetched once during `main.tsx` bootstrap via `loadBranding()`. A missing, unreachable, or malformed file silently falls back to the defaults, so the app always renders. `config.json` is gitignored (per-deployment); `public/config.example.json` documents the shape. The brand `name` is per-locale (a bare string applies to every locale); `document.title` tracks the resolved brand name and updates on locale switch.
+- The top-bar breadcrumb root is a fixed i18n label (`breadcrumbRoot` → `Workbench` / `工作台`), **not** the brand name — do not re-couple it to branding. The sidebar subtitle stays the existing i18n `brandSubtitle` and is not part of the runtime config. The logo image and favicon are fixed (`/opendikw-avatar.png`); only text is configurable.
+- The agent system prompt (`server/agent/runtime.ts`) is brand-neutral ("a helpful knowledge base agent"); the sidecar does not receive the browser-side branding config.
+
 ### Routes and contracts (hash-based)
 
 `src/App.tsx` is the shell — sidebar groups, hash routing (`viewFromHash()`), `DikwClient` + `AgentClient` construction, i18n + theme wiring. Pages live in `src/pages/`.

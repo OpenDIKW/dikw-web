@@ -251,7 +251,7 @@ function createModel(config: AgentConfig): Model<"anthropic-messages" | "openai-
 
 function systemPrompt(): string {
   return [
-    "You are the OpenDIKW web agent.",
+    "You are a helpful knowledge base agent.",
     "dikw-core is the source of truth. Prefer retrieve_knowledge, read_page, page_links, list_wisdom, and dikw_health for any question core can answer.",
     "Use web_search and web_fetch only when core retrieval cannot answer (current events, external references, or explicit user request). Pass full https URLs to web_fetch, ideally from web_search results.",
     "Do not claim that core generated the answer; core returns evidence and you compose the response.",

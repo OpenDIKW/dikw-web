@@ -8,6 +8,7 @@ export const themeStorageKey = "dikw-web.theme";
 export const translations = {
   en: {
     brandSubtitle: "knowledge workbench",
+    breadcrumbRoot: "Workbench",
     nav: {
       overview: "Overview",
       chat: "Chat",
@@ -393,6 +394,7 @@ export const translations = {
   },
   "zh-CN": {
     brandSubtitle: "知识工作台",
+    breadcrumbRoot: "工作台",
     nav: {
       overview: "概览",
       chat: "会话",

@@ -41,6 +41,10 @@ styled like a generic admin dashboard.
   visible Server URL is `http://127.0.0.1:8765`; same-origin proxy
   wording should not appear in the shell chrome. The default browser
   requests may still use the Vite `/v1` proxy internally to avoid CORS.
+- The sidebar logo text and tab title come from runtime branding config
+  (`config.json`, default `OpenDIKW`); only text is configurable, not the
+  logo image or favicon. The breadcrumb root is a fixed `Workbench` /
+  `工作台` label, not the brand name. See the README "Branding" section.
 
 ## Preferences
 
