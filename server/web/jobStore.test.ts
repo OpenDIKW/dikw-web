@@ -82,21 +82,23 @@ describe("JobStore terminal guards", () => {
   });
 });
 
-describe("JobStore consumeResult (single-use)", () => {
-  it("returns the result once then deletes the job", () => {
+describe("JobStore peekResult (idempotent)", () => {
+  it("returns the result without removing the job, so repeated reads succeed", () => {
     const store = new JobStore();
     const job = store.create(new AbortController());
     store.setSucceeded(job.id, new Uint8Array([4, 5, 6]));
-    expect(Array.from(store.consumeResult(job.id) ?? [])).toEqual([4, 5, 6]);
-    expect(store.get(job.id)).toBeUndefined();
-    expect(store.consumeResult(job.id)).toBeUndefined();
+    // Reading the result must NOT consume it — a cut /result transfer is retried
+    // (issue #60), so the second read has to return the same bytes, not undefined.
+    expect(Array.from(store.peekResult(job.id) ?? [])).toEqual([4, 5, 6]);
+    expect(store.get(job.id)?.status).toBe("succeeded");
+    expect(Array.from(store.peekResult(job.id) ?? [])).toEqual([4, 5, 6]);
   });
 
   it("returns undefined for a job that has not succeeded", () => {
     const store = new JobStore();
     const job = store.create(new AbortController());
     store.setRunning(job.id);
-    expect(store.consumeResult(job.id)).toBeUndefined();
+    expect(store.peekResult(job.id)).toBeUndefined();
     expect(store.get(job.id)?.status).toBe("running");
   });
 });
@@ -145,7 +147,7 @@ describe("JobStore eviction", () => {
     const job = store.create(new AbortController());
     store.setSucceeded(job.id, new Uint8Array(10)); // 10 > 4, but it's the newest
     expect(store.get(job.id)?.status).toBe("succeeded");
-    expect((store.consumeResult(job.id) ?? []).length).toBe(10);
+    expect((store.peekResult(job.id) ?? []).length).toBe(10);
   });
 
   it("evicts oldest terminal jobs when total result bytes exceed the cap", () => {

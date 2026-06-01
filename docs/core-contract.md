@@ -335,8 +335,9 @@ touch `dikw-core`:
   "pending"|"running"|"succeeded"|"failed", phase?, error?: { code, message } }`;
   unknown id → `404`. The browser polls this on a short interval.
 - `GET /web/mineru/jobs/<id>/result` → on `succeeded`, the `application/x-tar+gzip`
-  bundle (markdown + assets), **consumed once** (a second fetch is `404`); `409`
-  if not yet finished.
+  bundle (markdown + assets), served **idempotently** within the job's TTL window
+  (a transfer cut mid-flight by a flaky proxy can be re-fetched — the bytes are
+  reclaimed by the TTL sweep / byte cap, not on read); `409` if not yet finished.
 - `POST /web/mineru/jobs/<id>/cancel` → aborts the detached conversion.
 
 On a failed job the `error.code` reuses the same `mineru_*` codes the

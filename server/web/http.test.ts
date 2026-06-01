@@ -588,7 +588,7 @@ describe("/web/mineru/jobs — status / result / cancel", () => {
     expect(jsonBody(await getJob(handler, jobId)).status).toBe("failed");
   });
 
-  it("serves the result exactly once — a second fetch is 404 (single-use)", async () => {
+  it("serves the result idempotently — repeated fetches return the same 200 (retry-safe)", async () => {
     const fileBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
     const inputSha = sha256Hex(fileBytes);
     const fixtureZip = makeFixtureZip(new Map([["full.md", new TextEncoder().encode("# One\n")]]));
@@ -604,10 +604,15 @@ describe("/web/mineru/jobs — status / result / cancel", () => {
     const jobId = jsonBody(submit).jobId!;
     await driveJob(jobStore, jobId);
 
-    expect((await getJobResult(handler, jobId)).status).toBe(200);
-    // Consumed → the job is gone, so the status and a second result are 404.
-    expect((await getJob(handler, jobId)).status).toBe(404);
-    expect((await getJobResult(handler, jobId)).status).toBe(404);
+    // Result reads do NOT consume the job (issue #60): a /result transfer cut by
+    // a flaky proxy must be retriable, so the job stays queryable and a second
+    // fetch returns the identical bytes — reclaim is left to the TTL / byte cap.
+    const first = await getJobResult(handler, jobId);
+    expect(first.status).toBe(200);
+    expect(jsonBody(await getJob(handler, jobId)).status).toBe("succeeded");
+    const second = await getJobResult(handler, jobId);
+    expect(second.status).toBe(200);
+    expect(second.body.equals(first.body)).toBe(true);
   });
 
   it("a failing conversion becomes a failed job with a mapped code (no unhandled rejection)", async () => {

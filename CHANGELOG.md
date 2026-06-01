@@ -26,7 +26,9 @@ file format introduced in `[0.0.1.0]` was dropped.
 - **`POST /web/mineru/convert` now returns `202 { jobId }` immediately and runs
   the conversion detached** in an in-memory `JobStore` (`server/web/jobStore.ts`).
   The browser polls the short `GET /web/mineru/jobs/<id>` for status and fetches
-  the tar.gz from `GET /web/mineru/jobs/<id>/result` on completion, with
+  the tar.gz from `GET /web/mineru/jobs/<id>/result` on completion (served
+  idempotently within the job's TTL, so a transfer cut mid-flight by a flaky
+  proxy is retry-safe rather than a lost conversion), with
   `POST /web/mineru/jobs/<id>/cancel` to abort — mirroring the task model already
   used for ingest / synth / lint. Every request is now seconds-short, so none
   approaches a proxy timeout, and a failure surfaces as a structured `mineru_*`

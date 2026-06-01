@@ -277,8 +277,11 @@ function handleJobResult(res: ServerResponse, store: JobStore, jobId: string): v
   if (job.status !== "succeeded") {
     return errorJson(res, 409, "not_ready", `conversion job is ${job.status}`);
   }
-  const gz = store.consumeResult(jobId);
-  // Single-use: a TTL sweep / concurrent fetch may have reclaimed it already.
+  const gz = store.peekResult(jobId);
+  // Idempotent within the TTL window: we do NOT delete on read, so a `/result`
+  // transfer cut mid-flight by a flaky proxy can be retried (issue #60) instead
+  // of hitting a consumed job. `!gz` only if a late fetch lost the race with the
+  // TTL sweep / byte-cap eviction.
   if (!gz) return notFound(res);
   res.statusCode = 200;
   res.setHeader("Content-Type", "application/x-tar+gzip");

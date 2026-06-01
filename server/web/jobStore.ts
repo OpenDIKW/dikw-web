@@ -10,8 +10,9 @@
 //
 // In-memory only (no disk persistence): a sidecar restart drops live jobs, and
 // `converting` stays non-resumable across a browser refresh — matching the v1
-// stance in src/state/import-pipeline.ts. Results are held in memory until
-// consumed, so eviction is mandatory, not optional.
+// stance in src/state/import-pipeline.ts. Result reads are idempotent (see
+// peekResult), so results linger until the TTL sweep or byte-cap eviction
+// reclaims them — eviction is mandatory, not optional.
 
 import { randomUUID } from "node:crypto";
 
@@ -142,15 +143,16 @@ export class JobStore {
     job.finishedAt = this.now();
   }
 
-  /** Return a succeeded job's result exactly once, then delete the job. This is
-   *  the primary memory-reclaim path; the TTL sweep is the fallback for results
-   *  the browser polled "succeeded" but never fetched. */
-  consumeResult(id: string): Uint8Array | undefined {
+  /** Return a succeeded job's result WITHOUT removing it — result reads are
+   *  idempotent within the TTL window. A `/result` HTTP response can be cut
+   *  mid-transfer by a flaky proxy (the exact transport failure issue #60 is
+   *  about); deleting on first read would defeat the client's retry and lose a
+   *  finished conversion, forcing the user to re-spend MinerU quota. Reclaim is
+   *  therefore left entirely to the TTL sweep and byte-cap eviction. */
+  peekResult(id: string): Uint8Array | undefined {
     const job = this.jobs.get(id);
     if (!job || job.status !== "succeeded" || !job.result) return undefined;
-    const result = job.result;
-    this.remove(id);
-    return result;
+    return job.result;
   }
 
   size(): number {
