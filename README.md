@@ -61,7 +61,8 @@ browser (React 19, hand-rolled CSS tokens)
    │                                  └─── optional web_search (Tavily) / web_fetch (Jina)
    │
    └─── same-origin /web/*   ──▶ same sidecar process (server/web/)
-                                      └─── /mineru/convert (PDF/Office → md+assets via mineru.net)
+                                      └─── /mineru/convert (PDF/Office → job id; detached convert via mineru.net)
+                                      └─── /mineru/jobs/<id>[/result|/cancel] (poll / fetch result / cancel)
                                       └─── /mineru/health  (drives Import UI degradation)
 ```
 

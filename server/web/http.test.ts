@@ -9,7 +9,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { Readable } from "node:stream";
 import { deflateRawSync, gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
-import { createWebHandler } from "./http";
+import { createWebHandler, type WebHandler } from "./http";
+import { JobStore } from "./jobStore";
 import { readTar } from "../../src/utils/tar-reader";
 
 function sha256Hex(buf: Buffer | Uint8Array): string {
@@ -55,9 +56,12 @@ function makeRes(): { res: ServerResponse; captured: Promise<CapturedResponse> }
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
       return true;
     },
-    end(chunk?: Buffer | string) {
+    end(chunk?: Buffer | string | Uint8Array) {
       if (chunk !== undefined) {
-        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+        // A real ServerResponse accepts Buffer | string | Uint8Array; the job
+        // result is a plain Uint8Array, so copy bytes faithfully instead of
+        // stringifying it.
+        chunks.push(typeof chunk === "string" ? Buffer.from(chunk, "utf-8") : Buffer.from(chunk));
       }
       status = (this as { statusCode: number }).statusCode;
       resolveCaptured({ status, headers, body: Buffer.concat(chunks) });
@@ -235,6 +239,81 @@ function mineruFetchMock(fixtureZip: Uint8Array): typeof fetch {
   }) as unknown as typeof fetch;
 }
 
+// ------ job-flow helpers (issue #60: submit → poll → result) ------
+
+async function submitConvert(
+  handler: WebHandler,
+  opts: { inputSha: string; body: Buffer; contentType: string; originalFilename?: string }
+): Promise<CapturedResponse> {
+  let url = `/mineru/convert?inputSha=${opts.inputSha}`;
+  if (opts.originalFilename) {
+    url += `&originalFilename=${encodeURIComponent(opts.originalFilename)}`;
+  }
+  const { res, captured } = makeRes();
+  await handler(
+    makeReq({ method: "POST", url, headers: { "content-type": opts.contentType }, body: opts.body }),
+    res
+  );
+  return captured;
+}
+
+async function getJob(handler: WebHandler, jobId: string): Promise<CapturedResponse> {
+  const { res, captured } = makeRes();
+  await handler(makeReq({ method: "GET", url: `/mineru/jobs/${jobId}` }), res);
+  return captured;
+}
+
+async function getJobResult(handler: WebHandler, jobId: string): Promise<CapturedResponse> {
+  const { res, captured } = makeRes();
+  await handler(makeReq({ method: "GET", url: `/mineru/jobs/${jobId}/result` }), res);
+  return captured;
+}
+
+async function cancelJob(handler: WebHandler, jobId: string): Promise<CapturedResponse> {
+  const { res, captured } = makeRes();
+  await handler(makeReq({ method: "POST", url: `/mineru/jobs/${jobId}/cancel` }), res);
+  return captured;
+}
+
+/** Yield to the event loop (incl. the libuv threadpool behind async gzip) until
+ *  the detached conversion job reaches a terminal state. */
+async function driveJob(store: JobStore, jobId: string, maxMs = 4000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < maxMs) {
+    const job = store.get(jobId);
+    if (!job || job.status === "succeeded" || job.status === "failed") return;
+    await new Promise((r) => setTimeout(r, 1));
+  }
+  throw new Error(`job ${jobId} did not reach a terminal state within ${maxMs}ms`);
+}
+
+function jsonBody(r: CapturedResponse): { jobId?: string; status?: string; ok?: boolean; error?: { code?: string; message?: string } } {
+  return JSON.parse(r.body.toString("utf-8"));
+}
+
+/** A fetch double whose poll never reports "done", so the job stays running. */
+function pendingForeverFetch(): typeof fetch {
+  return (async (url: URL | RequestInfo, init?: RequestInit) => {
+    const u = String(url);
+    if (u === "https://mineru.net/api/v4/file-urls/batch") {
+      return new Response(
+        JSON.stringify({ code: 0, data: { batch_id: "b1", file_urls: ["https://oss.example/up?sig=x"] } }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (u === "https://oss.example/up?sig=x" && init?.method === "PUT") {
+      return new Response("", { status: 200 });
+    }
+    if (u.startsWith("https://mineru.net/api/v4/extract-results/batch/")) {
+      return new Response(
+        JSON.stringify({ code: 0, data: { extract_result: [{ state: "pending" }] } }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    throw new Error(`unexpected fetch to ${u}`);
+  }) as unknown as typeof fetch;
+}
+
 // ------ tests ------
 
 describe("/web/mineru/health", () => {
@@ -293,7 +372,7 @@ describe("/web/mineru/convert — guards", () => {
 });
 
 describe("/web/mineru/convert — happy path (mocked mineru)", () => {
-  it("returns tar.gz with stem.md + sorted assets", async () => {
+  it("submits a job, then GET jobs/<id>/result returns tar.gz with stem.md + sorted assets", async () => {
     const fileBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
     const inputSha = sha256Hex(fileBytes);
     const fixtureMd = "# Title\n\n![](images/fig.png)\n";
@@ -304,72 +383,33 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
         ["images/fig.png", fixturePng]
       ])
     );
-
-    const fetchMock: typeof fetch = async (url, init) => {
-      const u = String(url);
-      if (u === "https://mineru.net/api/v4/file-urls/batch") {
-        return new Response(
-          JSON.stringify({
-            code: 0,
-            data: {
-              batch_id: "batch-id-1",
-              file_urls: ["https://oss.example/up?sig=x"]
-            }
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      if (u === "https://oss.example/up?sig=x" && init?.method === "PUT") {
-        return new Response("", { status: 200 });
-      }
-      if (u.startsWith("https://mineru.net/api/v4/extract-results/batch/")) {
-        return new Response(
-          JSON.stringify({
-            code: 0,
-            data: {
-              extract_result: [
-                { state: "done", full_zip_url: "https://cdn.example/result.zip" }
-              ]
-            }
-          }),
-          { status: 200, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      if (u === "https://cdn.example/result.zip") {
-        const fresh = new ArrayBuffer(fixtureZip.byteLength);
-        new Uint8Array(fresh).set(fixtureZip);
-        return new Response(new Blob([fresh]), { status: 200 });
-      }
-      throw new Error(`unexpected fetch to ${u}`);
-    };
-
-    // Build multipart body via FormData → Request → arrayBuffer so the
-    // bytes match exactly what undici's parser expects to roundtrip.
-    const { body, contentType } = makeMultipart(
-      "test.pdf",
-      "application/pdf",
-      fileBytes
-    );
-
+    const { body, contentType } = makeMultipart("test.pdf", "application/pdf", fileBytes);
+    const jobStore = new JobStore();
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
-      fetch: fetchMock
+      fetch: mineruFetchMock(fixtureZip),
+      jobStore
     });
-    const req = makeReq({
-      method: "POST",
-      url: `/mineru/convert?inputSha=${inputSha}`,
-      headers: {
-        "content-type": contentType,
-        "content-length": String(body.byteLength)
-      },
-      body
-    });
-    const { res, captured } = makeRes();
-    await handler(req, res);
-    const r = await captured;
-    expect(r.status).toBe(200);
-    expect(r.headers["content-type"]).toBe("application/x-tar+gzip");
-    const tar = gunzipSync(r.body);
+
+    // Submit returns immediately with a job id — the request never holds open
+    // for the conversion (issue #60).
+    const submit = await submitConvert(handler, { inputSha, body, contentType });
+    expect(submit.status).toBe(202);
+    const submitted = jsonBody(submit);
+    expect(typeof submitted.jobId).toBe("string");
+    expect(submitted.status).toBe("pending");
+    const jobId = submitted.jobId!;
+
+    await driveJob(jobStore, jobId);
+
+    const status = await getJob(handler, jobId);
+    expect(status.status).toBe(200);
+    expect(jsonBody(status).status).toBe("succeeded");
+
+    const result = await getJobResult(handler, jobId);
+    expect(result.status).toBe(200);
+    expect(result.headers["content-type"]).toBe("application/x-tar+gzip");
+    const tar = gunzipSync(result.body);
     const entries = readTar(new Uint8Array(tar));
     const names = entries.map((e) => e.archivePath).sort();
     expect(names).toEqual(["assets/images/fig.png", "test.md"]);
@@ -390,31 +430,30 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     const fixtureZip = makeFixtureZip(
       new Map([["full.md", new TextEncoder().encode("# Title\n")]])
     );
-    const fetchMock = mineruFetchMock(fixtureZip);
-
     // The browser uploads under a shortened name but forwards the true
     // original so frontmatter stays honest.
     const original = "真实的非常长的原始文件名超过二十五个字符的文档.pdf";
-    const { body, contentType } = makeMultipart(
-      "shortname.pdf",
-      "application/pdf",
-      fileBytes
-    );
+    const { body, contentType } = makeMultipart("shortname.pdf", "application/pdf", fileBytes);
+    const jobStore = new JobStore();
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
-      fetch: fetchMock
+      fetch: mineruFetchMock(fixtureZip),
+      jobStore
     });
-    const req = makeReq({
-      method: "POST",
-      url: `/mineru/convert?inputSha=${inputSha}&originalFilename=${encodeURIComponent(original)}`,
-      headers: { "content-type": contentType },
-      body
+
+    const submit = await submitConvert(handler, {
+      inputSha,
+      body,
+      contentType,
+      originalFilename: original
     });
-    const { res, captured } = makeRes();
-    await handler(req, res);
-    const r = await captured;
-    expect(r.status).toBe(200);
-    const entries = readTar(new Uint8Array(gunzipSync(r.body)));
+    expect(submit.status).toBe(202);
+    const jobId = jsonBody(submit).jobId!;
+    await driveJob(jobStore, jobId);
+
+    const result = await getJobResult(handler, jobId);
+    expect(result.status).toBe(200);
+    const entries = readTar(new Uint8Array(gunzipSync(result.body)));
     // Markdown named after the uploaded (shortened) filename → matches the
     // browser's `${stem}.md` lookup.
     expect(entries.map((e) => e.archivePath)).toContain("shortname.md");
@@ -425,36 +464,35 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     expect(md).toContain(`original_filename: "${original}"`);
   });
 
-  it("maps mineru_auth error to HTTP 401", async () => {
-    const fetchMock: typeof fetch = async () => {
-      return new Response(
-        JSON.stringify({ code: "A0202", msg: "bad token" }),
-        { status: 401, headers: { "Content-Type": "application/json" } }
-      );
-    };
+  it("surfaces a mineru_auth failure on the job status, not the submit response", async () => {
+    const fetchMock: typeof fetch = async () =>
+      new Response(JSON.stringify({ code: "A0202", msg: "bad token" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" }
+      });
     const fileBytes = Buffer.from([0x78, 0x78]);
     const inputSha = sha256Hex(fileBytes);
-    const { body, contentType } = makeMultipart(
-      "x.pdf",
-      "application/pdf",
-      fileBytes
-    );
+    const { body, contentType } = makeMultipart("x.pdf", "application/pdf", fileBytes);
+    const jobStore = new JobStore();
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
-      fetch: fetchMock
+      fetch: fetchMock,
+      jobStore
     });
-    const req = makeReq({
-      method: "POST",
-      url: `/mineru/convert?inputSha=${inputSha}`,
-      headers: { "content-type": contentType },
-      body
-    });
-    const { res, captured } = makeRes();
-    await handler(req, res);
-    const r = await captured;
-    expect(r.status).toBe(401);
-    const body2 = JSON.parse(r.body.toString("utf-8"));
-    expect(body2.error.code).toBe("mineru_auth");
+
+    // The POST still succeeds (202) — the upstream auth error only emerges once
+    // the detached job runs, reported via the status endpoint with the same
+    // code the browser's pickErrorCode understands.
+    const submit = await submitConvert(handler, { inputSha, body, contentType });
+    expect(submit.status).toBe(202);
+    const jobId = jsonBody(submit).jobId!;
+    await driveJob(jobStore, jobId);
+
+    const status = await getJob(handler, jobId);
+    expect(status.status).toBe(200);
+    const parsed = jsonBody(status);
+    expect(parsed.status).toBe("failed");
+    expect(parsed.error?.code).toBe("mineru_auth");
   });
 
   it("rejects with input_sha_mismatch when claimed sha doesn't match bytes", async () => {
@@ -510,5 +548,117 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     expect(r.status).toBe(400);
     const body2 = JSON.parse(r.body.toString("utf-8"));
     expect(body2.error.code).toBe("invalid_input_sha");
+  });
+});
+
+describe("/web/mineru/jobs — status / result / cancel", () => {
+  it("returns 404 not_found for an unknown job id", async () => {
+    const handler = createWebHandler({ config: { mineruApiKey: TOKEN } });
+    const r = await getJob(handler, "does-not-exist");
+    expect(r.status).toBe(404);
+    expect(jsonBody(r).error?.code).toBe("not_found");
+  });
+
+  it("reports running, refuses the result with 409 not_ready, and cancel drives it to failed", async () => {
+    const fileBytes = Buffer.from([0x25, 0x50]);
+    const inputSha = sha256Hex(fileBytes);
+    const { body, contentType } = makeMultipart("x.pdf", "application/pdf", fileBytes);
+    const jobStore = new JobStore();
+    const handler = createWebHandler({
+      config: { mineruApiKey: TOKEN },
+      fetch: pendingForeverFetch(),
+      jobStore
+    });
+
+    const submit = await submitConvert(handler, { inputSha, body, contentType });
+    expect(submit.status).toBe(202);
+    const jobId = jsonBody(submit).jobId!;
+
+    // Result isn't ready while the job is still in flight.
+    const early = await getJobResult(handler, jobId);
+    expect(early.status).toBe(409);
+    expect(jsonBody(early).error?.code).toBe("not_ready");
+
+    // Cancel aborts the in-flight conversion; the detached runner then records
+    // a terminal failed state (and the abort clears the poll's backoff timer).
+    const cancelled = await cancelJob(handler, jobId);
+    expect(cancelled.status).toBe(200);
+    expect(jsonBody(cancelled).ok).toBe(true);
+    await driveJob(jobStore, jobId);
+    expect(jsonBody(await getJob(handler, jobId)).status).toBe("failed");
+  });
+
+  it("serves the result exactly once — a second fetch is 404 (single-use)", async () => {
+    const fileBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
+    const inputSha = sha256Hex(fileBytes);
+    const fixtureZip = makeFixtureZip(new Map([["full.md", new TextEncoder().encode("# One\n")]]));
+    const { body, contentType } = makeMultipart("one.pdf", "application/pdf", fileBytes);
+    const jobStore = new JobStore();
+    const handler = createWebHandler({
+      config: { mineruApiKey: TOKEN },
+      fetch: mineruFetchMock(fixtureZip),
+      jobStore
+    });
+
+    const submit = await submitConvert(handler, { inputSha, body, contentType });
+    const jobId = jsonBody(submit).jobId!;
+    await driveJob(jobStore, jobId);
+
+    expect((await getJobResult(handler, jobId)).status).toBe(200);
+    // Consumed → the job is gone, so the status and a second result are 404.
+    expect((await getJob(handler, jobId)).status).toBe(404);
+    expect((await getJobResult(handler, jobId)).status).toBe(404);
+  });
+
+  it("a failing conversion becomes a failed job with a mapped code (no unhandled rejection)", async () => {
+    // Submit returns 200 but missing batch_id → client.submit throws mineru_api
+    // synchronously (no retry), exercising the detached runner's catch.
+    const fetchMock: typeof fetch = (async (url: URL | RequestInfo) => {
+      const u = String(url);
+      if (u === "https://mineru.net/api/v4/file-urls/batch") {
+        return new Response(JSON.stringify({ code: 0, data: {} }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      throw new Error(`unexpected fetch to ${u}`);
+    }) as unknown as typeof fetch;
+    const fileBytes = Buffer.from([0x01, 0x02]);
+    const inputSha = sha256Hex(fileBytes);
+    const { body, contentType } = makeMultipart("y.pdf", "application/pdf", fileBytes);
+    const jobStore = new JobStore();
+    const handler = createWebHandler({ config: { mineruApiKey: TOKEN }, fetch: fetchMock, jobStore });
+
+    const submit = await submitConvert(handler, { inputSha, body, contentType });
+    expect(submit.status).toBe(202);
+    const jobId = jsonBody(submit).jobId!;
+    await driveJob(jobStore, jobId);
+
+    const status = await getJob(handler, jobId);
+    expect(jsonBody(status).status).toBe("failed");
+    expect(jsonBody(status).error?.code).toBe("mineru_api");
+  });
+
+  it("rejects creating beyond the live-job cap with 503 too_many_jobs", async () => {
+    const fileBytes = Buffer.from([0x25, 0x50]);
+    const inputSha = sha256Hex(fileBytes);
+    const { body, contentType } = makeMultipart("x.pdf", "application/pdf", fileBytes);
+    const jobStore = new JobStore({ maxLiveJobs: 1 });
+    const handler = createWebHandler({
+      config: { mineruApiKey: TOKEN },
+      fetch: pendingForeverFetch(),
+      jobStore
+    });
+
+    const first = await submitConvert(handler, { inputSha, body, contentType });
+    expect(first.status).toBe(202);
+    // Second submit while the first job is still live → over the cap.
+    const second = await submitConvert(handler, { inputSha, body, contentType });
+    expect(second.status).toBe(503);
+    expect(jsonBody(second).error?.code).toBe("too_many_jobs");
+
+    // Clean up the lingering background poll loop.
+    await cancelJob(handler, jsonBody(first).jobId!);
+    await driveJob(jobStore, jsonBody(first).jobId!);
   });
 });

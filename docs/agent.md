@@ -37,10 +37,10 @@ retained in `WebToolClient.search` for future provider rotation.
 
 `MinerUAPIKey` (alias `DIKW_AGENT_MINERU_API_KEY`) is optional and is
 read by `server/web/config.ts`, not by `AgentConfig` — mineru is a
-browser-helper concern, not an agent tool. Missing key → `/web/mineru/*`
-returns `503 mineru_disabled` and ImportPage degrades to `.md/.pdf`
-only. Variable name `MinerUAPIKey` matches the `dikw-plugins/.env`
-convention so the same key file can be reused.
+browser-helper concern, not an agent tool. Missing key →
+`POST /web/mineru/convert` returns `503 mineru_disabled` and ImportPage
+degrades to `.md/.pdf` only. Variable name `MinerUAPIKey` matches the
+`dikw-plugins/.env` convention so the same key file can be reused.
 
 When a key is missing, `loadAgentConfig` still succeeds and the
 corresponding tool throws a clear "requires `DIKW_AGENT_*`" error on
