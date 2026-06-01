@@ -9,6 +9,37 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.0.21] - 2026-06-01
+
+### Fixed: MinerU conversion survives a request-timeout proxy (job + poll)
+
+- **A slow MinerU conversion no longer dies behind a reverse-proxy / tunnel
+  request timeout** ([#60]). The `converting` pre-stage used to run the whole
+  MinerU pipeline (submit → upload → poll-until-done → download → tar+gzip)
+  inside a single `POST /web/mineru/convert` request and wrote no response
+  bytes until it finished, so its time-to-first-byte equalled the full
+  conversion time. Behind a proxy that caps request duration (Cloudflare free
+  ~100s, nginx `proxy_read_timeout` 60s) any conversion slower than that limit
+  had its connection cut mid-flight — the browser saw a transport-level
+  `Failed to fetch` and the job was aborted, so larger / scanned PDFs (the slow
+  `vlm` path) failed while small files in the same batch succeeded.
+- **`POST /web/mineru/convert` now returns `202 { jobId }` immediately and runs
+  the conversion detached** in an in-memory `JobStore` (`server/web/jobStore.ts`).
+  The browser polls the short `GET /web/mineru/jobs/<id>` for status and fetches
+  the tar.gz from `GET /web/mineru/jobs/<id>/result` on completion (served
+  idempotently within the job's TTL, so a transfer cut mid-flight by a flaky
+  proxy is retry-safe rather than a lost conversion), with
+  `POST /web/mineru/jobs/<id>/cancel` to abort — mirroring the task model already
+  used for ingest / synth / lint. Every request is now seconds-short, so none
+  approaches a proxy timeout, and a failure surfaces as a structured `mineru_*`
+  code (e.g. `mineru_timeout`) instead of an opaque `Failed to fetch`.
+- The change is encapsulated in `convertSource` (`src/utils/mineru-convert.ts`);
+  the per-file Import UI gains a `polling` substage while the detached job runs.
+  `converting` stays non-resumable across a page reload (the in-memory job store
+  is also dropped on a sidecar restart) — unchanged from before.
+
+[#60]: https://github.com/OpenDIKW/dikw-web/issues/60
+
 ## [0.0.20] - 2026-05-31
 
 ### Added: configurable logo text + brand-tracking tab title

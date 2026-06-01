@@ -35,6 +35,75 @@ function makeTarGzResponse(stem: string, markdown: string, assets: Array<[string
   });
 }
 
+type PollScript =
+  | { kind: "status"; status: string; error?: { code: string; message: string } }
+  | { kind: "http"; httpStatus: number; body?: unknown }
+  | { kind: "throw" };
+
+/** Scripts the submit → poll → result endpoints behind one fetch double (#60).
+ *  Defaults to a one-poll happy path returning a tar.gz result. */
+function makeScriptedFetch(
+  opts: {
+    jobId?: string;
+    stem?: string;
+    markdown?: string;
+    assets?: Array<[string, Uint8Array]>;
+    pollStatuses?: PollScript[];
+    submit?: { httpStatus: number; body?: unknown };
+    result?: { httpStatus: number; contentType?: string; body?: BodyInit };
+  } = {}
+): { fetchFn: typeof fetch; urls: string[] } {
+  const jobId = opts.jobId ?? "job-1";
+  const pollStatuses = opts.pollStatuses ?? [{ kind: "status", status: "succeeded" }];
+  const urls: string[] = [];
+  let pollIdx = 0;
+  const fetchFn = (async (input: URL | RequestInfo, init?: RequestInit) => {
+    const url = String(input);
+    urls.push(`${init?.method ?? "GET"} ${url}`);
+    if (url.includes("/web/mineru/convert")) {
+      const s = opts.submit ?? { httpStatus: 202, body: { jobId, status: "pending" } };
+      return new Response(JSON.stringify(s.body ?? {}), {
+        status: s.httpStatus,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    if (url.endsWith("/cancel")) {
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    if (url.endsWith("/result")) {
+      if (opts.result) {
+        return new Response(opts.result.body ?? "", {
+          status: opts.result.httpStatus,
+          headers: opts.result.contentType ? { "Content-Type": opts.result.contentType } : {}
+        });
+      }
+      return makeTarGzResponse(opts.stem ?? "doc", opts.markdown ?? "# Body\n", opts.assets ?? []);
+    }
+    if (url.includes("/web/mineru/jobs/")) {
+      const entry = pollStatuses[Math.min(pollIdx, pollStatuses.length - 1)];
+      pollIdx += 1;
+      if (entry.kind === "throw") throw new TypeError("network glitch");
+      if (entry.kind === "http") {
+        return new Response(JSON.stringify(entry.body ?? {}), {
+          status: entry.httpStatus,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      const body: Record<string, unknown> = { jobId, status: entry.status };
+      if (entry.error) body.error = entry.error;
+      return new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { "Content-Type": "application/json" }
+      });
+    }
+    throw new Error(`unexpected fetch to ${url}`);
+  }) as unknown as typeof fetch;
+  return { fetchFn, urls };
+}
+
 describe("MINERU_EXTENSIONS", () => {
   it("covers the 7 documented input formats", () => {
     expect(Array.from(MINERU_EXTENSIONS).sort()).toEqual([
@@ -50,85 +119,136 @@ describe("MINERU_EXTENSIONS", () => {
 });
 
 describe("convertSource", () => {
-  it("posts to /web/mineru/convert with inputSha query, decodes tar.gz response", async () => {
+  it("submits, polls, then fetches the result tar.gz", async () => {
     const file = new File([new Uint8Array([1, 2, 3, 4])], "test.pdf", {
       type: "application/pdf"
     });
-    const fetchFn = vi.fn(async (input: URL | RequestInfo) => {
-      const url = String(input);
-      expect(url).toContain("/web/mineru/convert?inputSha=");
-      return makeTarGzResponse(
-        "test",
-        "---\nsource:\n  converter: mineru\n---\n# Body\n",
-        [["assets/images/fig.png", new Uint8Array([0xff, 0xd8])]]
-      );
-    }) as unknown as typeof fetch;
-    const c = await convertSource(file, { fetch: fetchFn });
+    const { fetchFn, urls } = makeScriptedFetch({
+      stem: "test",
+      markdown: "---\nsource:\n  converter: mineru\n---\n# Body\n",
+      assets: [["assets/images/fig.png", new Uint8Array([0xff, 0xd8])]]
+    });
+    const c = await convertSource(file, { fetch: fetchFn, pollIntervalMs: 1 });
     expect(c.stem).toBe("test");
     expect(c.markdown).toContain("# Body");
     expect(c.assets.size).toBe(1);
     expect(Array.from(c.assets.get("assets/images/fig.png")!)).toEqual([0xff, 0xd8]);
-    expect(fetchFn).toHaveBeenCalledTimes(1);
+    // The first request is the submit; the flow then polls and fetches /result.
+    expect(urls[0]).toContain("POST /web/mineru/convert?inputSha=");
+    expect(urls.some((u) => u.startsWith("GET /web/mineru/jobs/") && !u.endsWith("/result"))).toBe(true);
+    expect(urls.some((u) => u.endsWith("/result"))).toBe(true);
   });
 
-  it("appends the originalFilename query when provided, omits it otherwise", async () => {
+  it("emits a polling progress event between upload and download", async () => {
+    const file = new File([new Uint8Array([1, 2, 3])], "x.pdf");
+    const { fetchFn } = makeScriptedFetch({ stem: "x", markdown: "# X\n" });
+    const phases: string[] = [];
+    await convertSource(file, {
+      fetch: fetchFn,
+      pollIntervalMs: 1,
+      onProgress: (e) => phases.push(e.phase)
+    });
+    expect(phases).toContain("polling");
+    expect(phases.indexOf("uploading")).toBeLessThan(phases.indexOf("polling"));
+    expect(phases.indexOf("polling")).toBeLessThan(phases.indexOf("downloading"));
+  });
+
+  it("appends the originalFilename query to the submit, omits it otherwise", async () => {
     const file = new File([new Uint8Array([1, 2, 3])], "short.pdf", {
       type: "application/pdf"
     });
-    const urls: string[] = [];
-    const fetchFn = vi.fn(async (input: URL | RequestInfo) => {
-      urls.push(String(input));
-      return makeTarGzResponse("short", "# Body\n", []);
-    }) as unknown as typeof fetch;
-
+    const withName = makeScriptedFetch({ stem: "short" });
     await convertSource(file, {
-      fetch: fetchFn,
+      fetch: withName.fetchFn,
+      pollIntervalMs: 1,
       originalFilename: "真实的非常长的原始文件名.pdf"
     });
-    expect(urls[0]).toContain(
+    const submit1 = withName.urls.find((u) => u.includes("/web/mineru/convert"));
+    expect(submit1).toContain(
       `originalFilename=${encodeURIComponent("真实的非常长的原始文件名.pdf")}`
     );
 
-    await convertSource(file, { fetch: fetchFn });
-    expect(urls[1]).not.toContain("originalFilename=");
+    const without = makeScriptedFetch({ stem: "short" });
+    await convertSource(file, { fetch: without.fetchFn, pollIntervalMs: 1 });
+    const submit2 = without.urls.find((u) => u.includes("/web/mineru/convert"));
+    expect(submit2).not.toContain("originalFilename=");
   });
 
-  it("hits the cache on second call (no fetch)", async () => {
+  it("hits the cache on the second call (no further fetches)", async () => {
     const file = new File([new Uint8Array([5, 6, 7])], "x.docx");
-    const fetchFn = vi.fn(async () => makeTarGzResponse("x", "# X\n", [])) as unknown as typeof fetch;
+    const { fetchFn, urls } = makeScriptedFetch({ stem: "x", markdown: "# X\n" });
     const cache = new MemoryConvertCache();
-    await convertSource(file, { fetch: fetchFn, cache });
-    const second = await convertSource(file, { fetch: fetchFn, cache });
-    expect(fetchFn).toHaveBeenCalledTimes(1);
+    await convertSource(file, { fetch: fetchFn, cache, pollIntervalMs: 1 });
+    const afterFirst = urls.length;
+    expect(afterFirst).toBeGreaterThan(0);
+    const second = await convertSource(file, { fetch: fetchFn, cache, pollIntervalMs: 1 });
+    expect(urls.length).toBe(afterFirst); // cache hit → no new requests
     expect(second.markdown).toContain("X");
   });
 
-  it("maps sidecar JSON error envelope to MineruConvertError.code", async () => {
+  it("maps the submit JSON error envelope to MineruConvertError.code", async () => {
     const file = new File([new Uint8Array([1])], "x.pdf");
-    const fetchFn = (async () =>
-      new Response(JSON.stringify({ error: { code: "mineru_quota", message: "quota" } }), {
-        status: 429,
-        headers: { "Content-Type": "application/json" }
-      })) as unknown as typeof fetch;
-    await expect(convertSource(file, { fetch: fetchFn })).rejects.toMatchObject({
+    const { fetchFn } = makeScriptedFetch({
+      submit: { httpStatus: 429, body: { error: { code: "mineru_quota", message: "quota" } } }
+    });
+    await expect(convertSource(file, { fetch: fetchFn, pollIntervalMs: 1 })).rejects.toMatchObject({
       name: "MineruConvertError",
       code: "mineru_quota"
     });
   });
 
-  it("maps 503 mineru_disabled when sidecar lacks key", async () => {
+  it("maps 503 mineru_disabled on submit when the sidecar lacks a key", async () => {
     const file = new File([new Uint8Array([1])], "x.pdf");
-    const fetchFn = (async () =>
-      new Response(JSON.stringify({ error: { code: "mineru_disabled", message: "no key" } }), {
-        status: 503,
-        headers: { "Content-Type": "application/json" }
-      })) as unknown as typeof fetch;
-    await expect(convertSource(file, { fetch: fetchFn })).rejects.toMatchObject({
+    const { fetchFn } = makeScriptedFetch({
+      submit: { httpStatus: 503, body: { error: { code: "mineru_disabled", message: "no key" } } }
+    });
+    await expect(convertSource(file, { fetch: fetchFn, pollIntervalMs: 1 })).rejects.toMatchObject({
       code: "mineru_disabled"
     });
   });
 
-  it("throws aborted when signal fires before fetch", async () => {
+  it("surfaces a failed job's error code from the poll status", async () => {
+    const file = new File([new Uint8Array([1])], "x.pdf");
+    const { fetchFn } = makeScriptedFetch({
+      pollStatuses: [
+        { kind: "status", status: "failed", error: { code: "mineru_quota", message: "Daily quota exceeded" } }
+      ]
+    });
+    await expect(convertSource(file, { fetch: fetchFn, pollIntervalMs: 1 })).rejects.toMatchObject({
+      code: "mineru_quota",
+      message: "Daily quota exceeded"
+    });
+  });
+
+  it("throws mineru_api when the job is gone (404 on poll)", async () => {
+    const file = new File([new Uint8Array([1])], "x.pdf");
+    const { fetchFn } = makeScriptedFetch({
+      pollStatuses: [{ kind: "http", httpStatus: 404, body: { error: { code: "not_found", message: "gone" } } }]
+    });
+    await expect(convertSource(file, { fetch: fetchFn, pollIntervalMs: 1 })).rejects.toMatchObject({
+      code: "mineru_api"
+    });
+  });
+
+  it("retries a transient poll failure, then succeeds", async () => {
+    const file = new File([new Uint8Array([1, 2])], "x.pdf");
+    const { fetchFn, urls } = makeScriptedFetch({
+      stem: "x",
+      markdown: "# X\n",
+      pollStatuses: [
+        { kind: "throw" },
+        { kind: "http", httpStatus: 503 },
+        { kind: "status", status: "running" },
+        { kind: "status", status: "succeeded" }
+      ]
+    });
+    const c = await convertSource(file, { fetch: fetchFn, pollIntervalMs: 1 });
+    expect(c.markdown).toContain("# X");
+    const polls = urls.filter((u) => u.startsWith("GET /web/mineru/jobs/") && !u.endsWith("/result"));
+    expect(polls.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("throws aborted when the signal fires before any fetch", async () => {
     const file = new File([new Uint8Array([1])], "x.pdf");
     const ctrl = new AbortController();
     ctrl.abort();
@@ -136,13 +256,79 @@ describe("convertSource", () => {
     await expect(
       convertSource(file, { fetch: fetchFn, signal: ctrl.signal })
     ).rejects.toMatchObject({ code: "aborted" });
+    expect(fetchFn).not.toHaveBeenCalled();
   });
 
-  it("rejects unexpected response content-type as invalid_response", async () => {
+  it("aborts mid-poll: posts cancel and throws aborted", async () => {
+    const file = new File([new Uint8Array([1, 2, 3])], "x.pdf");
+    const ctrl = new AbortController();
+    const urls: string[] = [];
+    const fetchFn = (async (input: URL | RequestInfo, init?: RequestInit) => {
+      const url = String(input);
+      urls.push(`${init?.method ?? "GET"} ${url}`);
+      if (url.includes("/web/mineru/convert")) {
+        return new Response(JSON.stringify({ jobId: "job-1", status: "pending" }), {
+          status: 202,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      if (url.endsWith("/cancel")) {
+        return new Response(JSON.stringify({ ok: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      if (url.includes("/web/mineru/jobs/")) {
+        // Abort during the poll so the following inter-poll delay rejects at once.
+        ctrl.abort();
+        return new Response(JSON.stringify({ jobId: "job-1", status: "running" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      throw new Error(`unexpected fetch to ${url}`);
+    }) as unknown as typeof fetch;
+    await expect(
+      convertSource(file, { fetch: fetchFn, signal: ctrl.signal, pollIntervalMs: 50 })
+    ).rejects.toMatchObject({ code: "aborted" });
+    expect(urls.some((u) => u.startsWith("POST") && u.endsWith("/cancel"))).toBe(true);
+  });
+
+  it("retries a transient result-fetch failure, then returns the tar.gz", async () => {
+    const file = new File([new Uint8Array([1, 2, 3])], "x.pdf");
+    let resultCalls = 0;
+    const fetchFn = (async (input: URL | RequestInfo) => {
+      const url = String(input);
+      if (url.includes("/web/mineru/convert")) {
+        return new Response(JSON.stringify({ jobId: "job-1", status: "pending" }), {
+          status: 202,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      if (url.endsWith("/result")) {
+        resultCalls += 1;
+        if (resultCalls === 1) return new Response("boom", { status: 503 });
+        return makeTarGzResponse("x", "# X\n", []);
+      }
+      if (url.includes("/web/mineru/jobs/")) {
+        return new Response(JSON.stringify({ jobId: "job-1", status: "succeeded" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+      throw new Error(`unexpected fetch to ${url}`);
+    }) as unknown as typeof fetch;
+    const c = await convertSource(file, { fetch: fetchFn, pollIntervalMs: 1 });
+    expect(c.markdown).toContain("# X");
+    expect(resultCalls).toBe(2); // 503, then success
+  });
+
+  it("rejects an unexpected result content-type as invalid_response", async () => {
     const file = new File([new Uint8Array([1])], "x.pdf");
-    const fetchFn = (async () =>
-      new Response("not a tar", { status: 200, headers: { "Content-Type": "text/plain" } })) as unknown as typeof fetch;
-    await expect(convertSource(file, { fetch: fetchFn })).rejects.toMatchObject({
+    const { fetchFn } = makeScriptedFetch({
+      result: { httpStatus: 200, contentType: "text/plain", body: "not a tar" }
+    });
+    await expect(convertSource(file, { fetch: fetchFn, pollIntervalMs: 1 })).rejects.toMatchObject({
       code: "invalid_response"
     });
   });
@@ -153,13 +339,14 @@ describe("convertSource", () => {
     const bytes = new Uint8Array([10, 11, 12, 13]);
     const fileA = new File([new Uint8Array(bytes)], "doc.pdf");
     const fileB = new File([new Uint8Array(bytes)], "doc.pdf");
-    const makeFetch = () =>
-      (async () =>
-        makeTarGzResponse("doc", "---\nsource:\n  converter: mineru\n---\n# X\n", [
-          ["assets/img.png", new Uint8Array([0xff, 0xd8, 0xff])]
-        ])) as unknown as typeof fetch;
-    const a = await convertSource(fileA, { fetch: makeFetch() });
-    const b = await convertSource(fileB, { fetch: makeFetch() });
+    const mk = () =>
+      makeScriptedFetch({
+        stem: "doc",
+        markdown: "---\nsource:\n  converter: mineru\n---\n# X\n",
+        assets: [["assets/img.png", new Uint8Array([0xff, 0xd8, 0xff])]]
+      }).fetchFn;
+    const a = await convertSource(fileA, { fetch: mk(), pollIntervalMs: 1 });
+    const b = await convertSource(fileB, { fetch: mk(), pollIntervalMs: 1 });
     expect(a.markdown).toBe(b.markdown);
     expect(a.inputSha).toBe(b.inputSha);
     expect(Array.from(a.assets.keys())).toEqual(Array.from(b.assets.keys()));

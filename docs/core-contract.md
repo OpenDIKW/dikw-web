@@ -312,17 +312,38 @@ The Import page is the primary web surface that writes to `dikw-core`
 (the Tasks page toolbar is the other — see "Task list" above). It
 runs a four-stage pipeline rooted at `POST /v1/import`. PDF / Office
 formats route through an optional `converting` pre-stage owned by the
-web sidecar (`POST /web/mineru/convert` — see `docs/agent.md` for the
-sidecar layout); the resulting markdown + assets are bundled exactly
-like a user-authored `.md` source. The `/v1/import` wire shape is
-unchanged. Same input bytes → identical `package_sha256` (mineru
-`cache_tolerance` + browser IndexedDB by SHA-256 + byte-stable tar
-packaging), so core's existing dedup continues to apply. Long
-mineru-bound filenames are shortened (≤25-char stem, extension kept,
-bytes unchanged) before upload because MinerU errors on very long
-names; the browser passes the true original as the `originalFilename`
-query — `POST /web/mineru/convert?inputSha=<sha>&originalFilename=<encoded>` —
-so the converted page's frontmatter `original_filename` stays complete.
+web sidecar (see `docs/agent.md` for the sidecar layout); the resulting
+markdown + assets are bundled exactly like a user-authored `.md` source.
+The `/v1/import` wire shape is unchanged. Same input bytes → identical
+`package_sha256` (mineru `cache_tolerance` + browser IndexedDB by
+SHA-256 + byte-stable tar packaging), so core's existing dedup continues
+to apply. Long mineru-bound filenames are shortened (≤25-char stem,
+extension kept, bytes unchanged) before upload because MinerU errors on
+very long names; the browser passes the true original as the
+`originalFilename` query so the converted page's frontmatter
+`original_filename` stays complete.
+
+The `converting` pre-stage is a **job + poll** flow on the sidecar (not a
+single held request), so a slow conversion survives a request-timeout
+proxy/tunnel (issue #60). These are sidecar-local routes — they do **not**
+touch `dikw-core`:
+
+- `POST /web/mineru/convert?inputSha=<sha>&originalFilename=<encoded>`
+  (multipart file in) → `202 { "jobId": "<uuid>", "status": "pending" }`.
+  The MinerU pipeline then runs detached from this request.
+- `GET /web/mineru/jobs/<id>` → `200 { jobId, status:
+  "pending"|"running"|"succeeded"|"failed", phase?, error?: { code, message } }`;
+  unknown id → `404`. The browser polls this on a short interval.
+- `GET /web/mineru/jobs/<id>/result` → on `succeeded`, the `application/x-tar+gzip`
+  bundle (markdown + assets), served **idempotently** within the job's TTL window
+  (a transfer cut mid-flight by a flaky proxy can be re-fetched — the bytes are
+  reclaimed by the TTL sweep / byte cap, not on read); `409` if not yet finished.
+- `POST /web/mineru/jobs/<id>/cancel` → aborts the detached conversion.
+
+On a failed job the `error.code` reuses the same `mineru_*` codes the
+single-request endpoint returned (`mineru_auth` / `mineru_input` /
+`mineru_quota` / `mineru_timeout` / `mineru_api`), so the browser surfaces a
+structured reason instead of a transport-level `Failed to fetch`.
 
 1. **Bundle**: the browser scans the selected files (file-only selection —
    directory upload was removed; unsupported extensions are filtered out at

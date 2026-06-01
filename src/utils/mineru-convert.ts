@@ -29,6 +29,22 @@ const DB_NAME = "dikw-mineru-cache";
 const DB_STORE = "entries";
 const DB_VERSION = 1;
 
+// Browser-driven poll cadence for the detached conversion job. Each poll is a
+// short, independent request (issue #60) — no held connection, so there's
+// nothing for a reverse proxy to time out; the sidecar's 10-min budget stays
+// the authoritative ceiling. POLL_MAX_FAILURES bounds transient-error retries.
+const POLL_INTERVAL_MS = 1500;
+const POLL_MAX_FAILURES = 8;
+const POLL_RETRY_CAP_MS = 15000;
+
+/** Capped exponential backoff for transient poll/result failures, scaled off
+ *  the poll interval (so tests with a tiny interval stay fast). Mirrors the
+ *  reconnect backoff DikwClient.streamTaskEvents uses for the same flaky-proxy
+ *  reason (#56), so a longer tunnel blip doesn't abort a still-running job. */
+function pollRetryDelayMs(attempt: number, baseMs: number): number {
+  return Math.min(baseMs * 2 ** (attempt - 1), POLL_RETRY_CAP_MS);
+}
+
 export interface ConvertedSource {
   input: File;
   inputSha: string;
@@ -41,6 +57,7 @@ export interface ConvertedSource {
 export type ConvertProgress =
   | { phase: "hashing" }
   | { phase: "uploading" }
+  | { phase: "polling" }
   | { phase: "downloading" }
   | { phase: "cache_hit" };
 
@@ -59,6 +76,9 @@ export interface ConvertOptions {
   originalFilename?: string;
   /** Override for tests. */
   fetch?: typeof fetch;
+  /** Inter-poll interval (and transient-retry wait) for the job status poll.
+   *  Defaults to POLL_INTERVAL_MS; overridable for tests. */
+  pollIntervalMs?: number;
 }
 
 export type MineruConvertErrorCode =
@@ -101,32 +121,25 @@ export async function convertSource(
   opts.onProgress?.({ phase: "uploading" });
   const fd = new FormData();
   fd.append("file", file);
-  let url = `/web/mineru/convert?inputSha=${encodeURIComponent(inputSha)}`;
+  let submitUrl = `/web/mineru/convert?inputSha=${encodeURIComponent(inputSha)}`;
   if (opts.originalFilename) {
-    url += `&originalFilename=${encodeURIComponent(opts.originalFilename)}`;
+    submitUrl += `&originalFilename=${encodeURIComponent(opts.originalFilename)}`;
   }
-  let response: Response;
-  try {
-    response = await fetchFn(url, { method: "POST", body: fd, signal });
-  } catch (err) {
-    if (signal?.aborted) {
-      throw new MineruConvertError("aborted", "aborted");
-    }
-    throw new MineruConvertError("mineru_api", err instanceof Error ? err.message : String(err));
-  }
+  // Submit returns a job id immediately; the conversion then runs detached on
+  // the sidecar. Polling and the result fetch are each short, independent
+  // requests, so no single request approaches a reverse-proxy timeout (#60).
+  const jobId = await submitJob(submitUrl, fd, signal, fetchFn);
+  opts.onProgress?.({ phase: "polling" });
+  await pollUntilTerminal(jobId, signal, fetchFn, opts.pollIntervalMs ?? POLL_INTERVAL_MS);
+  opts.onProgress?.({ phase: "downloading" });
+  const response = await fetchResult(jobId, signal, fetchFn, opts.pollIntervalMs ?? POLL_INTERVAL_MS);
   if (response.status >= 400) {
     const body = await safeJson(response);
-    const code = pickErrorCode(body, response.status);
-    const serverMessage =
-      body && typeof body === "object" && "error" in body
-        ? (body as { error?: { message?: string } }).error?.message
-        : undefined;
     throw new MineruConvertError(
-      code,
-      serverMessage ?? `mineru convert HTTP ${response.status}`
+      pickErrorCode(body, response.status),
+      serverErrorMessage(body) ?? `mineru result HTTP ${response.status}`
     );
   }
-  opts.onProgress?.({ phase: "downloading" });
   const ct = response.headers.get("content-type") ?? "";
   if (!ct.toLowerCase().includes("application/x-tar+gzip")) {
     throw new MineruConvertError(
@@ -280,6 +293,198 @@ function pickErrorCode(body: unknown, status: number): MineruConvertErrorCode {
   if (status === 429) return "mineru_quota";
   if (status === 504) return "mineru_timeout";
   return "mineru_api";
+}
+
+// --------------------------------------------- job submit / poll / result (#60)
+
+function jobUrl(jobId: string): string {
+  return `/web/mineru/jobs/${encodeURIComponent(jobId)}`;
+}
+
+/** POST the file, get back a job id. The conversion then runs detached on the
+ *  sidecar — this request returns in seconds regardless of conversion time. */
+async function submitJob(
+  submitUrl: string,
+  fd: FormData,
+  signal: AbortSignal | undefined,
+  fetchFn: typeof fetch
+): Promise<string> {
+  let response: Response;
+  try {
+    response = await fetchFn(submitUrl, { method: "POST", body: fd, signal });
+  } catch (err) {
+    if (signal?.aborted) throw new MineruConvertError("aborted", "aborted");
+    throw new MineruConvertError("mineru_api", err instanceof Error ? err.message : String(err));
+  }
+  if (response.status >= 400) {
+    const body = await safeJson(response);
+    throw new MineruConvertError(
+      pickErrorCode(body, response.status),
+      serverErrorMessage(body) ?? `mineru convert HTTP ${response.status}`
+    );
+  }
+  const body = await safeJson(response);
+  const jobId =
+    body && typeof body === "object" && "jobId" in body
+      ? (body as { jobId?: unknown }).jobId
+      : undefined;
+  if (typeof jobId !== "string" || !jobId) {
+    throw new MineruConvertError("invalid_response", "mineru convert response missing jobId");
+  }
+  return jobId;
+}
+
+/** Poll GET /web/mineru/jobs/<id> until the job is terminal. Each poll is a
+ *  short request; transient network/5xx failures retry up to POLL_MAX_FAILURES;
+ *  a 404 (evicted job / restarted sidecar) is fatal. On abort, tells the sidecar
+ *  to cancel (best-effort) and throws "aborted". */
+async function pollUntilTerminal(
+  jobId: string,
+  signal: AbortSignal | undefined,
+  fetchFn: typeof fetch,
+  pollIntervalMs: number
+): Promise<void> {
+  let failures = 0;
+  try {
+    while (true) {
+      signalThrowIfAborted(signal);
+      let response: Response;
+      try {
+        response = await fetchFn(jobUrl(jobId), { method: "GET", signal });
+      } catch (err) {
+        if (signal?.aborted) throw new MineruConvertError("aborted", "aborted");
+        if (++failures > POLL_MAX_FAILURES) {
+          throw new MineruConvertError(
+            "mineru_api",
+            err instanceof Error ? err.message : String(err)
+          );
+        }
+        await convertDelay(pollRetryDelayMs(failures, pollIntervalMs), signal);
+        continue;
+      }
+      // 404 → job evicted / sidecar restarted: not transient, no result coming.
+      if (response.status === 404) {
+        throw new MineruConvertError(
+          "mineru_api",
+          "conversion job not found (the server may have restarted or evicted it)"
+        );
+      }
+      if (response.status >= 500) {
+        if (++failures > POLL_MAX_FAILURES) {
+          throw new MineruConvertError("mineru_api", `mineru job poll HTTP ${response.status}`);
+        }
+        await convertDelay(pollRetryDelayMs(failures, pollIntervalMs), signal);
+        continue;
+      }
+      if (response.status >= 400) {
+        const body = await safeJson(response);
+        throw new MineruConvertError(
+          pickErrorCode(body, response.status),
+          serverErrorMessage(body) ?? `mineru job poll HTTP ${response.status}`
+        );
+      }
+      failures = 0;
+      const body = await safeJson(response);
+      const status = jobStatusOf(body);
+      if (status === "succeeded") return;
+      if (status === "failed") {
+        // Surface the same wire code the sidecar recorded (mineru_quota / …).
+        throw new MineruConvertError(
+          pickErrorCode(body, 200),
+          serverErrorMessage(body) ?? "mineru conversion failed"
+        );
+      }
+      // pending | running | unknown → keep polling.
+      await convertDelay(pollIntervalMs, signal);
+    }
+  } catch (err) {
+    if (signal?.aborted || (err instanceof MineruConvertError && err.code === "aborted")) {
+      // Best-effort: tell the sidecar to stop the detached conversion. The UI
+      // already reflects the user's cancel intent, so swallow any failure.
+      void cancelJob(jobId, fetchFn);
+      throw new MineruConvertError("aborted", "aborted");
+    }
+    throw err;
+  }
+}
+
+/** Fetch the result tar.gz. Retries transient network/5xx failures (symmetric
+ *  with the poll loop — the whole point of #60 is surviving a flaky transport,
+ *  and the bytes are sitting ready on the sidecar). A 4xx (404 consumed/evicted,
+ *  409 not-ready) is returned to the caller without retry. */
+async function fetchResult(
+  jobId: string,
+  signal: AbortSignal | undefined,
+  fetchFn: typeof fetch,
+  pollIntervalMs: number
+): Promise<Response> {
+  let failures = 0;
+  while (true) {
+    signalThrowIfAborted(signal);
+    let response: Response;
+    try {
+      response = await fetchFn(`${jobUrl(jobId)}/result`, { method: "GET", signal });
+    } catch (err) {
+      if (signal?.aborted) throw new MineruConvertError("aborted", "aborted");
+      if (++failures > POLL_MAX_FAILURES) {
+        throw new MineruConvertError("mineru_api", err instanceof Error ? err.message : String(err));
+      }
+      await convertDelay(pollRetryDelayMs(failures, pollIntervalMs), signal);
+      continue;
+    }
+    if (response.status >= 500) {
+      if (++failures > POLL_MAX_FAILURES) {
+        throw new MineruConvertError("mineru_api", `mineru result HTTP ${response.status}`);
+      }
+      await convertDelay(pollRetryDelayMs(failures, pollIntervalMs), signal);
+      continue;
+    }
+    return response;
+  }
+}
+
+async function cancelJob(jobId: string, fetchFn: typeof fetch): Promise<void> {
+  try {
+    await fetchFn(`${jobUrl(jobId)}/cancel`, { method: "POST" });
+  } catch {
+    // best-effort
+  }
+}
+
+function jobStatusOf(body: unknown): string {
+  if (body && typeof body === "object" && "status" in body) {
+    const s = (body as { status?: unknown }).status;
+    if (typeof s === "string") return s;
+  }
+  return "";
+}
+
+function serverErrorMessage(body: unknown): string | undefined {
+  if (body && typeof body === "object" && "error" in body) {
+    const message = (body as { error?: { message?: unknown } }).error?.message;
+    if (typeof message === "string") return message;
+  }
+  return undefined;
+}
+
+/** setTimeout as a promise that rejects with an "aborted" MineruConvertError the
+ *  moment the signal fires, so a cancel during the poll wait exits at once. */
+function convertDelay(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new MineruConvertError("aborted", "aborted"));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new MineruConvertError("aborted", "aborted"));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 async function gunzipBytes(bytes: Uint8Array): Promise<Uint8Array> {

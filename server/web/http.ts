@@ -12,6 +12,7 @@ import { buildTar } from "../../src/utils/tar.js";
 import { MineruClient, MineruClientError } from "./mineruClient.js";
 import { extractResultZip, MineruConvertError } from "./mineruConvert.js";
 import { loadWebConfig, type WebConfig } from "./config.js";
+import { JobLimitError, JobStore, type Job } from "./jobStore.js";
 
 const gzipAsync = promisify(gzip);
 
@@ -34,6 +35,9 @@ export interface WebHandlerOptions {
   config?: WebConfig;
   /** Override for tests. Defaults to the global fetch. */
   fetch?: typeof fetch;
+  /** Override for tests so a test can drive the detached conversion job to
+   *  completion and inspect it. Defaults to a fresh in-memory store. */
+  jobStore?: JobStore;
 }
 
 export async function createDefaultWebHandler(cwd = process.cwd()): Promise<WebHandler> {
@@ -50,6 +54,10 @@ export type WebHandler = (
 export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
   const config = options.config ?? {};
   const fetchFn = options.fetch ?? globalThis.fetch;
+  // One store per handler instance. `webApiPlugin` lazy-inits the handler once
+  // in dev and `standalone.ts` creates it once in prod, so this is a stable
+  // singleton for the process lifetime.
+  const jobStore = options.jobStore ?? new JobStore();
 
   return async function webHandler(req, res, next) {
     try {
@@ -68,7 +76,22 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
         if (!config.mineruApiKey) {
           return errorJson(res, 503, "mineru_disabled", "MinerUAPIKey is not configured on this sidecar");
         }
-        return handleConvert(req, res, url, config.mineruApiKey, fetchFn);
+        return handleConvert(req, res, url, config.mineruApiKey, fetchFn, jobStore);
+      }
+      // Job status / result / cancel for a detached conversion (issue #60).
+      // These don't gate on the API key — a job created while the key was
+      // present must stay queryable regardless.
+      if (parts[1] === "jobs" && parts[2]) {
+        const jobId = parts[2];
+        if (req.method === "GET" && parts.length === 3) {
+          return handleJobStatus(res, jobStore, jobId);
+        }
+        if (req.method === "GET" && parts.length === 4 && parts[3] === "result") {
+          return handleJobResult(res, jobStore, jobId);
+        }
+        if (req.method === "POST" && parts.length === 4 && parts[3] === "cancel") {
+          return handleJobCancel(res, jobStore, jobId);
+        }
       }
       return notFound(res);
     } catch (err) {
@@ -87,7 +110,8 @@ async function handleConvert(
   res: ServerResponse,
   url: URL,
   apiKey: string,
-  fetchFn: typeof fetch
+  fetchFn: typeof fetch,
+  jobStore: JobStore
 ): Promise<void> {
   const claimedInputSha = url.searchParams.get("inputSha");
   if (!claimedInputSha) {
@@ -148,47 +172,131 @@ async function handleConvert(
   const originalFilename =
     url.searchParams.get("originalFilename")?.replace(/[\r\n]+/g, " ") || fileName;
 
-  // Abort the mineru pipeline only on premature client disconnect — not on
-  // normal completion. `aborted` fires for "client gave up"; `close` fires
-  // for any reason including our own res.end, which would spuriously abort
-  // anything still holding controller.signal after the response was sent.
+  // Run the conversion DETACHED from this request so its wall-clock no longer
+  // bounds the request's time-to-first-byte (issue #60). We return 202 in
+  // seconds; the browser polls GET /web/mineru/jobs/<id> and fetches the result
+  // on completion, so no single request approaches a reverse-proxy timeout. The
+  // controller's lifetime is the job, not the request (cancel via the cancel
+  // route), so there is no req.on("aborted") wiring anymore.
   const controller = new AbortController();
-  const onAborted = () => controller.abort();
-  req.on("aborted", onAborted);
-  const cleanup = () => req.removeListener("aborted", onAborted);
-
+  let job: Job;
+  try {
+    job = jobStore.create(controller);
+  } catch (err) {
+    if (err instanceof JobLimitError) {
+      return errorJson(res, 503, "too_many_jobs", err.message);
+    }
+    throw err;
+  }
   const client = new MineruClient({
     token: apiKey,
     fetch: fetchFn,
     signal: controller.signal
   });
+  void runConversion(jobStore, job.id, {
+    client,
+    fileBytes,
+    fileName,
+    modelVersion,
+    stem,
+    dataId,
+    originalFilename,
+    inputSha
+  });
+  return json(res, { jobId: job.id, status: "pending" }, 202);
+}
 
+interface ConversionArgs {
+  client: MineruClient;
+  fileBytes: Uint8Array;
+  fileName: string;
+  modelVersion: string | null;
+  stem: string;
+  dataId: string;
+  originalFilename: string;
+  inputSha: string;
+}
+
+/** The MinerU pipeline, detached from any HTTP request. Updates the job record
+ *  as it progresses; stores the gzipped tar on success and a mapped error code
+ *  on any failure. MUST NOT let a rejection escape — an unhandled rejection in
+ *  this `void`-ed promise would crash / log-spam the sidecar. Never references
+ *  the request/response objects (they are gone once the 202 was sent). */
+async function runConversion(
+  store: JobStore,
+  jobId: string,
+  args: ConversionArgs
+): Promise<void> {
   try {
-    const handle = await client.submit({ fileName, dataId, modelVersion });
-    await client.upload(handle.uploadUrl, fileBytes);
-    const zipUrl = await client.pollUntilDone(handle.batchId);
-    const zipBytes = await client.downloadZip(zipUrl);
+    store.setRunning(jobId);
+    store.setPhase(jobId, "uploading");
+    const handle = await args.client.submit({
+      fileName: args.fileName,
+      dataId: args.dataId,
+      modelVersion: args.modelVersion
+    });
+    await args.client.upload(handle.uploadUrl, args.fileBytes);
+    store.setPhase(jobId, "polling");
+    const zipUrl = await args.client.pollUntilDone(handle.batchId);
+    store.setPhase(jobId, "downloading");
+    const zipBytes = await args.client.downloadZip(zipUrl);
     const extracted = extractResultZip(zipBytes);
     const markdownWithFrontmatter = injectFrontmatter(
       extracted.markdown,
-      originalFilename,
-      inputSha
+      args.originalFilename,
+      args.inputSha
     );
-    const tarBytes = buildResponseTar(stem, markdownWithFrontmatter, extracted.assets);
+    const tarBytes = buildResponseTar(args.stem, markdownWithFrontmatter, extracted.assets);
     // Async gzip so a multi-hundred-MB tar doesn't block the event loop for
-    // the entire conversion's sister requests. Level 6 (zlib default) — the
-    // marginal compression from level 9 isn't worth the CPU cost on the
-    // server-side hot path.
+    // sister conversions. Level 6 (zlib default) — the marginal compression
+    // from level 9 isn't worth the CPU cost on the server-side hot path.
+    // gzipAsync returns a Buffer (a Uint8Array owning a fresh zlib allocation,
+    // not pooled), and the result is only ever read, so store it directly —
+    // copying a potentially multi-hundred-MB tar would just double peak memory.
     const gz = await gzipAsync(tarBytes);
-    res.statusCode = 200;
-    res.setHeader("Content-Type", "application/x-tar+gzip");
-    res.setHeader("Content-Length", String(gz.byteLength));
-    res.end(gz);
+    store.setSucceeded(jobId, gz);
   } catch (err) {
-    return convertErrorJson(res, err);
-  } finally {
-    cleanup();
+    const { code, message } = mapConvertError(err);
+    store.setFailed(jobId, { code, message });
   }
+}
+
+function handleJobStatus(res: ServerResponse, store: JobStore, jobId: string): void {
+  const job = store.get(jobId);
+  if (!job) return notFound(res);
+  const payload: Record<string, unknown> = { jobId: job.id, status: job.status };
+  // `phase` is a coarse hint; the browser drives its substage off `status`.
+  if (job.phase) payload.phase = job.phase;
+  if (job.error) payload.error = job.error;
+  return json(res, payload);
+}
+
+function handleJobResult(res: ServerResponse, store: JobStore, jobId: string): void {
+  const job = store.get(jobId);
+  if (!job) return notFound(res);
+  if (job.status !== "succeeded") {
+    return errorJson(res, 409, "not_ready", `conversion job is ${job.status}`);
+  }
+  const gz = store.peekResult(jobId);
+  // Idempotent within the TTL window: we do NOT delete on read, so a `/result`
+  // transfer cut mid-flight by a flaky proxy can be retried (issue #60) instead
+  // of hitting a consumed job. `!gz` only if a late fetch lost the race with the
+  // TTL sweep / byte-cap eviction.
+  if (!gz) return notFound(res);
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/x-tar+gzip");
+  res.setHeader("Content-Length", String(gz.byteLength));
+  res.end(gz);
+}
+
+function handleJobCancel(res: ServerResponse, store: JobStore, jobId: string): void {
+  const job = store.get(jobId);
+  if (!job) return notFound(res);
+  // Aborts the in-flight MinerU client calls; the detached runner's catch then
+  // records a terminal (failed) state. The browser usually never reads that —
+  // its own abort path short-circuits to an `aborted` error first.
+  job.controller.abort();
+  return json(res, { jobId: job.id, ok: true });
 }
 
 function buildResponseTar(
@@ -350,39 +458,31 @@ function indexOfBytes(haystack: Uint8Array, needle: Uint8Array, start: number): 
   return -1;
 }
 
-function convertErrorJson(res: ServerResponse, err: unknown): void {
-  if (err instanceof MineruClientError) {
-    const status = mineruStatus(err.code);
-    return errorJson(res, status, err.code, err.message);
-  }
-  if (err instanceof MineruConvertError) {
-    // Map post-download ZIP/extraction failures to wire codes that the
-    // browser's pickErrorCode recognizes. `too_large` is the only one
-    // that's actionable for the user (file was bigger than our cap) —
-    // surface it as `mineru_input` so the UI can tell them so. The
-    // others are server-side malformations the user can't fix.
-    if (err.code === "too_large") {
-      return errorJson(res, 413, "mineru_input", err.message);
-    }
-    return errorJson(res, 502, "mineru_api", err.message);
-  }
-  const message = err instanceof Error ? err.message : String(err);
-  return errorJson(res, 500, "mineru_api", message);
+interface MappedConvertError {
+  code: string;
+  message: string;
 }
 
-function mineruStatus(code: string): number {
-  switch (code) {
-    case "mineru_auth":
-      return 401;
-    case "mineru_input":
-      return 413;
-    case "mineru_quota":
-      return 429;
-    case "mineru_timeout":
-      return 504;
-    default:
-      return 502;
+/** Map any pipeline error to the wire `{ code, message }` the detached runner
+ *  stores on the job, so the browser's pickErrorCode still recognizes it
+ *  (mineru_auth / mineru_quota / mineru_timeout / …). A failed conversion is
+ *  reported via the job-status endpoint (HTTP 200), so no HTTP status is
+ *  carried here — the code is what matters. */
+function mapConvertError(err: unknown): MappedConvertError {
+  if (err instanceof MineruClientError) {
+    return { code: err.code, message: err.message };
   }
+  if (err instanceof MineruConvertError) {
+    // Post-download ZIP/extraction failures. `too_large` is the only one the
+    // user can act on (file bigger than our cap) — surface it as `mineru_input`.
+    // The others are server-side malformations the user can't fix.
+    if (err.code === "too_large") {
+      return { code: "mineru_input", message: err.message };
+    }
+    return { code: "mineru_api", message: err.message };
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  return { code: "mineru_api", message };
 }
 
 function json(res: ServerResponse, value: unknown, status = 200): void {

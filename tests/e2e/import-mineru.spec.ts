@@ -86,35 +86,82 @@ function makeConvertResponse(
   };
 }
 
-// We bypass the full submit/upload/poll/download chain by mocking
-// /web/mineru/convert directly with a pre-built tar.gz — mocking the
-// individual mineru.net endpoints isn't useful at the browser-level
-// e2e seam (those are covered by server/web/http.test.ts unit tests).
+// The convert endpoint now returns a job id (issue #60); the browser polls
+// GET /web/mineru/jobs/<id> and fetches GET /web/mineru/jobs/<id>/result. We
+// mock those three at the browser-level seam (the mineru.net submit/poll/
+// download chain is covered by server/web/http.test.ts unit tests).
+//
+// `**/web/mineru/convert**` and `**/web/mineru/jobs/**` are disjoint, so route
+// registration order doesn't matter; the jobs handler branches on the URL
+// suffix (/result, /cancel, or the bare status poll).
+async function installMineruJobRoutes(
+  page: import("@playwright/test").Page,
+  opts:
+    | { kind: "success"; stem: string; markdown: string; assets?: Array<[string, Uint8Array]> }
+    | { kind: "fail"; error: { code: string; message: string } }
+): Promise<{ convertCalls: string[] }> {
+  const convertCalls: string[] = [];
+  await page.route("**/web/mineru/convert**", async (route) => {
+    convertCalls.push(route.request().url());
+    await route.fulfill({
+      status: 202,
+      contentType: "application/json",
+      body: JSON.stringify({ jobId: "job-1", status: "pending" })
+    });
+  });
+  await page.route("**/web/mineru/jobs/**", async (route) => {
+    const url = route.request().url();
+    if (url.endsWith("/cancel")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true })
+      });
+      return;
+    }
+    if (url.endsWith("/result")) {
+      if (opts.kind === "success") {
+        const fixture = makeConvertResponse(opts.stem, opts.markdown, opts.assets ?? []);
+        await route.fulfill({
+          status: 200,
+          headers: { "Content-Type": fixture.contentType },
+          body: fixture.body
+        });
+      } else {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({ error: { code: "not_ready", message: "not ready" } })
+        });
+      }
+      return;
+    }
+    // Bare status poll.
+    const body =
+      opts.kind === "success"
+        ? { jobId: "job-1", status: "succeeded" }
+        : { jobId: "job-1", status: "failed", error: opts.error };
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  });
+  return { convertCalls };
+}
 
 test.beforeEach(async ({ page }) => {
   await mockDikwApi(page);
 });
 
-test("dropping a .docx routes through /web/mineru/convert and shows bundle preview", async ({
+test("dropping a .docx routes through the /web/mineru job flow and shows bundle preview", async ({
   page
 }) => {
   // Override the default disabled health → enabled.
   await page.route("**/web/mineru/health", async (route) => {
     await route.fulfill({ json: { enabled: true, hasKey: true } });
   });
-  const convertCalls: string[] = [];
-  await page.route("**/web/mineru/convert**", async (route) => {
-    convertCalls.push(route.request().url());
-    const fixture = makeConvertResponse(
-      "demo",
-      "---\nsource:\n  converter: mineru\n  original_filename: \"demo.docx\"\n  original_sha256: aaa\n---\n# Demo\n\nBody from mineru.\n",
-      []
-    );
-    await route.fulfill({
-      status: 200,
-      headers: { "Content-Type": fixture.contentType },
-      body: fixture.body
-    });
+  const { convertCalls } = await installMineruJobRoutes(page, {
+    kind: "success",
+    stem: "demo",
+    markdown:
+      "---\nsource:\n  converter: mineru\n  original_filename: \"demo.docx\"\n  original_sha256: aaa\n---\n# Demo\n\nBody from mineru.\n"
   });
 
   await page.goto("/#import");
@@ -149,18 +196,13 @@ test("shortens a long office filename for MinerU while forwarding the true origi
   const longStem = "这是一个非常长的中文文件名超过二十五个字符的演示文档";
   const longName = `${longStem}.docx`;
   const shortStem = Array.from(longStem).slice(0, 25).join("");
-  const convertCalls: string[] = [];
-  await page.route("**/web/mineru/convert**", async (route) => {
-    convertCalls.push(route.request().url());
-    // Respond with the markdown named after the SHORTENED stem — the browser
-    // looks up `${stem}.md` from the upload name, so the preview only appears
-    // if ImportPage actually uploaded under the shortened name.
-    const fixture = makeConvertResponse(shortStem, "# Demo\n\nBody from mineru.\n", []);
-    await route.fulfill({
-      status: 200,
-      headers: { "Content-Type": fixture.contentType },
-      body: fixture.body
-    });
+  // Respond with the markdown named after the SHORTENED stem — the browser
+  // looks up `${stem}.md` from the upload name, so the preview only appears if
+  // ImportPage actually uploaded under the shortened name.
+  const { convertCalls } = await installMineruJobRoutes(page, {
+    kind: "success",
+    stem: shortStem,
+    markdown: "# Demo\n\nBody from mineru.\n"
   });
 
   await page.goto("/#import");
@@ -234,17 +276,18 @@ test("conversion failure: per-file Skip surfaces and dismisses the row", async (
   await page.route("**/web/mineru/health", async (route) => {
     await route.fulfill({ json: { enabled: true, hasKey: true } });
   });
-  await page.route("**/web/mineru/convert**", async (route) => {
-    await route.fulfill({
-      status: 429,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: { code: "mineru_quota", message: "Daily quota exceeded" }
-      })
-    });
+  // The quota error now surfaces via the job status, not the convert POST.
+  await installMineruJobRoutes(page, {
+    kind: "fail",
+    error: { code: "mineru_quota", message: "Daily quota exceeded" }
   });
 
+  // Gate on the health probe so mineruEnabled is resolved before we select —
+  // otherwise the .pdf is partitioned as native and never converts.
+  const healthReady = page.waitForResponse("**/web/mineru/health");
   await page.goto("/#import");
+  await healthReady;
+  await expect(page.getByRole("heading", { name: "Import" })).toBeVisible();
   const fileInput = page.locator('[data-testid="import-file-input"]');
   await fileInput.setInputFiles([
     {

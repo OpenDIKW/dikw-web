@@ -295,6 +295,11 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
                   updateConversionFile(mineru, i, { substage: "uploading" });
                   return;
                 }
+                if (e.phase === "polling") {
+                  // Conversion runs detached on the sidecar; we poll for it.
+                  updateConversionFile(mineru, i, { substage: "polling" });
+                  return;
+                }
                 if (e.phase === "downloading") {
                   updateConversionFile(mineru, i, { substage: "downloading" });
                 }
