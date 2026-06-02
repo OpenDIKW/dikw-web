@@ -109,4 +109,34 @@ describe("AgentClient", () => {
     });
     expect(bodies).toEqual([{ title: "Project Review" }]);
   });
+
+  it("fetches session traces from the sidecar /traces route", async () => {
+    const view = {
+      sessionId: "s1",
+      invocations: [
+        {
+          invocationId: "inv-1",
+          startTimeMs: 1,
+          durationMs: 2,
+          spans: [{ spanId: "sp1", parentSpanId: null, name: "call_llm", startTimeMs: 1, durationMs: 2, status: "ok", attributes: {} }]
+        }
+      ]
+    };
+    const paths: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = new URL(String(input), window.location.origin);
+        paths.push(url.pathname);
+        if (url.pathname === "/agent/sessions/s1/traces") {
+          return Promise.resolve(Response.json(view));
+        }
+        return Promise.resolve(new Response("not found", { status: 404 }));
+      })
+    );
+
+    const client = new AgentClient();
+    await expect(client.getSessionTraces("s1")).resolves.toEqual(view);
+    expect(paths).toEqual(["/agent/sessions/s1/traces"]);
+  });
 });

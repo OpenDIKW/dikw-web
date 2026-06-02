@@ -5,6 +5,7 @@ import { DatabaseSessionService, createEvent } from "@google/adk";
 import type { Session } from "@google/adk";
 import { createAgentHandler, maintenanceEndpoint } from "./http";
 import { AdkSessionStore } from "./adkSessionStore";
+import { SpanStore } from "./spanStore";
 import type { AgentRunner } from "./runtime";
 
 const APP_NAME = "dikw-web";
@@ -233,6 +234,52 @@ describe("agent HTTP sidecar", () => {
     await expect(response.json()).resolves.toEqual({
       error: { code: "invalid_request", message: "coreUrl is required" }
     });
+  });
+
+  it("serves session traces from the injected span store and an empty view without one", async () => {
+    const { store } = makeStore();
+    const runner: AgentRunner = {
+      async runMessage() {
+        throw new Error("runner should not be called for traces");
+      }
+    };
+    const spanStore = new SpanStore();
+
+    const created = (await (async () => {
+      const baseUrl = await listen(createAgentHandler({ store, runner, spanStore }));
+      const session = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as { id: string };
+      spanStore.record({
+        traceId: "t1",
+        spanId: "sp1",
+        parentSpanId: null,
+        name: "call_llm",
+        startTimeMs: 1_000,
+        durationMs: 200,
+        status: "ok",
+        attributes: { "gen_ai.request.model": "MiniMax-M3" },
+        sessionId: session.id,
+        invocationId: "inv-1",
+        tokensInput: 42,
+        tokensOutput: 7
+      });
+      const traces = (await (await fetch(`${baseUrl}/sessions/${session.id}/traces`)).json()) as {
+        sessionId: string;
+        invocations: Array<{ invocationId: string; spans: Array<{ name: string; tokensInput?: number }> }>;
+      };
+      expect(traces.sessionId).toBe(session.id);
+      expect(traces.invocations).toHaveLength(1);
+      expect(traces.invocations[0].invocationId).toBe("inv-1");
+      expect(traces.invocations[0].spans[0]).toMatchObject({ name: "call_llm", tokensInput: 42 });
+      return session;
+    })());
+
+    // Without a span store, the route returns an empty view (never 404).
+    const baseUrl2 = await listen(createAgentHandler({ store, runner }));
+    const empty = (await (await fetch(`${baseUrl2}/sessions/${created.id}/traces`)).json()) as {
+      sessionId: string;
+      invocations: unknown[];
+    };
+    expect(empty).toEqual({ sessionId: created.id, invocations: [] });
   });
 
   it("renames sessions through PATCH and rejects invalid titles", async () => {

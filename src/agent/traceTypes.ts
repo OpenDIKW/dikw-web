@@ -1,8 +1,9 @@
 // Read model for the hidden #trace observability page. These shapes are the
 // contract between the trace backend (Phase 3: an OpenTelemetry SpanProcessor
-// projecting ADK spans out of SQLite) and the TracePage UI. Phase 1 renders the
-// same shapes from local mock data so the layout can be reviewed before any
-// backend exists.
+// projecting ADK spans into an in-memory, bounded SpanStore in the sidecar —
+// ephemeral, lost on restart) and the TracePage UI, which fetches them live via
+// AgentClient.getSessionTraces. The same shapes also back the local mock
+// fixtures used by the unit/e2e tests.
 
 export type TraceSpanStatus = "ok" | "error" | "unset";
 

@@ -1,8 +1,9 @@
 import { expect, test } from "@playwright/test";
-import { mockDikwApi } from "./mockApi";
+import { mockDikwApi, mockTraceApi } from "./mockApi";
 
 test.beforeEach(async ({ page }) => {
   await mockDikwApi(page);
+  await mockTraceApi(page);
 });
 
 test("#trace is reachable by URL but stays hidden from the sidebar", async ({ page }) => {
@@ -17,9 +18,10 @@ test("#trace is reachable by URL but stays hidden from the sidebar", async ({ pa
   await expect(sidebar.getByRole("button", { name: "Overview" })).toBeVisible();
   await expect(sidebar.getByText("Trace")).toHaveCount(0);
 
-  // The waterfall renders mock spans for the first session.
+  // The waterfall renders live spans from the /agent/sessions/*/traces fixture.
   const trace = page.getByRole("region", { name: "Trace" });
   await expect(trace.getByText("execute_tool retrieve_knowledge")).toBeVisible();
+  await expect(trace.getByText("call_llm")).toBeVisible();
 });
 
 test("#trace shows a session conversation and switches sessions", async ({ page }) => {
@@ -30,4 +32,6 @@ test("#trace shows a session conversation and switches sessions", async ({ page 
 
   await page.getByRole("button", { name: /List the wisdom items/ }).click();
   await expect(conversation.getByText(/3 wisdom items/)).toBeVisible();
+  const trace = page.getByRole("region", { name: "Trace" });
+  await expect(trace.getByText("execute_tool list_wisdom")).toBeVisible();
 });

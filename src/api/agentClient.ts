@@ -1,5 +1,6 @@
 import { decodeNdjsonStream } from "./ndjson";
 import type { AgentSession, AgentStreamEvent, SessionSummary } from "../agent/types";
+import type { SessionTraceView } from "../agent/traceTypes";
 
 export interface AgentClientOptions {
   coreUrl?: string;
@@ -31,6 +32,10 @@ export class AgentClient {
 
   async getSession(sessionId: string, signal?: AbortSignal): Promise<AgentSession> {
     return requestJson<AgentSession>(`/agent/sessions/${encodeURIComponent(sessionId)}`, { signal });
+  }
+
+  async getSessionTraces(sessionId: string, signal?: AbortSignal): Promise<SessionTraceView> {
+    return requestJson<SessionTraceView>(`/agent/sessions/${encodeURIComponent(sessionId)}/traces`, { signal });
   }
 
   async renameSession(sessionId: string, title: string, signal?: AbortSignal): Promise<AgentSession> {

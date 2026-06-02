@@ -6,6 +6,8 @@ import { loadAgentConfig } from "./config.js";
 import { parseSessionTitle, SESSION_TITLE_ERROR_MESSAGES } from "./sessionStore.js";
 import { AdkSessionStore } from "./adkSessionStore.js";
 import { AdkAgentRunner } from "./adkRunner.js";
+import { SpanStore } from "./spanStore.js";
+import { initAgentTelemetry } from "./telemetry.js";
 import type { AgentRunner } from "./runtime.js";
 import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types.js";
 
@@ -13,6 +15,7 @@ export interface AgentHandlerOptions {
   cwd?: string;
   store?: AdkSessionStore;
   runner?: AgentRunner;
+  spanStore?: SpanStore;
   sessionsDir?: string;
 }
 
@@ -32,12 +35,16 @@ export async function createDefaultAgentHandler(cwd = process.cwd(), options: { 
   const dbUri = `sqlite://${dir.replace(/\\/g, "/")}/agent.sqlite`;
   const sessionService = new DatabaseSessionService(dbUri);
   const store = new AdkSessionStore({ sessionService, appName: "dikw-web", userId: "demo" });
+  // Register telemetry BEFORE building the runner so the first turn's spans are
+  // captured (maybeSetOtelProviders is global + idempotent — see telemetry.ts).
+  const spanStore = new SpanStore();
+  initAgentTelemetry(spanStore);
   const runner = new AdkAgentRunner({ config, store, sessionService });
-  return createAgentHandler({ cwd, store, runner });
+  return createAgentHandler({ cwd, store, runner, spanStore });
 }
 
 export function createAgentHandler(options: AgentHandlerOptions = {}) {
-  const { store, runner } = options;
+  const { store, runner, spanStore } = options;
   if (!store || !runner) {
     throw new Error("createAgentHandler requires both store and runner (use createDefaultAgentHandler)");
   }
@@ -62,6 +69,9 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       }
       if (req.method === "GET" && parts.length === 2) {
         return json(res, await store.getSession(sessionId));
+      }
+      if (req.method === "GET" && parts.length === 3 && parts[2] === "traces") {
+        return json(res, spanStore ? spanStore.getSessionTraces(sessionId) : { sessionId, invocations: [] });
       }
       if (req.method === "PATCH" && parts.length === 2) {
         const body = await readJsonBody(req);

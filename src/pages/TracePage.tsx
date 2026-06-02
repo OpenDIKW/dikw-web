@@ -1,30 +1,77 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Activity, Boxes } from "lucide-react";
 import { EmptyState } from "../components/EmptyState";
 import { translations, type Locale } from "../i18n";
 import type { AgentClientLike } from "./agentTypes";
-import type { AgentMessage, AgentSession } from "../agent/types";
+import type { AgentMessage, AgentSession, SessionSummary } from "../agent/types";
 import type { SessionTraceView, TraceInvocationView, TraceSpanView } from "../agent/traceTypes";
-import { mockTraceSessions, mockTraceViews } from "./traceMockData";
 
 interface TracePageProps {
-  // Wired through from App for Phase 3 (live `getSession` + `getSessionTraces`).
-  // Phase 1 renders from local mock data, so it is intentionally unused here.
+  // Live data source (Phase 3): listSessions + getSession + getSessionTraces.
+  // Optional so tests / a degraded shell can render an empty page gracefully.
   agentClient?: AgentClientLike;
   locale?: Locale;
 }
 
-export function TracePage({ locale = "en" }: TracePageProps) {
-  const copy = translations[locale].pages.trace;
-  const sessions = mockTraceSessions;
-  const [activeId, setActiveId] = useState<string | null>(sessions[0]?.id ?? null);
-  const [selectedSpanId, setSelectedSpanId] = useState<string | null>(null);
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
 
-  const activeSession = useMemo<AgentSession | null>(
-    () => sessions.find((session) => session.id === activeId) ?? null,
-    [sessions, activeId]
-  );
-  const activeTrace = activeId ? mockTraceViews[activeId] ?? null : null;
+export function TracePage({ agentClient, locale = "en" }: TracePageProps) {
+  const copy = translations[locale].pages.trace;
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeSession, setActiveSession] = useState<AgentSession | null>(null);
+  const [activeTrace, setActiveTrace] = useState<SessionTraceView | null>(null);
+  const [selectedSpanId, setSelectedSpanId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load the session list once the client is available; auto-select the first.
+  useEffect(() => {
+    if (!agentClient) {
+      return;
+    }
+    const controller = new AbortController();
+    agentClient
+      .listSessions(controller.signal)
+      .then((list) => {
+        setSessions(list);
+        setActiveId((current) => current ?? list[0]?.id ?? null);
+      })
+      .catch((err: unknown) => {
+        if (!isAbortError(err)) {
+          setError(copy.errorTitle);
+        }
+      });
+    return () => controller.abort();
+  }, [agentClient, copy.errorTitle]);
+
+  // Load the selected session's conversation + trace waterfall.
+  useEffect(() => {
+    if (!agentClient || !activeId) {
+      setActiveSession(null);
+      setActiveTrace(null);
+      return;
+    }
+    const controller = new AbortController();
+    setError(null);
+    Promise.all([
+      agentClient.getSession(activeId, controller.signal),
+      agentClient.getSessionTraces(activeId, controller.signal)
+    ])
+      .then(([session, trace]) => {
+        setActiveSession(session);
+        setActiveTrace(trace);
+      })
+      .catch((err: unknown) => {
+        if (!isAbortError(err)) {
+          setActiveSession(null);
+          setActiveTrace(null);
+          setError(copy.errorTitle);
+        }
+      });
+    return () => controller.abort();
+  }, [agentClient, activeId, copy.errorTitle]);
 
   function selectSession(id: string) {
     setActiveId(id);
@@ -42,6 +89,8 @@ export function TracePage({ locale = "en" }: TracePageProps) {
           <p className="page-header__description">{copy.description}</p>
         </div>
       </header>
+
+      {error ? <EmptyState title={copy.errorTitle} /> : null}
 
       <section className="trace-shell">
         <aside className="trace-sessions" aria-label={copy.sessionsTitle}>

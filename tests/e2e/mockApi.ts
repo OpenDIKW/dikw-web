@@ -55,6 +55,24 @@ export async function mockDikwApi(page: Page) {
     const url = new URL(route.request().url());
     const path = url.pathname;
 
+    // Trace-only sessions: the hidden #trace page lists/opens these and renders
+    // their span waterfalls. Kept separate from the chat `session-1` flow so the
+    // chat e2e's session list is unaffected.
+    const traceDetailMatch = /^\/agent\/sessions\/(trace-[^/]+)$/.exec(path);
+    if (traceDetailMatch) {
+      const session = traceSessions[traceDetailMatch[1]];
+      await route.fulfill(session ? { json: session } : { status: 404, body: "unknown trace session" });
+      return;
+    }
+    const traceWaterfallMatch = /^\/agent\/sessions\/(trace-[^/]+)\/traces$/.exec(path);
+    if (traceWaterfallMatch) {
+      const view = traceViews[traceWaterfallMatch[1]];
+      await route.fulfill({
+        json: view ?? { sessionId: traceWaterfallMatch[1], invocations: [] }
+      });
+      return;
+    }
+
     if (path === "/agent/sessions") {
       if (route.request().method() === "POST") {
         hasAgentSession = true;
@@ -427,4 +445,140 @@ function toSessionSummary(session: {
     messageCount: session.messageCount,
     lastMessagePreview: session.lastMessagePreview
   };
+}
+
+// --- #trace fixtures -------------------------------------------------------
+// Two trace-only sessions served live to the hidden #trace page (separate from
+// the chat session-1 flow). getSession returns the conversation; the /traces
+// route returns a small SessionTraceView (invocation → spans waterfall).
+const T0 = 1_717_488_000_000;
+const traceIso = (offset: number) => new Date(T0 + offset).toISOString();
+
+const traceSessions: Record<string, unknown> = {
+  "trace-demo-architecture": {
+    id: "trace-demo-architecture",
+    title: "What is the DIKW architecture?",
+    createdAt: traceIso(0),
+    updatedAt: traceIso(4_200),
+    messageCount: 2,
+    lastMessagePreview: "DIKW stacks data → information → knowledge → wisdom…",
+    messages: [
+      { id: "m1", role: "user", content: "What is the DIKW architecture?", createdAt: traceIso(0) },
+      {
+        id: "m2",
+        role: "assistant",
+        content: "DIKW stacks data → information → knowledge → wisdom. The agent cites the source pages it read.",
+        createdAt: traceIso(4_180)
+      }
+    ],
+    toolEvents: [],
+    sources: [],
+    proposals: []
+  },
+  "trace-demo-wisdom": {
+    id: "trace-demo-wisdom",
+    title: "List the wisdom items",
+    createdAt: traceIso(60_000),
+    updatedAt: traceIso(61_900),
+    messageCount: 2,
+    lastMessagePreview: "There are 3 wisdom items in the base…",
+    messages: [
+      { id: "m1", role: "user", content: "List the wisdom items.", createdAt: traceIso(60_000) },
+      {
+        id: "m2",
+        role: "assistant",
+        content: "There are 3 wisdom items in the base: onboarding-playbook, retrieval-tuning, and review-cadence.",
+        createdAt: traceIso(61_880)
+      }
+    ],
+    toolEvents: [],
+    sources: [],
+    proposals: []
+  }
+};
+
+const traceViews: Record<string, unknown> = {
+  "trace-demo-architecture": {
+    sessionId: "trace-demo-architecture",
+    invocations: [
+      {
+        invocationId: "inv-arch-1",
+        startTimeMs: T0,
+        durationMs: 4_200,
+        spans: [
+          { spanId: "s0", parentSpanId: null, name: "invocation", startTimeMs: T0, durationMs: 4_200, status: "ok", attributes: {} },
+          {
+            spanId: "s1",
+            parentSpanId: "s0",
+            name: "call_llm",
+            startTimeMs: T0 + 20,
+            durationMs: 900,
+            status: "ok",
+            attributes: { "gen_ai.request.model": "MiniMax-M3" },
+            tokensInput: 1_240,
+            tokensOutput: 58
+          },
+          {
+            spanId: "s2",
+            parentSpanId: "s0",
+            name: "execute_tool retrieve_knowledge",
+            startTimeMs: T0 + 940,
+            durationMs: 1_500,
+            status: "ok",
+            attributes: { "gen_ai.tool.name": "retrieve_knowledge" }
+          }
+        ]
+      }
+    ]
+  },
+  "trace-demo-wisdom": {
+    sessionId: "trace-demo-wisdom",
+    invocations: [
+      {
+        invocationId: "inv-wisdom-1",
+        startTimeMs: T0 + 60_000,
+        durationMs: 1_900,
+        spans: [
+          {
+            spanId: "w0",
+            parentSpanId: null,
+            name: "invocation",
+            startTimeMs: T0 + 60_000,
+            durationMs: 1_900,
+            status: "ok",
+            attributes: {}
+          },
+          {
+            spanId: "w1",
+            parentSpanId: "w0",
+            name: "execute_tool list_wisdom",
+            startTimeMs: T0 + 60_300,
+            durationMs: 410,
+            status: "ok",
+            attributes: { "gen_ai.tool.name": "list_wisdom" }
+          }
+        ]
+      }
+    ]
+  }
+};
+
+const traceSessionSummaries = Object.values(traceSessions).map((session) =>
+  toSessionSummary(session as Parameters<typeof toSessionSummary>[0])
+);
+
+/**
+ * Overlay for the #trace page: makes `GET /agent/sessions` return the two
+ * trace-only sessions. Registered AFTER mockDikwApi so it takes precedence for
+ * the list endpoint (Playwright matches the most-recently-added route first).
+ * Detail + /traces routes are already served by mockDikwApi.
+ */
+export async function mockTraceApi(page: Page) {
+  await page.route("**/agent/sessions", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({ json: traceSessionSummaries });
+      return;
+    }
+    await route.fallback();
+  });
 }
