@@ -254,8 +254,6 @@ describe("AdkAgentRunner.runMessage", () => {
       async *runAsync() {
         controller.abort();
         throw new Error("aborted mid-stream");
-        // eslint-disable-next-line no-unreachable
-        yield evt({});
       }
     };
     const { runner, finalizeTurn } = makeRunner(() => fakeRunner);
@@ -278,8 +276,6 @@ describe("AdkAgentRunner.runMessage", () => {
     const fakeRunner: RunnerLike = {
       async *runAsync() {
         throw new Error("boom");
-        // eslint-disable-next-line no-unreachable
-        yield evt({});
       }
     };
     const { runner, finalizeTurn } = makeRunner(() => fakeRunner);

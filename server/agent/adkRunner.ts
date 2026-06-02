@@ -149,30 +149,33 @@ export class AdkAgentRunner implements AgentRunner {
   async runMessage({ sessionId, message, coreUrl, token, signal, onEvent }: RunAgentMessageOptions): Promise<void> {
     await onEvent({ type: "agent_start", sessionId });
 
-    const tools = createDikwTools({
-      coreUrl,
-      token,
-      braveApiKey: this.config.braveApiKey,
-      jinaApiKey: this.config.jinaApiKey,
-      tavilyApiKey: this.config.tavilyApiKey,
-      signal
-    });
-
-    const agent = new LlmAgent({
-      name: "dikw_agent",
-      description: "A helpful knowledge base agent over dikw-core.",
-      model: new MiniMaxLlm({
-        model: this.config.model,
-        apiKey: this.config.apiKey,
-        baseUrl: this.config.baseUrl
-      }),
-      instruction: systemPrompt(),
-      tools
-    });
-
-    const runner = this.createRunner({ appName: APP_NAME, agent, sessionService: this.sessionService });
-
     try {
+      // Turn setup lives inside the try so a construction-time throw is handled
+      // by the same catch as the run loop (non-abort errors rethrow → http.ts
+      // emits the wire `error` event).
+      const tools = createDikwTools({
+        coreUrl,
+        token,
+        braveApiKey: this.config.braveApiKey,
+        jinaApiKey: this.config.jinaApiKey,
+        tavilyApiKey: this.config.tavilyApiKey,
+        signal
+      });
+
+      const agent = new LlmAgent({
+        name: "dikw_agent",
+        description: "A helpful knowledge base agent over dikw-core.",
+        model: new MiniMaxLlm({
+          model: this.config.model,
+          apiKey: this.config.apiKey,
+          baseUrl: this.config.baseUrl
+        }),
+        instruction: systemPrompt(),
+        tools
+      });
+
+      const runner = this.createRunner({ appName: APP_NAME, agent, sessionService: this.sessionService });
+
       const stream = runner.runAsync({
         userId: USER_ID,
         sessionId,

@@ -120,6 +120,41 @@ describe("MiniMaxLlm", () => {
     expect(finalResp.finishReason).toBe("STOP");
   });
 
+  it("with stream:false emits NO partials, only the final non-partial response", async () => {
+    const captured: CapturedCall[] = [];
+    const llm = new MiniMaxLlm({
+      model: "MiniMax-M3",
+      apiKey: "x",
+      baseUrl: "https://example/anthropic",
+      client: makeFakeClient({ events: canned.events, final: canned.final, captured })
+    });
+
+    const request: LlmRequest = {
+      contents: [{ role: "user", parts: [{ text: "hi" }] }],
+      liveConnectConfig: {},
+      toolsDict: {}
+    };
+
+    const responses = await drain(llm.generateContentAsync(request, false));
+
+    // No partials — only the single final aggregated response.
+    expect(responses).toHaveLength(1);
+    expect(responses.some((r) => r.partial === true)).toBe(false);
+
+    const finalResp = responses[0];
+    expect(finalResp.partial).toBe(false);
+    expect(finalResp.content?.role).toBe("model");
+    const textParts = (finalResp.content?.parts ?? [])
+      .filter((p) => typeof p.text === "string")
+      .map((p) => p.text);
+    expect(textParts).toEqual(["Hello"]);
+    expect(finalResp.usageMetadata).toMatchObject({
+      promptTokenCount: 12,
+      candidatesTokenCount: 7,
+      totalTokenCount: 19
+    });
+  });
+
   it("translates the request: system string, role mapping, tool_result in user turn, merged same-role, lowercased schema", async () => {
     const captured: CapturedCall[] = [];
     const llm = new MiniMaxLlm({

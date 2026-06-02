@@ -5889,6 +5889,12 @@ html[data-theme="dark"] .graph-pixi-stage {
   height: max(460px, calc(100vh - 170px));
 }
 
+@media (max-width: 720px) {
+  .trace-shell {
+    grid-template-columns: 1fr;
+  }
+}
+
 .trace-sessions {
   display: grid;
   grid-template-rows: auto 1fr;
@@ -5932,6 +5938,11 @@ html[data-theme="dark"] .graph-pixi-stage {
 .trace-session.is-active {
   border-color: var(--line-strong);
   background: var(--surface-soft);
+}
+
+.trace-session:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .trace-session strong {
@@ -6063,6 +6074,11 @@ html[data-theme="dark"] .graph-pixi-stage {
 .trace-span-row__label:hover,
 .trace-span-row__label.is-selected {
   background: var(--surface-2);
+}
+
+.trace-span-row__label:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .trace-span-dot {

@@ -205,13 +205,13 @@ Sidecar-only external tools (do not touch `dikw-core`):
 
 Both web tools wrap fetch with `AbortSignal.timeout(15_000)` and combine
 it with the per-request user abort signal via `AbortSignal.any`, so
-clicking Stop in the UI cancels in-flight Brave/Jina calls. API keys
+clicking Stop in the UI cancels in-flight Tavily/Jina calls. API keys
 stay in `.env.agent.local` and are never written to the session store,
 streamed to the browser, or echoed in error messages.
 
 When `HTTPS_PROXY` / `HTTP_PROXY` is set in the sidecar process
 environment, the two web tools route through it via undici's
-`ProxyAgent`. The proxy is **only** applied to external Brave/Jina
+`ProxyAgent`. The proxy is **only** applied to external Tavily/Jina
 calls, not to `dikw-core` requests, so a local core on
 `127.0.0.1:8765` keeps working alongside an upstream proxy used to
 reach the public web.

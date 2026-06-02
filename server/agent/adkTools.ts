@@ -216,13 +216,31 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
 }
 
 /**
- * Mirrors the pi `webFetchResult` trimming: cap the JSON-encoded `content` so
- * the whole bare-details object stays inside `WEB_FETCH_TEXT_BUDGET`.
+ * Mirrors the pi `webFetchResult` trimming: cap `content` so the whole
+ * bare-details object's SERIALIZED form stays inside `WEB_FETCH_TEXT_BUDGET`.
+ *
+ * Budgeting against `content.length` undercounts JSON escaping (quotes,
+ * backslashes each cost 2 serialized chars), so a quote-heavy payload could
+ * still overflow once stringified. We trim by a first estimate, then shrink
+ * until the actual `JSON.stringify(view)` length is within budget.
  */
 function trimWebFetch(fetched: { url: string; content: string; truncated: boolean }) {
-  const wrapperLen = JSON.stringify({ ...fetched, content: "" }).length;
-  const contentBudget = Math.max(0, WEB_FETCH_TEXT_BUDGET - wrapperLen);
-  const trimmedByBudget = fetched.content.length > contentBudget;
-  const content = trimmedByBudget ? fetched.content.slice(0, contentBudget) : fetched.content;
-  return { url: fetched.url, content, truncated: fetched.truncated || trimmedByBudget };
+  const build = (content: string, truncated: boolean) => ({ url: fetched.url, content, truncated });
+
+  const full = build(fetched.content, fetched.truncated);
+  if (JSON.stringify(full).length <= WEB_FETCH_TEXT_BUDGET) {
+    return full;
+  }
+
+  // Initial estimate: account for the wrapper, then shrink until the serialized
+  // object fits (each iteration removes the over-budget surplus).
+  const wrapperLen = JSON.stringify(build("", fetched.truncated)).length;
+  let sliceLen = Math.max(0, Math.min(fetched.content.length, WEB_FETCH_TEXT_BUDGET - wrapperLen));
+  let view = build(fetched.content.slice(0, sliceLen), true);
+  while (sliceLen > 0 && JSON.stringify(view).length > WEB_FETCH_TEXT_BUDGET) {
+    const overflow = JSON.stringify(view).length - WEB_FETCH_TEXT_BUDGET;
+    sliceLen = Math.max(0, sliceLen - overflow);
+    view = build(fetched.content.slice(0, sliceLen), true);
+  }
+  return view;
 }

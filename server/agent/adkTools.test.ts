@@ -146,6 +146,32 @@ describe("ADK DIKW tools", () => {
     expect(headers.get("X-Return-Format")).toBe("markdown");
   });
 
+  it("web_fetch keeps a quote/backslash-heavy payload within the 12KB serialized budget", async () => {
+    // Every char serializes to 2 chars (\" and \\), so slicing by raw length
+    // would overflow once JSON-escaped. The trim must budget against the
+    // serialized object, not the raw content length.
+    const heavy = '"\\'.repeat(15_000); // 30 000 chars; 60 000 once escaped
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(heavy, { status: 200, headers: { "Content-Type": "text/plain; charset=utf-8" } })
+    );
+
+    const tools = createDikwTools({
+      coreUrl: "http://127.0.0.1:8765",
+      jinaApiKey: "jina-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch
+    });
+    const out = (await findTool(tools, "web_fetch").runAsync({
+      args: { url: "https://example.com/heavy" },
+      toolContext: {} as never
+    })) as { url: string; content: string; truncated: boolean };
+
+    expect(out.truncated).toBe(true);
+    // The FINAL serialized object — not the raw content — must fit the budget.
+    expect(JSON.stringify(out).length).toBeLessThanOrEqual(12_000);
+    expect(Object.keys(out).sort()).toEqual(["content", "truncated", "url"]);
+  });
+
   it("web_fetch returns a caught { error } for an unsafe url and never calls fetch", async () => {
     const fetchImpl = vi.fn();
     const tools = createDikwTools({

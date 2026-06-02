@@ -127,16 +127,20 @@ export class MiniMaxLlm extends BaseLlm {
 
   async *generateContentAsync(
     llmRequest: LlmRequest,
-    _stream?: boolean,
+    stream?: boolean,
     abortSignal?: AbortSignal
   ): AsyncGenerator<LlmResponse, void> {
     this.maybeAppendUserContent(llmRequest);
 
     const params = this.toAnthropicParams(llmRequest);
-    const stream = this.client.messages.stream(params, { signal: abortSignal });
+    const anthropicStream = this.client.messages.stream(params, { signal: abortSignal });
 
-    for await (const event of stream) {
-      if (event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+    // ADK convention: when `stream === false` the adapter must NOT emit
+    // per-chunk partials, only the single final non-partial response. We still
+    // consume the stream (the SDK builds the final message from its events).
+    const emitPartials = stream !== false;
+    for await (const event of anthropicStream) {
+      if (emitPartials && event.type === "content_block_delta" && event.delta?.type === "text_delta") {
         yield {
           content: { role: "model", parts: [{ text: event.delta.text ?? "" }] },
           partial: true
@@ -144,7 +148,7 @@ export class MiniMaxLlm extends BaseLlm {
       }
     }
 
-    const final = await stream.finalMessage();
+    const final = await anthropicStream.finalMessage();
     const parts: Part[] = [];
     for (const block of final.content) {
       if (block.type === "text") {
