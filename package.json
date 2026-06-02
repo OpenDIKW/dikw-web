@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4321 --strictPort",
     "build": "tsc --noEmit && vite build && npm run build:server",
-    "build:server": "esbuild server/agent/standalone.ts --bundle --platform=node --target=node24 --format=esm --outfile=dist-server/standalone.mjs --legal-comments=none --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
+    "build:server": "esbuild server/agent/standalone.ts --bundle --packages=external --platform=node --target=node24 --format=esm --outfile=dist-server/standalone.mjs --legal-comments=none --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
     "preview": "vite preview --host 127.0.0.1",
     "start": "node dist-server/standalone.mjs",
     "typecheck": "tsc --noEmit",
@@ -21,8 +21,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
-    "@earendil-works/pi-agent-core": "^0.78.0",
-    "@earendil-works/pi-ai": "^0.78.0",
     "@google/adk": "^1.1.0",
     "@google/genai": "^1.52.0",
     "@mikro-orm/core": "^6.6.14",

@@ -1,12 +1,14 @@
 // @vitest-environment node
 import { createServer } from "node:http";
-import { mkdtemp, rm } from "node:fs/promises";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { DatabaseSessionService, createEvent } from "@google/adk";
+import type { Session } from "@google/adk";
 import { createAgentHandler, maintenanceEndpoint } from "./http";
-import { FileSessionStore } from "./sessionStore";
+import { AdkSessionStore } from "./adkSessionStore";
 import type { AgentRunner } from "./runtime";
+
+const APP_NAME = "dikw-web";
+const USER_ID = "demo";
 
 describe("maintenanceEndpoint", () => {
   it("maps each supported maintenance action to its core endpoint", () => {
@@ -27,38 +29,26 @@ describe("agent HTTP sidecar", () => {
     while (cleanups.length) {
       await cleanups.pop()?.();
     }
+    vi.unstubAllGlobals();
   });
 
-  it("creates sessions, streams message events, reopens history, and deletes sessions", async () => {
-    const root = await mkdtemp(join(tmpdir(), "dikw-agent-http-"));
-    cleanups.push(() => rm(root, { recursive: true, force: true }));
-    const store = new FileSessionStore(root);
-    const runInputs: Array<{ coreUrl?: string; token?: string }> = [];
-    const runner: AgentRunner = {
-      async runMessage({ sessionId, message, coreUrl, token, onEvent }) {
-        runInputs.push({ coreUrl, token });
-        await store.appendUserMessage(sessionId, message);
-        const toolEvent = {
-          id: "tool-1",
-          type: "tool_call" as const,
-          name: "retrieve_knowledge",
-          status: "succeeded" as const,
-          createdAt: "2026-05-13T00:00:00.500Z"
-        };
-        await store.recordToolEvent(sessionId, toolEvent);
-        await onEvent({ type: "tool_event", sessionId, event: toolEvent });
-        await onEvent({ type: "message_delta", sessionId, delta: "Layered answer." });
-        await store.recordSource(sessionId, { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" });
-        await onEvent({
-          type: "source",
-          sessionId,
-          source: { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }
-        });
-        await store.appendAssistantMessage(sessionId, "Layered answer.");
-        await onEvent({ type: "agent_end", sessionId });
-      }
-    };
-    const server = createServer(createAgentHandler({ store, runner }));
+  function makeStore() {
+    const sessionService = new DatabaseSessionService("sqlite://:memory:");
+    const store = new AdkSessionStore({ sessionService, appName: APP_NAME, userId: USER_ID });
+    return { sessionService, store };
+  }
+
+  async function appendEvent(sessionService: DatabaseSessionService, sessionId: string, event: ReturnType<typeof createEvent>) {
+    const session = (await sessionService.getSession({
+      appName: APP_NAME,
+      userId: USER_ID,
+      sessionId
+    })) as Session;
+    await sessionService.appendEvent({ session, event });
+  }
+
+  async function listen(handler: ReturnType<typeof createAgentHandler>): Promise<string> {
+    const server = createServer(handler);
     cleanups.push(
       () =>
         new Promise<void>((resolve) => {
@@ -70,7 +60,74 @@ describe("agent HTTP sidecar", () => {
     if (!address || typeof address === "string") {
       throw new Error("server did not bind to a TCP port");
     }
-    const baseUrl = `http://127.0.0.1:${address.port}`;
+    return `http://127.0.0.1:${address.port}`;
+  }
+
+  it("creates sessions, streams message events, reopens history, and deletes sessions", async () => {
+    const { sessionService, store } = makeStore();
+    const runInputs: Array<{ coreUrl?: string; token?: string }> = [];
+    const runner: AgentRunner = {
+      async runMessage({ sessionId, coreUrl, token, onEvent }) {
+        runInputs.push({ coreUrl, token });
+
+        // Persist the turn as ADK events so the reopen projection sees it.
+        await appendEvent(
+          sessionService,
+          sessionId,
+          createEvent({ author: "user", content: { role: "user", parts: [{ text: "What is DIKW?" }] } })
+        );
+        await appendEvent(
+          sessionService,
+          sessionId,
+          createEvent({
+            author: "dikw_agent",
+            content: {
+              role: "user",
+              parts: [
+                {
+                  functionResponse: {
+                    id: "tool-1",
+                    name: "retrieve_knowledge",
+                    response: {
+                      page_refs: [
+                        { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge", score: 0.9 }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          })
+        );
+        await appendEvent(
+          sessionService,
+          sessionId,
+          createEvent({ author: "dikw_agent", content: { role: "model", parts: [{ text: "Layered answer." }] } })
+        );
+        await store.finalizeTurn(sessionId);
+
+        // Emit the frozen NDJSON wire sequence.
+        await onEvent({
+          type: "tool_event",
+          sessionId,
+          event: {
+            id: "tool-1",
+            type: "tool_call",
+            name: "retrieve_knowledge",
+            status: "succeeded",
+            createdAt: "2026-05-13T00:00:00.500Z"
+          }
+        });
+        await onEvent({ type: "message_delta", sessionId, delta: "Layered answer." });
+        await onEvent({
+          type: "source",
+          sessionId,
+          source: { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }
+        });
+        await onEvent({ type: "agent_end", sessionId });
+      }
+    };
+    const baseUrl = await listen(createAgentHandler({ store, runner }));
 
     const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as { id: string };
     const stream = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
@@ -102,28 +159,68 @@ describe("agent HTTP sidecar", () => {
     expect(await (await fetch(`${baseUrl}/sessions`)).json()).toEqual([]);
   });
 
+  it("confirms a maintenance proposal by firing the core endpoint and recording the task id", async () => {
+    const { sessionService, store } = makeStore();
+    const runner: AgentRunner = {
+      async runMessage() {
+        throw new Error("runner should not be called in this test");
+      }
+    };
+    const baseUrl = await listen(createAgentHandler({ store, runner }));
+
+    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as { id: string };
+    // Seed a pending proposal with a known id.
+    await appendEvent(
+      sessionService,
+      created.id,
+      createEvent({
+        author: "dikw_agent",
+        content: {
+          role: "user",
+          parts: [
+            {
+              functionResponse: {
+                id: "pr-1",
+                name: "propose_maintenance_action",
+                response: { proposal: { action: "ingest", description: "d", params: {} } }
+              }
+            }
+          ]
+        }
+      })
+    );
+
+    // runMaintenanceProposal uses global fetch to hit core; stub it. We then talk to
+    // the sidecar over a raw node http client so the stub does not intercept that call.
+    const coreFetch = vi.fn(async () => Response.json({ task_id: "t-1" }));
+    vi.stubGlobal("fetch", coreFetch);
+
+    let confirmed: { proposals: Array<{ id: string; status: string; taskId?: string }> };
+    try {
+      const res = await nodeFetch(`${baseUrl}/sessions/${created.id}/proposals/pr-1/confirm`, {
+        method: "POST",
+        body: JSON.stringify({ coreUrl: "http://127.0.0.1:8765", token: "core-token" })
+      });
+      confirmed = JSON.parse(res) as { proposals: Array<{ id: string; status: string; taskId?: string }> };
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    expect(coreFetch).toHaveBeenCalledTimes(1);
+    const calledUrl = (coreFetch.mock.calls[0] as unknown[])[0] as string;
+    expect(calledUrl).toBe("http://127.0.0.1:8765/v1/ingest");
+    const proposal = confirmed.proposals.find((p) => p.id === "pr-1");
+    expect(proposal).toMatchObject({ status: "succeeded", taskId: "t-1" });
+  });
+
   it("rejects agent messages that do not include a core URL", async () => {
-    const root = await mkdtemp(join(tmpdir(), "dikw-agent-http-"));
-    cleanups.push(() => rm(root, { recursive: true, force: true }));
-    const store = new FileSessionStore(root);
+    const { store } = makeStore();
     const runner: AgentRunner = {
       async runMessage() {
         throw new Error("runner should not be called without coreUrl");
       }
     };
-    const server = createServer(createAgentHandler({ store, runner }));
-    cleanups.push(
-      () =>
-        new Promise<void>((resolve) => {
-          server.close(() => resolve());
-        })
-    );
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const address = server.address();
-    if (!address || typeof address === "string") {
-      throw new Error("server did not bind to a TCP port");
-    }
-    const baseUrl = `http://127.0.0.1:${address.port}`;
+    const baseUrl = await listen(createAgentHandler({ store, runner }));
 
     const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as { id: string };
     const response = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
@@ -139,27 +236,13 @@ describe("agent HTTP sidecar", () => {
   });
 
   it("renames sessions through PATCH and rejects invalid titles", async () => {
-    const root = await mkdtemp(join(tmpdir(), "dikw-agent-http-"));
-    cleanups.push(() => rm(root, { recursive: true, force: true }));
-    const store = new FileSessionStore(root);
+    const { store } = makeStore();
     const runner: AgentRunner = {
       async runMessage() {
         throw new Error("runner should not be called when renaming");
       }
     };
-    const server = createServer(createAgentHandler({ store, runner }));
-    cleanups.push(
-      () =>
-        new Promise<void>((resolve) => {
-          server.close(() => resolve());
-        })
-    );
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const address = server.address();
-    if (!address || typeof address === "string") {
-      throw new Error("server did not bind to a TCP port");
-    }
-    const baseUrl = `http://127.0.0.1:${address.port}`;
+    const baseUrl = await listen(createAgentHandler({ store, runner }));
 
     const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as { id: string };
     const renamedResponse = await fetch(`${baseUrl}/sessions/${created.id}`, {
@@ -186,3 +269,27 @@ describe("agent HTTP sidecar", () => {
     });
   });
 });
+
+// Minimal Node http client used where the proposal-confirm test stubs global fetch
+// (so we cannot use fetch to talk to the sidecar). Returns the raw response body.
+function nodeFetch(url: string, init: { method: string; body?: string }): Promise<string> {
+  return new Promise((resolve, reject) => {
+    import("node:http")
+      .then(({ request }) => {
+        const req = request(url, { method: init.method, headers: { "Content-Type": "application/json" } }, (res) => {
+          let text = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => {
+            text += chunk;
+          });
+          res.on("end", () => resolve(text));
+        });
+        req.on("error", reject);
+        if (init.body) {
+          req.write(init.body);
+        }
+        req.end();
+      })
+      .catch(reject);
+  });
+}

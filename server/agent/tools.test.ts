@@ -1,69 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
-import { createDikwTools, WebToolClient } from "./tools";
-
-function findTool(tools: ReturnType<typeof createDikwTools>, name: string) {
-  const tool = tools.find((item) => item.name === name);
-  if (!tool) {
-    throw new Error(`tool ${name} not found`);
-  }
-  return tool;
-}
-
-describe("DIKW agent tools", () => {
-  it("calls retrieve and page APIs through dikw-core without using /v1/query", async () => {
-    const calls: Array<{ path: string; init?: RequestInit }> = [];
-    const fetchImpl = vi.fn(async (input: string | URL, init?: RequestInit) => {
-      const url = new URL(String(input));
-      calls.push({ path: url.pathname + url.search, init });
-      if (url.pathname === "/v1/retrieve") {
-        return new Response(
-          [
-            JSON.stringify({ type: "retrieve_started", ts: "now", q: "DIKW", limit: 3 }),
-            JSON.stringify({
-              type: "final",
-              ts: "now",
-              status: "succeeded",
-              result: { chunks: [], page_refs: [] }
-            })
-          ].join("\n"),
-          { status: 200, headers: { "Content-Type": "application/x-ndjson" } }
-        );
-      }
-      if (url.pathname === "/v1/base/pages/knowledge%2Farchitecture.md") {
-        return Response.json({ path: "knowledge/architecture.md", title: "Architecture", body: "# Architecture" });
-      }
-      return Response.json({ ok: true });
-    });
-
-    const tools = createDikwTools({ coreUrl: "http://127.0.0.1:8765", fetchImpl: fetchImpl as unknown as typeof fetch });
-
-    const retrieve = tools.find((tool) => tool.name === "retrieve_knowledge");
-    const readPage = tools.find((tool) => tool.name === "read_page");
-    expect(retrieve).toBeDefined();
-    expect(readPage).toBeDefined();
-
-    const retrieveResult = await retrieve!.execute("call-1", { q: "DIKW", limit: 3 });
-    const pageResult = await readPage!.execute("call-2", { path: "knowledge/architecture.md" });
-
-    expect(retrieveResult.details).toEqual({ chunks: [], page_refs: [] });
-    expect(pageResult.details).toMatchObject({ path: "knowledge/architecture.md", title: "Architecture" });
-    expect(calls.map((call) => call.path)).toContain("/v1/retrieve");
-    expect(calls.map((call) => call.path)).toContain("/v1/base/pages/knowledge%2Farchitecture.md");
-    expect(calls.map((call) => call.path)).not.toContain("/v1/query");
-  });
-
-  it("offers maintenance proposal actions without the dead distill op", () => {
-    const tools = createDikwTools({ coreUrl: "http://127.0.0.1:8765" });
-    const action = (
-      findTool(tools, "propose_maintenance_action").parameters as {
-        properties: { action: { anyOf?: Array<{ const?: string }> } };
-      }
-    ).properties.action;
-    const literals = (action.anyOf ?? []).map((entry) => entry.const);
-    expect(literals).toEqual(["ingest", "synth", "lint_propose"]);
-  });
-});
+import { WebToolClient } from "./tools";
 
 // Brave is retained as dead code (WebToolClient.search). Not exposed via the agent
 // tool list anymore — Tavily owns the "web_search" tool now. Tests exercise the
@@ -134,7 +71,11 @@ describe("WebToolClient.search (Brave, retained dead-code path)", () => {
   });
 });
 
-describe("web_fetch tool", () => {
+describe("WebToolClient.fetchPage (Jina web_fetch)", () => {
+  function makeClient(opts: { jinaApiKey?: string; signal?: AbortSignal; fetchImpl: typeof fetch }) {
+    return new WebToolClient({ coreUrl: "http://127.0.0.1:8765", ...opts });
+  }
+
   it("calls Jina Reader with bearer header and encoded URL", async () => {
     const calls: Array<{ url: URL; init?: RequestInit }> = [];
     const fetchImpl = vi.fn(async (input: string | URL, init?: RequestInit) => {
@@ -145,14 +86,10 @@ describe("web_fetch tool", () => {
       });
     });
 
-    const tools = createDikwTools({
-      coreUrl: "http://127.0.0.1:8765",
-      jinaApiKey: "jina-secret",
-      fetchImpl: fetchImpl as unknown as typeof fetch
-    });
-    const out = await findTool(tools, "web_fetch").execute("call-1", { url: "https://example.com/page?x=1" });
+    const client = makeClient({ jinaApiKey: "jina-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const out = await client.fetchPage("https://example.com/page?x=1", "markdown");
 
-    expect(out.details).toMatchObject({
+    expect(out).toMatchObject({
       url: "https://example.com/page?x=1",
       content: "# Title\n\nbody here",
       truncated: false
@@ -167,58 +104,24 @@ describe("web_fetch tool", () => {
 
   it("rejects non http(s) urls with a parameter error and never calls fetch", async () => {
     const fetchImpl = vi.fn();
-    const tools = createDikwTools({
-      coreUrl: "http://127.0.0.1:8765",
-      jinaApiKey: "jina-secret",
-      fetchImpl: fetchImpl as unknown as typeof fetch
-    });
-    await expect(findTool(tools, "web_fetch").execute("call-1", { url: "ftp://example.com" })).rejects.toThrow(
-      /http or https/
-    );
+    const client = makeClient({ jinaApiKey: "jina-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    await expect(client.fetchPage("ftp://example.com", "markdown")).rejects.toThrow(/http or https/);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("truncates content over 50 KB and flags truncated=true", async () => {
     const big = "a".repeat(60_000);
     const fetchImpl = vi.fn(async () => new Response(big, { status: 200 }));
-    const tools = createDikwTools({
-      coreUrl: "http://127.0.0.1:8765",
-      jinaApiKey: "jina-secret",
-      fetchImpl: fetchImpl as unknown as typeof fetch
-    });
-    const out = await findTool(tools, "web_fetch").execute("call-1", { url: "https://example.com/big" });
-    const details = out.details as { content: string; truncated: boolean };
-    expect(details.truncated).toBe(true);
-    expect(details.content.length).toBeLessThanOrEqual(50_000);
-  });
-
-  it("flags truncated=true and trims content when the agent text payload would exceed the budget", async () => {
-    // 30 KB fits under the Jina cap (50 KB) but blows past the agent text budget (12 KB).
-    const medium = "z".repeat(30_000);
-    const fetchImpl = vi.fn(async () => new Response(medium, { status: 200 }));
-    const tools = createDikwTools({
-      coreUrl: "http://127.0.0.1:8765",
-      jinaApiKey: "jina-secret",
-      fetchImpl: fetchImpl as unknown as typeof fetch
-    });
-    const out = await findTool(tools, "web_fetch").execute("call-1", { url: "https://example.com/med" });
-    const details = out.details as { content: string; truncated: boolean };
-    const agentText = (out.content as Array<{ text: string }>)[0].text;
-    expect(details.truncated).toBe(true);
-    expect(details.content.length).toBeLessThan(30_000);
-    expect(agentText.length).toBeLessThanOrEqual(12_000);
-    expect(() => JSON.parse(agentText)).not.toThrow();
+    const client = makeClient({ jinaApiKey: "jina-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const out = await client.fetchPage("https://example.com/big", "markdown");
+    expect(out.truncated).toBe(true);
+    expect(out.content.length).toBeLessThanOrEqual(50_000);
   });
 
   it("throws a clear error without leaking the value when jina key is missing", async () => {
     const fetchImpl = vi.fn();
-    const tools = createDikwTools({
-      coreUrl: "http://127.0.0.1:8765",
-      fetchImpl: fetchImpl as unknown as typeof fetch
-    });
-    await expect(findTool(tools, "web_fetch").execute("call-1", { url: "https://example.com/x" })).rejects.toThrow(
-      /DIKW_AGENT_JINA_API_KEY/
-    );
+    const client = makeClient({ fetchImpl: fetchImpl as unknown as typeof fetch });
+    await expect(client.fetchPage("https://example.com/x", "markdown")).rejects.toThrow(/DIKW_AGENT_JINA_API_KEY/);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -238,12 +141,8 @@ describe("web_fetch tool", () => {
     ["https://user:pass@example.com/secret?token=abc"]
   ])("rejects unsafe url %s and never calls fetch", async (badUrl) => {
     const fetchImpl = vi.fn();
-    const tools = createDikwTools({
-      coreUrl: "http://127.0.0.1:8765",
-      jinaApiKey: "jina-secret",
-      fetchImpl: fetchImpl as unknown as typeof fetch
-    });
-    await expect(findTool(tools, "web_fetch").execute("call-1", { url: badUrl })).rejects.toThrow();
+    const client = makeClient({ jinaApiKey: "jina-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    await expect(client.fetchPage(badUrl, "markdown")).rejects.toThrow();
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -254,22 +153,21 @@ describe("web_fetch tool", () => {
       capturedSignal = (init?.signal as AbortSignal) ?? null;
       return new Response("body", { status: 200 });
     });
-    const tools = createDikwTools({
-      coreUrl: "http://127.0.0.1:8765",
+    const client = makeClient({
       jinaApiKey: "jina-secret",
       signal: controller.signal,
       fetchImpl: fetchImpl as unknown as typeof fetch
     });
-    await findTool(tools, "web_fetch").execute("call-1", { url: "https://example.com/x" });
+    await client.fetchPage("https://example.com/x", "markdown");
     expect(capturedSignal).not.toBeNull();
     controller.abort();
     expect(capturedSignal!.aborted).toBe(true);
   });
 });
 
-describe("web_search tool (Tavily)", () => {
-  function makeTools(opts: { tavilyApiKey?: string; fetchImpl: typeof fetch }) {
-    return createDikwTools({ coreUrl: "http://127.0.0.1:8765", ...opts });
+describe("WebToolClient.tavilySearch (web_search)", () => {
+  function makeClient(opts: { tavilyApiKey?: string; fetchImpl: typeof fetch }) {
+    return new WebToolClient({ coreUrl: "http://127.0.0.1:8765", ...opts });
   }
 
   it("POSTs Tavily with api_key, query, max_results and JSON headers", async () => {
@@ -285,10 +183,10 @@ describe("web_search tool (Tavily)", () => {
       });
     });
 
-    const tools = makeTools({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
-    const out = await findTool(tools, "web_search").execute("call-1", { q: "DIKW", count: 2 });
+    const client = makeClient({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const out = await client.tavilySearch("DIKW", 2);
 
-    expect(out.details).toMatchObject({
+    expect(out).toMatchObject({
       query: "DIKW",
       results: [
         { title: "Result A", url: "https://example.com/a", description: "snippet a" },
@@ -314,18 +212,17 @@ describe("web_search tool (Tavily)", () => {
         results: [{ title: "Long", url: "https://example.com/long", content: longContent }]
       })
     );
-    const tools = makeTools({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
-    const out = await findTool(tools, "web_search").execute("call-1", { q: "q" });
-    const desc = (out.details as { results: Array<{ description: string }> }).results[0].description;
+    const client = makeClient({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const out = await client.tavilySearch("q", 5);
+    const desc = out.results[0].description;
     expect(desc.length).toBeLessThanOrEqual(500);
     expect(desc.endsWith("…")).toBe(true);
   });
 
   it("throws a clear error without leaking the value when tavily key is missing", async () => {
     const fetchImpl = vi.fn();
-    const tools = makeTools({ fetchImpl: fetchImpl as unknown as typeof fetch });
-    const tool = findTool(tools, "web_search");
-    await expect(tool.execute("call-1", { q: "DIKW" })).rejects.toThrow(/DIKW_AGENT_TAVILY_API_KEY/);
+    const client = makeClient({ fetchImpl: fetchImpl as unknown as typeof fetch });
+    await expect(client.tavilySearch("DIKW", 5)).rejects.toThrow(/DIKW_AGENT_TAVILY_API_KEY/);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -342,10 +239,9 @@ describe("web_search tool (Tavily)", () => {
         ]
       })
     );
-    const tools = makeTools({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
-    const out = await findTool(tools, "web_search").execute("call-1", { q: "q" });
-    const details = out.details as { results: Array<{ url: string }> };
-    expect(details.results.map((r) => r.url)).toEqual(["https://example.com/a"]);
+    const client = makeClient({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const out = await client.tavilySearch("q", 5);
+    expect(out.results.map((r) => r.url)).toEqual(["https://example.com/a"]);
   });
 
   it("returns empty results when Tavily body is malformed", async () => {
@@ -355,27 +251,25 @@ describe("web_search tool (Tavily)", () => {
         results: [null, "string", 7, { url: "https://example.com/a", title: "A", content: "d" }]
       })
     );
-    const tools = makeTools({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
-    const out = await findTool(tools, "web_search").execute("call-1", { q: "q" });
-    expect((out.details as { results: Array<{ url: string }> }).results).toEqual([
-      { title: "A", url: "https://example.com/a", description: "d" }
-    ]);
+    const client = makeClient({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const out = await client.tavilySearch("q", 5);
+    expect(out.results).toEqual([{ title: "A", url: "https://example.com/a", description: "d" }]);
   });
 
   it("returns empty results when Tavily results field is not an array", async () => {
     const fetchImpl = vi.fn(async () => Response.json({ query: "q", results: null }));
-    const tools = makeTools({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
-    const out = await findTool(tools, "web_search").execute("call-1", { q: "q" });
-    expect((out.details as { results: unknown[] }).results).toEqual([]);
+    const client = makeClient({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const out = await client.tavilySearch("q", 5);
+    expect(out.results).toEqual([]);
   });
 
   it("wraps upstream non-2xx with status code only and never forwards the response body", async () => {
     const reflected = `{"api_key":"tvly-secret-leak","query":"DIKW"}`;
     const fetchImpl = vi.fn(async () => new Response(reflected, { status: 502 }));
-    const tools = makeTools({ tavilyApiKey: "tvly-secret-leak", fetchImpl: fetchImpl as unknown as typeof fetch });
-    await expect(findTool(tools, "web_search").execute("call-1", { q: "DIKW" })).rejects.toThrow(/^upstream 502$/);
+    const client = makeClient({ tavilyApiKey: "tvly-secret-leak", fetchImpl: fetchImpl as unknown as typeof fetch });
+    await expect(client.tavilySearch("DIKW", 5)).rejects.toThrow(/^upstream 502$/);
     try {
-      await findTool(tools, "web_search").execute("call-1", { q: "DIKW" });
+      await client.tavilySearch("DIKW", 5);
     } catch (error) {
       expect((error as Error).message).not.toContain("tvly-secret-leak");
     }
