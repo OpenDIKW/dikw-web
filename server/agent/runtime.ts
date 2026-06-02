@@ -205,7 +205,7 @@ function safeWebUrl(value: unknown): string | null {
   }
 }
 
-export function proposalFromTool(toolName: string, details: unknown): AgentProposal | null {
+export function proposalFromTool(toolName: string, details: unknown, id?: string): AgentProposal | null {
   if (toolName !== "propose_maintenance_action" || !isRecord(details) || !isRecord(details.proposal)) {
     return null;
   }
@@ -215,7 +215,7 @@ export function proposalFromTool(toolName: string, details: unknown): AgentPropo
   }
   const now = new Date().toISOString();
   return {
-    id: randomUUID(),
+    id: id ?? randomUUID(),
     action,
     title: `Run ${action}`,
     description: typeof details.proposal.description === "string" ? details.proposal.description : `Run ${action}`,

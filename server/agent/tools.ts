@@ -17,7 +17,7 @@ export interface DikwToolsOptions {
 }
 
 const WEB_FETCH_MAX_CHARS = 50_000;
-const WEB_FETCH_TEXT_BUDGET = 12_000;
+export const WEB_FETCH_TEXT_BUDGET = 12_000;
 const WEB_SEARCH_DESC_MAX = 500;
 const WEB_TOOL_TIMEOUT_MS = 15_000;
 
@@ -235,7 +235,7 @@ function webFetchResult(fetched: { url: string; content: string; truncated: bool
   };
 }
 
-class CoreToolClient {
+export class CoreToolClient {
   private readonly fetchImpl: typeof fetch;
   private readonly coreUrl: string;
   private readonly token: string;
