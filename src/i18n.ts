@@ -18,7 +18,8 @@ export const translations = {
       wisdom: "Wisdom",
       tasks: "Tasks",
       import: "Import",
-      settings: "Settings"
+      settings: "Settings",
+      trace: "Trace"
     },
     navGroups: {
       knowledge: "Knowledge",
@@ -64,6 +65,28 @@ export const translations = {
         toolStatusRunning: "Running",
         toolStatusSucceeded: "Succeeded",
         toolStatusFailed: "Failed"
+      },
+      trace: {
+        title: "Trace",
+        description: "Inspect agent sessions and their OpenTelemetry traces.",
+        sessionsTitle: "Sessions",
+        emptySessions: "No sessions yet",
+        emptyPreview: "No messages yet",
+        conversationTitle: "Conversation",
+        emptyConversation: "No messages in this session",
+        tracesTitle: "Trace",
+        emptyTraces: "No spans recorded for this session",
+        selectSession: "Select a session to inspect",
+        invocationLabel: "Invocation",
+        spanDetailTitle: "Span attributes",
+        emptyAttributes: "No attributes",
+        tokensInLabel: "Input tokens",
+        tokensOutLabel: "Output tokens",
+        modelLabel: "Model",
+        durationUnit: "ms",
+        userRole: "User",
+        assistantRole: "Agent",
+        errorTitle: "Could not load traces"
       },
       retrieve: {
         title: "Retrieve",
@@ -404,7 +427,8 @@ export const translations = {
       wisdom: "认知",
       tasks: "任务",
       import: "导入",
-      settings: "设置"
+      settings: "设置",
+      trace: "调用追踪"
     },
     navGroups: {
       knowledge: "知识",
@@ -450,6 +474,28 @@ export const translations = {
         toolStatusRunning: "运行中",
         toolStatusSucceeded: "已完成",
         toolStatusFailed: "失败"
+      },
+      trace: {
+        title: "调用追踪",
+        description: "查看 agent 会话内容及其 OpenTelemetry trace。",
+        sessionsTitle: "会话",
+        emptySessions: "暂无会话",
+        emptyPreview: "暂无消息",
+        conversationTitle: "会话内容",
+        emptyConversation: "该会话暂无消息",
+        tracesTitle: "Trace",
+        emptyTraces: "该会话暂无 span 记录",
+        selectSession: "选择一个会话查看",
+        invocationLabel: "调用",
+        spanDetailTitle: "Span 属性",
+        emptyAttributes: "无属性",
+        tokensInLabel: "输入 token",
+        tokensOutLabel: "输出 token",
+        modelLabel: "模型",
+        durationUnit: "ms",
+        userRole: "用户",
+        assistantRole: "Agent",
+        errorTitle: "无法加载 trace"
       },
       retrieve: {
         title: "检索上下文",
