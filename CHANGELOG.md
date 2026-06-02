@@ -9,6 +9,20 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-06-03
+
+### Added: 7-day TTL cleanup for the browser MinerU convert cache
+
+- **The IndexedDB convert cache (`dikw-mineru-cache`) now prunes entries older
+  than 7 days.** Each cached conversion already recorded a `cachedAt`; on every
+  ImportPage mount, `IDBConvertCache.sweepExpired` (`src/utils/mineru-convert.ts`)
+  walks the store with a readwrite cursor and deletes any entry whose `cachedAt`
+  is more than `CACHE_TTL_MS` (7 days) old, plus legacy/corrupt rows with a
+  missing or non-finite `cachedAt`. The TTL is **absolute** — a cache hit does
+  not refresh `cachedAt`. The sweep is fire-and-forget so a slow or failed prune
+  never blocks the import flow, and runs only at the single point the cache is
+  opened, so no ImportPage / wire-format changes were needed.
+
 ## [0.1.0] - 2026-06-03
 
 ### Changed: chat agent runtime migrated from Pi Agent to Google ADK
