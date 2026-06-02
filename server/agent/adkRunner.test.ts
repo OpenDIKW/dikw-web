@@ -121,6 +121,29 @@ describe("mapAdkEvent", () => {
     });
   });
 
+  it("surfaces an ADK error event (errorMessage + errorCode, no content) as a single error event", () => {
+    const out = mapAdkEvent(SESSION_ID, evt({ errorMessage: "LLM 500 boom", errorCode: "UNKNOWN_ERROR" }));
+    expect(out).toEqual([
+      { type: "error", sessionId: SESSION_ID, code: "UNKNOWN_ERROR", message: "LLM 500 boom" }
+    ]);
+  });
+
+  it("defaults the error code to agent_error when errorCode is absent", () => {
+    const out = mapAdkEvent(SESSION_ID, evt({ errorMessage: "network down" }));
+    expect(out).toEqual([
+      { type: "error", sessionId: SESSION_ID, code: "agent_error", message: "network down" }
+    ]);
+  });
+
+  it("does not emit an error event for a normal text/partial event", () => {
+    const out = mapAdkEvent(
+      SESSION_ID,
+      evt({ partial: true, content: { role: "model", parts: [{ text: "Hel" }] }, timestamp: 1 })
+    );
+    expect(out.some((e) => e.type === "error")).toBe(false);
+    expect(out).toEqual([{ type: "message_delta", sessionId: SESSION_ID, delta: "Hel" }]);
+  });
+
   it("emits a proposal for a propose_maintenance_action response", () => {
     const out = mapAdkEvent(
       SESSION_ID,
@@ -265,5 +288,27 @@ describe("AdkAgentRunner.runMessage", () => {
       runner.runMessage({ sessionId: SESSION_ID, message: "hi", coreUrl: "http://127.0.0.1:8765", onEvent: () => {} })
     ).rejects.toThrow("boom");
     expect(finalizeTurn).not.toHaveBeenCalled();
+  });
+
+  it("surfaces an ADK-yielded error event and still ends the turn (no rethrow)", async () => {
+    const fakeRunner: RunnerLike = {
+      async *runAsync() {
+        yield evt({ partial: true, content: { role: "model", parts: [{ text: "Think" }] }, timestamp: 1 });
+        yield evt({ partial: true, content: { role: "model", parts: [{ text: "ing..." }] }, timestamp: 2 });
+        // ADK catches the LLM/transport failure and YIELDS an error event (no content).
+        yield evt({ errorMessage: "network down", timestamp: 3 });
+      }
+    };
+    const { runner, finalizeTurn } = makeRunner(() => fakeRunner);
+
+    const events = await collect((onEvent) =>
+      runner.runMessage({ sessionId: SESSION_ID, message: "hi", coreUrl: "http://127.0.0.1:8765", onEvent })
+    );
+
+    const errorEvent = events.find((e) => e.type === "error");
+    expect(errorEvent).toMatchObject({ type: "error", message: "network down" });
+    // The loop completes normally — nothing is thrown — and still finalizes + ends.
+    expect(events[events.length - 1]).toEqual({ type: "agent_end", sessionId: SESSION_ID });
+    expect(finalizeTurn).toHaveBeenCalledTimes(1);
   });
 });

@@ -63,6 +63,19 @@ export interface AdkAgentRunnerOptions {
 export function mapAdkEvent(sessionId: string, event: Event): AgentStreamEvent[] {
   const events: AgentStreamEvent[] = [];
 
+  // ADK does not re-throw LLM/transport errors: LlmAgent.runAndHandleError
+  // catches them and YIELDS a non-partial event carrying errorCode/errorMessage
+  // (no content). Surface it as the wire `error` event the chat UI expects;
+  // otherwise the turn would end silently with no assistant text and no error.
+  if (typeof event.errorMessage === "string" && event.errorMessage) {
+    events.push({
+      type: "error",
+      sessionId,
+      code: typeof event.errorCode === "string" && event.errorCode ? event.errorCode : "agent_error",
+      message: event.errorMessage
+    });
+  }
+
   if (event.partial === true) {
     const delta = stringifyContent(event);
     if (delta) {

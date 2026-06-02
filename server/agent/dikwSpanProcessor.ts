@@ -69,13 +69,26 @@ function statusFromCode(code: number): SpanRow["status"] {
   return "unset";
 }
 
+// ADK span attributes that carry full conversation content / raw tool I/O.
+// We never surface these through GET /sessions/{id}/traces (the #trace UI only
+// needs structure/timing/tokens, and the tool_event stream already has tool
+// I/O). Dropped here regardless of ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS, as
+// defense in depth on top of disabling that capture in initAgentTelemetry.
+const REDACTED_ATTRS = new Set<string>([
+  "gcp.vertex.agent.llm_request",
+  "gcp.vertex.agent.llm_response",
+  "gcp.vertex.agent.tool_call_args",
+  "gcp.vertex.agent.tool_response",
+  "gcp.vertex.agent.data"
+]);
+
 // Coerce OTel AttributeValue (string | number | boolean | arrays | undefined)
 // to the string|number|boolean the trace contract allows; arrays/objects are
-// stringified so nothing is dropped.
+// stringified. Sensitive content attributes (REDACTED_ATTRS) are dropped.
 function coerceAttributes(raw: Record<string, unknown>): Record<string, string | number | boolean> {
   const out: Record<string, string | number | boolean> = {};
   for (const [key, value] of Object.entries(raw)) {
-    if (value === undefined || value === null) {
+    if (value === undefined || value === null || REDACTED_ATTRS.has(key)) {
       continue;
     }
     if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {

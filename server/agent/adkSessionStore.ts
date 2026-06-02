@@ -214,7 +214,11 @@ function projectMessages(events: Event[]): AgentMessage[] {
   });
 
   for (const bucket of assistantByInvocation.values()) {
-    const content = bucket.text.join("\n").trim();
+    // Join with "" (no separator): the live bubble is built by concatenating
+    // message_delta chunks (ChatPage: value + delta), and the old pi runner
+    // persisted the same concatenation. A separator here would make the
+    // persisted multi-round bubble diverge from what streamed.
+    const content = bucket.text.join("").trim();
     if (!content) {
       continue;
     }

@@ -105,6 +105,45 @@ describe("AdkSessionStore", () => {
     expect(session.sources[0].path).toBe("knowledge/architecture.md");
   });
 
+  it("joins multi-round assistant text within one invocation with no separator", async () => {
+    const created = await store.createSession();
+    const invocationId = "inv-multi";
+
+    await appendRaw(
+      sessionService,
+      created.id,
+      createEvent({ author: "user", invocationId, content: { role: "user", parts: [{ text: "Q?" }] } })
+    );
+    await appendRaw(
+      sessionService,
+      created.id,
+      createEvent({ author: "dikw_agent", invocationId, content: { role: "model", parts: [{ text: "Let me check." }] } })
+    );
+    // A tool round-trip in the middle makes this a multi-round turn.
+    await appendRaw(
+      sessionService,
+      created.id,
+      createEvent({
+        author: "dikw_agent",
+        invocationId,
+        content: { role: "user", parts: [{ functionResponse: { id: "tc-9", name: "retrieve_knowledge", response: { ok: true } } }] }
+      })
+    );
+    await appendRaw(
+      sessionService,
+      created.id,
+      createEvent({ author: "dikw_agent", invocationId, content: { role: "model", parts: [{ text: "The answer is 4." }] } })
+    );
+
+    await store.finalizeTurn(created.id);
+
+    const session = await store.getSession(created.id);
+    const assistantMessages = session.messages.filter((m) => m.role === "assistant");
+    expect(assistantMessages).toHaveLength(1);
+    // No "\n" between the two agent text segments — matches the streamed bubble.
+    expect(assistantMessages[0].content).toBe("Let me check.The answer is 4.");
+  });
+
   it("marks a failed tool response as failed with its error", async () => {
     const created = await store.createSession();
     await appendRaw(

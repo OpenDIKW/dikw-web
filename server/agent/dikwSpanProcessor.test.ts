@@ -94,6 +94,35 @@ describe("DikwSpanProcessor.onEnd", () => {
     expect(span.tokensOutput).toBeUndefined();
   });
 
+  it("drops sensitive content attributes while keeping safe ones and extracting sessionId/tokens", () => {
+    const store = new SpanStore();
+    const processor = new DikwSpanProcessor(store);
+
+    processor.onEnd(
+      fakeSpan({
+        attributes: {
+          "gcp.vertex.agent.llm_request": "{full convo + system prompt}",
+          "gcp.vertex.agent.tool_response": "raw page body",
+          "gcp.vertex.agent.session_id": "s1",
+          "gen_ai.request.model": "MiniMax-M3",
+          "gen_ai.usage.input_tokens": 1_240
+        }
+      })
+    );
+
+    // sessionId was extracted from the (un-redacted) session_id attr: the
+    // span is reachable under "s1" at all.
+    const view = store.getSessionTraces("s1");
+    expect(view.invocations).toHaveLength(1);
+    const span = view.invocations[0].spans[0];
+    expect(span.attributes["gcp.vertex.agent.llm_request"]).toBeUndefined();
+    expect(span.attributes["gcp.vertex.agent.tool_response"]).toBeUndefined();
+    expect(span.attributes["gen_ai.request.model"]).toBe("MiniMax-M3");
+    expect(span.attributes["gcp.vertex.agent.session_id"]).toBe("s1");
+    expect(span.attributes["gen_ai.usage.input_tokens"]).toBe(1_240);
+    expect(span.tokensInput).toBe(1_240);
+  });
+
   it("maps an unset status code to \"unset\"", () => {
     const store = new SpanStore();
     new DikwSpanProcessor(store).onEnd(
