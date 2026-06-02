@@ -35,6 +35,13 @@ RUN npm ci --omit=dev
 # --- Runtime: built SPA + server bundle + production node_modules -------------
 FROM node:24-slim AS runtime
 WORKDIR /app
+# Apply Debian security updates so OS-package CVEs in the base image (e.g.
+# libgnutls30 lagging the bookworm-security patch) don't fail the Trivy
+# HIGH/CRITICAL scan or ship in the image. Runs before USER node (needs root).
+RUN apt-get update \
+ && apt-get upgrade -y \
+ && apt-get clean \
+ && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production \
     DIKW_WEB_HOST=0.0.0.0 \
     DIKW_WEB_PORT=4321 \
