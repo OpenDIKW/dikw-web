@@ -534,14 +534,38 @@ export function tryOpenDefaultCache(): Promise<ConvertCache | null> {
     };
     req.onsuccess = () => {
       const cache = new IDBConvertCache(req.result);
-      // Best-effort prune of entries older than CACHE_TTL_MS. Fire-and-forget so
-      // a slow/failed sweep never blocks the import flow that just opened the
-      // cache; a stale entry served during the sweep window is harmless.
-      void cache.sweepExpired().catch(() => {});
+      // Best-effort prune of entries older than CACHE_TTL_MS, deferred to idle.
+      // The sweep takes a readwrite lock on the store, and IndexedDB serializes
+      // a later readonly get() behind it — so running it eagerly on mount could
+      // queue the import flow's first cache lookup behind a full scan/delete
+      // pass. Deferring to requestIdleCallback lets foreground cache reads
+      // create their transactions first; a stale entry served before the sweep
+      // runs is harmless (same bytes → same conversion).
+      scheduleIdleSweep(cache);
       resolve(cache);
     };
     req.onerror = () => resolve(null);
   });
+}
+
+/** Run the cache sweep when the browser is idle (or after a short fallback
+ *  delay where requestIdleCallback is unavailable), so it never precedes the
+ *  import flow's foreground cache reads. Errors are swallowed — cleanup is
+ *  best-effort. */
+function scheduleIdleSweep(cache: IDBConvertCache): void {
+  const run = () => {
+    void cache.sweepExpired().catch(() => {});
+  };
+  const ric = (
+    globalThis as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+    }
+  ).requestIdleCallback;
+  if (typeof ric === "function") {
+    ric(run, { timeout: 10000 });
+  } else {
+    setTimeout(run, 0);
+  }
 }
 
 /** A cache entry is expired when it was written more than CACHE_TTL_MS ago.

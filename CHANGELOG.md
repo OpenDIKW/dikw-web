@@ -19,9 +19,10 @@ file format introduced in `[0.0.1.0]` was dropped.
   walks the store with a readwrite cursor and deletes any entry whose `cachedAt`
   is more than `CACHE_TTL_MS` (7 days) old, plus legacy/corrupt rows with a
   missing or non-finite `cachedAt`. The TTL is **absolute** — a cache hit does
-  not refresh `cachedAt`. The sweep is fire-and-forget so a slow or failed prune
-  never blocks the import flow, and runs only at the single point the cache is
-  opened, so no ImportPage / wire-format changes were needed.
+  not refresh `cachedAt`. The sweep is deferred to `requestIdleCallback` (with a
+  `setTimeout` fallback) so its readwrite transaction never queues ahead of the
+  import flow's foreground cache reads, and runs only at the single point the
+  cache is opened, so no ImportPage / wire-format changes were needed.
 
 ## [0.1.0] - 2026-06-03
 
