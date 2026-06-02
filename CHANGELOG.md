@@ -9,6 +9,57 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-06-03
+
+### Changed: chat agent runtime migrated from Pi Agent to Google ADK
+
+- **The chat sidecar's agent runtime moved from `@earendil-works/pi-agent-core` /
+  `@earendil-works/pi-ai` to Google ADK (`@google/adk`).** The same-origin
+  `/agent/*` HTTP API and the `AgentStreamEvent` NDJSON wire format are
+  **unchanged**, so the browser / chat UI is unaffected. `AdkAgentRunner`
+  (`server/agent/adkRunner.ts`) drives one turn on ADK's `Runner` and maps each
+  ADK `Event` → `AgentStreamEvent` (`mapAdkEvent`); the DIKW tool set is now ADK
+  `FunctionTool`s (`server/agent/adkTools.ts`) reusing the existing core / web
+  tool clients.
+- **The LLM is MiniMax via its Anthropic-compatible endpoint through a custom
+  `MiniMaxLlm extends BaseLlm` adapter** (`server/agent/minimaxLlm.ts`, using
+  `@anthropic-ai/sdk` as transport), and the model is upgraded
+  `MiniMax-M2.7` → **`MiniMax-M3`** (`.env.agent.example`). MiniMax `thinking`
+  content blocks are dropped — only `text` / `tool_use` cross the boundary.
+- **Sessions now persist to local SQLite** (`.agent-sessions/agent.sqlite`,
+  appName `dikw-web`, userId `demo`) via ADK's `DatabaseSessionService` instead
+  of one JSON file per session. `AdkSessionStore` (`server/agent/adkSessionStore.ts`)
+  projects ADK events into the existing `AgentSession` DTO at read time, mirroring
+  title / createdAt / message-count / proposal-status into `session.state`.
+  **Old `.agent-sessions/*.json` files are not migrated** (local demo data; expect
+  a one-time reset).
+
+### Added: hidden `#trace` page (OpenTelemetry span waterfall)
+
+- **New hidden route `#trace`** (`src/pages/TracePage.tsx`) — reachable by URL
+  only, intentionally absent from the sidebar nav (`hiddenViewIds` in
+  `src/App.tsx`). It shows a per-session conversation alongside an
+  OpenTelemetry span waterfall served at `GET /agent/sessions/{id}/traces`.
+- **Spans are captured by a custom `DikwSpanProcessor`** (registered once per
+  process via ADK's `maybeSetOtelProviders`) into an in-memory, bounded
+  `SpanStore` (`server/agent/spanStore.ts`), which re-assembles flat span rows
+  into the per-session `SessionTraceView`. Spans are **ephemeral** — lost on a
+  sidecar restart by design; only the conversation content is persisted (sqlite).
+
+### Changed: Docker runtime ships a production `node_modules`
+
+- **`build:server` now bundles with esbuild `--packages=external`** — ADK +
+  MikroORM + native sqlite3 can't be bundled (dynamic driver `import()` + native
+  addons), so `dist-server/standalone.mjs` imports its dependencies from
+  `node_modules` at runtime.
+- **The Docker image is rebuilt around `node:24-slim`** (Debian glibc, for
+  reliable sqlite3 N-API prebuilts) with a dedicated `prod-deps` stage
+  (`npm ci --omit=dev`) whose pruned `node_modules` ships into the runtime image
+  alongside `package.json`. The `HEALTHCHECK` probes via `node -e fetch(...)`
+  since `node:24-slim` ships neither `wget` nor `curl`.
+- **`package.json` gained `overrides`** (`node-gyp`, `tar`) to clear HIGH
+  npm-audit CVEs and an explicit `undici` dependency.
+
 ## [0.0.21] - 2026-06-01
 
 ### Fixed: MinerU conversion survives a request-timeout proxy (job + poll)
