@@ -10,8 +10,11 @@ import { gzipSync } from "node:zlib";
 import { buildTar } from "./tar";
 import { computeProjectRelPath, scanFiles } from "./import-bundle";
 import {
+  CACHE_TTL_MS,
   convertedToFiles,
   convertSource,
+  IDBConvertCache,
+  isCacheEntryExpired,
   MemoryConvertCache,
   MineruConvertError,
   MINERU_EXTENSIONS
@@ -421,5 +424,124 @@ describe("convertedToFiles", () => {
     const paths1 = convertedToFiles(c1).map((f) => f.webkitRelativePath);
     const paths2 = convertedToFiles(c2).map((f) => f.webkitRelativePath);
     expect(paths1).toEqual(paths2);
+  });
+});
+
+// Minimal IndexedDB cursor double: faithfully re-fires the openCursor request's
+// onsuccess for each entry (and once more with a null cursor at the end),
+// supports cursor.delete(), and fires the transaction's oncomplete once the
+// cursor terminates — enough to exercise IDBConvertCache.sweepExpired (which
+// resolves on tx.oncomplete) without a full fake-indexeddb dependency.
+function makeFakeIdb(initial: Array<[string, unknown]>): {
+  db: IDBDatabase;
+  data: Map<string, unknown>;
+} {
+  const data = new Map<string, unknown>(initial);
+  const tx: {
+    objectStore: (name: string) => unknown;
+    oncomplete: (() => void) | null;
+    onerror: (() => void) | null;
+    onabort: (() => void) | null;
+  } = { objectStore: () => store, oncomplete: null, onerror: null, onabort: null };
+  const store = {
+    openCursor() {
+      const req: {
+        result: unknown;
+        onsuccess: (() => void) | null;
+        onerror: (() => void) | null;
+        error: unknown;
+      } = { result: null, onsuccess: null, onerror: null, error: null };
+      const keys = [...data.keys()];
+      let i = 0;
+      const fire = () => {
+        if (i >= keys.length) {
+          req.result = null;
+          req.onsuccess?.();
+          queueMicrotask(() => tx.oncomplete?.());
+          return;
+        }
+        const key = keys[i];
+        req.result = {
+          primaryKey: key,
+          value: data.get(key),
+          continue() {
+            i += 1;
+            queueMicrotask(fire);
+          },
+          delete() {
+            data.delete(key);
+            return { onsuccess: null, onerror: null };
+          }
+        };
+        req.onsuccess?.();
+      };
+      queueMicrotask(fire);
+      return req;
+    }
+  };
+  const db = { transaction: (_name: string, _mode: string) => tx };
+  return { db: db as unknown as IDBDatabase, data };
+}
+
+describe("cache TTL cleanup", () => {
+  const NOW = 1_700_000_000_000;
+
+  describe("isCacheEntryExpired", () => {
+    it("keeps a fresh entry", () => {
+      expect(isCacheEntryExpired(NOW - 1000, NOW)).toBe(false);
+    });
+    it("keeps an entry exactly at the TTL boundary (not strictly older)", () => {
+      expect(isCacheEntryExpired(NOW - CACHE_TTL_MS, NOW)).toBe(false);
+    });
+    it("expires an entry one ms past the TTL", () => {
+      expect(isCacheEntryExpired(NOW - CACHE_TTL_MS - 1, NOW)).toBe(true);
+    });
+    it("treats a missing or non-numeric cachedAt as expired", () => {
+      expect(isCacheEntryExpired(undefined, NOW)).toBe(true);
+      expect(isCacheEntryExpired(Number.NaN, NOW)).toBe(true);
+      expect(isCacheEntryExpired("oops" as unknown, NOW)).toBe(true);
+    });
+    it("keeps a future-dated entry (tolerates clock skew)", () => {
+      expect(isCacheEntryExpired(NOW + 5000, NOW)).toBe(false);
+    });
+  });
+
+  describe("IDBConvertCache.sweepExpired", () => {
+    const rec = (cachedAt?: number): Record<string, unknown> => ({
+      mineruVersion: 1,
+      stem: "s",
+      markdown: "# s\n",
+      assets: [],
+      ...(cachedAt === undefined ? {} : { cachedAt })
+    });
+
+    it("deletes only entries strictly older than 7 days", async () => {
+      const { db, data } = makeFakeIdb([
+        ["fresh", rec(NOW - 1000)],
+        ["boundary", rec(NOW - CACHE_TTL_MS)],
+        ["stale", rec(NOW - CACHE_TTL_MS - 1)],
+        ["ancient", rec(NOW - 30 * CACHE_TTL_MS)]
+      ]);
+      const cache = new IDBConvertCache(db);
+      await cache.sweepExpired(NOW);
+      expect([...data.keys()].sort()).toEqual(["boundary", "fresh"]);
+    });
+
+    it("deletes a legacy record with no cachedAt", async () => {
+      const { db, data } = makeFakeIdb([
+        ["legacy", rec(undefined)],
+        ["fresh", rec(NOW)]
+      ]);
+      const cache = new IDBConvertCache(db);
+      await cache.sweepExpired(NOW);
+      expect([...data.keys()]).toEqual(["fresh"]);
+    });
+
+    it("resolves without deleting anything when the store is empty", async () => {
+      const { db, data } = makeFakeIdb([]);
+      const cache = new IDBConvertCache(db);
+      await cache.sweepExpired(NOW);
+      expect(data.size).toBe(0);
+    });
   });
 });

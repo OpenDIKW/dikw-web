@@ -29,6 +29,11 @@ const DB_NAME = "dikw-mineru-cache";
 const DB_STORE = "entries";
 const DB_VERSION = 1;
 
+/** Cached conversions are retained for 7 days from their write time, then
+ *  swept on the next time the cache is opened (issue: IndexedDB cache growth).
+ *  Absolute TTL — a cache hit does not refresh ``cachedAt``. */
+export const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 // Browser-driven poll cadence for the detached conversion job. Each poll is a
 // short, independent request (issue #60) — no held connection, so there's
 // nothing for a reverse proxy to time out; the sidecar's 10-min budget stays
@@ -527,9 +532,53 @@ export function tryOpenDefaultCache(): Promise<ConvertCache | null> {
         db.createObjectStore(DB_STORE);
       }
     };
-    req.onsuccess = () => resolve(new IDBConvertCache(req.result));
+    req.onsuccess = () => {
+      const cache = new IDBConvertCache(req.result);
+      // Best-effort prune of entries older than CACHE_TTL_MS, deferred to idle.
+      // The sweep takes a readwrite lock on the store, and IndexedDB serializes
+      // a later readonly get() behind it — so running it eagerly on mount could
+      // queue the import flow's first cache lookup behind a full scan/delete
+      // pass. Deferring to requestIdleCallback lets foreground cache reads
+      // create their transactions first; a stale entry served before the sweep
+      // runs is harmless (same bytes → same conversion).
+      scheduleIdleSweep(cache);
+      resolve(cache);
+    };
     req.onerror = () => resolve(null);
   });
+}
+
+/** Run the cache sweep when the browser is idle (or after a short fallback
+ *  delay where requestIdleCallback is unavailable), so it never precedes the
+ *  import flow's foreground cache reads. Errors are swallowed — cleanup is
+ *  best-effort. */
+function scheduleIdleSweep(cache: IDBConvertCache): void {
+  const run = () => {
+    void cache.sweepExpired().catch(() => {});
+  };
+  const ric = (
+    globalThis as {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+    }
+  ).requestIdleCallback;
+  if (typeof ric === "function") {
+    ric(run, { timeout: 10000 });
+  } else {
+    setTimeout(run, 0);
+  }
+}
+
+/** A cache entry is expired when it was written more than CACHE_TTL_MS ago.
+ *  Exactly at the TTL is kept (strictly-older test). A missing or non-finite
+ *  ``cachedAt`` (legacy / corrupt record) is treated as expired so the sweep
+ *  reclaims it. Future-dated entries (clock skew) are kept. */
+export function isCacheEntryExpired(
+  cachedAt: unknown,
+  now: number,
+  ttlMs: number = CACHE_TTL_MS
+): boolean {
+  if (typeof cachedAt !== "number" || !Number.isFinite(cachedAt)) return true;
+  return now - cachedAt > ttlMs;
 }
 
 interface CacheRecord {
@@ -540,8 +589,43 @@ interface CacheRecord {
   cachedAt: number;
 }
 
-class IDBConvertCache implements ConvertCache {
+export class IDBConvertCache implements ConvertCache {
   constructor(private readonly db: IDBDatabase) {}
+
+  /** Walk every entry with a readwrite cursor and delete those older than
+   *  CACHE_TTL_MS. A cursor (rather than getAll) keeps only one record —
+   *  which carries the full markdown + asset bytes — in memory at a time.
+   *  Resolves on transaction commit (so the deletes are durable, and a
+   *  delete-triggered abort surfaces as a rejection rather than a false
+   *  success); rejects on a transaction/cursor error so the caller can
+   *  swallow it. ``now`` is injectable for tests. */
+  sweepExpired(now: number = Date.now()): Promise<void> {
+    return new Promise((resolve, reject) => {
+      let tx: IDBTransaction;
+      try {
+        tx = this.db.transaction(DB_STORE, "readwrite");
+      } catch (err) {
+        reject(err);
+        return;
+      }
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error ?? new Error("sweepExpired transaction aborted"));
+      tx.onerror = () => reject(tx.error);
+      const req = tx.objectStore(DB_STORE).openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        // Null cursor → iteration done; tx.oncomplete resolves once the
+        // queued deletes commit.
+        if (!cursor) return;
+        const record = cursor.value as CacheRecord | undefined;
+        if (isCacheEntryExpired(record?.cachedAt, now)) {
+          cursor.delete();
+        }
+        cursor.continue();
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }
 
   async get(key: string): Promise<ConvertedSource | null> {
     const record = await this.txGet(key);
