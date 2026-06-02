@@ -56,7 +56,8 @@ browser (React 19, hand-rolled CSS tokens)
    ├─── same-origin /v1/*   ──▶ Vite proxy ──▶ dikw-core (default core)
    │                        ──▶ direct fetch ──▶ dikw-core (custom URL)
    │
-   ├─── same-origin /agent/* ──▶ Pi Agent sidecar (Node middleware in Vite)
+   ├─── same-origin /agent/* ──▶ Google ADK sidecar (Node middleware in Vite)
+   │                                  └─── MiniMax-M3 via MiniMaxLlm (Anthropic-compatible)
    │                                  └─── calls back into dikw-core as tools
    │                                  └─── optional web_search (Tavily) / web_fetch (Jina)
    │
@@ -72,16 +73,19 @@ dev server as middleware, and into `dist-server/standalone.mjs` for prod):
 1. **Browser app** in `src/` — React 19 + TypeScript, no UI framework.
    Hand-rolled CSS token system in `src/styles.css`.
 2. **Sidecar** in `server/agent/` + `server/web/` — `/agent/*` mounted by
-   `agentSidecarPlugin()` (Pi Agent chat), `/web/*` mounted by
+   `agentSidecarPlugin()` (Google ADK chat), `/web/*` mounted by
    `webApiPlugin()` (browser helpers, currently mineru conversion). Both
-   live in `vite.config.ts`. Sessions persist as JSON in `.agent-sessions/`
-   (gitignored).
+   live in `vite.config.ts`. Sessions persist to local SQLite in
+   `.agent-sessions/agent.sqlite` (gitignored).
 
 ## Routes
 
 Hash-based. Settings owns connection state.
 
 - `#chat` — canonical chat. Legacy `#query` redirects here.
+- `#trace` — hidden (URL-only, not in the sidebar): per-session
+  conversation + an OpenTelemetry span waterfall from
+  `/agent/sessions/{id}/traces`. Spans are in-memory and ephemeral.
 - `#base` — Base reader (sidebar label "Base", page heading "Base" in en / "知识库" in zh-CN). Shows the `source` + `knowledge` layers; wisdom lives on `#wisdom`. Tree from `/v1/base/pages?active=true`;
   body from `/v1/base/pages/{path}`. Tabs: Read / Info / Outline / Source. The legacy `#wiki` hash no longer resolves (falls back to `#overview`).
 - `#graph` — read-only knowledge map; consumes
@@ -114,7 +118,11 @@ not become live DOM.
 
 ## Chat sidecar
 
-The browser only ever calls same-origin `/agent/*`. The sidecar:
+The agent runs on **Google ADK** (`@google/adk`); the LLM is MiniMax-M3
+via its Anthropic-compatible endpoint through a custom `MiniMaxLlm`
+adapter (`@anthropic-ai/sdk` transport). The browser only ever calls
+same-origin `/agent/*` and the `AgentStreamEvent` NDJSON wire shape is
+stable across the runtime. The sidecar:
 
 - Receives the current Settings `Server URL` and optional bearer token
   on each request; rejects requests without a `coreUrl` rather than
@@ -126,8 +134,9 @@ The browser only ever calls same-origin `/agent/*`. The sidecar:
   in `.env.agent.local`. A Brave client is retained in
   `WebToolClient.search` for future provider rotation but is not
   registered as an agent tool.
-- Persists sessions as JSON in `.agent-sessions/`. Session files must
-  not store LLM keys or browser session-storage values.
+- Persists sessions to local SQLite (`.agent-sessions/agent.sqlite`) via
+  ADK's `DatabaseSessionService`. The stored events must not contain LLM
+  keys or browser session-storage values.
 
 Local credentials (LLM keys, optional web tool keys, `MinerUAPIKey` for
 Import PDF / Office conversion) live in `.env.agent.local` (gitignored
@@ -197,8 +206,8 @@ external dikw-core (host networking + CORS).
 - `docs/ui-system.md` — visual tokens, markdown reader contract,
   graph canvas rules, components.
 - `docs/graph-view.md` — Graph View architecture and rendering.
-- `docs/agent.md` — Pi-Agent sidecar configuration, session storage,
-  tool registry.
+- `docs/agent.md` — ADK agent sidecar (MiniMaxLlm, ADK runner/session
+  store, sqlite sessions, OpenTelemetry `#trace`), tool registry.
 - `docs/tdd.md` — TDD workflow for this project.
 - `docs/adr/` — Architecture Decision Records (one decision per file,
   prefixed `NNNN-`).
@@ -212,7 +221,7 @@ src/
   pages/           one file per top-level route (Wiki, Graph, Chat, …)
   utils/           pure helpers (chart-spec, markdown frontmatter, graph adapters, format)
   styles.css       hand-rolled token system — the UI baseline
-server/agent/      Pi-Agent sidecar, tools, session storage
+server/agent/      ADK agent sidecar, MiniMaxLlm, tools, sqlite session storage
 tests/e2e/         Playwright specs + mockApi fixtures
 docs/              canonical product/contract notes (see above)
 ```

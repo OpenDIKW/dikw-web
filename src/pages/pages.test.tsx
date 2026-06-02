@@ -1293,6 +1293,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() =>
         createAsyncEvents([
           { type: "message_delta", sessionId: "session-1", delta: "## Layered answer\n\nUse **evidence**." },
@@ -1357,6 +1358,7 @@ describe("read console pages", () => {
       renameSession: vi.fn().mockResolvedValue(renamedSession),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
     } as AgentClientLike & { renameSession: ReturnType<typeof vi.fn> };
 
@@ -1403,6 +1405,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn().mockResolvedValue(undefined),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
     } as AgentClientLike & { deleteSession: ReturnType<typeof vi.fn> };
 
@@ -1460,6 +1463,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
     } as AgentClientLike;
 
@@ -1499,6 +1503,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
     } as AgentClientLike;
 
@@ -1540,6 +1545,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
     } as AgentClientLike;
 
@@ -1585,6 +1591,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
     } as AgentClientLike;
 
@@ -1628,6 +1635,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
     } as AgentClientLike;
 
@@ -1667,6 +1675,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
     } as AgentClientLike;
 
@@ -1710,6 +1719,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => controlledStream.stream())
     } as AgentClientLike;
 
@@ -1789,6 +1799,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() =>
         createAsyncEvents([
           { type: "message_delta", sessionId: "session-1", delta: "Health failed." },
@@ -1832,6 +1843,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
     } as AgentClientLike;
 
@@ -1867,6 +1879,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() => controlledStream.stream())
     } as AgentClientLike;
 
@@ -1921,6 +1934,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() =>
         createAsyncEvents([
           { type: "agent_start", sessionId: "session-1" },
@@ -1967,6 +1981,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() =>
         createAsyncEvents([
           { type: "agent_start", sessionId: "session-1" },
@@ -2014,6 +2029,7 @@ describe("read console pages", () => {
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() =>
         createAsyncEvents([
           { type: "agent_start", sessionId: "session-1" },

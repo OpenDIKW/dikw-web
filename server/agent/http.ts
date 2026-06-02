@@ -1,14 +1,21 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { mkdir } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
+import { DatabaseSessionService } from "@google/adk";
 import { loadAgentConfig } from "./config.js";
-import { FileSessionStore, parseSessionTitle, SESSION_TITLE_ERROR_MESSAGES } from "./sessionStore.js";
-import { PiAgentRunner, type AgentRunner } from "./runtime.js";
+import { parseSessionTitle, SESSION_TITLE_ERROR_MESSAGES } from "./sessionStore.js";
+import { AdkSessionStore } from "./adkSessionStore.js";
+import { AdkAgentRunner } from "./adkRunner.js";
+import { SpanStore } from "./spanStore.js";
+import { initAgentTelemetry } from "./telemetry.js";
+import type { AgentRunner } from "./runtime.js";
 import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types.js";
 
 export interface AgentHandlerOptions {
   cwd?: string;
-  store?: FileSessionStore;
+  store?: AdkSessionStore;
   runner?: AgentRunner;
+  spanStore?: SpanStore;
   sessionsDir?: string;
 }
 
@@ -22,20 +29,25 @@ export function resolveSessionsDir(cwd: string, override?: string): string {
 
 export async function createDefaultAgentHandler(cwd = process.cwd(), options: { sessionsDir?: string } = {}) {
   const config = await loadAgentConfig({ cwd });
-  const store = new FileSessionStore(resolveSessionsDir(cwd, options.sessionsDir));
-  return createAgentHandler({
-    cwd,
-    store,
-    runner: new PiAgentRunner({ config, store })
-  });
+  const dir = resolveSessionsDir(cwd, options.sessionsDir);
+  await mkdir(dir, { recursive: true }); // sqlite3 creates the file, not the dir
+  // POSIX slashes — Windows backslashes break the sqlite:// URI parse.
+  const dbUri = `sqlite://${dir.replace(/\\/g, "/")}/agent.sqlite`;
+  const sessionService = new DatabaseSessionService(dbUri);
+  const store = new AdkSessionStore({ sessionService, appName: "dikw-web", userId: "demo" });
+  // Register telemetry BEFORE building the runner so the first turn's spans are
+  // captured (maybeSetOtelProviders is global + idempotent — see telemetry.ts).
+  const spanStore = new SpanStore();
+  initAgentTelemetry(spanStore);
+  const runner = new AdkAgentRunner({ config, store, sessionService });
+  return createAgentHandler({ cwd, store, runner, spanStore });
 }
 
 export function createAgentHandler(options: AgentHandlerOptions = {}) {
-  const cwd = options.cwd ?? process.cwd();
-  const store = options.store ?? new FileSessionStore(resolveSessionsDir(cwd, options.sessionsDir));
-  const runnerPromise =
-    options.runner ??
-    loadAgentConfig({ cwd }).then((config) => new PiAgentRunner({ config, store }) satisfies AgentRunner);
+  const { store, runner, spanStore } = options;
+  if (!store || !runner) {
+    throw new Error("createAgentHandler requires both store and runner (use createDefaultAgentHandler)");
+  }
   const activeControllers = new Map<string, AbortController>();
 
   return async function agentHandler(req: IncomingMessage, res: ServerResponse, next?: (error?: unknown) => void) {
@@ -57,6 +69,9 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       }
       if (req.method === "GET" && parts.length === 2) {
         return json(res, await store.getSession(sessionId));
+      }
+      if (req.method === "GET" && parts.length === 3 && parts[2] === "traces") {
+        return json(res, spanStore ? spanStore.getSessionTraces(sessionId) : { sessionId, invocations: [] });
       }
       if (req.method === "PATCH" && parts.length === 2) {
         const body = await readJsonBody(req);
@@ -91,7 +106,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
           res.write(`${JSON.stringify(event)}\n`);
         };
         try {
-          await (await runnerPromise).runMessage({
+          await runner.runMessage({
             sessionId,
             message: body.message.trim(),
             coreUrl: connection.coreUrl,

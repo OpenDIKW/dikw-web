@@ -32,8 +32,9 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { TasksPage } from "./pages/TasksPage";
 import { WikiPage } from "./pages/WikiPage";
 import { WisdomPage } from "./pages/WisdomPage";
+import { TracePage } from "./pages/TracePage";
 
-type ViewId = "overview" | "chat" | "retrieve" | "base" | "graph" | "wisdom" | "tasks" | "import" | "settings";
+type ViewId = "overview" | "chat" | "retrieve" | "base" | "graph" | "wisdom" | "tasks" | "import" | "settings" | "trace";
 type NavLabelKey = keyof (typeof translations)["en"]["nav"];
 
 const serverKey = "dikw-web.serverUrl";
@@ -72,9 +73,13 @@ const navGroups: Array<{ id: NavGroupId; items: NavItem[] }> = [
 ];
 
 const settingsNavItem: NavItem = { id: "settings", labelKey: "settings", icon: Settings };
+// Hidden routes: reachable by hash (e.g. #trace) but intentionally absent from
+// the sidebar nav. Listed here so viewFromHash() recognizes them as valid.
+const hiddenViewIds: ViewId[] = ["trace"];
 const allViewIds: ViewId[] = [
   ...navGroups.flatMap((group) => group.items.map((item) => item.id)),
-  settingsNavItem.id
+  settingsNavItem.id,
+  ...hiddenViewIds
 ];
 
 export function App({ branding = defaultBranding }: { branding?: Branding }) {
@@ -231,6 +236,7 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
         <main className="content">
           {activeView === "overview" ? <OverviewPage client={client} locale={locale} /> : null}
           {activeView === "chat" ? <ChatPage agentClient={agentClient} client={client} locale={locale} /> : null}
+          {activeView === "trace" ? <TracePage agentClient={agentClient} locale={locale} /> : null}
           {activeView === "retrieve" ? <RetrievePage client={client} locale={locale} /> : null}
           {activeView === "base" ? (
             <WikiPage

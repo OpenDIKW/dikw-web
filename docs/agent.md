@@ -1,15 +1,67 @@
-# Pi Agent Sidecar
+# Agent Sidecar (Google ADK)
 
-`dikw-web` runs Pi Agent in a Node sidecar and exposes same-origin
-`/agent/*` routes to the browser. The browser never receives LLM keys;
-it only streams Agent events and reads persisted session metadata.
+`dikw-web` runs the chat agent on **Google ADK** (`@google/adk`) in a Node
+sidecar and exposes same-origin `/agent/*` routes to the browser. The
+browser never receives LLM keys; it only streams Agent events and reads
+persisted session metadata. The `/agent/*` HTTP API and the
+`AgentStreamEvent` NDJSON wire shape are unchanged from the previous
+runtime — the chat UI is unaffected by the migration off Pi Agent.
 
 The same sidecar process also serves `/web/*` for non-agent browser
 helpers (see `server/web/` — currently the mineru-backed PDF / Office
-converter consumed by ImportPage). Those routes do not call Pi Agent and
+converter consumed by ImportPage). Those routes do not call the agent and
 do not touch `dikw-core`; they exist purely so the browser can offload
 external-API calls that would otherwise hit CORS or expose vendor keys.
 Keep new browser-helper endpoints under `/web/*`, not under `/agent/*`.
+
+## Runtime
+
+The runtime lives in `server/agent/` and is wired together by
+`createDefaultAgentHandler` (`http.ts`):
+
+- **`MiniMaxLlm`** (`minimaxLlm.ts`) — a custom `extends BaseLlm` adapter
+  for MiniMax via its **Anthropic-compatible** Messages API. It uses the
+  official `@anthropic-ai/sdk` as transport and translates deterministically
+  between ADK/genai shapes (`LlmRequest`/`LlmResponse`, genai
+  `Content`/`Part`) and Anthropic message shapes. Auth is `x-api-key` (the
+  SDK default); no Bearer token and no proxy are needed against
+  `https://api.minimaxi.com/anthropic`. The model is `MiniMax-M3`. MiniMax
+  `thinking` content blocks are intentionally dropped — only `text` and
+  `tool_use` cross the boundary.
+- **`AdkAgentRunner`** (`adkRunner.ts`) — drives one chat turn on ADK's
+  `Runner` (SSE streaming mode) and maps each ADK `Event` to zero or more
+  `AgentStreamEvent`s via the pure, exported `mapAdkEvent`: PARTIAL text →
+  `message_delta`; `functionCall` → a `running` `tool_event`;
+  `functionResponse` → a `succeeded`/`failed` `tool_event`, then any
+  `source`s, then a `proposal` (reusing `sourcesFromTool` / `proposalFromTool`
+  from `runtime.ts`). The Runner auto-appends the user message and persists
+  non-partial events, so the runner never persists manually.
+- **`AdkSessionStore`** (`adkSessionStore.ts`) — wraps ADK's
+  `DatabaseSessionService` and projects ADK events into the existing
+  `AgentSession` DTO shape at **read time**, so the chat UI sees
+  byte-identical session data regardless of the underlying store. Listing
+  fields (`title`, `createdAt`, `messageCount`, `lastMessagePreview`) and
+  proposal status are mirrored into `session.state` because `listSessions`
+  returns sessions with empty events but populated state.
+- **Tools** — `createDikwTools` (`adkTools.ts`) returns ADK `FunctionTool`s
+  that reuse the existing `CoreToolClient` / `WebToolClient` from `tools.ts`.
+
+## OpenTelemetry / #trace
+
+ADK emits OpenTelemetry spans for every invocation. `initAgentTelemetry`
+(`telemetry.ts`) registers a `DikwSpanProcessor` (`dikwSpanProcessor.ts`)
+via ADK's `maybeSetOtelProviders` — once per process, since the provider is
+process-global and idempotent. The processor projects each finished span
+into a flat `SpanRow` in an in-memory `SpanStore` (`spanStore.ts`, bounded,
+FIFO-evicted at 5000 rows), resolving the session id from
+`gcp.vertex.agent.session_id` / `gen_ai.conversation.id` and the invocation
+id from `gcp.vertex.agent.invocation_id`.
+
+The hidden `#trace` page (URL-only, not in the sidebar) reads
+`GET /agent/sessions/{id}/traces`, which calls `SpanStore.getSessionTraces`
+to re-assemble the rows into a per-session waterfall (`SessionTraceView` →
+invocations → spans). **Spans are ephemeral** — they are lost on a sidecar
+restart by design; only the conversation content is persisted (in sqlite).
 
 ## Configuration
 
@@ -21,7 +73,7 @@ DIKW_AGENT_PROVIDER=minimax
 DIKW_AGENT_API=anthropic-messages
 DIKW_AGENT_API_KEY=<MiniMax key>
 DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic
-DIKW_AGENT_MODEL=MiniMax-M2.7
+DIKW_AGENT_MODEL=MiniMax-M3
 ```
 
 The current MiniMax key can be copied from `../dikw-core/.env`
@@ -57,33 +109,42 @@ invalid_request`.
 
 ## Session Storage
 
-Sessions are stored in `.agent-sessions/`, one JSON file per session.
-The directory is ignored by Git and is local to the workstation.
+Sessions persist to **local SQLite** via ADK's `DatabaseSessionService`,
+in `.agent-sessions/agent.sqlite` (appName `dikw-web`, userId `demo`). The
+directory is ignored by Git and is local to the workstation; `http.ts`
+creates the directory and hands the service a `sqlite://.../agent.sqlite`
+URI (POSIX slashes — Windows backslashes break the URI parse). The legacy
+one-JSON-file-per-session store is gone, and old `.agent-sessions/*.json`
+files are **not** migrated (local demo data — expect a one-time reset).
 
-Session files store messages, tool call summaries, source references,
-and maintenance proposal status. They must not store MiniMax or other
-LLM API keys, core bearer tokens, or browser session storage values.
+ADK stores raw conversation events; `AdkSessionStore` projects them into
+the `AgentSession` DTO at read time. The stored events and mirrored state
+must not contain MiniMax or other LLM API keys, core bearer tokens, or
+browser session-storage values.
 
-Sources and tool call summaries are session-level context. The Chat UI
-shows the accumulated context for the open session instead of filtering
-it by assistant reply. This keeps the right rail stable while users read
-or scroll through the conversation history.
+Sources and tool call summaries are session-level context derived from the
+stored `functionResponse` events. The Chat UI shows the accumulated context
+for the open session instead of filtering it by assistant reply. This keeps
+the right rail stable while users read or scroll through the conversation
+history.
 
-Each session has a `title`. New sessions start as `New chat`; the first
-user message auto-generates a title only while the title is still the
-default. Users can rename a chat from the web UI, and that manual title
-is persisted in the same session JSON file.
+Each session has a `title`, mirrored into `session.state`. New sessions
+start as `New chat`; the first user message auto-generates a title (in
+`finalizeTurn`) only while the title is still the default. Users can rename
+a chat from the web UI, and that manual title is persisted to state.
 
-The sidecar writes sessions via temporary file plus rename to reduce
-partial-write risk. Reopening a historical session reconstructs context
-from the transcript instead of relying on a previous in-memory Pi Agent
-object.
+Reopening a historical session reconstructs context by projecting the
+persisted ADK events — there is no in-memory agent object to rely on.
 
 ## API
 
 - `GET /agent/sessions`
 - `POST /agent/sessions`
 - `GET /agent/sessions/{id}`
+- `GET /agent/sessions/{id}/traces` — OpenTelemetry span waterfall for the
+  session (`SessionTraceView`), consumed by the hidden `#trace` page. Spans
+  are in-memory and ephemeral, so this returns `{ sessionId, invocations: [] }`
+  after a sidecar restart.
 - `PATCH /agent/sessions/{id}` with `{ "title": "..." }`
 - `DELETE /agent/sessions/{id}`
 - `POST /agent/sessions/{id}/messages`
@@ -103,19 +164,20 @@ characters. Invalid titles return `400 invalid_request`.
 
 ## Core Boundary
 
-Pi Agent uses `dikw-core` as the fact source through retrieve, page,
+The agent uses `dikw-core` as the fact source through retrieve, page,
 link, wisdom, and health endpoints. The target core URL comes from the
 current browser Settings request payload. The removed `/v1/query`
 endpoint is not called.
 
-Maintenance tasks are not executed directly by the Agent. The Agent may
+Maintenance tasks are not executed directly by the agent. The agent may
 create a proposal; the UI must get explicit user confirmation before
 calling core maintenance endpoints.
 
 ## Tools
 
-All tools are defined in `server/agent/tools.ts`. They run inside the
-Node sidecar and never receive browser-side secrets.
+ADK `FunctionTool`s are assembled in `server/agent/adkTools.ts`, reusing
+the `CoreToolClient` / `WebToolClient` clients in `server/agent/tools.ts`.
+They run inside the Node sidecar and never receive browser-side secrets.
 
 Core tools (call `dikw-core`):
 
@@ -143,13 +205,13 @@ Sidecar-only external tools (do not touch `dikw-core`):
 
 Both web tools wrap fetch with `AbortSignal.timeout(15_000)` and combine
 it with the per-request user abort signal via `AbortSignal.any`, so
-clicking Stop in the UI cancels in-flight Brave/Jina calls. API keys
-stay in `.env.agent.local` and are never written to session JSON files,
+clicking Stop in the UI cancels in-flight Tavily/Jina calls. API keys
+stay in `.env.agent.local` and are never written to the session store,
 streamed to the browser, or echoed in error messages.
 
 When `HTTPS_PROXY` / `HTTP_PROXY` is set in the sidecar process
 environment, the two web tools route through it via undici's
-`ProxyAgent`. The proxy is **only** applied to external Brave/Jina
+`ProxyAgent`. The proxy is **only** applied to external Tavily/Jina
 calls, not to `dikw-core` requests, so a local core on
 `127.0.0.1:8765` keeps working alongside an upstream proxy used to
 reach the public web.

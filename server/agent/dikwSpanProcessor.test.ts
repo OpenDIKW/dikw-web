@@ -1,0 +1,133 @@
+// @vitest-environment node
+import { describe, expect, it } from "vitest";
+import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
+import { DikwSpanProcessor } from "./dikwSpanProcessor";
+import { SpanStore } from "./spanStore";
+
+// Minimal fake matching the installed @opentelemetry/sdk-trace-base 2.7.x
+// ReadableSpan shape: spanContext() returns trace/span ids, parent lives on
+// parentSpanContext?.spanId, times are HrTime ([seconds, nanos]).
+function fakeSpan(overrides: Partial<{
+  name: string;
+  traceId: string;
+  spanId: string;
+  parentSpanId: string | null;
+  startTime: [number, number];
+  duration: [number, number];
+  statusCode: number;
+  attributes: Record<string, unknown>;
+}> = {}): ReadableSpan {
+  const {
+    name = "call_llm",
+    traceId = "t1",
+    spanId = "span-1",
+    parentSpanId = "parent-1",
+    startTime = [1_717, 500_000_000], // 1_717_000.5 ms
+    duration = [0, 900_000_000], // 900 ms
+    statusCode = 1,
+    attributes = {}
+  } = overrides;
+  return {
+    name,
+    spanContext: () => ({ traceId, spanId, traceFlags: 1 }),
+    parentSpanContext: parentSpanId ? ({ spanId: parentSpanId } as never) : undefined,
+    startTime,
+    duration,
+    status: { code: statusCode as never },
+    attributes: attributes as never
+  } as unknown as ReadableSpan;
+}
+
+describe("DikwSpanProcessor.onEnd", () => {
+  it("extracts a flat SpanRow with ms conversion, status, ids, and tokens", () => {
+    const store = new SpanStore();
+    const processor = new DikwSpanProcessor(store);
+
+    processor.onEnd(
+      fakeSpan({
+        attributes: {
+          "gcp.vertex.agent.session_id": "s1",
+          "gcp.vertex.agent.invocation_id": "inv-1",
+          "gen_ai.request.model": "MiniMax-M3",
+          "gen_ai.usage.input_tokens": 1_240,
+          "gen_ai.usage.output_tokens": 58,
+          tags: ["a", "b"]
+        }
+      })
+    );
+
+    const view = store.getSessionTraces("s1");
+    expect(view.invocations).toHaveLength(1);
+    const span = view.invocations[0].spans[0];
+    expect(span.spanId).toBe("span-1");
+    expect(span.parentSpanId).toBe("parent-1");
+    expect(span.name).toBe("call_llm");
+    // 1717 s + 0.5 s → 1_717_500 ms.
+    expect(span.startTimeMs).toBe(1_717_500);
+    expect(span.durationMs).toBe(900);
+    expect(span.status).toBe("ok");
+    expect(span.tokensInput).toBe(1_240);
+    expect(span.tokensOutput).toBe(58);
+    expect(span.attributes["gen_ai.request.model"]).toBe("MiniMax-M3");
+    // Array attribute coerced to a JSON string (nothing dropped).
+    expect(span.attributes.tags).toBe('["a","b"]');
+  });
+
+  it("maps status codes and falls back to gen_ai.conversation.id for sessionId, null parent", () => {
+    const store = new SpanStore();
+    const processor = new DikwSpanProcessor(store);
+
+    processor.onEnd(
+      fakeSpan({
+        spanId: "root",
+        parentSpanId: null,
+        statusCode: 2,
+        attributes: { "gen_ai.conversation.id": "s9" }
+      })
+    );
+
+    const view = store.getSessionTraces("s9");
+    const span = view.invocations[0].spans[0];
+    expect(span.parentSpanId).toBeNull();
+    expect(span.status).toBe("error");
+    expect(span.tokensInput).toBeUndefined();
+    expect(span.tokensOutput).toBeUndefined();
+  });
+
+  it("drops sensitive content attributes while keeping safe ones and extracting sessionId/tokens", () => {
+    const store = new SpanStore();
+    const processor = new DikwSpanProcessor(store);
+
+    processor.onEnd(
+      fakeSpan({
+        attributes: {
+          "gcp.vertex.agent.llm_request": "{full convo + system prompt}",
+          "gcp.vertex.agent.tool_response": "raw page body",
+          "gcp.vertex.agent.session_id": "s1",
+          "gen_ai.request.model": "MiniMax-M3",
+          "gen_ai.usage.input_tokens": 1_240
+        }
+      })
+    );
+
+    // sessionId was extracted from the (un-redacted) session_id attr: the
+    // span is reachable under "s1" at all.
+    const view = store.getSessionTraces("s1");
+    expect(view.invocations).toHaveLength(1);
+    const span = view.invocations[0].spans[0];
+    expect(span.attributes["gcp.vertex.agent.llm_request"]).toBeUndefined();
+    expect(span.attributes["gcp.vertex.agent.tool_response"]).toBeUndefined();
+    expect(span.attributes["gen_ai.request.model"]).toBe("MiniMax-M3");
+    expect(span.attributes["gcp.vertex.agent.session_id"]).toBe("s1");
+    expect(span.attributes["gen_ai.usage.input_tokens"]).toBe(1_240);
+    expect(span.tokensInput).toBe(1_240);
+  });
+
+  it("maps an unset status code to \"unset\"", () => {
+    const store = new SpanStore();
+    new DikwSpanProcessor(store).onEnd(
+      fakeSpan({ statusCode: 0, attributes: { "gcp.vertex.agent.session_id": "s1" } })
+    );
+    expect(store.getSessionTraces("s1").invocations[0].spans[0].status).toBe("unset");
+  });
+});
