@@ -1,5 +1,5 @@
-import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { readEnvFile, readOptional } from "../shared/env.js";
 
 /**
  * Context-window compaction knobs. The agent runs on ADK's built-in
@@ -57,49 +57,12 @@ export async function loadAgentConfig(options: LoadAgentConfigOptions = {}): Pro
   };
 }
 
-async function readEnvFile(path: string): Promise<Record<string, string>> {
-  try {
-    return parseEnv(await readFile(path, "utf8"));
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") {
-      return {};
-    }
-    throw error;
-  }
-}
-
-export function parseEnv(text: string): Record<string, string> {
-  const values: Record<string, string> = {};
-  for (const rawLine of text.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) {
-      continue;
-    }
-    const separator = line.indexOf("=");
-    if (separator === -1) {
-      continue;
-    }
-    const key = line.slice(0, separator).trim();
-    let value = line.slice(separator + 1).trim();
-    if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    values[key] = value;
-  }
-  return values;
-}
-
 function readRequired(env: Record<string, string | undefined>, key: string): string {
   const value = env[key]?.trim();
   if (!value) {
     throw new Error(`${key} is required for dikw-web Agent sidecar`);
   }
   return value;
-}
-
-function readOptional(env: Record<string, string | undefined>, key: string): string | undefined {
-  const value = env[key]?.trim();
-  return value ? value : undefined;
 }
 
 function readPositiveNumber(env: Record<string, string | undefined>, key: string, fallback: number): number {
@@ -133,8 +96,4 @@ function readApi(value: string | undefined): AgentConfig["api"] {
     return value;
   }
   return "anthropic-messages";
-}
-
-function isNodeError(error: unknown): error is NodeJS.ErrnoException {
-  return error instanceof Error && "code" in error;
 }
