@@ -3,7 +3,6 @@ dist
 dist-server
 .agent-sessions
 .env*.local
-.env.agent.local
 .git
 .github
 .vscode

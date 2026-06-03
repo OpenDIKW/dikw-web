@@ -6,11 +6,11 @@ import { describe, expect, it, vi } from "vitest";
 import { loadAgentConfig } from "./config";
 
 describe("agent config", () => {
-  it("loads MiniMax credentials from .env.agent.local without requiring VITE variables", async () => {
+  it("loads MiniMax credentials from .env.local without requiring VITE variables", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
     try {
       await writeFile(
-        join(cwd, ".env.agent.local"),
+        join(cwd, ".env.local"),
         [
           "DIKW_AGENT_PROVIDER=minimax",
           "DIKW_AGENT_API=anthropic-messages",
@@ -37,7 +37,7 @@ describe("agent config", () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
     try {
       await writeFile(
-        join(cwd, ".env.agent.local"),
+        join(cwd, ".env.local"),
         [
           "DIKW_AGENT_PROVIDER=minimax",
           "DIKW_AGENT_API=anthropic-messages",
@@ -59,7 +59,7 @@ describe("agent config", () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
     try {
       await writeFile(
-        join(cwd, ".env.agent.local"),
+        join(cwd, ".env.local"),
         [
           "DIKW_AGENT_PROVIDER=minimax",
           "DIKW_AGENT_API=anthropic-messages",
@@ -87,7 +87,7 @@ describe("agent config", () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
     try {
       await writeFile(
-        join(cwd, ".env.agent.local"),
+        join(cwd, ".env.local"),
         [
           "DIKW_AGENT_PROVIDER=minimax",
           "DIKW_AGENT_API=anthropic-messages",
@@ -112,7 +112,7 @@ describe("agent config", () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
     try {
       await writeFile(
-        join(cwd, ".env.agent.local"),
+        join(cwd, ".env.local"),
         [
           "DIKW_AGENT_API_KEY=secret-minimax-key",
           "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
@@ -138,7 +138,7 @@ describe("agent config", () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
     try {
       await writeFile(
-        join(cwd, ".env.agent.local"),
+        join(cwd, ".env.local"),
         [
           "DIKW_AGENT_API_KEY=secret-minimax-key",
           "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
@@ -168,7 +168,7 @@ describe("agent config", () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
     try {
       await writeFile(
-        join(cwd, ".env.agent.local"),
+        join(cwd, ".env.local"),
         [
           "DIKW_AGENT_API_KEY=secret-minimax-key",
           "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
@@ -198,7 +198,7 @@ describe("agent config", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       await writeFile(
-        join(cwd, ".env.agent.local"),
+        join(cwd, ".env.local"),
         [
           "DIKW_AGENT_API_KEY=secret-minimax-key",
           "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
@@ -224,7 +224,7 @@ describe("agent config", () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
     try {
       await writeFile(
-        join(cwd, ".env.agent.local"),
+        join(cwd, ".env.local"),
         [
           "DIKW_AGENT_PROVIDER=minimax",
           "DIKW_AGENT_API=anthropic-messages",

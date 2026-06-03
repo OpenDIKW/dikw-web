@@ -65,8 +65,8 @@ restart by design; only the conversation content is persisted (in sqlite).
 
 ## Configuration
 
-Local credentials live in `.env.agent.local`, which is ignored by Git
-through `*.local`. Use `.env.agent.example` as the template:
+Local credentials live in `.env.local`, which is ignored by Git
+through `*.local`. Use `.env.example` as the template:
 
 ```dotenv
 DIKW_AGENT_PROVIDER=minimax
@@ -87,12 +87,12 @@ Tavily for `web_search` (no proxy required) and Jina Reader for
 not currently wired to any registered tool — the Brave client is
 retained in `WebToolClient.search` for future provider rotation.
 
-`MinerUAPIKey` (alias `DIKW_AGENT_MINERU_API_KEY`) is optional and is
-read by `server/web/config.ts`, not by `AgentConfig` — mineru is a
-browser-helper concern, not an agent tool. Missing key →
-`POST /web/mineru/convert` returns `503 mineru_disabled` and ImportPage
-degrades to `.md/.pdf` only. Variable name `MinerUAPIKey` matches the
-`dikw-plugins/.env` convention so the same key file can be reused.
+`DIKW_WEB_MINERU_API_KEY` is optional and is read by
+`server/web/config.ts`, not by `AgentConfig` — mineru is a browser-helper
+concern, not an agent tool. Missing key → `POST /web/mineru/convert`
+returns `503 mineru_disabled` and ImportPage degrades to `.md/.pdf` only.
+The `DIKW_WEB_*` prefix marks it as a `/web/*` sidecar variable, distinct
+from the `DIKW_AGENT_*` keys consumed by the chat agent.
 
 When a key is missing, `loadAgentConfig` still succeeds and the
 corresponding tool throws a clear "requires `DIKW_AGENT_*`" error on
@@ -102,7 +102,7 @@ unaffected.
 Do not use `VITE_*` for these values. `VITE_*` variables are browser
 visible.
 
-The dikw-core URL is not read from `.env.agent.local`. The browser sends
+The dikw-core URL is not read from `.env.local`. The browser sends
 the current Settings `Server URL` with each Agent message and maintenance
 confirmation. If `coreUrl` is missing, `/agent/*` returns `400
 invalid_request`.
@@ -155,7 +155,7 @@ wire event), and `AdkSessionStore.projectMessages` filters `isCompactedEvent`
 so the summary never renders as a chat bubble. The extra summarization call
 shows up as one additional `call_llm` span on the `#trace` page.
 
-Configured via `.env.agent.local` (all optional, defaults shown):
+Configured via `.env.local` (all optional, defaults shown):
 
 ```dotenv
 DIKW_AGENT_COMPACTION_ENABLED=true      # set false/0 to disable
@@ -245,7 +245,7 @@ Sidecar-only external tools (do not touch `dikw-core`):
 Both web tools wrap fetch with `AbortSignal.timeout(15_000)` and combine
 it with the per-request user abort signal via `AbortSignal.any`, so
 clicking Stop in the UI cancels in-flight Tavily/Jina calls. API keys
-stay in `.env.agent.local` and are never written to the session store,
+stay in `.env.local` and are never written to the session store,
 streamed to the browser, or echoed in error messages.
 
 When `HTTPS_PROXY` / `HTTP_PROXY` is set in the sidecar process

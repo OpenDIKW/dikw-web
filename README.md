@@ -126,21 +126,21 @@ stable across the runtime. The sidecar:
 
 - Receives the current Settings `Server URL` and optional bearer token
   on each request; rejects requests without a `coreUrl` rather than
-  falling back to `.env.agent.local`.
+  falling back to `.env.local`.
 - Calls `dikw-core` retrieval / page / wisdom / health endpoints as
   tools.
 - Optionally calls `web_search` (Tavily) and `web_fetch` (Jina) when
   `DIKW_AGENT_TAVILY_API_KEY` / `DIKW_AGENT_JINA_API_KEY` are present
-  in `.env.agent.local`. A Brave client is retained in
+  in `.env.local`. A Brave client is retained in
   `WebToolClient.search` for future provider rotation but is not
   registered as an agent tool.
 - Persists sessions to local SQLite (`.agent-sessions/agent.sqlite`) via
   ADK's `DatabaseSessionService`. The stored events must not contain LLM
   keys or browser session-storage values.
 
-Local credentials (LLM keys, optional web tool keys, `MinerUAPIKey` for
-Import PDF / Office conversion) live in `.env.agent.local` (gitignored
-via `*.local`). Use `.env.agent.example` as the template.
+Local credentials (LLM keys, optional web tool keys, `DIKW_WEB_MINERU_API_KEY`
+for Import PDF / Office conversion) live in `.env.local` (gitignored
+via `*.local`). Use `.env.example` as the template.
 
 ## Settings & state
 

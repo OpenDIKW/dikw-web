@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Live smoke test for the sidecar's web tools. Reads .env.agent.local,
+// Live smoke test for the sidecar's web tools. Reads .env.local,
 // then hits Brave Search or Jina Reader directly. Mirrors the tool
 // implementations in server/agent/tools.ts so that ts-node/tsx is not
 // required to run this script.
@@ -39,7 +39,7 @@ async function main() {
     }
     const apiKey = env.DIKW_AGENT_TAVILY_API_KEY;
     if (!apiKey) {
-      console.error("DIKW_AGENT_TAVILY_API_KEY missing in .env.agent.local");
+      console.error("DIKW_AGENT_TAVILY_API_KEY missing in .env.local");
       process.exit(1);
     }
     const result = await tavilySearch(apiKey, query, 5);
@@ -53,7 +53,7 @@ async function main() {
   }
   const apiKey = env.DIKW_AGENT_JINA_API_KEY;
   if (!apiKey) {
-    console.error("DIKW_AGENT_JINA_API_KEY missing in .env.agent.local");
+    console.error("DIKW_AGENT_JINA_API_KEY missing in .env.local");
     process.exit(1);
   }
   const result = await jinaFetch(apiKey, url);
@@ -62,7 +62,7 @@ async function main() {
 
 async function loadEnv() {
   try {
-    const text = await readFile(join(process.cwd(), ".env.agent.local"), "utf8");
+    const text = await readFile(join(process.cwd(), ".env.local"), "utf8");
     return parseEnv(text);
   } catch (error) {
     if (error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
