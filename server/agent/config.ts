@@ -122,6 +122,9 @@ function readBoolean(env: Record<string, string | undefined>, key: string, fallb
   if (value === "true" || value === "1" || value === "yes" || value === "on") {
     return true;
   }
+  // Surface a typo'd flag (e.g. "disabled") instead of silently keeping the
+  // default, which can leave a feature on when the operator meant to turn it off.
+  console.warn(`[dikw-agent] ${key}="${value}" is not a recognized boolean; using default ${fallback}`);
   return fallback;
 }
 

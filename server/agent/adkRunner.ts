@@ -4,6 +4,7 @@ import {
   StreamingMode,
   getFunctionCalls,
   getFunctionResponses,
+  isCompactedEvent,
   stringifyContent
 } from "@google/adk";
 import type { DatabaseSessionService, Event } from "@google/adk";
@@ -63,6 +64,15 @@ export interface AdkAgentRunnerOptions {
  */
 export function mapAdkEvent(sessionId: string, event: Event): AgentStreamEvent[] {
   const events: AgentStreamEvent[] = [];
+
+  // A context-compaction summary event is also yielded onto this live stream by
+  // the runner. It is a prompt-building artifact, not a chat turn — never emit
+  // it. (The read path filters it in AdkSessionStore.projectMessages; this is
+  // the live-path twin, so the "no wire event" guarantee holds by design rather
+  // than incidentally on the event being non-partial.)
+  if (isCompactedEvent(event)) {
+    return events;
+  }
 
   // ADK does not re-throw LLM/transport errors: LlmAgent.runAndHandleError
   // catches them and YIELDS a non-partial event carrying errorCode/errorMessage

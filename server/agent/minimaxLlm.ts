@@ -212,9 +212,14 @@ export class MiniMaxLlm extends BaseLlm {
   }
 }
 
-/** Combine the turn-level and per-call abort signals; undefined when neither is set. */
+/**
+ * Combine the turn-level and per-call abort signals; undefined when neither is
+ * set. Identical references are deduped so the common case (ADK forwards the
+ * same turn signal as the per-call arg) reuses the single signal instead of
+ * allocating a fresh `AbortSignal.any` composite on every call.
+ */
 function mergeAbortSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefined {
-  const signals = [a, b].filter((signal): signal is AbortSignal => signal !== undefined);
+  const signals = [...new Set([a, b].filter((signal): signal is AbortSignal => signal !== undefined))];
   if (signals.length === 0) {
     return undefined;
   }

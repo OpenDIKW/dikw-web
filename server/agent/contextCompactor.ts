@@ -28,10 +28,10 @@ export function buildContextCompactor(
     return undefined;
   }
   const tokenThreshold = Math.round(config.contextWindow * config.ratio);
-  // ADK uses eventRetentionSize as an array-index boundary in `compact`; a
-  // fractional value yields `undefined` retained events and throws (then the
-  // resilient wrapper swallows it, silently disabling compaction). Force a
-  // positive integer.
+  // ADK uses eventRetentionSize to choose how many recent raw events to keep
+  // verbatim (`rawEvents.slice(0, len - retention)`). A non-integer slices at a
+  // fractional boundary, and 0 / negative would keep nothing and summarize the
+  // entire recent history away. Force a sane positive integer.
   const eventRetentionSize = Math.max(1, Math.floor(config.retention));
   const inner = new TokenBasedContextCompactor({
     tokenThreshold,
@@ -42,7 +42,7 @@ export function buildContextCompactor(
 }
 
 /**
- * Wraps a compactor so a compaction failure never aborts the user's turn:
+ * Wraps a compactor so a real compaction failure never aborts the user's turn:
  * `compact` runs inline in the request pipeline (it calls the summarization
  * LLM), and an unhandled throw there would surface to the user as a turn error.
  * On failure we log and proceed with the un-compacted history (which is still
@@ -60,6 +60,13 @@ class ResilientContextCompactor implements BaseContextCompactor {
     try {
       await this.inner.compact(invocationContext);
     } catch (error) {
+      // A user Stop aborts the in-flight summarizer call mid-compaction. That is
+      // graceful cancellation, not a compaction failure: re-throw so the runner
+      // handles it (AdkAgentRunner treats a post-abort throw as graceful) and do
+      // not log it as an error.
+      if (invocationContext.abortSignal?.aborted) {
+        throw error;
+      }
       console.error("[dikw-agent] context compaction failed; proceeding without compaction:", error);
     }
   }

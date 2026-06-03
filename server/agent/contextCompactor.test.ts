@@ -19,8 +19,8 @@ function textEvent(text: string, promptTokenCount?: number, timestamp = 1): Even
   });
 }
 
-function ctxWith(events: Event[]): InvocationContext {
-  return { session: { events } } as unknown as InvocationContext;
+function ctxWith(events: Event[], abortSignal?: AbortSignal): InvocationContext {
+  return { session: { events }, abortSignal } as unknown as InvocationContext;
 }
 
 /** Minimal BaseLlm whose generateContentAsync is the supplied async generator. */
@@ -85,8 +85,9 @@ describe("buildContextCompactor", () => {
       const llm = fakeLlm(async function* () {
         yield { content: { role: "model", parts: [{ text: "SUMMARY" }] } } as LlmResponse;
       });
-      // retention 0.5 -> floor -> 0 -> clamped to 1; without the clamp ADK would
-      // slice with a fractional index, throw, and compaction would silently no-op.
+      // retention 0.5 -> floor -> 0 -> clamped to 1. Without the clamp ADK would
+      // slice at a fractional boundary, and a 0 retention would summarize the
+      // whole recent history away; the clamp keeps a sane integer retention.
       const compactor = buildContextCompactor(llm, config({ retention: 0.5 }))!;
       const events = [textEvent("one", undefined, 1), textEvent("two", undefined, 2), textEvent("three", undefined, 3)];
       const ctx = ctxWith(events);
@@ -109,6 +110,22 @@ describe("buildContextCompactor", () => {
       await expect(compactor.compact(ctx)).resolves.toBeUndefined();
       expect(events).toHaveLength(3); // no CompactedEvent pushed
       expect(errorSpy).toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it("re-throws a user-Stop abort instead of logging it as a compaction failure", async () => {
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const llm = fakeLlm(async function* () {
+        throw new Error("aborted"); // the summarizer call torn down by the turn signal
+      });
+      const compactor = buildContextCompactor(llm, config({ retention: 1 }))!;
+      const events = [textEvent("one", undefined, 1), textEvent("two", undefined, 2), textEvent("three", undefined, 3)];
+      const controller = new AbortController();
+      controller.abort();
+      const ctx = ctxWith(events, controller.signal);
+
+      await expect(compactor.compact(ctx)).rejects.toThrow("aborted");
+      expect(errorSpy).not.toHaveBeenCalled(); // a Stop is graceful, not a "compaction failed"
       errorSpy.mockRestore();
     });
   });

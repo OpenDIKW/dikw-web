@@ -45,6 +45,14 @@ describe("mapAdkEvent", () => {
     expect(out).toEqual([]);
   });
 
+  it("emits nothing for a context-compaction summary event", () => {
+    const out = mapAdkEvent(
+      SESSION_ID,
+      { isCompacted: true, content: { role: "model", parts: [{ text: "[Previous Context Summary]" }] } } as unknown as Event
+    );
+    expect(out).toEqual([]);
+  });
+
   it("emits nothing for the auto-appended user message", () => {
     const out = mapAdkEvent(
       SESSION_ID,
