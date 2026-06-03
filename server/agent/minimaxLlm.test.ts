@@ -273,6 +273,80 @@ describe("MiniMaxLlm", () => {
     expect(captured[0]?.options?.signal).toBe(controller.signal);
   });
 
+  it("applies the constructor (turn-level) abort signal when ADK gives no per-call signal", async () => {
+    const captured: CapturedCall[] = [];
+    const controller = new AbortController();
+    const llm = new MiniMaxLlm({
+      model: "MiniMax-M3",
+      apiKey: "x",
+      baseUrl: "https://example/anthropic",
+      abortSignal: controller.signal,
+      client: makeFakeClient({ events: canned.events, final: canned.final, captured })
+    });
+
+    const request: LlmRequest = {
+      contents: [{ role: "user", parts: [{ text: "hi" }] }],
+      liveConnectConfig: {},
+      toolsDict: {}
+    };
+
+    // ADK's compaction summarizer calls generateContentAsync(request, false) — no per-call signal.
+    await drain(llm.generateContentAsync(request, false));
+    expect(captured[0]?.options?.signal).toBe(controller.signal);
+  });
+
+  it("merges the constructor and per-call abort signals (aborting either aborts the call)", async () => {
+    const captured: CapturedCall[] = [];
+    const turn = new AbortController();
+    const perCall = new AbortController();
+    const llm = new MiniMaxLlm({
+      model: "MiniMax-M3",
+      apiKey: "x",
+      baseUrl: "https://example/anthropic",
+      abortSignal: turn.signal,
+      client: makeFakeClient({ events: canned.events, final: canned.final, captured })
+    });
+
+    const request: LlmRequest = {
+      contents: [{ role: "user", parts: [{ text: "hi" }] }],
+      liveConnectConfig: {},
+      toolsDict: {}
+    };
+
+    await drain(llm.generateContentAsync(request, true, perCall.signal));
+    const merged = captured[0]?.options?.signal;
+    expect(merged).toBeDefined();
+    expect(merged).not.toBe(turn.signal);
+    expect(merged).not.toBe(perCall.signal);
+    expect(merged?.aborted).toBe(false);
+    turn.abort();
+    expect(merged?.aborted).toBe(true);
+  });
+
+  it("reuses the single signal (no AbortSignal.any wrapper) when ADK forwards the same ref per call", async () => {
+    const captured: CapturedCall[] = [];
+    const turn = new AbortController();
+    const llm = new MiniMaxLlm({
+      model: "MiniMax-M3",
+      apiKey: "x",
+      baseUrl: "https://example/anthropic",
+      abortSignal: turn.signal,
+      client: makeFakeClient({ events: canned.events, final: canned.final, captured })
+    });
+
+    const request: LlmRequest = {
+      contents: [{ role: "user", parts: [{ text: "hi" }] }],
+      liveConnectConfig: {},
+      toolsDict: {}
+    };
+
+    // ADK commonly forwards the turn signal as the per-call arg; the Set dedup
+    // must collapse the identical refs back to that one signal instead of
+    // allocating a fresh AbortSignal.any composite on every call.
+    await drain(llm.generateContentAsync(request, true, turn.signal));
+    expect(captured[0]?.options?.signal).toBe(turn.signal);
+  });
+
   it("connect() throws (no live/bidi support)", async () => {
     const llm = new MiniMaxLlm({
       model: "MiniMax-M3",

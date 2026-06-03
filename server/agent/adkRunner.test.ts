@@ -45,6 +45,14 @@ describe("mapAdkEvent", () => {
     expect(out).toEqual([]);
   });
 
+  it("emits nothing for a context-compaction summary event", () => {
+    const out = mapAdkEvent(
+      SESSION_ID,
+      { isCompacted: true, content: { role: "model", parts: [{ text: "[Previous Context Summary]" }] } } as unknown as Event
+    );
+    expect(out).toEqual([]);
+  });
+
   it("emits nothing for the auto-appended user message", () => {
     const out = mapAdkEvent(
       SESSION_ID,
@@ -173,7 +181,8 @@ function makeConfig(): AgentConfig {
     api: "anthropic-messages",
     apiKey: "key",
     baseUrl: "https://example.com",
-    model: "MiniMax-M3"
+    model: "MiniMax-M3",
+    compaction: { enabled: true, contextWindow: 1_048_576, ratio: 0.5, retention: 8 }
   };
 }
 

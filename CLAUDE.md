@@ -137,6 +137,7 @@ Both prefixes are served by the same Node process in dev and in the standalone `
 - Chat right-rail context is session-scoped accumulated sources/tool calls, not per-turn filtering. Don't "fix" this by filtering per turn.
 - The agent prefers core tools (DIKW retrieval) and falls back to `web_search` / `web_fetch` only when core can't answer.
 - Maintenance actions (destructive operations on core) must be proposed by the agent and explicitly confirmed by the user before calling the corresponding core endpoint — never auto-execute.
+- Long-conversation context compaction is on by default (config-driven, env-tunable): `AdkAgentRunner` attaches ADK's built-in `TokenBasedContextCompactor` + `LlmSummarizer` (`server/agent/contextCompactor.ts`) to the `LlmAgent`, threshold = `round(DIKW_AGENT_CONTEXT_WINDOW × DIKW_AGENT_COMPACTION_RATIO)` (defaults 1,048,576 × 0.5). ADK's `shouldCompact` sums per-event prompt tokens, so it fires *before* the live prompt literally hits the ratio — a conservative bias; don't "fix" it. The persisted `CompactedEvent` summary must stay filtered out of the chat history (`projectMessages` skips `isCompactedEvent`) — it's a prompt artifact, not a turn. See `docs/agent.md`.
 
 ### Markdown reader (`src/components/MarkdownView.tsx`)
 

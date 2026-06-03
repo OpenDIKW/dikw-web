@@ -4,12 +4,14 @@ import {
   StreamingMode,
   getFunctionCalls,
   getFunctionResponses,
+  isCompactedEvent,
   stringifyContent
 } from "@google/adk";
 import type { DatabaseSessionService, Event } from "@google/adk";
 import type { Content } from "@google/genai";
 import type { AgentConfig } from "./config.js";
 import { createDikwTools } from "./adkTools.js";
+import { buildContextCompactor } from "./contextCompactor.js";
 import { MiniMaxLlm } from "./minimaxLlm.js";
 import type { AdkSessionStore } from "./adkSessionStore.js";
 import { proposalFromTool, sourcesFromTool, systemPrompt } from "./runtime.js";
@@ -62,6 +64,15 @@ export interface AdkAgentRunnerOptions {
  */
 export function mapAdkEvent(sessionId: string, event: Event): AgentStreamEvent[] {
   const events: AgentStreamEvent[] = [];
+
+  // A context-compaction summary event is also yielded onto this live stream by
+  // the runner. It is a prompt-building artifact, not a chat turn — never emit
+  // it. (The read path filters it in AdkSessionStore.projectMessages; this is
+  // the live-path twin, so the "no wire event" guarantee holds by design rather
+  // than incidentally on the event being non-partial.)
+  if (isCompactedEvent(event)) {
+    return events;
+  }
 
   // ADK does not re-throw LLM/transport errors: LlmAgent.runAndHandleError
   // catches them and YIELDS a non-partial event carrying errorCode/errorMessage
@@ -162,16 +173,25 @@ export class AdkAgentRunner implements AgentRunner {
         signal
       });
 
+      // One MiniMaxLlm instance backs both the agent and the compaction
+      // summarizer (it is stateless apart from its HTTP client). The turn signal
+      // is applied at the model level so the summarizer call — which ADK invokes
+      // without a per-call signal — still honors a user Stop.
+      const model = new MiniMaxLlm({
+        model: this.config.model,
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl,
+        abortSignal: signal
+      });
+      const compactor = buildContextCompactor(model, this.config.compaction);
+
       const agent = new LlmAgent({
         name: "dikw_agent",
         description: "A helpful knowledge base agent over dikw-core.",
-        model: new MiniMaxLlm({
-          model: this.config.model,
-          apiKey: this.config.apiKey,
-          baseUrl: this.config.baseUrl
-        }),
+        model,
         instruction: systemPrompt(),
-        tools
+        tools,
+        ...(compactor ? { contextCompactors: [compactor] } : {})
       });
 
       const runner = this.createRunner({ appName: APP_NAME, agent, sessionService: this.sessionService });
