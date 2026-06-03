@@ -105,6 +105,13 @@ export interface MiniMaxLlmOptions {
   model: string;
   apiKey: string;
   baseUrl: string;
+  /**
+   * Turn-level abort signal applied to every call. ADK's context-compaction
+   * summarizer invokes `generateContentAsync(request, false)` without a per-call
+   * signal, so without this an in-flight summarization would ignore a user
+   * Stop. Merged with the per-call signal via `AbortSignal.any`.
+   */
+  abortSignal?: AbortSignal;
   /** Test seam: inject a fake transport. Defaults to a real `Anthropic` client. */
   client?: AnthropicLike;
 }
@@ -113,9 +120,11 @@ const DEFAULT_MAX_TOKENS = 4096;
 
 export class MiniMaxLlm extends BaseLlm {
   private readonly client: AnthropicLike;
+  private readonly abortSignal?: AbortSignal;
 
   constructor(opts: MiniMaxLlmOptions) {
     super({ model: opts.model });
+    this.abortSignal = opts.abortSignal;
     // Auth: `x-api-key` (SDK default) is the live-verified method for MiniMax.
     this.client =
       opts.client ?? (new Anthropic({ baseURL: opts.baseUrl, apiKey: opts.apiKey }) as unknown as AnthropicLike);
@@ -133,7 +142,8 @@ export class MiniMaxLlm extends BaseLlm {
     this.maybeAppendUserContent(llmRequest);
 
     const params = this.toAnthropicParams(llmRequest);
-    const anthropicStream = this.client.messages.stream(params, { signal: abortSignal });
+    const signal = mergeAbortSignals(this.abortSignal, abortSignal);
+    const anthropicStream = this.client.messages.stream(params, signal ? { signal } : {});
 
     // ADK convention: when `stream === false` the adapter must NOT emit
     // per-chunk partials, only the single final non-partial response. We still
@@ -200,6 +210,15 @@ export class MiniMaxLlm extends BaseLlm {
 
     return params;
   }
+}
+
+/** Combine the turn-level and per-call abort signals; undefined when neither is set. */
+function mergeAbortSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefined {
+  const signals = [a, b].filter((signal): signal is AbortSignal => signal !== undefined);
+  if (signals.length === 0) {
+    return undefined;
+  }
+  return signals.length === 1 ? signals[0] : AbortSignal.any(signals);
 }
 
 /** Map genai `contents` → Anthropic `messages`, merging consecutive same-role turns. */

@@ -9,6 +9,32 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-06-03
+
+### Added: chat context-window compaction at >50% of the model window
+
+- **Long chats now compact their history instead of growing the prompt
+  unbounded.** `AdkAgentRunner` attaches ADK's built-in
+  `TokenBasedContextCompactor` + `LlmSummarizer` to the `LlmAgent` (factory in
+  `server/agent/contextCompactor.ts`, reusing the agent's own `MiniMaxLlm` for
+  summarization). When the threshold is crossed, ADK summarizes the oldest
+  events into a persisted `CompactedEvent` and `ContentRequestProcessor`
+  rebuilds the prompt as `[summary, ...recent raw events]`, so the prompt
+  actually shrinks; the summary persists to sqlite and carries across turns.
+- **On by default, env-tunable** (`.env.agent.local`):
+  `DIKW_AGENT_COMPACTION_ENABLED` (default `true`),
+  `DIKW_AGENT_CONTEXT_WINDOW` (default `1048576`, the MiniMax-M3 window),
+  `DIKW_AGENT_COMPACTION_RATIO` (default `0.5`), and
+  `DIKW_AGENT_COMPACTION_RETENTION` (default `8`). The trigger is
+  `round(contextWindow * ratio)` = 524,288 tokens at the defaults. Because
+  ADK's `shouldCompact` sums per-event prompt-token counts, effective
+  compaction fires somewhat before the live prompt literally reaches the ratio.
+- **The summary never leaks into the chat UI.** `AdkSessionStore.projectMessages`
+  filters `isCompactedEvent` so the `[Previous Context Summary]` event is not
+  rendered as an assistant bubble, and `mapAdkEvent` emits no live wire event
+  for it. A summarization failure is swallowed (logged) and the turn proceeds
+  with the un-compacted history. See `docs/agent.md#context-compaction`.
+
 ## [0.1.1] - 2026-06-03
 
 ### Added: 7-day TTL cleanup for the browser MinerU convert cache

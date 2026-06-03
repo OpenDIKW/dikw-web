@@ -164,11 +164,14 @@ export class AdkAgentRunner implements AgentRunner {
       });
 
       // One MiniMaxLlm instance backs both the agent and the compaction
-      // summarizer (it is stateless apart from its HTTP client).
+      // summarizer (it is stateless apart from its HTTP client). The turn signal
+      // is applied at the model level so the summarizer call — which ADK invokes
+      // without a per-call signal — still honors a user Stop.
       const model = new MiniMaxLlm({
         model: this.config.model,
         apiKey: this.config.apiKey,
-        baseUrl: this.config.baseUrl
+        baseUrl: this.config.baseUrl,
+        abortSignal: signal
       });
       const compactor = buildContextCompactor(model, this.config.compaction);
 

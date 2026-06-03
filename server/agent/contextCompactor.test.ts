@@ -81,6 +81,22 @@ describe("buildContextCompactor", () => {
       expect((appended as { compactedContent?: string }).compactedContent).toBe("SUMMARY");
     });
 
+    it("floors a fractional retention so ADK does not throw on a non-integer eventRetentionSize", async () => {
+      const llm = fakeLlm(async function* () {
+        yield { content: { role: "model", parts: [{ text: "SUMMARY" }] } } as LlmResponse;
+      });
+      // retention 0.5 -> floor -> 0 -> clamped to 1; without the clamp ADK would
+      // slice with a fractional index, throw, and compaction would silently no-op.
+      const compactor = buildContextCompactor(llm, config({ retention: 0.5 }))!;
+      const events = [textEvent("one", undefined, 1), textEvent("two", undefined, 2), textEvent("three", undefined, 3)];
+      const ctx = ctxWith(events);
+
+      await compactor.compact(ctx);
+
+      expect(events).toHaveLength(4);
+      expect(isCompactedEvent(events[events.length - 1])).toBe(true);
+    });
+
     it("swallows a summarization failure and leaves the history untouched", async () => {
       const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const llm = fakeLlm(async function* () {

@@ -136,6 +136,45 @@ a chat from the web UI, and that manual title is persisted to state.
 Reopening a historical session reconstructs context by projecting the
 persisted ADK events — there is no in-memory agent object to rely on.
 
+## Context compaction
+
+A long conversation grows the prompt every turn (the full event history is
+sent to MiniMax-M3, whose context window is **1,048,576** tokens). To keep the
+prompt bounded, `AdkAgentRunner` attaches ADK's built-in
+**`TokenBasedContextCompactor`** to the `LlmAgent` (`contextCompactors`). The
+factory lives in `contextCompactor.ts` (`buildContextCompactor`) and the
+summarizer is ADK's `LlmSummarizer`, reusing the agent's own `MiniMaxLlm`
+instance.
+
+When it fires, ADK summarizes the oldest events into a persisted
+`CompactedEvent` and `ContentRequestProcessor` rebuilds the prompt as
+`[summary, ...recent raw events]`, so the prompt actually shrinks. The
+`CompactedEvent` is non-partial, so the Runner persists it to sqlite and the
+compaction carries across turns. `mapAdkEvent` emits nothing for it (no live
+wire event), and `AdkSessionStore.projectMessages` filters `isCompactedEvent`
+so the summary never renders as a chat bubble. The extra summarization call
+shows up as one additional `call_llm` span on the `#trace` page.
+
+Configured via `.env.agent.local` (all optional, defaults shown):
+
+```dotenv
+DIKW_AGENT_COMPACTION_ENABLED=true      # set false/0 to disable
+DIKW_AGENT_CONTEXT_WINDOW=1048576       # MiniMax-M3 window, in tokens
+DIKW_AGENT_COMPACTION_RATIO=0.5         # trigger fraction of the window
+DIKW_AGENT_COMPACTION_RETENTION=8       # min recent raw events kept verbatim
+```
+
+The trigger threshold is `round(contextWindow * ratio)` (524,288 at the
+defaults). **Caveat:** ADK's `shouldCompact` *sums* each event's
+`promptTokenCount`, and every model event's count already includes the full
+prior history, so the threshold is an aggregate across the session, not the
+live prompt size — effective compaction triggers somewhat *before* the live
+context literally reaches `ratio` of the window (a conservative bias). Raise
+`DIKW_AGENT_CONTEXT_WINDOW` / `DIKW_AGENT_COMPACTION_RATIO` to compact later. A
+summarization failure is swallowed (logged) and the turn proceeds with the
+un-compacted history — compaction is an optimization, not a correctness
+requirement.
+
 ## API
 
 - `GET /agent/sessions`

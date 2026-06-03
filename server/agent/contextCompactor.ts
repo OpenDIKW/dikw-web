@@ -28,9 +28,14 @@ export function buildContextCompactor(
     return undefined;
   }
   const tokenThreshold = Math.round(config.contextWindow * config.ratio);
+  // ADK uses eventRetentionSize as an array-index boundary in `compact`; a
+  // fractional value yields `undefined` retained events and throws (then the
+  // resilient wrapper swallows it, silently disabling compaction). Force a
+  // positive integer.
+  const eventRetentionSize = Math.max(1, Math.floor(config.retention));
   const inner = new TokenBasedContextCompactor({
     tokenThreshold,
-    eventRetentionSize: config.retention,
+    eventRetentionSize,
     summarizer: new LlmSummarizer({ llm })
   });
   return new ResilientContextCompactor(inner);
