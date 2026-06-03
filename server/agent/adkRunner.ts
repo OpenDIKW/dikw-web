@@ -10,6 +10,7 @@ import type { DatabaseSessionService, Event } from "@google/adk";
 import type { Content } from "@google/genai";
 import type { AgentConfig } from "./config.js";
 import { createDikwTools } from "./adkTools.js";
+import { buildContextCompactor } from "./contextCompactor.js";
 import { MiniMaxLlm } from "./minimaxLlm.js";
 import type { AdkSessionStore } from "./adkSessionStore.js";
 import { proposalFromTool, sourcesFromTool, systemPrompt } from "./runtime.js";
@@ -162,16 +163,22 @@ export class AdkAgentRunner implements AgentRunner {
         signal
       });
 
+      // One MiniMaxLlm instance backs both the agent and the compaction
+      // summarizer (it is stateless apart from its HTTP client).
+      const model = new MiniMaxLlm({
+        model: this.config.model,
+        apiKey: this.config.apiKey,
+        baseUrl: this.config.baseUrl
+      });
+      const compactor = buildContextCompactor(model, this.config.compaction);
+
       const agent = new LlmAgent({
         name: "dikw_agent",
         description: "A helpful knowledge base agent over dikw-core.",
-        model: new MiniMaxLlm({
-          model: this.config.model,
-          apiKey: this.config.apiKey,
-          baseUrl: this.config.baseUrl
-        }),
+        model,
         instruction: systemPrompt(),
-        tools
+        tools,
+        ...(compactor ? { contextCompactors: [compactor] } : {})
       });
 
       const runner = this.createRunner({ appName: APP_NAME, agent, sessionService: this.sessionService });

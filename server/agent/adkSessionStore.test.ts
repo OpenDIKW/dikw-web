@@ -229,6 +229,30 @@ describe("AdkSessionStore", () => {
     expect(reprojected.proposals[0]).toMatchObject({ id: "pr-1", status: "confirmed", taskId: "task-42" });
   });
 
+  it("never renders a context-compaction summary event as a chat message", async () => {
+    const created = await store.createSession();
+    await appendToolTurn(sessionService, created.id);
+    // A persisted CompactedEvent (author "system", model-role text) is a
+    // prompt-building artifact — it must not leak into the chat history.
+    const base = createEvent({
+      author: "system",
+      content: { role: "model", parts: [{ text: "[Previous Context Summary] earlier turns" }] }
+    });
+    await appendRaw(sessionService, created.id, {
+      ...base,
+      isCompacted: true,
+      startTime: 1,
+      endTime: 2,
+      compactedContent: "earlier turns"
+    } as ReturnType<typeof createEvent>);
+    await store.finalizeTurn(created.id);
+
+    const session = await store.getSession(created.id);
+    expect(session.messages.map((m) => m.role)).toEqual(["user", "assistant"]);
+    expect(session.messageCount).toBe(2);
+    expect(session.messages.some((m) => m.content.includes("Previous Context Summary"))).toBe(false);
+  });
+
   it("produces a stable projection when reopened with a fresh store", async () => {
     const created = await store.createSession();
     await appendToolTurn(sessionService, created.id);

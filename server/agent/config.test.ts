@@ -108,6 +108,91 @@ describe("agent config", () => {
     }
   });
 
+  it("defaults compaction to enabled with the MiniMax-M3 window and a 0.5 ratio", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
+    try {
+      await writeFile(
+        join(cwd, ".env.agent.local"),
+        [
+          "DIKW_AGENT_API_KEY=secret-minimax-key",
+          "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
+          "DIKW_AGENT_MODEL=MiniMax-M3"
+        ].join("\n"),
+        "utf8"
+      );
+
+      const config = await loadAgentConfig({ cwd, env: {} });
+
+      expect(config.compaction).toEqual({
+        enabled: true,
+        contextWindow: 1_048_576,
+        ratio: 0.5,
+        retention: 8
+      });
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("overrides compaction knobs from the environment", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
+    try {
+      await writeFile(
+        join(cwd, ".env.agent.local"),
+        [
+          "DIKW_AGENT_API_KEY=secret-minimax-key",
+          "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
+          "DIKW_AGENT_MODEL=MiniMax-M3",
+          "DIKW_AGENT_COMPACTION_ENABLED=false",
+          "DIKW_AGENT_CONTEXT_WINDOW=200000",
+          "DIKW_AGENT_COMPACTION_RATIO=0.6",
+          "DIKW_AGENT_COMPACTION_RETENTION=12"
+        ].join("\n"),
+        "utf8"
+      );
+
+      const config = await loadAgentConfig({ cwd, env: {} });
+
+      expect(config.compaction).toEqual({
+        enabled: false,
+        contextWindow: 200000,
+        ratio: 0.6,
+        retention: 12
+      });
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("falls back to compaction defaults for blank or non-numeric overrides", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
+    try {
+      await writeFile(
+        join(cwd, ".env.agent.local"),
+        [
+          "DIKW_AGENT_API_KEY=secret-minimax-key",
+          "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
+          "DIKW_AGENT_MODEL=MiniMax-M3",
+          "DIKW_AGENT_CONTEXT_WINDOW=not-a-number",
+          "DIKW_AGENT_COMPACTION_RATIO=-1",
+          "DIKW_AGENT_COMPACTION_RETENTION="
+        ].join("\n"),
+        "utf8"
+      );
+
+      const config = await loadAgentConfig({ cwd, env: {} });
+
+      expect(config.compaction).toEqual({
+        enabled: true,
+        contextWindow: 1_048_576,
+        ratio: 0.5,
+        retention: 8
+      });
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
   it("does not read dikw-core URL from the sidecar credential file", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
     try {

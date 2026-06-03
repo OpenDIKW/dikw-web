@@ -3,6 +3,7 @@ import {
   createEventActions,
   getFunctionCalls,
   getFunctionResponses,
+  isCompactedEvent,
   stringifyContent
 } from "@google/adk";
 import type { DatabaseSessionService, Event, Session } from "@google/adk";
@@ -182,6 +183,11 @@ function projectMessages(events: Event[]): AgentMessage[] {
   const assistantByInvocation = new Map<string, { id: string; createdAt: string; order: number; text: string[] }>();
 
   events.forEach((event, index) => {
+    // Context-compaction summary events (author "system", model-role text) are
+    // a prompt-building artifact, not a chat turn — never render them as bubbles.
+    if (isCompactedEvent(event)) {
+      return;
+    }
     const text = stringifyContent(event).trim();
     if (event.author === "user") {
       if (text) {

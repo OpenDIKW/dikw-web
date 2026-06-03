@@ -173,7 +173,8 @@ function makeConfig(): AgentConfig {
     api: "anthropic-messages",
     apiKey: "key",
     baseUrl: "https://example.com",
-    model: "MiniMax-M3"
+    model: "MiniMax-M3",
+    compaction: { enabled: true, contextWindow: 1_048_576, ratio: 0.5, retention: 8 }
   };
 }
 
