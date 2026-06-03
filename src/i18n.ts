@@ -369,7 +369,7 @@ export const translations = {
         errorStageLabel: "Stage",
         restart: "Start a new import",
         mineruDisabledNotice:
-          "Mineru not configured — only .md / .pdf are accepted. Set MinerUAPIKey in .env.agent.local to enable PDF / Office conversion.",
+          "Mineru not configured — only .md / .pdf are accepted. Set DIKW_WEB_MINERU_API_KEY in .env.local to enable PDF / Office conversion.",
         conversion: {
           title: "Converting via mineru",
           queuedOne: "{n} file queued",
@@ -775,7 +775,7 @@ export const translations = {
         errorStageLabel: "阶段",
         restart: "开始新的导入",
         mineruDisabledNotice:
-          "未配置 Mineru —— 当前仅接受 .md / .pdf。在 .env.agent.local 设置 MinerUAPIKey 即可启用 PDF / Office 转换。",
+          "未配置 Mineru —— 当前仅接受 .md / .pdf。在 .env.local 设置 DIKW_WEB_MINERU_API_KEY 即可启用 PDF / Office 转换。",
         conversion: {
           title: "通过 mineru 转换中",
           queuedOne: "已排队 {n} 个文件",

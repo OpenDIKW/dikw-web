@@ -36,7 +36,7 @@ export interface LoadAgentConfigOptions {
 
 export async function loadAgentConfig(options: LoadAgentConfigOptions = {}): Promise<AgentConfig> {
   const cwd = options.cwd ?? process.cwd();
-  const fileEnv = await readEnvFile(join(cwd, ".env.agent.local"));
+  const fileEnv = await readEnvFile(join(cwd, ".env.local"));
   const env = { ...fileEnv, ...(options.env ?? process.env) };
   const apiKey = readRequired(env, "DIKW_AGENT_API_KEY");
   return {

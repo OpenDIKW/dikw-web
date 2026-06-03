@@ -28,7 +28,7 @@
 | `DIKW_AGENT_API` | `anthropic-messages` | `anthropic-messages` 或 `openai-completions` |
 | `DIKW_AGENT_TAVILY_API_KEY` | _未设_ | 设置后启用 `web_search` 工具 |
 | `DIKW_AGENT_JINA_API_KEY` | _未设_ | 设置后启用 `web_fetch` 工具 |
-| `MinerUAPIKey` | _未设_ | 设置后启用 Import 页的 PDF / Office 转换（`/web/mineru/*`）。别名 `DIKW_AGENT_MINERU_API_KEY`。未设则 ImportPage 自动降级到 `.md/.pdf` 选择器并显示提示。 |
+| `DIKW_WEB_MINERU_API_KEY` | _未设_ | 设置后启用 Import 页的 PDF / Office 转换（`/web/mineru/*`）。未设则 ImportPage 自动降级到 `.md/.pdf` 选择器并显示提示。 |
 | `DIKW_WEB_HOST` | `0.0.0.0` | 监听 host |
 | `DIKW_WEB_PORT` | `4321` | 监听 port |
 | `DIKW_WEB_STATIC_DIR` | `/app/dist` | SPA 静态资源根目录 |
@@ -56,7 +56,7 @@ docker run --rm -p 4321:4321 \
 
 ## 用 `docker-compose` 启动
 
-仓库根目录提供了 `docker-compose.yml`。把 LLM 凭证写到同级 `.env`（**不是** `.env.agent.local`，那是 dev 模式专用）：
+仓库根目录提供了 `docker-compose.yml`。把 LLM 凭证写到同级 `.env`（**不是** `.env.local`，那是 dev 模式专用）：
 
 ```dotenv
 DIKW_AGENT_PROVIDER=minimax

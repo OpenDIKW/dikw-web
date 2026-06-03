@@ -196,7 +196,7 @@ with its own LLM credentials. LLM keys are sidecar-only and must not be
 sent to the browser, stored in Settings, or persisted in session files.
 The core URL and optional core bearer token are request-scoped Agent
 inputs; if `coreUrl` is missing, the sidecar rejects the request instead
-of falling back to `.env.agent.local`.
+of falling back to `.env.local`.
 
 The canonical browser route is `#chat`. Legacy `#query` hashes redirect
 to `#chat` for compatibility only. Session titles are stored by the
@@ -222,7 +222,7 @@ The Agent also exposes two sidecar-only tools that do **not** touch
 These tools live entirely inside the sidecar. They do not add or change
 any `dikw-core` endpoint and they do not affect the core boundary above.
 Their results surface to the browser as `source` events with
-`kind: "web"`; the underlying API keys never leave `.env.agent.local`.
+`kind: "web"`; the underlying API keys never leave `.env.local`.
 
 ## Task list
 

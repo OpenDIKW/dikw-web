@@ -20,6 +20,8 @@ services:
       # 可选：联网工具
       DIKW_AGENT_TAVILY_API_KEY: "${DIKW_AGENT_TAVILY_API_KEY:-}"
       DIKW_AGENT_JINA_API_KEY: "${DIKW_AGENT_JINA_API_KEY:-}"
+      # 可选：Import 页 PDF / Office 转换（/web/mineru/*）
+      DIKW_WEB_MINERU_API_KEY: "${DIKW_WEB_MINERU_API_KEY:-}"
     volumes:
       - dikw-agent-sessions:/data/agent-sessions
     restart: unless-stopped

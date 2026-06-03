@@ -74,7 +74,7 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
       }
       if (req.method === "POST" && parts[1] === "convert") {
         if (!config.mineruApiKey) {
-          return errorJson(res, 503, "mineru_disabled", "MinerUAPIKey is not configured on this sidecar");
+          return errorJson(res, 503, "mineru_disabled", "DIKW_WEB_MINERU_API_KEY is not configured on this sidecar");
         }
         return handleConvert(req, res, url, config.mineruApiKey, fetchFn, jobStore);
       }

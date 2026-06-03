@@ -134,7 +134,7 @@ Agent chat integration should land as separate red-green slices:
 
 1. App shell first: assert `#chat` renders Chat, `#query` redirects to
    `#chat`, and the page no longer calls `/v1/query`.
-2. Sidecar configuration next: load `.env.agent.local`, require
+2. Sidecar configuration next: load `.env.local`, require
    `DIKW_AGENT_API_KEY`, and assert errors do not leak secret values.
 3. Session store next: create, list, reopen, rename, append, and delete
    `.agent-sessions/*.json` sessions with atomic writes.

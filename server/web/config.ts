@@ -2,7 +2,7 @@
 // agent sidecar's config so mineru can be enabled / disabled
 // independently of the chat agent.
 //
-// Precedence: explicit env > .env.agent.local file. We share the same
+// Precedence: explicit env > .env.local file. We share the same
 // dotenv file with the agent sidecar because that's where the user
 // already keeps their other dikw-web secrets.
 
@@ -22,10 +22,10 @@ export interface LoadWebConfigOptions {
 
 export async function loadWebConfig(options: LoadWebConfigOptions = {}): Promise<WebConfig> {
   const cwd = options.cwd ?? process.cwd();
-  const fileEnv = await readEnvFile(join(cwd, ".env.agent.local"));
+  const fileEnv = await readEnvFile(join(cwd, ".env.local"));
   const env = { ...fileEnv, ...(options.env ?? process.env) };
   return {
-    mineruApiKey: readOptional(env, "MinerUAPIKey") ?? readOptional(env, "DIKW_AGENT_MINERU_API_KEY")
+    mineruApiKey: readOptional(env, "DIKW_WEB_MINERU_API_KEY")
   };
 }
 

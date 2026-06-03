@@ -9,6 +9,26 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-03
+
+### Changed: rename the sidecar dotenv file and the MinerU key (BREAKING)
+
+- **`.env.agent.local` → `.env.local`.** The file feeds both the chat agent
+  (`server/agent/config.ts`) and the `/web/*` browser helpers
+  (`server/web/config.ts`), so the `agent`-specific name no longer fit. Both
+  loaders now read `.env.local`; `.env.agent.example` is renamed to
+  `.env.example`. Rename your local file: `mv .env.agent.local .env.local`.
+- **`MinerUAPIKey` (and its `DIKW_AGENT_MINERU_API_KEY` alias) → `DIKW_WEB_MINERU_API_KEY`.**
+  The mineru conversion key is a `/web/*` concern, so it now follows the
+  standard `DIKW_WEB_*` prefix, parallel to the `DIKW_AGENT_*` keys. This is a
+  **hard rename with no backward-compatible fallback** — update the variable
+  name in your `.env.local`. A missing key still degrades ImportPage to
+  `.md/.pdf` only; the `503 mineru_disabled` message now names the new variable.
+- `.env.example` documents `DIKW_WEB_MINERU_API_KEY` (previously the template
+  never listed the mineru key at all), and `docker-compose.yml` now forwards it
+  into the container alongside the optional Tavily / Jina keys, so the documented
+  deployment env actually reaches `/web/mineru/*`.
+
 ## [0.2.0] - 2026-06-03
 
 ### Added: chat context-window compaction at >50% of the model window

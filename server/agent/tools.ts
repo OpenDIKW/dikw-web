@@ -197,7 +197,7 @@ export class WebToolClient {
   // Kept under unit test to prevent silent rot.
   async search(q: string, count: number, freshness?: string): Promise<WebSearchToolResult> {
     if (!this.braveApiKey) {
-      throw new Error("web_search requires DIKW_AGENT_BRAVE_API_KEY in .env.agent.local");
+      throw new Error("web_search requires DIKW_AGENT_BRAVE_API_KEY in .env.local");
     }
     const safeCount = Math.max(1, Math.min(10, Math.floor(count)));
     const url = new URL(BRAVE_SEARCH_ENDPOINT);
@@ -243,7 +243,7 @@ export class WebToolClient {
 
   async tavilySearch(q: string, count: number): Promise<WebSearchToolResult> {
     if (!this.tavilyApiKey) {
-      throw new Error("web_search requires DIKW_AGENT_TAVILY_API_KEY in .env.agent.local");
+      throw new Error("web_search requires DIKW_AGENT_TAVILY_API_KEY in .env.local");
     }
     const safeCount = Math.max(1, Math.min(10, Math.floor(count)));
     const response = await this.request(TAVILY_SEARCH_ENDPOINT, {
@@ -280,7 +280,7 @@ export class WebToolClient {
 
   async fetchPage(rawUrl: unknown, format: "markdown" | "text"): Promise<WebFetchToolResult> {
     if (!this.jinaApiKey) {
-      throw new Error("web_fetch requires DIKW_AGENT_JINA_API_KEY in .env.agent.local");
+      throw new Error("web_fetch requires DIKW_AGENT_JINA_API_KEY in .env.local");
     }
     const safeUrl = validateAndNormalizeHttpUrl(rawUrl);
     const endpoint = `${JINA_READER_ENDPOINT}${encodeURIComponent(safeUrl)}`;
