@@ -9,6 +9,15 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+### Changed
+
+- Extracted the dotenv helpers shared by both sidecar config loaders
+  (`parseEnv` / `readEnvFile` / `readOptional`) into a new `server/shared/env.ts`;
+  `server/agent/config.ts` and `server/web/config.ts` now import them instead of
+  each carrying a byte-equivalent private copy. Behavior-neutral internal
+  refactor — no env var, wire format, or `loadAgentConfig` / `loadWebConfig`
+  contract changed, so no version bump.
+
 ## [0.3.0] - 2026-06-03
 
 ### Changed: rename the sidecar dotenv file and the MinerU key (BREAKING)
