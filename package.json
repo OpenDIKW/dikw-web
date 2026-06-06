@@ -20,7 +20,7 @@
     "verify": "npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.100.1",
+    "@anthropic-ai/sdk": "^0.101.0",
     "@google/adk": "^1.1.0",
     "@google/genai": "^1.52.0",
     "@mikro-orm/core": "^6.6.14",
