@@ -46,7 +46,9 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
             setChunks(result.chunks);
             setPageRefs(result.page_refs);
           } else {
-            setError(event.error ? new Error(event.error.message) : new Error(`retrieve ${event.status}`));
+            setError(
+              event.error ? new Error(event.error.message) : new Error(`retrieve ${event.status}`),
+            );
           }
         }
       }
@@ -71,17 +73,37 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
         <div className="query-form query-form--compact">
           <label className="field field--grow">
             <span>{copy.queryLabel}</span>
-            <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={copy.queryPlaceholder} />
+            <input
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder={copy.queryPlaceholder}
+            />
           </label>
           <label className="field field--small">
             <span>{copy.limitLabel}</span>
-            <input type="number" min={1} max={100} value={limit} onChange={(event) => setLimit(Number(event.target.value))} />
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={limit}
+              onChange={(event) => setLimit(Number(event.target.value))}
+            />
           </label>
-          <button className="primary-button" type="button" onClick={runRetrieve} disabled={running || !question.trim()}>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={runRetrieve}
+            disabled={running || !question.trim()}
+          >
             <Play size={16} />
             {copy.run}
           </button>
-          <button className="secondary-button" type="button" onClick={() => controllerRef.current?.abort()} disabled={!running}>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => controllerRef.current?.abort()}
+            disabled={!running}
+          >
             <Pause size={16} />
             {copy.stop}
           </button>
@@ -92,7 +114,9 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
 
       <section className="two-column-grid two-column-grid--wide-left">
         <div className="panel">
-          <div className="panel__title">{copy.chunksTitle} {running ? <span className="live-dot" /> : null}</div>
+          <div className="panel__title">
+            {copy.chunksTitle} {running ? <span className="live-dot" /> : null}
+          </div>
           {(chunks.length ? chunks : previewHits).length ? (
             <div className="result-table">
               <div className="result-table__head result-table__row">

@@ -8,15 +8,15 @@ import {
   graphResultFixture,
   statusFixture,
   wikiPageBodiesFixture,
-  wikiPagesFixture
+  wikiPagesFixture,
 } from "./test/fixtures";
 
 function jsonResponse(body: unknown): Promise<Response> {
   return Promise.resolve(
     new Response(JSON.stringify(body), {
       status: 200,
-      headers: { "Content-Type": "application/json" }
-    })
+      headers: { "Content-Type": "application/json" },
+    }),
   );
 }
 
@@ -57,17 +57,14 @@ function stubApi() {
           messages: [],
           toolEvents: [],
           sources: [],
-          proposals: []
+          proposals: [],
         });
       }
       return jsonResponse([]);
     }
     return Promise.resolve(new Response("not found", { status: 404 }));
   });
-  vi.stubGlobal(
-    "fetch",
-    fetchMock
-  );
+  vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
 
@@ -90,12 +87,10 @@ describe("App shell", () => {
     expect(screen.queryByText(/same-origin/i)).not.toBeInTheDocument();
     expect(screen.getByText("http://127.0.0.1:8765")).toBeInTheDocument();
     expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual(
-      expect.arrayContaining(["/v1/health", "/v1/status", "/v1/info"])
+      expect.arrayContaining(["/v1/health", "/v1/status", "/v1/info"]),
     );
     expect(fetchMock.mock.calls.map(([input]) => String(input))).not.toEqual(
-      expect.arrayContaining([
-        expect.stringMatching(/^http:\/\/127\.0\.0\.1:8765\/v1\//)
-      ])
+      expect.arrayContaining([expect.stringMatching(/^http:\/\/127\.0\.0\.1:8765\/v1\//)]),
     );
 
     await userEvent.click(screen.getByRole("button", { name: "Settings" }));
@@ -103,7 +98,9 @@ describe("App shell", () => {
     expect(await screen.findByRole("heading", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByLabelText("Server URL")).toHaveValue("http://127.0.0.1:8765");
 
-    fireEvent.change(screen.getByLabelText("Server URL"), { target: { value: "http://127.0.0.1:8765" } });
+    fireEvent.change(screen.getByLabelText("Server URL"), {
+      target: { value: "http://127.0.0.1:8765" },
+    });
     fireEvent.change(screen.getByLabelText("Token"), { target: { value: "secret" } });
     await waitFor(() => {
       expect(sessionStorage.getItem("dikw-web.serverUrl")).toBe("http://127.0.0.1:8765");
@@ -174,7 +171,7 @@ describe("App shell", () => {
     window.matchMedia = vi.fn().mockReturnValue({
       matches: false,
       addEventListener: vi.fn(),
-      removeEventListener: vi.fn()
+      removeEventListener: vi.fn(),
     });
 
     render(<App />);
@@ -207,7 +204,9 @@ describe("App shell", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open in Base" }));
 
     expect(window.location.hash).toBe("#base");
-    expect(await screen.findByRole("heading", { name: "Architecture", level: 1 })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Architecture", level: 1 }),
+    ).toBeInTheDocument();
   });
 
   it("renders the configured brand name, logo alt, tab title, and Workbench breadcrumb", async () => {
@@ -245,5 +244,4 @@ describe("App shell", () => {
     expect(screen.getByText("Workbench")).toBeInTheDocument();
     await waitFor(() => expect(document.title).toBe("OpenDIKW"));
   });
-
 });

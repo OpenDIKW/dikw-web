@@ -17,7 +17,7 @@ function makeFakeClient(): AgentClientLike {
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     messageCount: session.messageCount,
-    lastMessagePreview: session.lastMessagePreview
+    lastMessagePreview: session.lastMessagePreview,
   }));
   return {
     listSessions: async () => summaries,
@@ -44,7 +44,7 @@ function makeFakeClient(): AgentClientLike {
     },
     sendMessage: async function* () {
       throw new Error("not used");
-    }
+    },
   };
 }
 
@@ -74,7 +74,9 @@ describe("TracePage (live data)", () => {
     render(<TracePage agentClient={makeFakeClient()} locale="en" />);
     const trace = screen.getByRole("region", { name: "Trace" });
 
-    const toolButton = await within(trace).findByRole("button", { name: /execute_tool retrieve_knowledge/ });
+    const toolButton = await within(trace).findByRole("button", {
+      name: /execute_tool retrieve_knowledge/,
+    });
     expect(within(trace).queryByText("Span attributes")).not.toBeInTheDocument();
 
     await user.click(toolButton);

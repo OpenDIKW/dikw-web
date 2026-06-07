@@ -31,52 +31,79 @@ export class AgentClient {
   }
 
   async getSession(sessionId: string, signal?: AbortSignal): Promise<AgentSession> {
-    return requestJson<AgentSession>(`/agent/sessions/${encodeURIComponent(sessionId)}`, { signal });
+    return requestJson<AgentSession>(`/agent/sessions/${encodeURIComponent(sessionId)}`, {
+      signal,
+    });
   }
 
   async getSessionTraces(sessionId: string, signal?: AbortSignal): Promise<SessionTraceView> {
-    return requestJson<SessionTraceView>(`/agent/sessions/${encodeURIComponent(sessionId)}/traces`, { signal });
+    return requestJson<SessionTraceView>(
+      `/agent/sessions/${encodeURIComponent(sessionId)}/traces`,
+      { signal },
+    );
   }
 
-  async renameSession(sessionId: string, title: string, signal?: AbortSignal): Promise<AgentSession> {
+  async renameSession(
+    sessionId: string,
+    title: string,
+    signal?: AbortSignal,
+  ): Promise<AgentSession> {
     return requestJson<AgentSession>(`/agent/sessions/${encodeURIComponent(sessionId)}`, {
       method: "PATCH",
       body: JSON.stringify({ title }),
-      signal
+      signal,
     });
   }
 
   async deleteSession(sessionId: string, signal?: AbortSignal): Promise<void> {
-    await requestJson<void>(`/agent/sessions/${encodeURIComponent(sessionId)}`, { method: "DELETE", signal });
+    await requestJson<void>(`/agent/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "DELETE",
+      signal,
+    });
   }
 
   async abort(sessionId: string, signal?: AbortSignal): Promise<void> {
-    await requestJson<void>(`/agent/sessions/${encodeURIComponent(sessionId)}/abort`, { method: "POST", signal });
+    await requestJson<void>(`/agent/sessions/${encodeURIComponent(sessionId)}/abort`, {
+      method: "POST",
+      signal,
+    });
   }
 
-  async confirmProposal(sessionId: string, proposalId: string, signal?: AbortSignal): Promise<AgentSession> {
+  async confirmProposal(
+    sessionId: string,
+    proposalId: string,
+    signal?: AbortSignal,
+  ): Promise<AgentSession> {
     return requestJson<AgentSession>(
       `/agent/sessions/${encodeURIComponent(sessionId)}/proposals/${encodeURIComponent(proposalId)}/confirm`,
-      { method: "POST", body: JSON.stringify(this.connectionPayload()), signal }
+      { method: "POST", body: JSON.stringify(this.connectionPayload()), signal },
     );
   }
 
-  async rejectProposal(sessionId: string, proposalId: string, signal?: AbortSignal): Promise<AgentSession> {
+  async rejectProposal(
+    sessionId: string,
+    proposalId: string,
+    signal?: AbortSignal,
+  ): Promise<AgentSession> {
     return requestJson<AgentSession>(
       `/agent/sessions/${encodeURIComponent(sessionId)}/proposals/${encodeURIComponent(proposalId)}/reject`,
-      { method: "POST", signal }
+      { method: "POST", signal },
     );
   }
 
-  async *sendMessage(sessionId: string, message: string, signal?: AbortSignal): AsyncGenerator<AgentStreamEvent> {
+  async *sendMessage(
+    sessionId: string,
+    message: string,
+    signal?: AbortSignal,
+  ): AsyncGenerator<AgentStreamEvent> {
     const response = await fetch(`/agent/sessions/${encodeURIComponent(sessionId)}/messages`, {
       method: "POST",
       headers: {
         Accept: "application/x-ndjson",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ message, ...this.connectionPayload() }),
-      signal
+      signal,
     });
 
     if (!response.ok) {
@@ -93,7 +120,7 @@ export class AgentClient {
   private connectionPayload(): { coreUrl?: string; token?: string } {
     return {
       ...(this.options.coreUrl ? { coreUrl: this.options.coreUrl } : {}),
-      ...(this.options.token ? { token: this.options.token } : {})
+      ...(this.options.token ? { token: this.options.token } : {}),
     };
   }
 }
@@ -104,8 +131,8 @@ async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> 
     headers: {
       Accept: "application/json",
       ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...init.headers
-    }
+      ...init.headers,
+    },
   });
   if (!response.ok) {
     throw await errorFromResponse(response);
@@ -126,5 +153,9 @@ async function errorFromResponse(response: Response): Promise<AgentClientError> 
   } catch {
     // fall through to plain text
   }
-  return new AgentClientError(response.status, `http_${response.status}`, text || response.statusText);
+  return new AgentClientError(
+    response.status,
+    `http_${response.status}`,
+    text || response.statusText,
+  );
 }

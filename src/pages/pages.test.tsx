@@ -27,11 +27,18 @@ import {
   toTaskListPage,
   toTaskSummary,
   wikiPageBodiesFixture,
-  wikiPagesFixture
+  wikiPagesFixture,
 } from "../test/fixtures";
 import { createMockClient } from "../test/mockClient";
 import { DikwClientError } from "../api/client";
-import type { DocumentRecord, PageLinksResult, PageReadResult, TaskEvent, TaskListPage, TaskRow } from "../types";
+import type {
+  DocumentRecord,
+  PageLinksResult,
+  PageReadResult,
+  TaskEvent,
+  TaskListPage,
+  TaskRow,
+} from "../types";
 
 describe("read console pages", () => {
   it("loads overview status from the client", async () => {
@@ -53,7 +60,9 @@ describe("read console pages", () => {
 
     expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();
     expect(screen.getByText("C:\\demo\\base")).toBeInTheDocument();
-    expect(screen.getByText((_, element) => element?.textContent === "anthropic_compat · MiniMax-M2.7")).toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) => element?.textContent === "anthropic_compat · MiniMax-M2.7"),
+    ).toBeInTheDocument();
     const wisdomCard = screen.getByText("Wisdom").closest("section") as HTMLElement;
     expect(within(wisdomCard).getByText("4")).toBeInTheDocument();
     // The Wisdom card carries a caption row like every other metric so its
@@ -73,8 +82,8 @@ describe("read console pages", () => {
           version: healthReads === 1 ? "0.2.0" : "0.2.1",
           layer_counts: {
             ...healthFixture.layer_counts,
-            sources: healthReads === 1 ? 2 : 42
-          }
+            sources: healthReads === 1 ? 2 : 42,
+          },
         });
       }
       if (path === "/v1/info") {
@@ -86,8 +95,8 @@ describe("read console pages", () => {
           ...statusFixture,
           documents_by_layer: {
             ...statusFixture.documents_by_layer,
-            source: statusReads === 1 ? 2 : 42
-          }
+            source: statusReads === 1 ? 2 : 42,
+          },
         });
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -105,17 +114,19 @@ describe("read console pages", () => {
 
   it("loads wiki pages, renders markdown, and follows wikilinks", async () => {
     const client = createMockClient();
-    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
-      if (path === "/v1/base/pages") {
-        expect(options?.params).toEqual({ active: true });
-        return Promise.resolve(wikiPagesFixture);
-      }
-      if (path.startsWith("/v1/base/pages/")) {
-        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
-      }
-      return Promise.reject(new Error(`Unexpected path ${path}`));
-    });
+    client.get.mockImplementation(
+      (path: string, options?: { params?: Record<string, unknown> }) => {
+        if (path === "/v1/base/pages") {
+          expect(options?.params).toEqual({ active: true });
+          return Promise.resolve(wikiPagesFixture);
+        }
+        if (path.startsWith("/v1/base/pages/")) {
+          const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+          return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
+        }
+        return Promise.reject(new Error(`Unexpected path ${path}`));
+      },
+    );
 
     render(<WikiPage client={client} />);
 
@@ -128,35 +139,50 @@ describe("read console pages", () => {
   it("inlines source-page backlinks into the body and opens preview on click", async () => {
     const client = createMockClient();
     const linksCalls: string[] = [];
-    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
-      if (path === "/v1/base/pages") {
-        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
-      }
-      if (path.endsWith("/links")) {
-        linksCalls.push(path);
-        expect(options?.params).toEqual({ direction: "in" });
-        return Promise.resolve({
-          path: "sources/architecture.md",
-          outgoing: [],
-          incoming: [
-            { src_doc_id: "knowledge-architecture", src_path: "knowledge/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
-          ]
-        } satisfies PageLinksResult);
-      }
-      if (path.endsWith("/provenance")) {
-        // This test isolates the body-wikilink backlinks channel — return a
-        // 404 so the source reader degrades to /links-only without the
-        // provenance fallthrough silently re-shaping the panel.
-        return Promise.reject(
-          new DikwClientError({ status: 404, code: "not_found", message: "endpoint unavailable" })
-        );
-      }
-      if (path.startsWith("/v1/base/pages/")) {
-        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
-      }
-      return Promise.reject(new Error(`Unexpected path ${path}`));
-    });
+    client.get.mockImplementation(
+      (path: string, options?: { params?: Record<string, unknown> }) => {
+        if (path === "/v1/base/pages") {
+          return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+        }
+        if (path.endsWith("/links")) {
+          linksCalls.push(path);
+          expect(options?.params).toEqual({ direction: "in" });
+          return Promise.resolve({
+            path: "sources/architecture.md",
+            outgoing: [],
+            incoming: [
+              {
+                src_doc_id: "knowledge-architecture",
+                src_path: "knowledge/architecture.md",
+                link_type: "wikilink",
+                anchor: null,
+                line: 3,
+              },
+            ],
+          } satisfies PageLinksResult);
+        }
+        if (path.endsWith("/provenance")) {
+          // This test isolates the body-wikilink backlinks channel — return a
+          // 404 so the source reader degrades to /links-only without the
+          // provenance fallthrough silently re-shaping the panel.
+          return Promise.reject(
+            new DikwClientError({
+              status: 404,
+              code: "not_found",
+              message: "endpoint unavailable",
+            }),
+          );
+        }
+        if (path.startsWith("/v1/base/pages/")) {
+          const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+          return Promise.resolve(
+            wikiPageBodiesFixture[selectedPath] ??
+              wikiPageBodiesFixture["knowledge/architecture.md"],
+          );
+        }
+        return Promise.reject(new Error(`Unexpected path ${path}`));
+      },
+    );
 
     render(<WikiPage client={client} />);
 
@@ -191,8 +217,14 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           outgoing: [],
           incoming: [
-            { src_doc_id: "knowledge-architecture", src_path: "knowledge/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
-          ]
+            {
+              src_doc_id: "knowledge-architecture",
+              src_path: "knowledge/architecture.md",
+              link_type: "wikilink",
+              anchor: null,
+              line: 3,
+            },
+          ],
         } satisfies PageLinksResult);
       }
       if (path.endsWith("/provenance")) {
@@ -200,14 +232,20 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           derived_from: [],
           derived_pages: [
-            { doc_id: "knowledge-architecture", path: "knowledge/architecture.md", title: "Architecture" },
-            { doc_id: "knowledge-synthesis", path: "knowledge/synthesis.md", title: "Synthesis" }
-          ]
+            {
+              doc_id: "knowledge-architecture",
+              path: "knowledge/architecture.md",
+              title: "Architecture",
+            },
+            { doc_id: "knowledge-synthesis", path: "knowledge/synthesis.md", title: "Synthesis" },
+          ],
         });
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
+        return Promise.resolve(
+          wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"],
+        );
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -244,7 +282,7 @@ describe("read console pages", () => {
         return Promise.resolve({
           path: "sources/architecture.md",
           outgoing: [],
-          incoming: []
+          incoming: [],
         } satisfies PageLinksResult);
       }
       if (path.endsWith("/provenance")) {
@@ -252,13 +290,19 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           derived_from: [],
           derived_pages: [
-            { doc_id: "knowledge-architecture", path: "knowledge/architecture.md", title: "Architecture" }
-          ]
+            {
+              doc_id: "knowledge-architecture",
+              path: "knowledge/architecture.md",
+              title: "Architecture",
+            },
+          ],
         });
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
+        return Promise.resolve(
+          wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"],
+        );
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -288,7 +332,7 @@ describe("read console pages", () => {
         return Promise.resolve({
           path: "sources/architecture.md",
           outgoing: [],
-          incoming: []
+          incoming: [],
         } satisfies PageLinksResult);
       }
       if (path.endsWith("/provenance")) {
@@ -296,13 +340,19 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           derived_from: [],
           derived_pages: [
-            { doc_id: "knowledge-architecture", path: "knowledge/architecture.md", title: "Architecture" }
-          ]
+            {
+              doc_id: "knowledge-architecture",
+              path: "knowledge/architecture.md",
+              title: "Architecture",
+            },
+          ],
         });
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
+        return Promise.resolve(
+          wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"],
+        );
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -324,7 +374,9 @@ describe("read console pages", () => {
     const sourceTab = await screen.findByRole("tabpanel", { name: /Source/ });
     // The raw source code <pre> renders the original body — no [[...|...]] markers.
     expect(within(sourceTab).getByText(/The Architecture is the main topic/)).toBeInTheDocument();
-    expect(within(sourceTab).queryByText(/\[\[Architecture\|Architecture\]\]/)).not.toBeInTheDocument();
+    expect(
+      within(sourceTab).queryByText(/\[\[Architecture\|Architecture\]\]/),
+    ).not.toBeInTheDocument();
   });
 
   it("opens a cache-lag provenance reference even when its path is not yet in pages.data", async () => {
@@ -344,7 +396,7 @@ describe("read console pages", () => {
         return Promise.resolve({
           path: "sources/architecture.md",
           outgoing: [],
-          incoming: []
+          incoming: [],
         } satisfies PageLinksResult);
       }
       if (path.endsWith("/provenance")) {
@@ -352,8 +404,8 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           derived_from: [],
           derived_pages: [
-            { doc_id: "knowledge-fresh-k", path: "knowledge/fresh-k.md", title: "Fresh K-page" }
-          ]
+            { doc_id: "knowledge-fresh-k", path: "knowledge/fresh-k.md", title: "Fresh K-page" },
+          ],
         });
       }
       if (path === "/v1/base/pages/knowledge/fresh-k.md") {
@@ -366,12 +418,14 @@ describe("read console pages", () => {
           title: "Fresh K-page",
           body: "Body of fresh K-page.",
           anchors: [],
-          assets: []
+          assets: [],
         } satisfies PageReadResult);
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
+        return Promise.resolve(
+          wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"],
+        );
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -393,7 +447,9 @@ describe("read console pages", () => {
     // outside visiblePages back to the default page, so the "Open as
     // main document" button would silently fail for a cache-lag stub.
     // Hide it instead of shipping a dead button.
-    expect(within(preview).queryByRole("button", { name: "Open as main document" })).not.toBeInTheDocument();
+    expect(
+      within(preview).queryByRole("button", { name: "Open as main document" }),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps a cache-lag K-page in the bottom panel even when its title literally appears in the source body", async () => {
@@ -412,7 +468,7 @@ describe("read console pages", () => {
         return Promise.resolve({
           path: "sources/architecture.md",
           outgoing: [],
-          incoming: []
+          incoming: [],
         } satisfies PageLinksResult);
       }
       if (path.endsWith("/provenance")) {
@@ -420,8 +476,8 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           derived_from: [],
           derived_pages: [
-            { doc_id: "knowledge-emergent", path: "knowledge/emergent.md", title: "Emergent" }
-          ]
+            { doc_id: "knowledge-emergent", path: "knowledge/emergent.md", title: "Emergent" },
+          ],
         });
       }
       if (path === "/v1/base/pages/sources/architecture.md") {
@@ -433,7 +489,7 @@ describe("read console pages", () => {
           title: "Architecture source",
           body: "# Architecture source\n\nThe Emergent behavior is interesting.",
           anchors: [],
-          assets: []
+          assets: [],
         } satisfies PageReadResult);
       }
       if (path === "/v1/base/pages/knowledge/emergent.md") {
@@ -444,12 +500,14 @@ describe("read console pages", () => {
           title: "Emergent",
           body: "Body of Emergent.",
           anchors: [],
-          assets: []
+          assets: [],
         } satisfies PageReadResult);
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
+        return Promise.resolve(
+          wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"],
+        );
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -470,7 +528,9 @@ describe("read console pages", () => {
     const reader = await screen.findByRole("main", { name: "Wiki reader" });
     const markdownBody = reader.querySelector(".markdown-body") as HTMLElement | null;
     expect(markdownBody).not.toBeNull();
-    expect(within(markdownBody!).queryByRole("button", { name: "Emergent" })).not.toBeInTheDocument();
+    expect(
+      within(markdownBody!).queryByRole("button", { name: "Emergent" }),
+    ).not.toBeInTheDocument();
     expect(within(markdownBody!).getByText(/Emergent behavior is interesting/)).toBeInTheDocument();
 
     // 点击 panel 里的按钮 → preview 打开(由 openBacklink path-based fallback 兜底)。
@@ -481,7 +541,7 @@ describe("read console pages", () => {
 
   it.each([
     [404, "not_found"],
-    [405, "method_not_allowed"]
+    [405, "method_not_allowed"],
   ])("silently degrades when /provenance returns %i", async (status, code) => {
     const client = createMockClient();
     client.get.mockImplementation((path: string) => {
@@ -493,16 +553,26 @@ describe("read console pages", () => {
           path: "sources/architecture.md",
           outgoing: [],
           incoming: [
-            { src_doc_id: "knowledge-architecture", src_path: "knowledge/architecture.md", link_type: "wikilink", anchor: null, line: 3 }
-          ]
+            {
+              src_doc_id: "knowledge-architecture",
+              src_path: "knowledge/architecture.md",
+              link_type: "wikilink",
+              anchor: null,
+              line: 3,
+            },
+          ],
         } satisfies PageLinksResult);
       }
       if (path.endsWith("/provenance")) {
-        return Promise.reject(new DikwClientError({ status, code, message: "endpoint unavailable" }));
+        return Promise.reject(
+          new DikwClientError({ status, code, message: "endpoint unavailable" }),
+        );
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
+        return Promise.resolve(
+          wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"],
+        );
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -519,7 +589,9 @@ describe("read console pages", () => {
     const readTab = within(reader).getByRole("tabpanel", { name: /Read/ });
     const inlineButton = await within(readTab).findByRole("button", { name: "Architecture" });
     expect(inlineButton).toHaveClass("inline-wikilink");
-    expect(within(reader).queryByRole("region", { name: "Linked references" })).not.toBeInTheDocument();
+    expect(
+      within(reader).queryByRole("region", { name: "Linked references" }),
+    ).not.toBeInTheDocument();
     // No top-level error notice was rendered for the 404.
     expect(screen.queryByText(/endpoint unavailable/)).not.toBeInTheDocument();
   });
@@ -534,7 +606,7 @@ describe("read console pages", () => {
       hash: "hash-src-sn",
       mtime: 1777819000,
       layer: "source",
-      active: true
+      active: true,
     };
     const sourceBodies: Record<string, PageReadResult> = {
       "sources/architecture.md": {
@@ -544,7 +616,7 @@ describe("read console pages", () => {
         title: "Architecture source",
         body: "Body of architecture source.",
         anchors: [],
-        assets: []
+        assets: [],
       },
       "sources/synthesis-notes.md": {
         doc_id: "source-synthesis-notes",
@@ -553,8 +625,8 @@ describe("read console pages", () => {
         title: "Synthesis notes",
         body: "Body of synthesis notes source.",
         anchors: [],
-        assets: []
-      }
+        assets: [],
+      },
     };
     let resolveStaleProvenance: ((value: unknown) => void) | null = null;
     client.get.mockImplementation((path: string) => {
@@ -562,11 +634,19 @@ describe("read console pages", () => {
         return Promise.resolve([secondSource, ...sourcePagesFixture, ...wikiPagesFixture]);
       }
       if (path.endsWith("/links")) {
-        const target = decodeURIComponent(path.replace("/v1/base/pages/", "").replace(/\/links$/, ""));
-        return Promise.resolve({ path: target, outgoing: [], incoming: [] } satisfies PageLinksResult);
+        const target = decodeURIComponent(
+          path.replace("/v1/base/pages/", "").replace(/\/links$/, ""),
+        );
+        return Promise.resolve({
+          path: target,
+          outgoing: [],
+          incoming: [],
+        } satisfies PageLinksResult);
       }
       if (path.endsWith("/provenance")) {
-        const target = decodeURIComponent(path.replace("/v1/base/pages/", "").replace(/\/provenance$/, ""));
+        const target = decodeURIComponent(
+          path.replace("/v1/base/pages/", "").replace(/\/provenance$/, ""),
+        );
         if (target === "sources/architecture.md") {
           // Park this response until after we've switched to the other source.
           return new Promise((resolve) => {
@@ -576,7 +656,9 @@ describe("read console pages", () => {
         return Promise.resolve({
           path: target,
           derived_from: [],
-          derived_pages: [{ doc_id: "knowledge-synthesis", path: "knowledge/synthesis.md", title: "Synthesis" }]
+          derived_pages: [
+            { doc_id: "knowledge-synthesis", path: "knowledge/synthesis.md", title: "Synthesis" },
+          ],
         });
       }
       if (path.startsWith("/v1/base/pages/")) {
@@ -593,11 +675,15 @@ describe("read console pages", () => {
     // Body 中 "architecture" 命中 K-page 后被注入为 inline wikilink,文本节点被
     // 切开 → 用 reader header 的 path 判定当前已加载哪个 source。
     const reader = await screen.findByRole("main", { name: "Wiki reader" });
-    await waitFor(() => expect(within(reader).getByText("sources/architecture.md")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(within(reader).getByText("sources/architecture.md")).toBeInTheDocument(),
+    );
 
     // Switch to a different source while the first /provenance is still pending.
     await userEvent.click(screen.getByRole("button", { name: /Synthesis notes/ }));
-    await waitFor(() => expect(within(reader).getByText("sources/synthesis-notes.md")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(within(reader).getByText("sources/synthesis-notes.md")).toBeInTheDocument(),
+    );
 
     // Synthesis 在 body "Body of synthesis notes source." 中有字面命中(大小写
     // 不敏感) → 走 inline。inline button 的可见文本是原文 "synthesis",
@@ -619,27 +705,42 @@ describe("read console pages", () => {
       resolveStaleProvenance?.({
         path: "sources/synthesis-notes.md",
         derived_from: [],
-        derived_pages: [{ doc_id: "knowledge-architecture", path: "knowledge/architecture.md", title: "Architecture" }]
+        derived_pages: [
+          {
+            doc_id: "knowledge-architecture",
+            path: "knowledge/architecture.md",
+            title: "Architecture",
+          },
+        ],
       });
     });
 
-    expect(within(readTab).queryByRole("button", { name: /^architecture$/i })).not.toBeInTheDocument();
-    expect(within(reader).queryByRole("region", { name: "Linked references" })).not.toBeInTheDocument();
+    expect(
+      within(readTab).queryByRole("button", { name: /^architecture$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(reader).queryByRole("region", { name: "Linked references" }),
+    ).not.toBeInTheDocument();
   });
 
   it("loads base pages without a layer selector and shows the base directory tree", async () => {
     const client = createMockClient();
-    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
-      if (path === "/v1/base/pages") {
-        expect(options?.params).toEqual({ active: true });
-        return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
-      }
-      if (path.startsWith("/v1/base/pages/")) {
-        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
-      }
-      return Promise.reject(new Error(`Unexpected path ${path}`));
-    });
+    client.get.mockImplementation(
+      (path: string, options?: { params?: Record<string, unknown> }) => {
+        if (path === "/v1/base/pages") {
+          expect(options?.params).toEqual({ active: true });
+          return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
+        }
+        if (path.startsWith("/v1/base/pages/")) {
+          const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+          return Promise.resolve(
+            wikiPageBodiesFixture[selectedPath] ??
+              wikiPageBodiesFixture["knowledge/architecture.md"],
+          );
+        }
+        return Promise.reject(new Error(`Unexpected path ${path}`));
+      },
+    );
 
     render(<WikiPage client={client} />);
 
@@ -650,7 +751,7 @@ describe("read console pages", () => {
     // (knowledge/sources) populate a tick later once the pages list resolves —
     // await one child before asserting the rest synchronously to avoid a race.
     expect(
-      await within(directory).findByRole("treeitem", { name: "knowledge" })
+      await within(directory).findByRole("treeitem", { name: "knowledge" }),
     ).toBeInTheDocument();
     expect(within(directory).getByRole("treeitem", { name: "sources" })).toBeInTheDocument();
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
@@ -666,7 +767,7 @@ describe("read console pages", () => {
       hash: "hash-w",
       mtime: 1777819500,
       layer: "wisdom",
-      active: true
+      active: true,
     };
     client.get.mockImplementation((path: string) => {
       if (path === "/v1/base/pages") {
@@ -674,7 +775,9 @@ describe("read console pages", () => {
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"]);
+        return Promise.resolve(
+          wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["knowledge/architecture.md"],
+        );
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -685,7 +788,7 @@ describe("read console pages", () => {
     // Children (knowledge/sources) populate a tick after the tree container —
     // await one so the negative wisdom assertion below isn't a false green.
     expect(
-      await within(directory).findByRole("treeitem", { name: "knowledge" })
+      await within(directory).findByRole("treeitem", { name: "knowledge" }),
     ).toBeInTheDocument();
     expect(within(directory).getByRole("treeitem", { name: "sources" })).toBeInTheDocument();
     // wisdom has its own #wisdom page and must not surface in the Base tree.
@@ -700,11 +803,15 @@ describe("read console pages", () => {
         return Promise.resolve([...sourcePagesFixture, ...wikiPagesFixture]);
       }
       if (path.endsWith("/links")) {
-        const target = decodeURIComponent(path.replace("/v1/base/pages/", "").replace(/\/links$/, ""));
+        const target = decodeURIComponent(
+          path.replace("/v1/base/pages/", "").replace(/\/links$/, ""),
+        );
         return Promise.resolve({ path: target, outgoing: [], incoming: [] });
       }
       if (path.endsWith("/provenance")) {
-        const target = decodeURIComponent(path.replace("/v1/base/pages/", "").replace(/\/provenance$/, ""));
+        const target = decodeURIComponent(
+          path.replace("/v1/base/pages/", "").replace(/\/provenance$/, ""),
+        );
         // knowledge/synthesis.md is in the page list (resolves to layer knowledge);
         // the wisdom path is NOT, so resolveDerivedPages infers layer "wisdom" via
         // its cache-lag fallback. Base must drop that wisdom ref.
@@ -713,13 +820,19 @@ describe("read console pages", () => {
           derived_from: [],
           derived_pages: [
             { doc_id: "knowledge-synthesis", path: "knowledge/synthesis.md", title: "Synthesis" },
-            { doc_id: "wisdom-lesson", path: "wisdom/lessons/alpha.md", title: "Wisdom Lesson Alpha" }
-          ]
+            {
+              doc_id: "wisdom-lesson",
+              path: "wisdom/lessons/alpha.md",
+              title: "Wisdom Lesson Alpha",
+            },
+          ],
         });
       }
       if (path.startsWith("/v1/base/pages/")) {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
-        return Promise.resolve(wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["sources/architecture.md"]);
+        return Promise.resolve(
+          wikiPageBodiesFixture[selectedPath] ?? wikiPageBodiesFixture["sources/architecture.md"],
+        );
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -773,7 +886,7 @@ describe("read console pages", () => {
         hash: "hash-core",
         mtime: 1777820000,
         layer: "knowledge",
-        active: true
+        active: true,
       },
       {
         doc_id: "knowledge-dikw-pyramid",
@@ -783,8 +896,8 @@ describe("read console pages", () => {
         hash: "hash-pyramid",
         mtime: 1777820100,
         layer: "knowledge",
-        active: true
-      }
+        active: true,
+      },
     ];
     const treeBodies: Record<string, PageReadResult> = {
       "knowledge/entities/dikw-core.md": {
@@ -794,7 +907,7 @@ describe("read console pages", () => {
         title: "dikw-core",
         body: "# dikw-core\n\nRead about [[DIKW pyramid]].",
         anchors: [{ chunk_id: 301, seq: 1, start: 0, end: 22 }],
-        assets: []
+        assets: [],
       },
       "knowledge/concepts/pyramid-diagram.md": {
         doc_id: "knowledge-dikw-pyramid",
@@ -803,8 +916,8 @@ describe("read console pages", () => {
         title: "DIKW 金字塔",
         body: "# DIKW 金字塔\n\nPreview body for the pyramid concept.",
         anchors: [{ chunk_id: 302, seq: 1, start: 0, end: 34 }],
-        assets: []
-      }
+        assets: [],
+      },
     };
     client.get.mockImplementation((path: string) => {
       if (path === "/v1/base/pages") {
@@ -823,7 +936,7 @@ describe("read console pages", () => {
     expect(within(directory).getByRole("treeitem", { name: "base" })).toBeInTheDocument();
     // Children populate after the pages list resolves — await before asserting.
     expect(
-      await within(directory).findByRole("treeitem", { name: /knowledge/ })
+      await within(directory).findByRole("treeitem", { name: /knowledge/ }),
     ).toBeInTheDocument();
     await screen.findByRole("heading", { name: "dikw-core", level: 1 });
     expect(within(directory).getByRole("treeitem", { name: /entities/ })).toBeInTheDocument();
@@ -837,18 +950,35 @@ describe("read console pages", () => {
     expect(within(preview).getByRole("heading", { name: "DIKW 金字塔" })).toBeInTheDocument();
     expect(within(preview).getByText("knowledge/concepts/pyramid-diagram.md")).toBeInTheDocument();
     expect(within(preview).getByText("Preview body for the pyramid concept.")).toBeInTheDocument();
-    expect(within(screen.getByRole("main", { name: "Wiki reader" })).getByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("main", { name: "Wiki reader" })).getByRole("heading", {
+        name: "dikw-core",
+        level: 1,
+      }),
+    ).toBeInTheDocument();
 
     await userEvent.click(within(preview).getByRole("button", { name: "Collapse link preview" }));
 
     expect(screen.queryByRole("region", { name: "Wiki link preview" })).not.toBeInTheDocument();
-    expect(within(screen.getByRole("main", { name: "Wiki reader" })).getByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("main", { name: "Wiki reader" })).getByRole("heading", {
+        name: "dikw-core",
+        level: 1,
+      }),
+    ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "DIKW pyramid" }));
     const reopenedPreview = screen.getByRole("region", { name: "Wiki link preview" });
-    await userEvent.click(within(reopenedPreview).getByRole("button", { name: "Open as main document" }));
+    await userEvent.click(
+      within(reopenedPreview).getByRole("button", { name: "Open as main document" }),
+    );
 
-    expect(await within(screen.getByRole("main", { name: "Wiki reader" })).findByRole("heading", { name: "DIKW 金字塔", level: 1 })).toBeInTheDocument();
+    expect(
+      await within(screen.getByRole("main", { name: "Wiki reader" })).findByRole("heading", {
+        name: "DIKW 金字塔",
+        level: 1,
+      }),
+    ).toBeInTheDocument();
   });
 
   it("expands matching wiki tree branches while filtering", async () => {
@@ -864,7 +994,7 @@ describe("read console pages", () => {
             hash: "hash-core",
             mtime: 1777820000,
             layer: "knowledge",
-            active: true
+            active: true,
           },
           {
             doc_id: "knowledge-dikw-pyramid",
@@ -874,8 +1004,8 @@ describe("read console pages", () => {
             hash: "hash-pyramid",
             mtime: 1777820100,
             layer: "knowledge",
-            active: true
-          }
+            active: true,
+          },
         ] satisfies DocumentRecord[]);
       }
       if (path.startsWith("/v1/base/pages/")) {
@@ -885,9 +1015,11 @@ describe("read console pages", () => {
           path: selectedPath,
           layer: "knowledge",
           title: selectedPath.includes("pyramid") ? "DIKW pyramid" : "dikw-core",
-          body: selectedPath.includes("pyramid") ? "# DIKW pyramid\n\nPyramid body." : "# dikw-core\n\nCore body.",
+          body: selectedPath.includes("pyramid")
+            ? "# DIKW pyramid\n\nPyramid body."
+            : "# dikw-core\n\nCore body.",
           anchors: [],
-          assets: []
+          assets: [],
         } satisfies PageReadResult);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -899,9 +1031,17 @@ describe("read console pages", () => {
     await userEvent.type(screen.getByLabelText("Filter"), "pyramid");
 
     const directory = screen.getByRole("tree", { name: "Base directory" });
-    expect(within(directory).getByRole("treeitem", { name: "knowledge" })).toHaveAttribute("aria-expanded", "true");
-    expect(within(directory).getByRole("treeitem", { name: "concepts" })).toHaveAttribute("aria-expanded", "true");
-    expect(await within(directory).findByRole("button", { name: /DIKW pyramid/ })).toBeInTheDocument();
+    expect(within(directory).getByRole("treeitem", { name: "knowledge" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(within(directory).getByRole("treeitem", { name: "concepts" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(
+      await within(directory).findByRole("button", { name: /DIKW pyramid/ }),
+    ).toBeInTheDocument();
     expect(within(directory).queryByRole("button", { name: /dikw-core/ })).not.toBeInTheDocument();
   });
 
@@ -919,7 +1059,7 @@ describe("read console pages", () => {
             hash: "hash-core",
             mtime: 1777820000,
             layer: "knowledge",
-            active: true
+            active: true,
           },
           {
             doc_id: "knowledge-dikw-pyramid",
@@ -929,8 +1069,8 @@ describe("read console pages", () => {
             hash: "hash-pyramid",
             mtime: 1777820100,
             layer: "knowledge",
-            active: true
-          }
+            active: true,
+          },
         ] satisfies DocumentRecord[]);
       }
       if (path.startsWith("/v1/base/pages/")) {
@@ -941,9 +1081,11 @@ describe("read console pages", () => {
           path: selectedPath,
           layer: "knowledge",
           title: selectedPath.includes("pyramid") ? "DIKW pyramid" : "dikw-core",
-          body: selectedPath.includes("pyramid") ? "# DIKW pyramid\n\nPyramid body." : "# dikw-core\n\nCore body with [[DIKW pyramid]].",
+          body: selectedPath.includes("pyramid")
+            ? "# DIKW pyramid\n\nPyramid body."
+            : "# dikw-core\n\nCore body with [[DIKW pyramid]].",
           anchors: [],
-          assets: []
+          assets: [],
         } satisfies PageReadResult);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -953,18 +1095,27 @@ describe("read console pages", () => {
 
     const reader = screen.getByRole("main", { name: "Wiki reader" });
     const directory = await screen.findByRole("tree", { name: "Base directory" });
-    expect(await within(reader).findByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
+    expect(
+      await within(reader).findByRole("heading", { name: "dikw-core", level: 1 }),
+    ).toBeInTheDocument();
 
     await userEvent.click(within(reader).getByRole("button", { name: "DIKW pyramid" }));
     expect(screen.getByRole("region", { name: "Wiki link preview" })).toBeInTheDocument();
 
     await userEvent.click(within(directory).getByRole("button", { name: "concepts" }));
-    expect(within(reader).getByRole("heading", { name: "dikw-core", level: 1 })).toBeInTheDocument();
+    expect(
+      within(reader).getByRole("heading", { name: "dikw-core", level: 1 }),
+    ).toBeInTheDocument();
 
     await userEvent.click(within(directory).getByRole("button", { name: "entities" }));
 
-    expect(within(directory).getByRole("treeitem", { name: "entities" })).toHaveAttribute("aria-expanded", "false");
-    expect(within(reader).queryByRole("heading", { name: "dikw-core", level: 1 })).not.toBeInTheDocument();
+    expect(within(directory).getByRole("treeitem", { name: "entities" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(
+      within(reader).queryByRole("heading", { name: "dikw-core", level: 1 }),
+    ).not.toBeInTheDocument();
     expect(within(reader).getByText("Select a document to start reading")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Wiki link preview" })).not.toBeInTheDocument();
 
@@ -987,8 +1138,8 @@ describe("read console pages", () => {
             hash: "hash-core",
             mtime: 1777820000,
             layer: "knowledge",
-            active: true
-          }
+            active: true,
+          },
         ] satisfies DocumentRecord[]);
       }
       if (path.startsWith("/v1/base/pages/")) {
@@ -999,7 +1150,7 @@ describe("read console pages", () => {
           title: "dikw-core",
           body: "# dikw-core\n\nSee [[Missing Concept]].",
           anchors: [],
-          assets: []
+          assets: [],
         } satisfies PageReadResult);
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -1007,13 +1158,19 @@ describe("read console pages", () => {
 
     render(<WikiPage client={client} />);
 
-    await userEvent.click(await screen.findByRole("button", { name: "Missing Concept" }, { timeout: 5_000 }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Missing Concept" }, { timeout: 5_000 }),
+    );
 
     const preview = screen.getByRole("region", { name: "Wiki link preview" });
-    expect(within(preview).getByRole("heading", { name: "Linked page not found" })).toBeInTheDocument();
+    expect(
+      within(preview).getByRole("heading", { name: "Linked page not found" }),
+    ).toBeInTheDocument();
     expect(within(preview).getByText("Missing Concept")).toBeInTheDocument();
 
-    await userEvent.click(within(preview).getByRole("button", { name: "Filter directory by target" }));
+    await userEvent.click(
+      within(preview).getByRole("button", { name: "Filter directory by target" }),
+    );
 
     expect(screen.getByLabelText("Filter")).toHaveValue("Missing Concept");
   });
@@ -1030,7 +1187,7 @@ describe("read console pages", () => {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
         return Promise.resolve({
           ...wikiPageBodiesFixture[selectedPath],
-          body: bodyReads === 1 ? "Original Body." : "Updated Body."
+          body: bodyReads === 1 ? "Original Body." : "Updated Body.",
         });
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -1054,9 +1211,13 @@ describe("read console pages", () => {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
         return Promise.resolve({
           ...wikiPageBodiesFixture[selectedPath],
-          frontmatter: { title: "Architecture", tags: ["DIKW"], sources: ["source/a.md"], status: "draft" },
-          body:
-            "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\nstatus: draft\n---\n\n# Architecture\n\nLayered DIKW notes.\n\n[Jump to data flow](#data-flow)\n\n## Data flow\n\nSee [[Synthesis]]."
+          frontmatter: {
+            title: "Architecture",
+            tags: ["DIKW"],
+            sources: ["source/a.md"],
+            status: "draft",
+          },
+          body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\nstatus: draft\n---\n\n# Architecture\n\nLayered DIKW notes.\n\n[Jump to data flow](#data-flow)\n\n## Data flow\n\nSee [[Synthesis]].",
         });
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -1066,8 +1227,13 @@ describe("read console pages", () => {
 
     const reader = screen.getByRole("main", { name: "Wiki reader" });
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
-    expect(within(reader).getByRole("tab", { name: "Read" })).toHaveAttribute("aria-selected", "true");
-    expect(within(reader).queryByRole("button", { name: "Generate explainer" })).not.toBeInTheDocument();
+    expect(within(reader).getByRole("tab", { name: "Read" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      within(reader).queryByRole("button", { name: "Generate explainer" }),
+    ).not.toBeInTheDocument();
     expect(within(reader).queryByLabelText("Document metadata")).not.toBeInTheDocument();
 
     await userEvent.click(within(reader).getByRole("tab", { name: "Info" }));
@@ -1105,7 +1271,7 @@ describe("read console pages", () => {
         const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
         return Promise.resolve({
           ...wikiPageBodiesFixture[selectedPath],
-          body: "# Architecture\n\n[Jump to Data flow](#data-flow)\n\n## Data flow\n\nLayered DIKW notes."
+          body: "# Architecture\n\n[Jump to Data flow](#data-flow)\n\n## Data flow\n\nLayered DIKW notes.",
         });
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -1126,13 +1292,15 @@ describe("read console pages", () => {
 
   it("loads the complete core graph without scope or force controls", async () => {
     const client = createMockClient();
-    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
-      if (path === "/v1/base/graph") {
-        expect(options?.params).toEqual({ active: true });
-        return Promise.resolve(graphResultFixture);
-      }
-      return Promise.reject(new Error(`Unexpected path ${path}`));
-    });
+    client.get.mockImplementation(
+      (path: string, options?: { params?: Record<string, unknown> }) => {
+        if (path === "/v1/base/graph") {
+          expect(options?.params).toEqual({ active: true });
+          return Promise.resolve(graphResultFixture);
+        }
+        return Promise.reject(new Error(`Unexpected path ${path}`));
+      },
+    );
 
     render(<GraphPage client={client} />);
 
@@ -1142,7 +1310,9 @@ describe("read console pages", () => {
     expect(screen.getByRole("img", { name: "Base graph" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Architecture graph node" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Synthesis graph node" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Architecture source graph node" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Architecture source graph node" }),
+    ).toBeInTheDocument();
     expect(document.querySelector(".graph-layout")).toHaveAttribute("data-has-detail", "false");
     expect(screen.queryByRole("button", { name: "Wiki" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Sources" })).not.toBeInTheDocument();
@@ -1194,7 +1364,9 @@ describe("read console pages", () => {
     await userEvent.type(screen.getByLabelText("Graph search"), "synth");
 
     expect(screen.getByRole("button", { name: "Synthesis graph node" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Architecture graph node" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Architecture graph node" }),
+    ).not.toBeInTheDocument();
 
     await userEvent.clear(screen.getByLabelText("Graph search"));
     await userEvent.click(screen.getByLabelText("Hide orphans"));
@@ -1209,8 +1381,14 @@ describe("read console pages", () => {
     expect(within(detail).getByText("0 inbound")).toBeInTheDocument();
     expect(within(detail).getByText("1 outbound")).toBeInTheDocument();
     expect(within(detail).getByText("Missing Concept")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Architecture graph node" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByRole("button", { name: "Synthesis graph node" })).toHaveAttribute("data-muted", "false");
+    expect(screen.getByRole("button", { name: "Architecture graph node" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "Synthesis graph node" })).toHaveAttribute(
+      "data-muted",
+      "false",
+    );
 
     await userEvent.click(within(detail).getByRole("button", { name: "Open in Base" }));
 
@@ -1222,7 +1400,7 @@ describe("read console pages", () => {
     client.get.mockImplementation((path: string) =>
       path === "/v1/base/graph"
         ? Promise.resolve(graphResultFixture)
-        : Promise.reject(new Error(`Unexpected path ${path}`))
+        : Promise.reject(new Error(`Unexpected path ${path}`)),
     );
 
     render(<GraphPage client={client} />);
@@ -1260,7 +1438,7 @@ describe("read console pages", () => {
         messages: [],
         toolEvents: [],
         sources: [],
-        proposals: []
+        proposals: [],
       }),
       getSession: vi.fn().mockResolvedValue({
         id: "session-1",
@@ -1270,13 +1448,18 @@ describe("read console pages", () => {
         messageCount: 2,
         lastMessagePreview: "Layered answer.",
         messages: [
-          { id: "m1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z" },
+          {
+            id: "m1",
+            role: "user",
+            content: "What is DIKW?",
+            createdAt: "2026-05-13T00:00:00.000Z",
+          },
           {
             id: "m2",
             role: "assistant",
             content: "## Layered answer\n\nUse **evidence**.",
-            createdAt: "2026-05-13T00:00:01.000Z"
-          }
+            createdAt: "2026-05-13T00:00:01.000Z",
+          },
         ],
         toolEvents: [
           {
@@ -1284,11 +1467,11 @@ describe("read console pages", () => {
             type: "tool_call",
             name: "retrieve_knowledge",
             status: "succeeded",
-            createdAt: "2026-05-13T00:00:00.500Z"
-          }
+            createdAt: "2026-05-13T00:00:00.500Z",
+          },
         ],
         sources: [{ path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }],
-        proposals: []
+        proposals: [],
       }),
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
@@ -1296,7 +1479,11 @@ describe("read console pages", () => {
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
       sendMessage: vi.fn(() =>
         createAsyncEvents([
-          { type: "message_delta", sessionId: "session-1", delta: "## Layered answer\n\nUse **evidence**." },
+          {
+            type: "message_delta",
+            sessionId: "session-1",
+            delta: "## Layered answer\n\nUse **evidence**.",
+          },
           {
             type: "tool_event",
             sessionId: "session-1",
@@ -1305,17 +1492,21 @@ describe("read console pages", () => {
               type: "tool_call",
               name: "retrieve_knowledge",
               status: "succeeded",
-              createdAt: "2026-05-13T00:00:00.500Z"
-            }
+              createdAt: "2026-05-13T00:00:00.500Z",
+            },
           },
           {
             type: "source",
             sessionId: "session-1",
-            source: { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }
+            source: {
+              path: "knowledge/architecture.md",
+              title: "Architecture",
+              layer: "knowledge",
+            },
           },
-          { type: "agent_end", sessionId: "session-1" }
-        ] satisfies AgentStreamEvent[])
-      )
+          { type: "agent_end", sessionId: "session-1" },
+        ] satisfies AgentStreamEvent[]),
+      ),
     };
     render(<ChatPage agentClient={agentClient} />);
     await userEvent.type(await screen.findByLabelText("Message"), "What is DIKW?");
@@ -1326,7 +1517,11 @@ describe("read console pages", () => {
     expect(screen.getByText("retrieve_knowledge")).toHaveClass("tool-call__name");
     expect(screen.getByTitle("Succeeded")).toHaveClass("tool-call--succeeded");
     expect(screen.getByText("knowledge/architecture.md")).toBeInTheDocument();
-    expect(agentClient.sendMessage).toHaveBeenCalledWith("session-1", "What is DIKW?", expect.any(AbortSignal));
+    expect(agentClient.sendMessage).toHaveBeenCalledWith(
+      "session-1",
+      "What is DIKW?",
+      expect.any(AbortSignal),
+    );
   });
 
   it("uses chat terminology and renames sessions from the session menu", async () => {
@@ -1340,26 +1535,26 @@ describe("read console pages", () => {
       messages: [],
       toolEvents: [],
       sources: [],
-      proposals: []
+      proposals: [],
     };
     const renamedSession = {
       ...activeSession,
       title: "Project Review",
-      updatedAt: "2026-05-13T00:00:01.000Z"
+      updatedAt: "2026-05-13T00:00:01.000Z",
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
       createSession: vi.fn().mockResolvedValue({
         ...activeSession,
         id: "session-2",
-        title: "New chat"
+        title: "New chat",
       }),
       getSession: vi.fn().mockResolvedValue(activeSession),
       renameSession: vi.fn().mockResolvedValue(renamedSession),
       deleteSession: vi.fn(),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[])),
     } as AgentClientLike & { renameSession: ReturnType<typeof vi.fn> };
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1377,7 +1572,12 @@ describe("read console pages", () => {
 
     await waitFor(() => {
       expect(agentClient.renameSession).toHaveBeenCalledWith("session-1", "Project Review");
-      expect(within(screen.getByRole("complementary", { name: "Chat history" })).getByText("Project Review", { selector: "strong" })).toBeInTheDocument();
+      expect(
+        within(screen.getByRole("complementary", { name: "Chat history" })).getByText(
+          "Project Review",
+          { selector: "strong" },
+        ),
+      ).toBeInTheDocument();
     });
   });
 
@@ -1392,21 +1592,21 @@ describe("read console pages", () => {
       messages: [],
       toolEvents: [],
       sources: [],
-      proposals: []
+      proposals: [],
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
       createSession: vi.fn().mockResolvedValue({
         ...activeSession,
         id: "session-2",
-        title: "New chat"
+        title: "New chat",
       }),
       getSession: vi.fn().mockResolvedValue(activeSession),
       renameSession: vi.fn(),
       deleteSession: vi.fn().mockResolvedValue(undefined),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[])),
     } as AgentClientLike & { deleteSession: ReturnType<typeof vi.fn> };
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1429,10 +1629,30 @@ describe("read console pages", () => {
       messageCount: 4,
       lastMessagePreview: "Second answer",
       messages: [
-        { id: "u1", role: "user", content: "First question", createdAt: "2026-05-13T00:00:00.000Z" },
-        { id: "a1", role: "assistant", content: "First answer", createdAt: "2026-05-13T00:00:01.000Z" },
-        { id: "u2", role: "user", content: "Second question", createdAt: "2026-05-13T00:00:03.000Z" },
-        { id: "a2", role: "assistant", content: "Second answer", createdAt: "2026-05-13T00:00:04.000Z" }
+        {
+          id: "u1",
+          role: "user",
+          content: "First question",
+          createdAt: "2026-05-13T00:00:00.000Z",
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          content: "First answer",
+          createdAt: "2026-05-13T00:00:01.000Z",
+        },
+        {
+          id: "u2",
+          role: "user",
+          content: "Second question",
+          createdAt: "2026-05-13T00:00:03.000Z",
+        },
+        {
+          id: "a2",
+          role: "assistant",
+          content: "Second answer",
+          createdAt: "2026-05-13T00:00:04.000Z",
+        },
       ],
       toolEvents: [
         {
@@ -1440,21 +1660,21 @@ describe("read console pages", () => {
           type: "tool_call" as const,
           name: "read_page",
           status: "succeeded" as const,
-          createdAt: "2026-05-13T00:00:00.500Z"
+          createdAt: "2026-05-13T00:00:00.500Z",
         },
         {
           id: "tool-2",
           type: "tool_call" as const,
           name: "retrieve_knowledge",
           status: "succeeded" as const,
-          createdAt: "2026-05-13T00:00:03.500Z"
-        }
+          createdAt: "2026-05-13T00:00:03.500Z",
+        },
       ],
       sources: [
         { path: "knowledge/first.md", title: "First", layer: "knowledge" },
-        { path: "knowledge/second.md", title: "Second", layer: "knowledge" }
+        { path: "knowledge/second.md", title: "Second", layer: "knowledge" },
       ],
-      proposals: []
+      proposals: [],
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
@@ -1464,7 +1684,7 @@ describe("read console pages", () => {
       deleteSession: vi.fn(),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[])),
     } as AgentClientLike;
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1486,15 +1706,30 @@ describe("read console pages", () => {
       messageCount: 2,
       lastMessagePreview: "Web answer",
       messages: [
-        { id: "u1", role: "user", content: "search the web", createdAt: "2026-05-13T00:00:00.000Z" },
-        { id: "a1", role: "assistant", content: "Web answer", createdAt: "2026-05-13T00:00:01.000Z" }
+        {
+          id: "u1",
+          role: "user",
+          content: "search the web",
+          createdAt: "2026-05-13T00:00:00.000Z",
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          content: "Web answer",
+          createdAt: "2026-05-13T00:00:01.000Z",
+        },
       ],
       toolEvents: [],
       sources: [
-        { path: "https://example.com/a", title: "Example A", excerpt: "external snippet", kind: "web" as const },
-        { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }
+        {
+          path: "https://example.com/a",
+          title: "Example A",
+          excerpt: "external snippet",
+          kind: "web" as const,
+        },
+        { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" },
       ],
-      proposals: []
+      proposals: [],
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
@@ -1504,7 +1739,7 @@ describe("read console pages", () => {
       deleteSession: vi.fn(),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[])),
     } as AgentClientLike;
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1534,9 +1769,9 @@ describe("read console pages", () => {
       sources: [
         { path: "javascript:alert(1)", title: "xss", kind: "web" as const },
         { path: "http://localhost/admin", title: "internal", kind: "web" as const },
-        { path: "https://example.com/ok", title: "good", kind: "web" as const }
+        { path: "https://example.com/ok", title: "good", kind: "web" as const },
       ],
-      proposals: []
+      proposals: [],
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
@@ -1546,7 +1781,7 @@ describe("read console pages", () => {
       deleteSession: vi.fn(),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[])),
     } as AgentClientLike;
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1574,15 +1809,25 @@ describe("read console pages", () => {
       messageCount: 2,
       lastMessagePreview: "Legacy answer",
       messages: [
-        { id: "u1", role: "user", content: "who is zhan na", createdAt: "2026-05-13T00:00:00.000Z" },
-        { id: "a1", role: "assistant", content: "Legacy answer", createdAt: "2026-05-13T00:00:01.000Z" }
+        {
+          id: "u1",
+          role: "user",
+          content: "who is zhan na",
+          createdAt: "2026-05-13T00:00:00.000Z",
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          content: "Legacy answer",
+          createdAt: "2026-05-13T00:00:01.000Z",
+        },
       ],
       toolEvents: [],
       sources: [
         { path: "wiki/entities/zhan-na.md", title: "Zhan Na", layer: "wiki" },
-        { path: "sources/elon-musk.md", title: "Elon Musk", layer: "source" }
+        { path: "sources/elon-musk.md", title: "Elon Musk", layer: "source" },
       ],
-      proposals: []
+      proposals: [],
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
@@ -1592,7 +1837,7 @@ describe("read console pages", () => {
       deleteSession: vi.fn(),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[])),
     } as AgentClientLike;
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1619,14 +1864,14 @@ describe("read console pages", () => {
       lastMessagePreview: "Answer",
       messages: [
         { id: "u1", role: "user", content: "who is elon", createdAt: "2026-05-13T00:00:00.000Z" },
-        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z" }
+        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z" },
       ],
       toolEvents: [],
       sources: [
         { path: "wiki/entities/elon-musk.md", title: "Elon Musk", layer: "knowledge" },
-        { path: "knowledge/entities/elon-musk.md", title: "Elon Musk", layer: "knowledge" }
+        { path: "knowledge/entities/elon-musk.md", title: "Elon Musk", layer: "knowledge" },
       ],
-      proposals: []
+      proposals: [],
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
@@ -1636,7 +1881,7 @@ describe("read console pages", () => {
       deleteSession: vi.fn(),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[])),
     } as AgentClientLike;
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1659,14 +1904,14 @@ describe("read console pages", () => {
       lastMessagePreview: "Answer",
       messages: [
         { id: "u1", role: "user", content: "q", createdAt: "2026-05-13T00:00:00.000Z" },
-        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z" }
+        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z" },
       ],
       toolEvents: [],
       sources: [
         { path: "wiki/notes/x.md", title: null, layer: "knowledge" },
-        { path: "knowledge/notes/x.md", layer: "knowledge" }
+        { path: "knowledge/notes/x.md", layer: "knowledge" },
       ],
-      proposals: []
+      proposals: [],
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
@@ -1676,7 +1921,7 @@ describe("read console pages", () => {
       deleteSession: vi.fn(),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[])),
     } as AgentClientLike;
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1695,7 +1940,11 @@ describe("read console pages", () => {
     // the stream so the intermediate render (both buffers populated) is
     // observable; an inline `createAsyncEvents` array would race React to
     // the final cleared-streaming state and hide the bug.
-    const sharedSource = { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" };
+    const sharedSource = {
+      path: "knowledge/architecture.md",
+      title: "Architecture",
+      layer: "knowledge",
+    };
     const activeSession = {
       id: "session-1",
       title: "Dedup",
@@ -1704,12 +1953,22 @@ describe("read console pages", () => {
       messageCount: 2,
       lastMessagePreview: "First answer",
       messages: [
-        { id: "u1", role: "user", content: "First question", createdAt: "2026-05-13T00:00:00.000Z" },
-        { id: "a1", role: "assistant", content: "First answer", createdAt: "2026-05-13T00:00:01.000Z" }
+        {
+          id: "u1",
+          role: "user",
+          content: "First question",
+          createdAt: "2026-05-13T00:00:00.000Z",
+        },
+        {
+          id: "a1",
+          role: "assistant",
+          content: "First answer",
+          createdAt: "2026-05-13T00:00:01.000Z",
+        },
       ],
       toolEvents: [],
       sources: [sharedSource],
-      proposals: []
+      proposals: [],
     };
     const controlledStream = createControlledAgentStream();
     const agentClient = {
@@ -1720,7 +1979,7 @@ describe("read console pages", () => {
       deleteSession: vi.fn(),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => controlledStream.stream())
+      sendMessage: vi.fn(() => controlledStream.stream()),
     } as AgentClientLike;
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -1736,7 +1995,7 @@ describe("read console pages", () => {
       controlledStream.push({
         type: "source",
         sessionId: "session-1",
-        source: sharedSource
+        source: sharedSource,
       });
 
       // While the stream is still open, the cross-boundary dedup gap must
@@ -1747,7 +2006,9 @@ describe("read console pages", () => {
       });
 
       const dupKeyCalls = errorSpy.mock.calls.filter((call) =>
-        call.some((arg) => typeof arg === "string" && arg.includes("two children with the same key"))
+        call.some(
+          (arg) => typeof arg === "string" && arg.includes("two children with the same key"),
+        ),
       );
       expect(dupKeyCalls).toEqual([]);
 
@@ -1767,7 +2028,12 @@ describe("read console pages", () => {
       lastMessagePreview: "Layered answer.",
       messages: [
         { id: "u1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z" },
-        { id: "a1", role: "assistant", content: "Layered answer.", createdAt: "2026-05-13T00:00:01.000Z" }
+        {
+          id: "a1",
+          role: "assistant",
+          content: "Layered answer.",
+          createdAt: "2026-05-13T00:00:01.000Z",
+        },
       ],
       toolEvents: [
         {
@@ -1775,11 +2041,11 @@ describe("read console pages", () => {
           type: "tool_call" as const,
           name: "retrieve_knowledge",
           status: "succeeded" as const,
-          createdAt: "2026-05-13T00:00:00.500Z"
-        }
+          createdAt: "2026-05-13T00:00:00.500Z",
+        },
       ],
       sources: [{ path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }],
-      proposals: []
+      proposals: [],
     };
     const refreshedSession = {
       ...initialSession,
@@ -1789,13 +2055,21 @@ describe("read console pages", () => {
       messages: [
         ...initialSession.messages,
         { id: "u2", role: "user", content: "Check health", createdAt: "2026-05-13T00:00:03.000Z" },
-        { id: "a2", role: "assistant", content: "Health failed.", createdAt: "2026-05-13T00:00:04.000Z" }
-      ]
+        {
+          id: "a2",
+          role: "assistant",
+          content: "Health failed.",
+          createdAt: "2026-05-13T00:00:04.000Z",
+        },
+      ],
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([initialSession]),
       createSession: vi.fn().mockResolvedValue(initialSession),
-      getSession: vi.fn().mockResolvedValueOnce(initialSession).mockResolvedValueOnce(refreshedSession),
+      getSession: vi
+        .fn()
+        .mockResolvedValueOnce(initialSession)
+        .mockResolvedValueOnce(refreshedSession),
       renameSession: vi.fn(),
       deleteSession: vi.fn(),
       abort: vi.fn(),
@@ -1803,9 +2077,9 @@ describe("read console pages", () => {
       sendMessage: vi.fn(() =>
         createAsyncEvents([
           { type: "message_delta", sessionId: "session-1", delta: "Health failed." },
-          { type: "agent_end", sessionId: "session-1" }
-        ] satisfies AgentStreamEvent[])
-      )
+          { type: "agent_end", sessionId: "session-1" },
+        ] satisfies AgentStreamEvent[]),
+      ),
     } as AgentClientLike;
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1830,11 +2104,11 @@ describe("read console pages", () => {
       lastMessagePreview: "Answer",
       messages: [
         { id: "u1", role: "user", content: "Question", createdAt: "2026-05-13T00:00:00.000Z" },
-        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z" }
+        { id: "a1", role: "assistant", content: "Answer", createdAt: "2026-05-13T00:00:01.000Z" },
       ],
       toolEvents: [],
       sources: [],
-      proposals: []
+      proposals: [],
     };
     const agentClient = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
@@ -1844,7 +2118,7 @@ describe("read console pages", () => {
       deleteSession: vi.fn(),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[]))
+      sendMessage: vi.fn(() => createAsyncEvents([] satisfies AgentStreamEvent[])),
     } as AgentClientLike;
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1869,7 +2143,7 @@ describe("read console pages", () => {
       messages: [],
       toolEvents: [],
       sources: [],
-      proposals: []
+      proposals: [],
     };
     const controlledStream = createControlledAgentStream();
     const agentClient = {
@@ -1880,7 +2154,7 @@ describe("read console pages", () => {
       deleteSession: vi.fn(),
       abort: vi.fn(),
       getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
-      sendMessage: vi.fn(() => controlledStream.stream())
+      sendMessage: vi.fn(() => controlledStream.stream()),
     } as AgentClientLike;
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1888,7 +2162,7 @@ describe("read console pages", () => {
     const scrollRegion = await screen.findByTestId("agent-conversation-scroll");
     Object.defineProperties(scrollRegion, {
       clientHeight: { configurable: true, value: 100 },
-      scrollHeight: { configurable: true, value: 1000 }
+      scrollHeight: { configurable: true, value: 1000 },
     });
 
     await userEvent.type(screen.getByLabelText("Message"), "Stream slowly");
@@ -1898,13 +2172,21 @@ describe("read console pages", () => {
     scrollRegion.scrollTop = 0;
     fireEvent.scroll(scrollRegion);
 
-    controlledStream.push({ type: "message_delta", sessionId: "session-1", delta: "First streamed chunk." });
+    controlledStream.push({
+      type: "message_delta",
+      sessionId: "session-1",
+      delta: "First streamed chunk.",
+    });
     expect(await screen.findByText("First streamed chunk.")).toBeInTheDocument();
     expect(scrollRegion.scrollTop).toBe(0);
 
     scrollRegion.scrollTop = 1000;
     fireEvent.scroll(scrollRegion);
-    controlledStream.push({ type: "message_delta", sessionId: "session-1", delta: " Second streamed chunk." });
+    controlledStream.push({
+      type: "message_delta",
+      sessionId: "session-1",
+      delta: " Second streamed chunk.",
+    });
     await waitFor(() => expect(scrollRegion.scrollTop).toBe(1000));
 
     controlledStream.finish();
@@ -1921,11 +2203,13 @@ describe("read console pages", () => {
       messages: [],
       toolEvents: [],
       sources: [],
-      proposals: []
+      proposals: [],
     };
     const refreshed = {
       ...activeSession,
-      messages: [{ id: "m1", role: "user" as const, content: "ping", createdAt: "2026-05-13T00:00:00.500Z" }]
+      messages: [
+        { id: "m1", role: "user" as const, content: "ping", createdAt: "2026-05-13T00:00:00.500Z" },
+      ],
     };
     const agentClient: AgentClientLike = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
@@ -1942,11 +2226,11 @@ describe("read console pages", () => {
             type: "error",
             sessionId: "session-1",
             code: "agent_error",
-            message: "Codex refresh token was already consumed"
+            message: "Codex refresh token was already consumed",
           },
-          { type: "agent_end", sessionId: "session-1" }
-        ] satisfies AgentStreamEvent[])
-      )
+          { type: "agent_end", sessionId: "session-1" },
+        ] satisfies AgentStreamEvent[]),
+      ),
     };
 
     render(<ChatPage agentClient={agentClient} />);
@@ -1968,11 +2252,13 @@ describe("read console pages", () => {
       messages: [],
       toolEvents: [],
       sources: [],
-      proposals: []
+      proposals: [],
     };
     const refreshed = {
       ...activeSession,
-      messages: [{ id: "m1", role: "user" as const, content: "ping", createdAt: "2026-05-13T00:00:00.500Z" }]
+      messages: [
+        { id: "m1", role: "user" as const, content: "ping", createdAt: "2026-05-13T00:00:00.500Z" },
+      ],
     };
     const agentClient: AgentClientLike = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
@@ -1985,9 +2271,9 @@ describe("read console pages", () => {
       sendMessage: vi.fn(() =>
         createAsyncEvents([
           { type: "agent_start", sessionId: "session-1" },
-          { type: "agent_end", sessionId: "session-1" }
-        ] satisfies AgentStreamEvent[])
-      )
+          { type: "agent_end", sessionId: "session-1" },
+        ] satisfies AgentStreamEvent[]),
+      ),
     };
 
     render(<ChatPage agentClient={agentClient} />);
@@ -2001,7 +2287,12 @@ describe("read console pages", () => {
   it("warns when a follow-up turn silently ends even though the chat already has prior assistant replies", async () => {
     const priorMessages = [
       { id: "m1", role: "user" as const, content: "first", createdAt: "2026-05-13T00:00:00.000Z" },
-      { id: "m2", role: "assistant" as const, content: "old answer", createdAt: "2026-05-13T00:00:01.000Z" }
+      {
+        id: "m2",
+        role: "assistant" as const,
+        content: "old answer",
+        createdAt: "2026-05-13T00:00:01.000Z",
+      },
     ];
     const activeSession = {
       id: "session-1",
@@ -2013,14 +2304,19 @@ describe("read console pages", () => {
       messages: priorMessages,
       toolEvents: [],
       sources: [],
-      proposals: []
+      proposals: [],
     };
     const refreshed = {
       ...activeSession,
       messages: [
         ...priorMessages,
-        { id: "m3", role: "user" as const, content: "follow-up", createdAt: "2026-05-13T00:00:02.000Z" }
-      ]
+        {
+          id: "m3",
+          role: "user" as const,
+          content: "follow-up",
+          createdAt: "2026-05-13T00:00:02.000Z",
+        },
+      ],
     };
     const agentClient: AgentClientLike = {
       listSessions: vi.fn().mockResolvedValue([activeSession]),
@@ -2033,9 +2329,9 @@ describe("read console pages", () => {
       sendMessage: vi.fn(() =>
         createAsyncEvents([
           { type: "agent_start", sessionId: "session-1" },
-          { type: "agent_end", sessionId: "session-1" }
-        ] satisfies AgentStreamEvent[])
-      )
+          { type: "agent_end", sessionId: "session-1" },
+        ] satisfies AgentStreamEvent[]),
+      ),
     };
 
     render(<ChatPage agentClient={agentClient} />);
@@ -2056,7 +2352,10 @@ describe("read console pages", () => {
 
     expect(await screen.findByText("Layered DIKW notes.")).toBeInTheDocument();
     expect(screen.getByText("Architecture")).toBeInTheDocument();
-    expect(client.streamRetrieve).toHaveBeenCalledWith({ q: "DIKW", limit: 10 }, expect.any(AbortSignal));
+    expect(client.streamRetrieve).toHaveBeenCalledWith(
+      { q: "DIKW", limit: 10 },
+      expect.any(AbortSignal),
+    );
   });
 
   it("offers current task ops as Op filter suggestions and drops the dead distill op", async () => {
@@ -2072,7 +2371,9 @@ describe("read console pages", () => {
 
     const datalist = document.getElementById(listId as string);
     expect(datalist).not.toBeNull();
-    const values = Array.from(datalist!.querySelectorAll("option")).map((option) => option.getAttribute("value"));
+    const values = Array.from(datalist!.querySelectorAll("option")).map((option) =>
+      option.getAttribute("value"),
+    );
     expect(values).toEqual(["ingest", "synth", "lint.propose", "lint.apply"]);
   });
 
@@ -2094,13 +2395,15 @@ describe("read console pages", () => {
     expect(screen.getAllByText("Eval result").length).toBeGreaterThan(0);
     const finalDetails = screen.getByText("Raw final event").closest("details");
     expect(finalDetails).not.toHaveAttribute("open");
-    expect(within(screen.getByText("Event tape").closest("section") as HTMLElement).getByText("#4")).toBeInTheDocument();
+    expect(
+      within(screen.getByText("Event tape").closest("section") as HTMLElement).getByText("#4"),
+    ).toBeInTheDocument();
   });
 
   it("summarizes ingest file errors from partial events and final results", async () => {
     const client = createMockClient();
     const finalEvent = ingestFileErrorEventsFixture.find(
-      (event): event is Extract<TaskEvent, { type: "final" }> => event.type === "final"
+      (event): event is Extract<TaskEvent, { type: "final" }> => event.type === "final",
     );
     const ingestRows: TaskRow[] = [
       {
@@ -2112,12 +2415,14 @@ describe("read console pages", () => {
         finished_at: "2026-05-05T09:37:25Z",
         params_digest: "ingest",
         result: finalEvent?.result ?? null,
-        error: null
-      }
+        error: null,
+      },
     ];
     client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(ingestRows[0])]));
     client.getTask.mockResolvedValue(ingestRows[0]);
-    client.streamTaskEvents.mockImplementation(() => createAsyncEvents(ingestFileErrorEventsFixture));
+    client.streamTaskEvents.mockImplementation(() =>
+      createAsyncEvents(ingestFileErrorEventsFixture),
+    );
 
     render(<TasksPage client={client} />);
 
@@ -2141,9 +2446,9 @@ describe("read console pages", () => {
         seq: 4,
         ts: "2026-05-05T09:37:26Z",
         level: "INFO",
-        message: "events refreshed"
+        message: "events refreshed",
       },
-      { ...taskEventsFixture[taskEventsFixture.length - 1], seq: 5 }
+      { ...taskEventsFixture[taskEventsFixture.length - 1], seq: 5 },
     ];
     client.listTasks.mockResolvedValue(taskListPageFixture);
     client.getTask.mockResolvedValue(taskRowsFixture[0]);
@@ -2171,7 +2476,7 @@ describe("read console pages", () => {
       task_id: "eval-running-1",
       status: "running",
       finished_at: null,
-      result: null
+      result: null,
     };
     const completedEvents: TaskEvent[] = [
       {
@@ -2179,7 +2484,7 @@ describe("read console pages", () => {
         seq: 1,
         ts: "2026-05-05T09:37:11Z",
         task_id: "eval-running-1",
-        op: "eval"
+        op: "eval",
       },
       {
         type: "final",
@@ -2187,8 +2492,8 @@ describe("read console pages", () => {
         ts: "2026-05-05T09:37:25Z",
         status: "succeeded",
         result: taskRowsFixture[0].result,
-        error: null
-      }
+        error: null,
+      },
     ];
     client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(runningTask)]));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(completedEvents));
@@ -2218,7 +2523,7 @@ describe("read console pages", () => {
         ts: "2026-05-05T09:37:12Z",
         phase: "scan",
         current: 0,
-        total: 0
+        total: 0,
       },
       {
         type: "progress",
@@ -2227,8 +2532,8 @@ describe("read console pages", () => {
         phase: "scan",
         current: 42,
         total: 0,
-        detail: { path: "sources/architecture.md" }
-      }
+        detail: { path: "sources/architecture.md" },
+      },
     ];
     client.listTasks.mockResolvedValue(taskListPageFixture);
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(zeroTotalScanEvents));
@@ -2256,7 +2561,7 @@ describe("read console pages", () => {
         finished_at: null,
         params_digest: "running",
         result: null,
-        error: null
+        error: null,
       },
       {
         task_id: "ingest-done-1",
@@ -2267,8 +2572,8 @@ describe("read console pages", () => {
         finished_at: "2026-05-05T09:00:03Z",
         params_digest: "done",
         result: { scanned: 1, added: 1 },
-        error: null
-      }
+        error: null,
+      },
     ];
     const runningEvents: TaskEvent[] = [
       {
@@ -2277,8 +2582,8 @@ describe("read console pages", () => {
         ts: "2026-05-05T10:00:02Z",
         phase: "synth",
         current: 1,
-        total: 3
-      }
+        total: 3,
+      },
     ];
     const doneEvents: TaskEvent[] = [
       {
@@ -2286,7 +2591,7 @@ describe("read console pages", () => {
         seq: 1,
         ts: "2026-05-05T09:00:01Z",
         task_id: "ingest-done-1",
-        op: "ingest"
+        op: "ingest",
       },
       {
         type: "final",
@@ -2294,13 +2599,17 @@ describe("read console pages", () => {
         ts: "2026-05-05T09:00:03Z",
         status: "succeeded",
         result: { scanned: 1, added: 1 },
-        error: null
-      }
+        error: null,
+      },
     ];
     client.listTasks.mockResolvedValue(toTaskListPage(mixedRows.map(toTaskSummary)));
-    client.getTask.mockImplementation((id: string) => Promise.resolve(mixedRows.find((row) => row.task_id === id)));
+    client.getTask.mockImplementation((id: string) =>
+      Promise.resolve(mixedRows.find((row) => row.task_id === id)),
+    );
     client.streamTaskEvents.mockImplementation((taskId: string) =>
-      taskId === "synth-running-1" ? createPendingEvents(runningEvents) : createAsyncEvents(doneEvents)
+      taskId === "synth-running-1"
+        ? createPendingEvents(runningEvents)
+        : createAsyncEvents(doneEvents),
     );
 
     render(<TasksPage client={client} />);
@@ -2315,13 +2624,20 @@ describe("read console pages", () => {
     await userEvent.click(loadEvents);
 
     expect(await screen.findByText("2 events")).toBeInTheDocument();
-    expect(client.streamTaskEvents).toHaveBeenLastCalledWith("ingest-done-1", undefined, expect.any(AbortSignal));
+    expect(client.streamTaskEvents).toHaveBeenLastCalledWith(
+      "ingest-done-1",
+      undefined,
+      expect.any(AbortSignal),
+    );
   });
 
   it("Load more 按钮文案随 locale 本地化", async () => {
     const client = createMockClient();
     client.listTasks.mockResolvedValue(
-      toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+      toTaskListPage(manyTaskSummariesFixture.slice(0, 20), {
+        nextCursor: "cursor-2",
+        hasMore: true,
+      }),
     );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -2338,7 +2654,10 @@ describe("read console pages", () => {
   it("首屏渲染服务端首页，has_more 时显示 Load more", async () => {
     const client = createMockClient();
     client.listTasks.mockResolvedValue(
-      toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+      toTaskListPage(manyTaskSummariesFixture.slice(0, 20), {
+        nextCursor: "cursor-2",
+        hasMore: true,
+      }),
     );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -2358,14 +2677,19 @@ describe("read console pages", () => {
       listLoad += 1;
       return Promise.resolve(
         listLoad === 1
-          ? toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
-          : toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false })
+          ? toTaskListPage(manyTaskSummariesFixture.slice(0, 20), {
+              nextCursor: "cursor-2",
+              hasMore: true,
+            })
+          : toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }),
       );
     });
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
-    const listPanel = (await screen.findByText("bulk-task-01")).closest(".panel.task-list-panel") as HTMLElement;
+    const listPanel = (await screen.findByText("bulk-task-01")).closest(
+      ".panel.task-list-panel",
+    ) as HTMLElement;
     expect(within(listPanel).queryByText("bulk-task-21")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Load more" }));
@@ -2376,20 +2700,28 @@ describe("read console pages", () => {
     expect(within(listPanel).getByText("bulk-task-25")).toBeInTheDocument();
     expect(within(listPanel).getByText("bulk-task-01")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Load more/ })).not.toBeInTheDocument();
-    const loadCalls = client.listTasks.mock.calls.filter((c) => (c[0] as { limit?: number } | undefined)?.limit === 20);
+    const loadCalls = client.listTasks.mock.calls.filter(
+      (c) => (c[0] as { limit?: number } | undefined)?.limit === 20,
+    );
     expect(loadCalls.at(-1)?.[0]).toEqual(expect.objectContaining({ cursor: "cursor-2" }));
   });
 
   it("更改 Op 过滤后重新拉取首页（带 op、不带 cursor）", async () => {
     const client = createMockClient();
     client.listTasks.mockImplementation((params: { op?: string; cursor?: string }) => {
-      const tasks = params.op ? manyTaskSummariesFixture.slice(0, 3) : manyTaskSummariesFixture.slice(0, 20);
-      return Promise.resolve(toTaskListPage(tasks, { hasMore: !params.op, nextCursor: params.op ? null : "cursor-2" }));
+      const tasks = params.op
+        ? manyTaskSummariesFixture.slice(0, 3)
+        : manyTaskSummariesFixture.slice(0, 20);
+      return Promise.resolve(
+        toTaskListPage(tasks, { hasMore: !params.op, nextCursor: params.op ? null : "cursor-2" }),
+      );
     });
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
     render(<TasksPage client={client} />);
-    const listPanel = (await screen.findByText("bulk-task-01")).closest(".panel.task-list-panel") as HTMLElement;
+    const listPanel = (await screen.findByText("bulk-task-01")).closest(
+      ".panel.task-list-panel",
+    ) as HTMLElement;
     expect(within(listPanel).getByText("bulk-task-20")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText(/Op/), "ingest");
@@ -2418,7 +2750,7 @@ describe("read console pages", () => {
       return Promise.resolve(toTaskListPage(callCount === 1 ? initial : reloaded));
     });
     client.getTask.mockImplementation((id: string) =>
-      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id)),
     );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -2441,10 +2773,12 @@ describe("read console pages", () => {
     const client = createMockClient();
     const narrow = [
       toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "narrow-task-A", status: "succeeded" }),
-      toTaskSummary({ ...manyTaskRowsFixture[1], task_id: "narrow-task-B", status: "succeeded" })
+      toTaskSummary({ ...manyTaskRowsFixture[1], task_id: "narrow-task-B", status: "succeeded" }),
     ];
     client.listTasks.mockImplementation((params: { status?: string }) =>
-      Promise.resolve(toTaskListPage(params.status ? narrow : manyTaskSummariesFixture.slice(0, 20)))
+      Promise.resolve(
+        toTaskListPage(params.status ? narrow : manyTaskSummariesFixture.slice(0, 20)),
+      ),
     );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -2466,12 +2800,15 @@ describe("read console pages", () => {
       listLoad += 1;
       return Promise.resolve(
         listLoad === 1
-          ? toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
-          : toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false })
+          ? toTaskListPage(manyTaskSummariesFixture.slice(0, 20), {
+              nextCursor: "cursor-2",
+              hasMore: true,
+            })
+          : toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }),
       );
     });
     client.getTask.mockImplementation((id: string) =>
-      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id)),
     );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -2495,10 +2832,22 @@ describe("read console pages", () => {
       if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
       listLoad += 1;
       if (listLoad === 1)
-        return Promise.resolve(toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "stale", hasMore: true }));
+        return Promise.resolve(
+          toTaskListPage(manyTaskSummariesFixture.slice(0, 20), {
+            nextCursor: "stale",
+            hasMore: true,
+          }),
+        );
       if (listLoad === 2)
-        return Promise.reject(new DikwClientError({ status: 400, code: "invalid_cursor", message: "invalid cursor" }));
-      return Promise.resolve(toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true }));
+        return Promise.reject(
+          new DikwClientError({ status: 400, code: "invalid_cursor", message: "invalid cursor" }),
+        );
+      return Promise.resolve(
+        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), {
+          nextCursor: "cursor-2",
+          hasMore: true,
+        }),
+      );
     });
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -2508,9 +2857,15 @@ describe("read console pages", () => {
     await userEvent.click(screen.getByRole("button", { name: "Load more" }));
 
     await waitFor(() => {
-      expect(client.listTasks.mock.calls.filter((c) => (c[0] as { limit?: number } | undefined)?.limit === 20).length).toBe(3);
+      expect(
+        client.listTasks.mock.calls.filter(
+          (c) => (c[0] as { limit?: number } | undefined)?.limit === 20,
+        ).length,
+      ).toBe(3);
     });
-    const loadCalls = client.listTasks.mock.calls.filter((c) => (c[0] as { limit?: number } | undefined)?.limit === 20);
+    const loadCalls = client.listTasks.mock.calls.filter(
+      (c) => (c[0] as { limit?: number } | undefined)?.limit === 20,
+    );
     expect((loadCalls.at(-1)?.[0] as { cursor?: string } | undefined)?.cursor).toBeUndefined();
     expect(screen.getAllByText("bulk-task-01").length).toBeGreaterThan(0);
     expect(screen.queryByText("Could not read task list")).not.toBeInTheDocument();
@@ -2523,9 +2878,19 @@ describe("read console pages", () => {
       if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
       listLoad += 1;
       if (listLoad === 1)
-        return Promise.resolve(toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true }));
-      if (listLoad === 2) return Promise.reject(new DikwClientError({ status: 500, code: "internal", message: "boom" }));
-      return Promise.resolve(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+        return Promise.resolve(
+          toTaskListPage(manyTaskSummariesFixture.slice(0, 20), {
+            nextCursor: "cursor-2",
+            hasMore: true,
+          }),
+        );
+      if (listLoad === 2)
+        return Promise.reject(
+          new DikwClientError({ status: 500, code: "internal", message: "boom" }),
+        );
+      return Promise.resolve(
+        toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }),
+      );
     });
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -2543,24 +2908,36 @@ describe("read console pages", () => {
   it("Load more 进行中切换筛选时丢弃过期追加结果", async () => {
     const client = createMockClient();
     let resolveStale: (() => void) | null = null;
-    client.listTasks.mockImplementation((params: { status?: string; cursor?: string; limit?: number }) => {
-      if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
-      if (params.cursor) {
-        return new Promise<TaskListPage>((resolve) => {
-          resolveStale = () => resolve(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
-        });
-      }
-      if (params.status) {
+    client.listTasks.mockImplementation(
+      (params: { status?: string; cursor?: string; limit?: number }) => {
+        if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
+        if (params.cursor) {
+          return new Promise<TaskListPage>((resolve) => {
+            resolveStale = () =>
+              resolve(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+          });
+        }
+        if (params.status) {
+          return Promise.resolve(
+            toTaskListPage([
+              toTaskSummary({
+                ...manyTaskRowsFixture[0],
+                task_id: "filtered-1",
+                status: "succeeded",
+              }),
+            ]),
+          );
+        }
         return Promise.resolve(
-          toTaskListPage([toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "filtered-1", status: "succeeded" })])
+          toTaskListPage(manyTaskSummariesFixture.slice(0, 20), {
+            nextCursor: "cursor-2",
+            hasMore: true,
+          }),
         );
-      }
-      return Promise.resolve(
-        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
-      );
-    });
+      },
+    );
     client.getTask.mockImplementation((id: string) =>
-      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id)),
     );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -2586,25 +2963,39 @@ describe("read console pages", () => {
     const client = createMockClient();
     let initialDone = false;
     let resolveStaleRefresh: (() => void) | null = null;
-    client.listTasks.mockImplementation((params: { status?: string; cursor?: string; limit?: number }) => {
-      if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
-      if (params.status === "succeeded") {
-        return Promise.resolve(
-          toTaskListPage([toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "filtered-1", status: "succeeded" })])
-        );
-      }
-      if (!initialDone) {
-        initialDone = true;
-        return Promise.resolve(toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { hasMore: false }));
-      }
-      // The signal-less Refresh request: held open until after the filter switch.
-      return new Promise<TaskListPage>((resolve) => {
-        resolveStaleRefresh = () =>
-          resolve(toTaskListPage([toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "stale-refresh" })]));
-      });
-    });
+    client.listTasks.mockImplementation(
+      (params: { status?: string; cursor?: string; limit?: number }) => {
+        if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
+        if (params.status === "succeeded") {
+          return Promise.resolve(
+            toTaskListPage([
+              toTaskSummary({
+                ...manyTaskRowsFixture[0],
+                task_id: "filtered-1",
+                status: "succeeded",
+              }),
+            ]),
+          );
+        }
+        if (!initialDone) {
+          initialDone = true;
+          return Promise.resolve(
+            toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { hasMore: false }),
+          );
+        }
+        // The signal-less Refresh request: held open until after the filter switch.
+        return new Promise<TaskListPage>((resolve) => {
+          resolveStaleRefresh = () =>
+            resolve(
+              toTaskListPage([
+                toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "stale-refresh" }),
+              ]),
+            );
+        });
+      },
+    );
     client.getTask.mockImplementation((id: string) =>
-      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id)),
     );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -2630,27 +3021,36 @@ describe("read console pages", () => {
     const client = createMockClient();
     let resolveStaleMore: (() => void) | null = null;
     let initialDone = false;
-    client.listTasks.mockImplementation((params: { status?: string; cursor?: string; limit?: number }) => {
-      if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
-      if (params.cursor) {
-        // The in-flight Load more — held open until after Refresh resets the list.
-        return new Promise<TaskListPage>((resolve) => {
-          resolveStaleMore = () => resolve(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
-        });
-      }
-      if (!initialDone) {
-        initialDone = true;
+    client.listTasks.mockImplementation(
+      (params: { status?: string; cursor?: string; limit?: number }) => {
+        if (params.limit === 1) return Promise.resolve(toTaskListPage([])); // busy poll
+        if (params.cursor) {
+          // The in-flight Load more — held open until after Refresh resets the list.
+          return new Promise<TaskListPage>((resolve) => {
+            resolveStaleMore = () =>
+              resolve(toTaskListPage(manyTaskSummariesFixture.slice(20), { hasMore: false }));
+          });
+        }
+        if (!initialDone) {
+          initialDone = true;
+          return Promise.resolve(
+            toTaskListPage(manyTaskSummariesFixture.slice(0, 20), {
+              nextCursor: "cursor-2",
+              hasMore: true,
+            }),
+          );
+        }
+        // Refresh response: a fresh first page with a new cursor.
         return Promise.resolve(
-          toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-2", hasMore: true })
+          toTaskListPage(manyTaskSummariesFixture.slice(0, 20), {
+            nextCursor: "cursor-fresh",
+            hasMore: true,
+          }),
         );
-      }
-      // Refresh response: a fresh first page with a new cursor.
-      return Promise.resolve(
-        toTaskListPage(manyTaskSummariesFixture.slice(0, 20), { nextCursor: "cursor-fresh", hasMore: true })
-      );
-    });
+      },
+    );
     client.getTask.mockImplementation((id: string) =>
-      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id)),
     );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -2662,7 +3062,11 @@ describe("read console pages", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Refresh tasks" }));
     await waitFor(() =>
-      expect(client.listTasks.mock.calls.filter((c) => (c[0] as { limit?: number } | undefined)?.limit === 20).length).toBe(3)
+      expect(
+        client.listTasks.mock.calls.filter(
+          (c) => (c[0] as { limit?: number } | undefined)?.limit === 20,
+        ).length,
+      ).toBe(3),
     );
 
     await act(async () => {
@@ -2687,7 +3091,7 @@ describe("read console pages", () => {
       finished_at: "2026-05-17T10:01:00Z",
       params_digest: "evt",
       result: null,
-      error: null
+      error: null,
     };
     client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(terminalRow)]));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
@@ -2717,7 +3121,7 @@ describe("read console pages", () => {
       finished_at: "2026-05-17T10:01:00Z",
       params_digest: "evt",
       result: null,
-      error: null
+      error: null,
     };
     client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(terminalRow)]));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
@@ -2760,7 +3164,7 @@ describe("read console pages", () => {
       finished_at: null,
       params_digest: "evt",
       result: null,
-      error: null
+      error: null,
     };
     const controlled = createControlledTaskEventStream();
     client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(runningRow)]));
@@ -2776,7 +3180,9 @@ describe("read console pages", () => {
     expect(await screen.findByText("5 events")).toBeInTheDocument();
     const tape = screen.getByText("Event tape").closest("section") as HTMLElement;
     // pageCount=1, PaginationBar 不渲染
-    expect(within(tape).queryByRole("navigation", { name: "event pagination" })).not.toBeInTheDocument();
+    expect(
+      within(tape).queryByRole("navigation", { name: "event pagination" }),
+    ).not.toBeInTheDocument();
     expect(within(tape).getByText("#5")).toBeInTheDocument();
 
     // 推到 21 个事件 -> pageCount=2，stick=true 应自动跳到第 2 页
@@ -2803,7 +3209,7 @@ describe("read console pages", () => {
       finished_at: null,
       params_digest: "evt",
       result: null,
-      error: null
+      error: null,
     };
     const controlled = createControlledTaskEventStream();
     client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(runningRow)]));
@@ -2869,7 +3275,7 @@ describe("read console pages", () => {
         finished_at: "2026-05-17T10:01:00Z",
         params_digest: "evt-a",
         result: null,
-        error: null
+        error: null,
       },
       {
         task_id: "bulk-events-B",
@@ -2880,8 +3286,8 @@ describe("read console pages", () => {
         finished_at: "2026-05-17T11:01:00Z",
         params_digest: "evt-b",
         result: null,
-        error: null
-      }
+        error: null,
+      },
     ];
     client.listTasks.mockResolvedValue(toTaskListPage(rows.map(toTaskSummary)));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
@@ -2920,7 +3326,7 @@ describe("read console pages", () => {
       finished_at: "2026-05-17T10:01:00Z",
       params_digest: "evt",
       result: null,
-      error: null
+      error: null,
     };
     client.listTasks.mockResolvedValue(toTaskListPage([toTaskSummary(terminalRow)]));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents(events));
@@ -2945,12 +3351,12 @@ describe("read console pages", () => {
       task_id: "bulk-task-01",
       status: "running",
       finished_at: null,
-      result: null
+      result: null,
     };
     const rows: TaskRow[] = [runningRow, ...manyTaskRowsFixture.slice(1)];
     client.listTasks.mockResolvedValue(toTaskListPage(rows.map(toTaskSummary)));
     client.getTask.mockImplementation((id: string) =>
-      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id))
+      Promise.resolve(manyTaskRowsFixture.find((row) => row.task_id === id)),
     );
     client.streamTaskEvents.mockImplementation(() =>
       createPendingEvents([
@@ -2960,9 +3366,9 @@ describe("read console pages", () => {
           ts: "2026-05-17T00:00:00Z",
           phase: "ingest",
           current: 1,
-          total: 10
-        } as TaskEvent
-      ])
+          total: 10,
+        } as TaskEvent,
+      ]),
     );
 
     render(<TasksPage client={client} />);
@@ -2971,7 +3377,11 @@ describe("read console pages", () => {
     await userEvent.click(await screen.findByRole("button", { name: /^Follow$/ }));
     expect(await screen.findByText("1 events")).toBeInTheDocument();
 
-    const lastCall = client.streamTaskEvents.mock.calls.at(-1) as [string, number | undefined, AbortSignal];
+    const lastCall = client.streamTaskEvents.mock.calls.at(-1) as [
+      string,
+      number | undefined,
+      AbortSignal,
+    ];
     const signal = lastCall[2];
     expect(signal.aborted).toBe(false);
 
@@ -2984,7 +3394,8 @@ describe("read console pages", () => {
 
   // --- Operation action buttons (Ingest / Synth / Lint Propose / Lint Apply) ---
 
-  const idleList = (summaries: ReturnType<typeof toTaskSummary>[] = []) =>
+  const idleList =
+    (summaries: ReturnType<typeof toTaskSummary>[] = []) =>
     (params: { status?: string; limit?: number; cursor?: string }) =>
       // Busy poll uses limit:1; serve it empty so the page reads "idle".
       Promise.resolve(params.limit === 1 ? toTaskListPage([]) : toTaskListPage(summaries));
@@ -3009,11 +3420,19 @@ describe("read console pages", () => {
 
   it("keeps fire buttons disabled until the first busy probe resolves", async () => {
     const client = createMockClient();
-    const running = toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "pre-running", op: "ingest", status: "running", finished_at: null });
+    const running = toTaskSummary({
+      ...manyTaskRowsFixture[0],
+      task_id: "pre-running",
+      op: "ingest",
+      status: "running",
+      finished_at: null,
+    });
     const deferred: { resolve: (() => void) | null } = { resolve: null };
     client.listTasks.mockImplementation((params: { status?: string; limit?: number }) => {
       if (params.limit === 1 && params.status === "running") {
-        return new Promise((res) => { deferred.resolve = () => res(toTaskListPage([running])); });
+        return new Promise((res) => {
+          deferred.resolve = () => res(toTaskListPage([running]));
+        });
       }
       if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
       return Promise.resolve(toTaskListPage([running]));
@@ -3037,25 +3456,39 @@ describe("read console pages", () => {
       task_id: "ingest-9",
       op: "ingest",
       status: "running",
-      finished_at: null
+      finished_at: null,
     });
     let started = false;
-    client.listTasks.mockImplementation((params: { status?: string; limit?: number; cursor?: string }) => {
-      if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
-      return Promise.resolve(toTaskListPage(started ? [runningSummary] : []));
-    });
+    client.listTasks.mockImplementation(
+      (params: { status?: string; limit?: number; cursor?: string }) => {
+        if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
+        return Promise.resolve(toTaskListPage(started ? [runningSummary] : []));
+      },
+    );
     client.startIngest.mockImplementation(() => {
       started = true;
-      return Promise.resolve({ task_id: "ingest-9", op: "ingest", status: "running", created_at: "t", links: {} });
+      return Promise.resolve({
+        task_id: "ingest-9",
+        op: "ingest",
+        status: "running",
+        created_at: "t",
+        links: {},
+      });
     });
     client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
 
     render(<TasksPage client={client} />);
     await userEvent.click(await screen.findByRole("button", { name: "Ingest" }));
 
-    await waitFor(() => expect(client.startIngest).toHaveBeenCalledWith({}, expect.any(AbortSignal)));
     await waitFor(() =>
-      expect(client.streamTaskEvents).toHaveBeenCalledWith("ingest-9", undefined, expect.any(AbortSignal))
+      expect(client.startIngest).toHaveBeenCalledWith({}, expect.any(AbortSignal)),
+    );
+    await waitFor(() =>
+      expect(client.streamTaskEvents).toHaveBeenCalledWith(
+        "ingest-9",
+        undefined,
+        expect.any(AbortSignal),
+      ),
     );
     expect(await screen.findByRole("heading", { name: "ingest" })).toBeInTheDocument();
   });
@@ -3064,12 +3497,23 @@ describe("read console pages", () => {
     const client = createMockClient();
     // Every page load returns only a synth task — the new ingest task never
     // matches, simulating an active Status/Op filter that excludes it.
-    const other = toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "synth-old", op: "synth", status: "succeeded" });
+    const other = toTaskSummary({
+      ...manyTaskRowsFixture[0],
+      task_id: "synth-old",
+      op: "synth",
+      status: "succeeded",
+    });
     client.listTasks.mockImplementation((params: { limit?: number }) => {
       if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
       return Promise.resolve(toTaskListPage([other]));
     });
-    client.startIngest.mockResolvedValue({ task_id: "ingest-9", op: "ingest", status: "running", created_at: "t", links: {} });
+    client.startIngest.mockResolvedValue({
+      task_id: "ingest-9",
+      op: "ingest",
+      status: "running",
+      created_at: "t",
+      links: {},
+    });
     client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
 
     render(<TasksPage client={client} />);
@@ -3089,8 +3533,14 @@ describe("read console pages", () => {
       () =>
         new Promise<unknown>((resolve) => {
           deferred.resolve = () =>
-            resolve({ task_id: "synth-1", op: "synth", status: "running", created_at: "t", links: {} });
-        })
+            resolve({
+              task_id: "synth-1",
+              op: "synth",
+              status: "running",
+              created_at: "t",
+              links: {},
+            });
+        }),
     );
     client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
 
@@ -3116,10 +3566,11 @@ describe("read console pages", () => {
       task_id: "ext-running",
       op: "ingest",
       status: "running",
-      finished_at: null
+      finished_at: null,
     });
     client.listTasks.mockImplementation((params: { status?: string; limit?: number }) => {
-      if (params.limit === 1 && params.status === "running") return Promise.resolve(toTaskListPage([runningSummary]));
+      if (params.limit === 1 && params.status === "running")
+        return Promise.resolve(toTaskListPage([runningSummary]));
       if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
       return Promise.resolve(toTaskListPage([runningSummary]));
     });
@@ -3137,13 +3588,23 @@ describe("read console pages", () => {
     const client = createMockClient();
     let running = true;
     const summary = (status: TaskRow["status"]) =>
-      toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "ext-running", op: "ingest", status, finished_at: null });
+      toTaskSummary({
+        ...manyTaskRowsFixture[0],
+        task_id: "ext-running",
+        op: "ingest",
+        status,
+        finished_at: null,
+      });
     client.listTasks.mockImplementation((params: { status?: string; limit?: number }) => {
-      if (params.limit === 1 && params.status === "running") return Promise.resolve(toTaskListPage(running ? [summary("running")] : []));
+      if (params.limit === 1 && params.status === "running")
+        return Promise.resolve(toTaskListPage(running ? [summary("running")] : []));
       if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
       return Promise.resolve(toTaskListPage([summary(running ? "running" : "cancelled")]));
     });
-    client.cancelTask.mockImplementation(() => { running = false; return Promise.resolve({}); });
+    client.cancelTask.mockImplementation(() => {
+      running = false;
+      return Promise.resolve({});
+    });
     client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
 
     render(<TasksPage client={client} />);
@@ -3161,15 +3622,32 @@ describe("read console pages", () => {
     const client = createMockClient();
     let rCancelled = false;
     const R = (status: TaskRow["status"]) =>
-      toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "task-r", op: "ingest", status, finished_at: null });
-    const P = toTaskSummary({ ...manyTaskRowsFixture[1], task_id: "task-p", op: "synth", status: "pending", finished_at: null });
+      toTaskSummary({
+        ...manyTaskRowsFixture[0],
+        task_id: "task-r",
+        op: "ingest",
+        status,
+        finished_at: null,
+      });
+    const P = toTaskSummary({
+      ...manyTaskRowsFixture[1],
+      task_id: "task-p",
+      op: "synth",
+      status: "pending",
+      finished_at: null,
+    });
     client.listTasks.mockImplementation((params: { status?: string; limit?: number }) => {
-      if (params.limit === 1 && params.status === "running") return Promise.resolve(toTaskListPage(rCancelled ? [] : [R("running")]));
-      if (params.limit === 1 && params.status === "pending") return Promise.resolve(toTaskListPage([P]));
+      if (params.limit === 1 && params.status === "running")
+        return Promise.resolve(toTaskListPage(rCancelled ? [] : [R("running")]));
+      if (params.limit === 1 && params.status === "pending")
+        return Promise.resolve(toTaskListPage([P]));
       if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
       return Promise.resolve(toTaskListPage([R(rCancelled ? "cancelled" : "running"), P]));
     });
-    client.cancelTask.mockImplementation(() => { rCancelled = true; return Promise.resolve({}); });
+    client.cancelTask.mockImplementation(() => {
+      rCancelled = true;
+      return Promise.resolve({});
+    });
     client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
 
     render(<TasksPage client={client} />);
@@ -3187,7 +3665,14 @@ describe("read console pages", () => {
   it("disables the detail-panel Stop button for a terminal task", async () => {
     const client = createMockClient();
     client.listTasks.mockImplementation(
-      idleList([toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "done-1", op: "ingest", status: "succeeded" })])
+      idleList([
+        toTaskSummary({
+          ...manyTaskRowsFixture[0],
+          task_id: "done-1",
+          op: "ingest",
+          status: "succeeded",
+        }),
+      ]),
     );
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
 
@@ -3198,11 +3683,27 @@ describe("read console pages", () => {
 
   it("enables Lint Apply only for a succeeded lint.propose task and applies all proposals", async () => {
     const client = createMockClient();
-    const propose = toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "propose-1", op: "lint.propose", status: "succeeded" });
-    const evalTask = toTaskSummary({ ...manyTaskRowsFixture[0], task_id: "eval-1", op: "eval", status: "succeeded" });
+    const propose = toTaskSummary({
+      ...manyTaskRowsFixture[0],
+      task_id: "propose-1",
+      op: "lint.propose",
+      status: "succeeded",
+    });
+    const evalTask = toTaskSummary({
+      ...manyTaskRowsFixture[0],
+      task_id: "eval-1",
+      op: "eval",
+      status: "succeeded",
+    });
     client.listTasks.mockImplementation(idleList([propose, evalTask]));
     client.streamTaskEvents.mockImplementation(() => createAsyncEvents([]));
-    client.startLintApply.mockResolvedValue({ task_id: "apply-1", op: "lint.apply", status: "running", created_at: "t", links: {} });
+    client.startLintApply.mockResolvedValue({
+      task_id: "apply-1",
+      op: "lint.apply",
+      status: "running",
+      created_at: "t",
+      links: {},
+    });
 
     render(<TasksPage client={client} />);
     await screen.findByRole("heading", { name: "lint.propose" });
@@ -3218,7 +3719,7 @@ describe("read console pages", () => {
 
     expect(client.startLintApply).toHaveBeenCalledWith(
       { proposalTaskId: "propose-1", pick: null },
-      expect.any(AbortSignal)
+      expect.any(AbortSignal),
     );
     expect(screen.queryByText("Action could not be completed")).not.toBeInTheDocument();
   });
@@ -3226,7 +3727,9 @@ describe("read console pages", () => {
   it("surfaces an error notice when a fire op fails", async () => {
     const client = createMockClient();
     client.listTasks.mockImplementation(idleList());
-    client.startSynth.mockRejectedValue(new DikwClientError({ status: 500, code: "internal", message: "boom" }));
+    client.startSynth.mockRejectedValue(
+      new DikwClientError({ status: 500, code: "internal", message: "boom" }),
+    );
 
     render(<TasksPage client={client} />);
     await userEvent.click(await screen.findByRole("button", { name: "Synth" }));
@@ -3270,7 +3773,7 @@ function createControlledAgentStream() {
           wake = resolve;
         });
       }
-    }
+    },
   };
 }
 
@@ -3300,7 +3803,7 @@ function createControlledTaskEventStream() {
           wake = resolve;
         });
       }
-    }
+    },
   };
 }
 
@@ -3311,6 +3814,6 @@ function makeProgressEvent(seq: number, total: number): TaskEvent {
     ts: `2026-05-17T10:00:${String(seq % 60).padStart(2, "0")}Z`,
     phase: "embed_chunks",
     current: seq,
-    total
+    total,
   };
 }

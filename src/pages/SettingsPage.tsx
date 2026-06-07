@@ -25,7 +25,7 @@ export function SettingsPage({
   onThemeChange,
   onServerUrlChange,
   onTokenChange,
-  onClearConnection
+  onClearConnection,
 }: SettingsPageProps) {
   const copy = translations[locale].settings;
 
@@ -81,14 +81,29 @@ export function SettingsPage({
               <p>{copy.appearanceDetail}</p>
             </div>
           </div>
-          <div className="segmented-control segmented-control--settings" aria-label={copy.appearanceTitle}>
-            <button className={theme === "system" ? "is-active" : ""} type="button" onClick={() => onThemeChange("system")}>
+          <div
+            className="segmented-control segmented-control--settings"
+            aria-label={copy.appearanceTitle}
+          >
+            <button
+              className={theme === "system" ? "is-active" : ""}
+              type="button"
+              onClick={() => onThemeChange("system")}
+            >
               {copy.system}
             </button>
-            <button className={theme === "light" ? "is-active" : ""} type="button" onClick={() => onThemeChange("light")}>
+            <button
+              className={theme === "light" ? "is-active" : ""}
+              type="button"
+              onClick={() => onThemeChange("light")}
+            >
               {copy.light}
             </button>
-            <button className={theme === "dark" ? "is-active" : ""} type="button" onClick={() => onThemeChange("dark")}>
+            <button
+              className={theme === "dark" ? "is-active" : ""}
+              type="button"
+              onClick={() => onThemeChange("dark")}
+            >
               {copy.dark}
             </button>
           </div>
@@ -108,11 +123,22 @@ export function SettingsPage({
               <p>{copy.languageDetail}</p>
             </div>
           </div>
-          <div className="segmented-control segmented-control--settings" aria-label={copy.languageTitle}>
-            <button className={locale === "en" ? "is-active" : ""} type="button" onClick={() => onLocaleChange("en")}>
+          <div
+            className="segmented-control segmented-control--settings"
+            aria-label={copy.languageTitle}
+          >
+            <button
+              className={locale === "en" ? "is-active" : ""}
+              type="button"
+              onClick={() => onLocaleChange("en")}
+            >
               {copy.english}
             </button>
-            <button className={locale === "zh-CN" ? "is-active" : ""} type="button" onClick={() => onLocaleChange("zh-CN")}>
+            <button
+              className={locale === "zh-CN" ? "is-active" : ""}
+              type="button"
+              onClick={() => onLocaleChange("zh-CN")}
+            >
               {copy.chinese}
             </button>
           </div>

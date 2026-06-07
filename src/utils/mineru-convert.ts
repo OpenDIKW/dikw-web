@@ -21,7 +21,7 @@ export const MINERU_EXTENSIONS: ReadonlySet<string> = new Set([
   ".ppt",
   ".pptx",
   ".xls",
-  ".xlsx"
+  ".xlsx",
 ]);
 
 const MINERU_VERSION = 1;
@@ -107,7 +107,7 @@ export class MineruConvertError extends Error {
 
 export async function convertSource(
   file: File,
-  opts: ConvertOptions = {}
+  opts: ConvertOptions = {},
 ): Promise<ConvertedSource> {
   const signal = opts.signal;
   const fetchFn = opts.fetch ?? fetch;
@@ -137,19 +137,24 @@ export async function convertSource(
   opts.onProgress?.({ phase: "polling" });
   await pollUntilTerminal(jobId, signal, fetchFn, opts.pollIntervalMs ?? POLL_INTERVAL_MS);
   opts.onProgress?.({ phase: "downloading" });
-  const response = await fetchResult(jobId, signal, fetchFn, opts.pollIntervalMs ?? POLL_INTERVAL_MS);
+  const response = await fetchResult(
+    jobId,
+    signal,
+    fetchFn,
+    opts.pollIntervalMs ?? POLL_INTERVAL_MS,
+  );
   if (response.status >= 400) {
     const body = await safeJson(response);
     throw new MineruConvertError(
       pickErrorCode(body, response.status),
-      serverErrorMessage(body) ?? `mineru result HTTP ${response.status}`
+      serverErrorMessage(body) ?? `mineru result HTTP ${response.status}`,
     );
   }
   const ct = response.headers.get("content-type") ?? "";
   if (!ct.toLowerCase().includes("application/x-tar+gzip")) {
     throw new MineruConvertError(
       "invalid_response",
-      `unexpected content-type ${JSON.stringify(ct)}`
+      `unexpected content-type ${JSON.stringify(ct)}`,
     );
   }
   const gzBytes = new Uint8Array(await response.arrayBuffer());
@@ -160,7 +165,7 @@ export async function convertSource(
   } catch (err) {
     throw new MineruConvertError(
       "invalid_response",
-      `failed to gunzip response: ${err instanceof Error ? err.message : String(err)}`
+      `failed to gunzip response: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
   let entries;
@@ -184,17 +189,14 @@ export async function convertSource(
     }
   }
   if (markdown === null) {
-    throw new MineruConvertError(
-      "invalid_response",
-      `sidecar tar missing ${mdName}`
-    );
+    throw new MineruConvertError("invalid_response", `sidecar tar missing ${mdName}`);
   }
   const converted: ConvertedSource = {
     input: file,
     inputSha,
     stem,
     markdown,
-    assets
+    assets,
   };
   if (opts.cache) {
     try {
@@ -220,17 +222,15 @@ export function convertedToFiles(c: ConvertedSource): File[] {
       `${c.stem}.md`,
       `_mineru/${root}/${c.stem}.md`,
       new TextEncoder().encode(c.markdown),
-      "text/markdown"
-    )
+      "text/markdown",
+    ),
   );
   // Sort assets so iteration order doesn't perturb buildImportBundle's sha.
   const keys = Array.from(c.assets.keys()).sort();
   for (const archivePath of keys) {
     const data = c.assets.get(archivePath)!;
     const basename = archivePath.split("/").pop() ?? archivePath;
-    files.push(
-      syntheticFile(basename, `_mineru/${root}/${archivePath}`, data)
-    );
+    files.push(syntheticFile(basename, `_mineru/${root}/${archivePath}`, data));
   }
   return files;
 }
@@ -239,7 +239,7 @@ function syntheticFile(
   name: string,
   webkitRelativePath: string,
   data: Uint8Array,
-  type?: string
+  type?: string,
 ): File {
   const buf = new ArrayBuffer(data.byteLength);
   new Uint8Array(buf).set(data);
@@ -248,7 +248,7 @@ function syntheticFile(
     value: webkitRelativePath,
     enumerable: true,
     configurable: true,
-    writable: false
+    writable: false,
   });
   return file;
 }
@@ -312,7 +312,7 @@ async function submitJob(
   submitUrl: string,
   fd: FormData,
   signal: AbortSignal | undefined,
-  fetchFn: typeof fetch
+  fetchFn: typeof fetch,
 ): Promise<string> {
   let response: Response;
   try {
@@ -325,7 +325,7 @@ async function submitJob(
     const body = await safeJson(response);
     throw new MineruConvertError(
       pickErrorCode(body, response.status),
-      serverErrorMessage(body) ?? `mineru convert HTTP ${response.status}`
+      serverErrorMessage(body) ?? `mineru convert HTTP ${response.status}`,
     );
   }
   const body = await safeJson(response);
@@ -347,7 +347,7 @@ async function pollUntilTerminal(
   jobId: string,
   signal: AbortSignal | undefined,
   fetchFn: typeof fetch,
-  pollIntervalMs: number
+  pollIntervalMs: number,
 ): Promise<void> {
   let failures = 0;
   try {
@@ -361,7 +361,7 @@ async function pollUntilTerminal(
         if (++failures > POLL_MAX_FAILURES) {
           throw new MineruConvertError(
             "mineru_api",
-            err instanceof Error ? err.message : String(err)
+            err instanceof Error ? err.message : String(err),
           );
         }
         await convertDelay(pollRetryDelayMs(failures, pollIntervalMs), signal);
@@ -371,7 +371,7 @@ async function pollUntilTerminal(
       if (response.status === 404) {
         throw new MineruConvertError(
           "mineru_api",
-          "conversion job not found (the server may have restarted or evicted it)"
+          "conversion job not found (the server may have restarted or evicted it)",
         );
       }
       if (response.status >= 500) {
@@ -385,7 +385,7 @@ async function pollUntilTerminal(
         const body = await safeJson(response);
         throw new MineruConvertError(
           pickErrorCode(body, response.status),
-          serverErrorMessage(body) ?? `mineru job poll HTTP ${response.status}`
+          serverErrorMessage(body) ?? `mineru job poll HTTP ${response.status}`,
         );
       }
       failures = 0;
@@ -396,7 +396,7 @@ async function pollUntilTerminal(
         // Surface the same wire code the sidecar recorded (mineru_quota / …).
         throw new MineruConvertError(
           pickErrorCode(body, 200),
-          serverErrorMessage(body) ?? "mineru conversion failed"
+          serverErrorMessage(body) ?? "mineru conversion failed",
         );
       }
       // pending | running | unknown → keep polling.
@@ -421,7 +421,7 @@ async function fetchResult(
   jobId: string,
   signal: AbortSignal | undefined,
   fetchFn: typeof fetch,
-  pollIntervalMs: number
+  pollIntervalMs: number,
 ): Promise<Response> {
   let failures = 0;
   while (true) {
@@ -432,7 +432,10 @@ async function fetchResult(
     } catch (err) {
       if (signal?.aborted) throw new MineruConvertError("aborted", "aborted");
       if (++failures > POLL_MAX_FAILURES) {
-        throw new MineruConvertError("mineru_api", err instanceof Error ? err.message : String(err));
+        throw new MineruConvertError(
+          "mineru_api",
+          err instanceof Error ? err.message : String(err),
+        );
       }
       await convertDelay(pollRetryDelayMs(failures, pollIntervalMs), signal);
       continue;
@@ -575,7 +578,7 @@ function scheduleIdleSweep(cache: IDBConvertCache): void {
 export function isCacheEntryExpired(
   cachedAt: unknown,
   now: number,
-  ttlMs: number = CACHE_TTL_MS
+  ttlMs: number = CACHE_TTL_MS,
 ): boolean {
   if (typeof cachedAt !== "number" || !Number.isFinite(cachedAt)) return true;
   return now - cachedAt > ttlMs;
@@ -646,7 +649,7 @@ export class IDBConvertCache implements ConvertCache {
       inputSha: key,
       stem: record.stem,
       markdown: record.markdown,
-      assets
+      assets,
     };
   }
 
@@ -662,7 +665,7 @@ export class IDBConvertCache implements ConvertCache {
       stem: value.stem,
       markdown: value.markdown,
       assets,
-      cachedAt: Date.now()
+      cachedAt: Date.now(),
     };
     await this.txPut(key, record);
   }

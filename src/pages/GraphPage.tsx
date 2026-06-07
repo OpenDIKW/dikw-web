@@ -24,7 +24,7 @@ interface GraphLoadState {
 export function GraphPage({
   client,
   onOpenWikiPath: _onOpenWikiPath,
-  locale = "en"
+  locale = "en",
 }: GraphPageProps) {
   const copy = translations[locale].pages.graph;
   const [query, setQuery] = useState("");
@@ -34,23 +34,26 @@ export function GraphPage({
   const [state, setState] = useState<GraphLoadState>({
     loading: true,
     graph: null,
-    error: null
+    error: null,
   });
 
   const loadGraph = useCallback(
     async (signal: AbortSignal) => {
       setState((current) => ({ ...current, loading: true, error: null }));
-      const graph = await client.get<GraphResult>("/v1/base/graph", { signal, params: { active: true } });
+      const graph = await client.get<GraphResult>("/v1/base/graph", {
+        signal,
+        params: { active: true },
+      });
 
       if (!signal.aborted) {
         setState({
           loading: false,
           graph: toKnowledgeGraph(graph),
-          error: null
+          error: null,
         });
       }
     },
-    [client]
+    [client],
   );
 
   useEffect(() => {
@@ -64,19 +67,25 @@ export function GraphPage({
   }, [loadGraph, reloadId]);
 
   const filteredGraph = useMemo(
-    () => (state.graph ? filterKnowledgeGraph(state.graph, { layer: "all", query, hideOrphans }) : null),
-    [hideOrphans, query, state.graph]
+    () =>
+      state.graph ? filterKnowledgeGraph(state.graph, { layer: "all", query, hideOrphans }) : null,
+    [hideOrphans, query, state.graph],
   );
   const galaxyGraph = useMemo(
     () => (filteredGraph ? toGalaxyGraph(filteredGraph) : null),
-    [filteredGraph]
+    [filteredGraph],
   );
   const focusedNodeIds = useMemo(
-    () => (filteredGraph && focusedNodeId ? getFocusedNodeIds(filteredGraph, focusedNodeId) : new Set<string>()),
-    [filteredGraph, focusedNodeId]
+    () =>
+      filteredGraph && focusedNodeId
+        ? getFocusedNodeIds(filteredGraph, focusedNodeId)
+        : new Set<string>(),
+    [filteredGraph, focusedNodeId],
   );
   const focusedNode = filteredGraph?.nodes.find((node) => node.id === focusedNodeId) ?? null;
-  const focusedUnresolvedLinks = focusedNodeId ? state.graph?.unresolvedLinks.filter((link) => link.source === focusedNodeId) ?? [] : [];
+  const focusedUnresolvedLinks = focusedNodeId
+    ? (state.graph?.unresolvedLinks.filter((link) => link.source === focusedNodeId) ?? [])
+    : [];
 
   const resetFocus = useCallback(() => {
     setFocusedNodeId(null);
@@ -89,7 +98,7 @@ export function GraphPage({
       if (!node) return;
       setFocusedNodeId(nodeId);
     },
-    [filteredGraph]
+    [filteredGraph],
   );
 
   return (
@@ -156,7 +165,10 @@ export function GraphPage({
                   Knowledge
                 </span>
                 <span className="graph-legend__chip">
-                  <span className="graph-legend__dot graph-legend__dot--source" aria-hidden="true" />
+                  <span
+                    className="graph-legend__dot graph-legend__dot--source"
+                    aria-hidden="true"
+                  />
                   Source
                 </span>
               </div>
@@ -191,7 +203,11 @@ export function GraphPage({
                   ))}
                 </div>
               ) : null}
-              <button className="secondary-button" type="button" onClick={() => _onOpenWikiPath?.(focusedNode.path)}>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => _onOpenWikiPath?.(focusedNode.path)}
+              >
                 {copy.openInWiki}
               </button>
             </aside>

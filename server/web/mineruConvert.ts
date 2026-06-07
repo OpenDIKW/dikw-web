@@ -12,15 +12,7 @@ import { inflateRawSync } from "node:zlib";
 
 const FULL_MD = "full.md";
 
-const IMAGE_EXTS = new Set([
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".webp",
-  ".gif",
-  ".svg",
-  ".bmp"
-]);
+const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".bmp"]);
 const ASSET_EXTS = new Set([...IMAGE_EXTS, ".pdf"]);
 
 export const MAX_ENTRY_UNCOMPRESSED = 64 * 1024 * 1024;
@@ -101,7 +93,10 @@ function readCentralDirectory(buf: Uint8Array): CentralEntry[] {
     }
     const sig = view.getUint32(cdOffset, true);
     if (sig !== SIG_CD) {
-      throw new MineruConvertError("invalid_zip", `unexpected ZIP central directory signature at offset ${cdOffset}`);
+      throw new MineruConvertError(
+        "invalid_zip",
+        `unexpected ZIP central directory signature at offset ${cdOffset}`,
+      );
     }
     const flags = view.getUint16(cdOffset + 8, true);
     const method = view.getUint16(cdOffset + 10, true);
@@ -117,7 +112,10 @@ function readCentralDirectory(buf: Uint8Array): CentralEntry[] {
     const nameStart = cdOffset + 46;
     const nameEnd = nameStart + nameLen;
     if (nameEnd > buf.byteLength) {
-      throw new MineruConvertError("invalid_zip", "ZIP central directory entry name overruns buffer");
+      throw new MineruConvertError(
+        "invalid_zip",
+        "ZIP central directory entry name overruns buffer",
+      );
     }
     const isUtf8 = (flags & FLAG_UTF8_NAME) !== 0;
     const name = decodeName(buf.subarray(nameStart, nameEnd), isUtf8);
@@ -127,7 +125,7 @@ function readCentralDirectory(buf: Uint8Array): CentralEntry[] {
       flags,
       compressedSize,
       uncompressedSize,
-      localHeaderOffset
+      localHeaderOffset,
     });
     cdOffset = nameEnd + extraLen + commentLen;
   }
@@ -151,7 +149,10 @@ function readLocalEntry(buf: Uint8Array, entry: CentralEntry): Uint8Array {
   }
   const sig = view.getUint32(lfh, true);
   if (sig !== SIG_LFH) {
-    throw new MineruConvertError("invalid_zip", `unexpected local file header signature at offset ${lfh}`);
+    throw new MineruConvertError(
+      "invalid_zip",
+      `unexpected local file header signature at offset ${lfh}`,
+    );
   }
   const nameLen = view.getUint16(lfh + 26, true);
   const extraLen = view.getUint16(lfh + 28, true);
@@ -165,7 +166,7 @@ function readLocalEntry(buf: Uint8Array, entry: CentralEntry): Uint8Array {
     if (slice.byteLength !== entry.uncompressedSize) {
       throw new MineruConvertError(
         "invalid_zip",
-        `stored entry ${entry.name} size mismatch: ${slice.byteLength} vs ${entry.uncompressedSize}`
+        `stored entry ${entry.name} size mismatch: ${slice.byteLength} vs ${entry.uncompressedSize}`,
       );
     }
     return slice.slice();
@@ -177,7 +178,7 @@ function readLocalEntry(buf: Uint8Array, entry: CentralEntry): Uint8Array {
     if (entry.uncompressedSize > MAX_ENTRY_UNCOMPRESSED) {
       throw new MineruConvertError(
         "too_large",
-        `ZIP entry ${JSON.stringify(entry.name)} declares ${entry.uncompressedSize} bytes uncompressed, exceeds per-entry cap ${MAX_ENTRY_UNCOMPRESSED}`
+        `ZIP entry ${JSON.stringify(entry.name)} declares ${entry.uncompressedSize} bytes uncompressed, exceeds per-entry cap ${MAX_ENTRY_UNCOMPRESSED}`,
       );
     }
     let out: Buffer;
@@ -189,13 +190,13 @@ function readLocalEntry(buf: Uint8Array, entry: CentralEntry): Uint8Array {
     } catch (err) {
       throw new MineruConvertError(
         "invalid_zip",
-        `failed to inflate ${entry.name}: ${err instanceof Error ? err.message : String(err)}`
+        `failed to inflate ${entry.name}: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
     if (out.byteLength !== entry.uncompressedSize) {
       throw new MineruConvertError(
         "invalid_zip",
-        `deflate entry ${entry.name} expanded to ${out.byteLength} bytes, expected ${entry.uncompressedSize}`
+        `deflate entry ${entry.name} expanded to ${out.byteLength} bytes, expected ${entry.uncompressedSize}`,
       );
     }
     return new Uint8Array(out.buffer, out.byteOffset, out.byteLength);
@@ -206,12 +207,12 @@ function readLocalEntry(buf: Uint8Array, entry: CentralEntry): Uint8Array {
     // than implement.
     throw new MineruConvertError(
       "unsupported_method",
-      `ZIP entry ${entry.name} uses data descriptor (general-purpose bit 3); not supported`
+      `ZIP entry ${entry.name} uses data descriptor (general-purpose bit 3); not supported`,
     );
   }
   throw new MineruConvertError(
     "unsupported_method",
-    `ZIP entry ${entry.name} uses unsupported compression method ${entry.method}`
+    `ZIP entry ${entry.name} uses unsupported compression method ${entry.method}`,
   );
 }
 
@@ -326,7 +327,10 @@ function rewriteImageRefs(md: string, assetMap: Map<string, string>): RewriteRes
     byBasenameFolded.get(baseFolded)!.push(assetPath);
   }
   const referenced = new Set<string>();
-  const uniqueOrNull = (candidates: string[] | undefined, alt: string | null | undefined): string | null => {
+  const uniqueOrNull = (
+    candidates: string[] | undefined,
+    alt: string | null | undefined,
+  ): string | null => {
     if (!candidates || candidates.length !== 1) return null;
     referenced.add(candidates[0]);
     return wikilink(candidates[0], alt);
@@ -369,14 +373,14 @@ export function extractResultZip(zipBytes: Uint8Array): ExtractedResult {
     if (entry.data.byteLength > MAX_ENTRY_UNCOMPRESSED) {
       throw new MineruConvertError(
         "too_large",
-        `ZIP entry ${JSON.stringify(entry.name)} is ${entry.data.byteLength} bytes uncompressed, exceeds per-entry cap ${MAX_ENTRY_UNCOMPRESSED}`
+        `ZIP entry ${JSON.stringify(entry.name)} is ${entry.data.byteLength} bytes uncompressed, exceeds per-entry cap ${MAX_ENTRY_UNCOMPRESSED}`,
       );
     }
     cumulative += entry.data.byteLength;
     if (cumulative > MAX_TOTAL_UNCOMPRESSED) {
       throw new MineruConvertError(
         "too_large",
-        `ZIP cumulative uncompressed size exceeds ${MAX_TOTAL_UNCOMPRESSED} bytes`
+        `ZIP cumulative uncompressed size exceeds ${MAX_TOTAL_UNCOMPRESSED} bytes`,
       );
     }
     const relpath = safeRelpath(entry.name);
@@ -404,7 +408,7 @@ export function extractResultZip(zipBytes: Uint8Array): ExtractedResult {
       .join(", ");
     throw new MineruConvertError(
       "missing_full_md",
-      `ZIP did not contain full.md at root (entries: ${sample}…)`
+      `ZIP did not contain full.md at root (entries: ${sample}…)`,
     );
   }
 

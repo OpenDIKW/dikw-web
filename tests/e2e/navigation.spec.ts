@@ -5,7 +5,9 @@ test.beforeEach(async ({ page }) => {
   await mockDikwApi(page);
 });
 
-test("loads overview and navigates with localized sidebar labels and settings", async ({ page }) => {
+test("loads overview and navigates with localized sidebar labels and settings", async ({
+  page,
+}) => {
   await page.goto("/#overview");
 
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
@@ -21,7 +23,10 @@ test("loads overview and navigates with localized sidebar labels and settings", 
   await expect(page.getByPlaceholder("Bearer token")).toHaveCount(0);
   await expect(page.getByText(/same-origin/i)).toHaveCount(0);
   await expect(page.getByText("http://127.0.0.1:8765")).toBeVisible();
-  await expect(page.getByRole("img", { name: "OpenDIKW" })).toHaveAttribute("src", "/opendikw-avatar.png");
+  await expect(page.getByRole("img", { name: "OpenDIKW" })).toHaveAttribute(
+    "src",
+    "/opendikw-avatar.png",
+  );
 
   await knowledgeNav.getByRole("button", { name: "Base", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Base", exact: true })).toBeVisible();
@@ -50,7 +55,11 @@ test("loads overview and navigates with localized sidebar labels and settings", 
 
   await page.getByRole("button", { name: "简体中文" }).click();
   await expect(page.getByRole("heading", { name: "设置" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "知识" }).getByRole("button", { name: "概览", exact: true })).toBeVisible();
+  await expect(
+    page
+      .getByRole("navigation", { name: "知识" })
+      .getByRole("button", { name: "概览", exact: true }),
+  ).toBeVisible();
 
   await page.getByRole("button", { name: "深色" }).click();
   await expect.poll(() => page.evaluate(() => document.documentElement.dataset.theme)).toBe("dark");
@@ -62,13 +71,19 @@ test("major pages avoid horizontal overflow on desktop and mobile", async ({ pag
     for (const route of ["overview", "chat", "base", "graph", "tasks", "wisdom", "settings"]) {
       await page.goto(`/#${route}`);
       await expect
-        .poll(() => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1))
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1,
+          ),
+        )
         .toBe(true);
     }
   }
 });
 
-test("keeps the Settings nav reachable when main content is taller than the viewport", async ({ page }) => {
+test("keeps the Settings nav reachable when main content is taller than the viewport", async ({
+  page,
+}) => {
   // Viewport tall enough to comfortably fit the sidebar's own content (so the
   // sidebar's internal overflow-y doesn't hide Settings), yet far shorter than
   // the 3000px spacer below so the page itself must scroll.
@@ -83,7 +98,8 @@ test("keeps the Settings nav reachable when main content is taller than the view
   // below the fold.
   await page.evaluate(() => {
     const workspace = document.querySelector(".workspace");
-    if (!workspace) throw new Error("expected .workspace to exist so the test creates real overflow");
+    if (!workspace)
+      throw new Error("expected .workspace to exist so the test creates real overflow");
     const spacer = document.createElement("div");
     spacer.style.height = "3000px";
     workspace.appendChild(spacer);

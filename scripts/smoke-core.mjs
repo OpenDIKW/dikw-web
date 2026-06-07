@@ -15,7 +15,11 @@
 //   baseUrl default: $DIKW_SMOKE_CORE_URL or http://127.0.0.1:8765
 //   optional bearer token: $DIKW_SMOKE_CORE_TOKEN
 
-const baseUrl = (process.argv[2] || process.env.DIKW_SMOKE_CORE_URL || "http://127.0.0.1:8765").replace(/\/+$/, "");
+const baseUrl = (
+  process.argv[2] ||
+  process.env.DIKW_SMOKE_CORE_URL ||
+  "http://127.0.0.1:8765"
+).replace(/\/+$/, "");
 const token = process.env.DIKW_SMOKE_CORE_TOKEN || "";
 const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
@@ -31,7 +35,10 @@ function assert(condition, message) {
 
 async function getJson(path) {
   // 10s timeout so a stalled core fails fast instead of hanging the script.
-  const res = await fetch(`${baseUrl}${path}`, { headers: authHeaders, signal: AbortSignal.timeout(10_000) });
+  const res = await fetch(`${baseUrl}${path}`, {
+    headers: authHeaders,
+    signal: AbortSignal.timeout(10_000),
+  });
   if (!res.ok) throw new Error(`${path} -> HTTP ${res.status}`);
   return res.json();
 }
@@ -77,7 +84,13 @@ async function main() {
   // not status; documents_by_layer is not consumed). See OverviewPage.tsx.
   await check("GET /v1/status: counters consumed by Overview", async () => {
     const status = await getJson("/v1/status");
-    for (const key of ["embeddings", "links", "assets", "asset_embeddings", "last_knowledge_log_ts"]) {
+    for (const key of [
+      "embeddings",
+      "links",
+      "assets",
+      "asset_embeddings",
+      "last_knowledge_log_ts",
+    ]) {
       assert(key in status, `status.${key} missing`);
     }
     return `links=${status.links} assets=${status.assets}`;
@@ -90,28 +103,40 @@ async function main() {
   });
 
   let readablePath = null;
-  await check("GET /v1/base/pages?active=true: layers subset of {source,knowledge,wisdom}; K is 'knowledge'", async () => {
-    const pages = await getJson("/v1/base/pages?active=true");
-    assert(Array.isArray(pages), "expected an array of pages");
-    assert(pages.length > 0, "no active pages (need a non-empty base to smoke)");
-    const layers = new Set();
-    for (const page of pages) {
-      assert("layer" in page && "path" in page, "page missing layer/path");
-      layers.add(page.layer);
-      assert(KNOWN_LAYERS.has(page.layer), `unexpected layer "${page.layer}"`);
-    }
-    // The app filters Base to layer === "knowledge"; a regression to the
-    // pre-0.4.0 "wiki" value would silently empty the K layer.
-    assert(!layers.has("wiki"), "found legacy 'wiki' layer — 0.4.0 renamed it to 'knowledge'");
-    const readable = pages.find((page) => page.layer === "knowledge" || page.layer === "source");
-    readablePath = (readable || pages[0]).path;
-    return `layers=${[...layers].sort().join(",")} n=${pages.length}`;
-  });
+  await check(
+    "GET /v1/base/pages?active=true: layers subset of {source,knowledge,wisdom}; K is 'knowledge'",
+    async () => {
+      const pages = await getJson("/v1/base/pages?active=true");
+      assert(Array.isArray(pages), "expected an array of pages");
+      assert(pages.length > 0, "no active pages (need a non-empty base to smoke)");
+      const layers = new Set();
+      for (const page of pages) {
+        assert("layer" in page && "path" in page, "page missing layer/path");
+        layers.add(page.layer);
+        assert(KNOWN_LAYERS.has(page.layer), `unexpected layer "${page.layer}"`);
+      }
+      // The app filters Base to layer === "knowledge"; a regression to the
+      // pre-0.4.0 "wiki" value would silently empty the K layer.
+      assert(!layers.has("wiki"), "found legacy 'wiki' layer — 0.4.0 renamed it to 'knowledge'");
+      const readable = pages.find((page) => page.layer === "knowledge" || page.layer === "source");
+      readablePath = (readable || pages[0]).path;
+      return `layers=${[...layers].sort().join(",")} n=${pages.length}`;
+    },
+  );
 
   await check("GET /v1/base/pages/{path}: PageReadResult incl. frontmatter", async () => {
     assert(readablePath, "no page path resolved from the list");
     const page = await getJson(`/v1/base/pages/${encodePath(readablePath)}`);
-    for (const key of ["doc_id", "path", "layer", "title", "body", "anchors", "assets", "frontmatter"]) {
+    for (const key of [
+      "doc_id",
+      "path",
+      "layer",
+      "title",
+      "body",
+      "anchors",
+      "assets",
+      "frontmatter",
+    ]) {
       assert(key in page, `PageReadResult.${key} missing`);
     }
     assert(Array.isArray(page.assets), "PageReadResult.assets must be an array");
@@ -128,13 +153,14 @@ async function main() {
     }
     assert(
       Array.isArray(graph.nodes) && Array.isArray(graph.edges) && Array.isArray(graph.unresolved),
-      "graph nodes/edges/unresolved must be arrays"
+      "graph nodes/edges/unresolved must be arrays",
     );
     for (const key of ["node_count", "edge_count", "unresolved_count"]) {
       assert(key in graph.stats, `graph.stats.${key} missing`);
     }
     if (graph.nodes.length) {
-      for (const key of ["id", "layer"]) assert(key in graph.nodes[0], `graph node missing "${key}"`);
+      for (const key of ["id", "layer"])
+        assert(key in graph.nodes[0], `graph node missing "${key}"`);
     }
     return `nodes=${graph.nodes.length} edges=${graph.edges.length}`;
   });
@@ -150,10 +176,14 @@ async function main() {
   });
 
   for (const result of results) {
-    console.log(`${result.ok ? "✓" : "✖"} ${result.name}${result.detail ? `  — ${result.detail}` : ""}`);
+    console.log(
+      `${result.ok ? "✓" : "✖"} ${result.name}${result.detail ? `  — ${result.detail}` : ""}`,
+    );
   }
   const failed = results.filter((result) => !result.ok);
-  console.log(`\n${results.length - failed.length}/${results.length} contract checks passed against ${baseUrl}`);
+  console.log(
+    `\n${results.length - failed.length}/${results.length} contract checks passed against ${baseUrl}`,
+  );
   process.exit(failed.length ? 1 : 0);
 }
 

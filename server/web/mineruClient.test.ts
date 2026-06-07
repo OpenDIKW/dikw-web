@@ -6,11 +6,7 @@
 // so we never sleep wall-clock seconds in CI.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  MineruClient,
-  MineruClientError,
-  type MineruFetch
-} from "./mineruClient";
+import { MineruClient, MineruClientError, type MineruFetch } from "./mineruClient";
 
 const TOKEN = "sk-secret-abcdef0123456789";
 
@@ -51,7 +47,7 @@ function makeFetch(script: ScriptedResponse[]): {
       new Uint8Array(fresh).set(next.bytes);
       return new Response(new Blob([fresh]), {
         status: next.status ?? 200,
-        headers
+        headers,
       });
     }
     if (next.text !== undefined) {
@@ -81,16 +77,16 @@ describe("MineruClient.submit", () => {
           code: 0,
           data: {
             batch_id: "batch-123",
-            file_urls: ["https://oss.example/up?signature=x"]
-          }
-        }
-      }
+            file_urls: ["https://oss.example/up?signature=x"],
+          },
+        },
+      },
     ]);
     const client = new MineruClient({ token: TOKEN, fetch });
     const handle = await client.submit({
       fileName: "test.pdf",
       dataId: "deadbeef".repeat(4),
-      modelVersion: "vlm"
+      modelVersion: "vlm",
     });
     expect(handle.batchId).toBe("batch-123");
     expect(handle.uploadUrl).toBe("https://oss.example/up?signature=x");
@@ -111,7 +107,7 @@ describe("MineruClient.submit", () => {
     const { fetch, calls } = makeFetch([
       { status: 500, text: "server error" },
       { status: 502, text: "bad gateway" },
-      { status: 503, text: "service unavailable" }
+      { status: 503, text: "service unavailable" },
     ]);
     const sleeps: number[] = [];
     const client = new MineruClient({
@@ -119,13 +115,11 @@ describe("MineruClient.submit", () => {
       fetch,
       sleep: async (ms) => {
         sleeps.push(ms);
-      }
+      },
     });
-    await expect(
-      client.submit({ fileName: "test.pdf", dataId: "x" })
-    ).rejects.toMatchObject({
+    await expect(client.submit({ fileName: "test.pdf", dataId: "x" })).rejects.toMatchObject({
       name: "MineruClientError",
-      code: "mineru_api"
+      code: "mineru_api",
     });
     expect(calls).toHaveLength(3);
     // Two backoffs between three attempts (none after the final attempt).
@@ -136,8 +130,8 @@ describe("MineruClient.submit", () => {
     const { fetch } = makeFetch([
       {
         status: 401,
-        body: { code: "A0202", msg: `bad token ${TOKEN}` }
-      }
+        body: { code: "A0202", msg: `bad token ${TOKEN}` },
+      },
     ]);
     const client = new MineruClient({ token: TOKEN, fetch });
     try {
@@ -156,13 +150,13 @@ describe("MineruClient.submit", () => {
     const { fetch } = makeFetch([
       {
         status: 200,
-        body: { code: "-60018", msg: "daily quota exceeded" }
-      }
+        body: { code: "-60018", msg: "daily quota exceeded" },
+      },
     ]);
     const client = new MineruClient({ token: TOKEN, fetch });
-    await expect(
-      client.submit({ fileName: "test.pdf", dataId: "x" })
-    ).rejects.toMatchObject({ code: "mineru_quota" });
+    await expect(client.submit({ fileName: "test.pdf", dataId: "x" })).rejects.toMatchObject({
+      code: "mineru_quota",
+    });
   });
 });
 
@@ -170,10 +164,7 @@ describe("MineruClient.upload", () => {
   it("PUTs without Content-Type header", async () => {
     const { fetch, calls } = makeFetch([{ status: 200 }]);
     const client = new MineruClient({ token: TOKEN, fetch });
-    await client.upload(
-      "https://oss.example/up",
-      new Uint8Array([1, 2, 3])
-    );
+    await client.upload("https://oss.example/up", new Uint8Array([1, 2, 3]));
     expect(calls).toHaveLength(1);
     expect(calls[0].init?.method).toBe("PUT");
     const headers = new Headers(calls[0].init?.headers);
@@ -185,7 +176,7 @@ describe("MineruClient.upload", () => {
     const { fetch, calls } = makeFetch([{ status: 500, text: "oops" }]);
     const client = new MineruClient({ token: TOKEN, fetch });
     await expect(
-      client.upload("https://oss.example/up", new Uint8Array([1]))
+      client.upload("https://oss.example/up", new Uint8Array([1])),
     ).rejects.toMatchObject({ code: "mineru_api" });
     expect(calls).toHaveLength(1);
   });
@@ -208,12 +199,12 @@ describe("MineruClient.pollUntilDone", () => {
             extract_result: [
               {
                 state: "done",
-                full_zip_url: "https://cdn.example/result.zip"
-              }
-            ]
-          }
-        }
-      }
+                full_zip_url: "https://cdn.example/result.zip",
+              },
+            ],
+          },
+        },
+      },
     ]);
     const client = new MineruClient({ token: TOKEN, fetch });
     const url = await client.pollUntilDone("batch-123");
@@ -226,8 +217,8 @@ describe("MineruClient.pollUntilDone", () => {
       responses.push({
         body: {
           code: 0,
-          data: { extract_result: [{ state: "running" }] }
-        }
+          data: { extract_result: [{ state: "running" }] },
+        },
       });
     }
     const { fetch } = makeFetch(responses);
@@ -239,10 +230,10 @@ describe("MineruClient.pollUntilDone", () => {
         now += ms;
       },
       now: () => now,
-      pollTotalTimeoutMs: 1_000
+      pollTotalTimeoutMs: 1_000,
     });
     await expect(client.pollUntilDone("batch-123")).rejects.toMatchObject({
-      code: "mineru_timeout"
+      code: "mineru_timeout",
     });
   });
 
@@ -252,16 +243,14 @@ describe("MineruClient.pollUntilDone", () => {
         body: {
           code: 0,
           data: {
-            extract_result: [
-              { state: "failed", err_code: "-60018", err_msg: "quota" }
-            ]
-          }
-        }
-      }
+            extract_result: [{ state: "failed", err_code: "-60018", err_msg: "quota" }],
+          },
+        },
+      },
     ]);
     const client = new MineruClient({ token: TOKEN, fetch });
     await expect(client.pollUntilDone("batch-123")).rejects.toMatchObject({
-      code: "mineru_quota"
+      code: "mineru_quota",
     });
   });
 });
@@ -272,8 +261,8 @@ describe("MineruClient.downloadZip", () => {
     const { fetch } = makeFetch([
       {
         bytes,
-        headers: { "Content-Length": "4" }
-      }
+        headers: { "Content-Length": "4" },
+      },
     ]);
     const client = new MineruClient({ token: TOKEN, fetch });
     const out = await client.downloadZip("https://cdn.example/result.zip");
@@ -284,13 +273,13 @@ describe("MineruClient.downloadZip", () => {
     const { fetch } = makeFetch([
       {
         bytes: new Uint8Array(),
-        headers: { "Content-Length": String(512 * 1024 * 1024) }
-      }
+        headers: { "Content-Length": String(512 * 1024 * 1024) },
+      },
     ]);
     const client = new MineruClient({ token: TOKEN, fetch });
-    await expect(
-      client.downloadZip("https://cdn.example/huge.zip")
-    ).rejects.toMatchObject({ code: "mineru_input" });
+    await expect(client.downloadZip("https://cdn.example/huge.zip")).rejects.toMatchObject({
+      code: "mineru_input",
+    });
   });
 });
 
@@ -305,7 +294,7 @@ describe("MineruClient — token redaction", () => {
       fetch,
       sleep: async (ms) => {
         sleeps.push(ms);
-      }
+      },
     });
     try {
       await client.submit({ fileName: "x.pdf", dataId: "x" });

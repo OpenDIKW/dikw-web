@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { DocumentRecord, GraphResult, PageReadResult } from "../types";
-import { buildKnowledgeGraph, filterKnowledgeGraph, findPageForTarget, layoutKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "./graph";
+import {
+  buildKnowledgeGraph,
+  filterKnowledgeGraph,
+  findPageForTarget,
+  layoutKnowledgeGraph,
+  toKnowledgeGraph,
+  type KnowledgeGraph,
+} from "./graph";
 import { layoutGalaxyGraph, toGalaxyGraph } from "./galaxyGraph";
 
 const pages: DocumentRecord[] = [
@@ -14,7 +21,7 @@ const pages: DocumentRecord[] = [
     hash: "hash-a",
     mtime: 1777819200,
     layer: "knowledge",
-    active: true
+    active: true,
   },
   {
     doc_id: "knowledge-synthesis",
@@ -24,7 +31,7 @@ const pages: DocumentRecord[] = [
     hash: "hash-s",
     mtime: 1777819300,
     layer: "knowledge",
-    active: true
+    active: true,
   },
   {
     doc_id: "knowledge-orphan",
@@ -34,7 +41,7 @@ const pages: DocumentRecord[] = [
     hash: "hash-o",
     mtime: 1777819400,
     layer: "knowledge",
-    active: true
+    active: true,
   },
   {
     doc_id: "source-brief",
@@ -44,8 +51,8 @@ const pages: DocumentRecord[] = [
     hash: "hash-src",
     mtime: 1777819500,
     layer: "source",
-    active: true
-  }
+    active: true,
+  },
 ];
 
 const bodies: Record<string, PageReadResult> = {
@@ -56,7 +63,7 @@ const bodies: Record<string, PageReadResult> = {
     title: "Architecture",
     body: "# Architecture\n\nSee [[Synthesis#Details|the synthesis page]] and again [[Synthesis#Details]]. Missing [[Missing Concept]].",
     anchors: [],
-    assets: []
+    assets: [],
   },
   "knowledge/synthesis.md": {
     doc_id: "knowledge-synthesis",
@@ -65,7 +72,7 @@ const bodies: Record<string, PageReadResult> = {
     title: "Synthesis",
     body: "# Synthesis\n\nSynthesis Body.",
     anchors: [],
-    assets: []
+    assets: [],
   },
   "knowledge/orphan.md": {
     doc_id: "knowledge-orphan",
@@ -74,7 +81,7 @@ const bodies: Record<string, PageReadResult> = {
     title: "Orphan",
     body: "# Orphan\n\nNo links.",
     anchors: [],
-    assets: []
+    assets: [],
   },
   "sources/brief.md": {
     doc_id: "source-brief",
@@ -83,8 +90,8 @@ const bodies: Record<string, PageReadResult> = {
     title: "Source Brief",
     body: "# Source Brief\n\nSource-only page.",
     anchors: [],
-    assets: []
-  }
+    assets: [],
+  },
 };
 
 describe("knowledge graph builder", () => {
@@ -101,7 +108,7 @@ describe("knowledge graph builder", () => {
           active: true,
           mtime: 1777819200,
           inbound: 0,
-          outbound: 1
+          outbound: 1,
         },
         {
           id: "knowledge/synthesis.md",
@@ -111,8 +118,8 @@ describe("knowledge graph builder", () => {
           active: true,
           mtime: 1777819300,
           inbound: 1,
-          outbound: 0
-        }
+          outbound: 0,
+        },
       ],
       edges: [
         {
@@ -122,22 +129,22 @@ describe("knowledge graph builder", () => {
           type: "wikilink",
           target_text: "Synthesis",
           anchor: "Details",
-          weight: 3
-        }
+          weight: 3,
+        },
       ],
       unresolved: [
         {
           source: "knowledge/architecture.md",
           target_text: "Missing Concept",
           anchor: null,
-          count: 2
-        }
+          count: 2,
+        },
       ],
       stats: {
         node_count: 2,
         edge_count: 1,
-        unresolved_count: 2
-      }
+        unresolved_count: 2,
+      },
     };
 
     const graph = toKnowledgeGraph(coreGraph);
@@ -150,22 +157,22 @@ describe("knowledge graph builder", () => {
       layer: "knowledge",
       inbound: 0,
       outbound: 1,
-      linkCount: 1
+      linkCount: 1,
     });
     expect(graph.edges[0]).toMatchObject({
       id: "knowledge/architecture.md->knowledge/synthesis.md",
       source: "knowledge/architecture.md",
       target: "knowledge/synthesis.md",
       anchor: "Details",
-      weight: 3
+      weight: 3,
     });
     expect(graph.unresolvedLinks).toEqual([
       {
         source: "knowledge/architecture.md",
         target: "Missing Concept",
         anchor: null,
-        count: 2
-      }
+        count: 2,
+      },
     ]);
   });
 
@@ -177,13 +184,13 @@ describe("knowledge graph builder", () => {
       title: "Architecture",
       outbound: 1,
       inbound: 0,
-      linkCount: 1
+      linkCount: 1,
     });
     expect(graph.nodes.find((node) => node.id === "knowledge/synthesis.md")).toMatchObject({
       title: "Synthesis",
       outbound: 0,
       inbound: 1,
-      linkCount: 1
+      linkCount: 1,
     });
     expect(graph.edges).toEqual([
       expect.objectContaining({
@@ -191,14 +198,14 @@ describe("knowledge graph builder", () => {
         source: "knowledge/architecture.md",
         target: "knowledge/synthesis.md",
         anchor: "Details",
-        weight: 2
-      })
+        weight: 2,
+      }),
     ]);
     expect(graph.unresolvedLinks).toEqual([
       expect.objectContaining({
         source: "knowledge/architecture.md",
-        target: "Missing Concept"
-      })
+        target: "Missing Concept",
+      }),
     ]);
   });
 
@@ -209,16 +216,16 @@ describe("knowledge graph builder", () => {
       filterKnowledgeGraph(graph, {
         layer: "knowledge",
         query: "",
-        hideOrphans: true
-      }).nodes.map((node) => node.id)
+        hideOrphans: true,
+      }).nodes.map((node) => node.id),
     ).toEqual(["knowledge/architecture.md", "knowledge/synthesis.md"]);
 
     expect(
       filterKnowledgeGraph(graph, {
         layer: "all",
         query: "source",
-        hideOrphans: false
-      }).nodes.map((node) => node.id)
+        hideOrphans: false,
+      }).nodes.map((node) => node.id),
     ).toEqual(["sources/brief.md"]);
   });
 
@@ -230,7 +237,7 @@ describe("knowledge graph builder", () => {
       repelStrength: -90,
       linkDistance: 96,
       nodeSizeScale: 1,
-      linkThicknessScale: 1
+      linkThicknessScale: 1,
     });
 
     expect(layout.nodes.map((node) => node.id)).toEqual(graph.nodes.map((node) => node.id));
@@ -255,23 +262,23 @@ describe("knowledge graph builder", () => {
       degree: 1,
       layer: "knowledge",
       radius: expect.any(Number),
-      clusterId: expect.any(Number)
+      clusterId: expect.any(Number),
     });
     expect(first.nodes.find((node) => node.id === "sources/brief.md")).toMatchObject({
       degree: 0,
-      layer: "source"
+      layer: "source",
     });
     expect(first.edges[0]).toMatchObject({
       source: "knowledge/architecture.md",
       target: "knowledge/synthesis.md",
       weight: 2,
-      thickness: expect.any(Number)
+      thickness: expect.any(Number),
     });
     expect(first.clusters.length).toBeGreaterThanOrEqual(1);
     expect(first.clusters[0]).toMatchObject({
       id: expect.any(Number),
       label: expect.any(String),
-      memberIds: expect.any(Array)
+      memberIds: expect.any(Array),
     });
   });
 
@@ -308,7 +315,9 @@ describe("knowledge graph builder", () => {
     const centerX = 1000 / 2;
     const centerY = 560 / 2;
     const radialBands = new Set(
-      layout.clusters.map((cluster) => Math.round(Math.hypot(cluster.x - centerX, cluster.y - centerY) / 40))
+      layout.clusters.map((cluster) =>
+        Math.round(Math.hypot(cluster.x - centerX, cluster.y - centerY) / 40),
+      ),
     );
     expect(radialBands.size).toBeGreaterThanOrEqual(3);
     const xs = layout.nodes.map((node) => node.x);
@@ -318,14 +327,21 @@ describe("knowledge graph builder", () => {
     const centerDistances: number[] = [];
     for (let i = 0; i < layout.clusters.length; i += 1) {
       for (let j = i + 1; j < layout.clusters.length; j += 1) {
-        centerDistances.push(Math.hypot(layout.clusters[i].x - layout.clusters[j].x, layout.clusters[i].y - layout.clusters[j].y));
+        centerDistances.push(
+          Math.hypot(
+            layout.clusters[i].x - layout.clusters[j].x,
+            layout.clusters[i].y - layout.clusters[j].y,
+          ),
+        );
       }
     }
     expect(Math.min(...centerDistances)).toBeGreaterThanOrEqual(92);
   });
 
   it("does not ship a Bloom filter dependency for graph glow effects", () => {
-    const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), "package.json"), "utf8")) as {
+    const packageJson = JSON.parse(
+      readFileSync(resolve(process.cwd(), "package.json"), "utf8"),
+    ) as {
       dependencies?: Record<string, string>;
     };
 
@@ -346,7 +362,7 @@ describe("findPageForTarget", () => {
         hash: "h1",
         mtime: 0,
         layer: "source",
-        active: true
+        active: true,
       },
       {
         doc_id: "knowledge-arch",
@@ -356,8 +372,8 @@ describe("findPageForTarget", () => {
         hash: "h2",
         mtime: 0,
         layer: "knowledge",
-        active: true
-      }
+        active: true,
+      },
     ];
     expect(findPageForTarget("Architecture", pages)?.path).toBe("knowledge/architecture.md");
   });
@@ -372,7 +388,7 @@ describe("findPageForTarget", () => {
         hash: "h1",
         mtime: 0,
         layer: "source",
-        active: true
+        active: true,
       },
       {
         doc_id: "knowledge-arch",
@@ -382,10 +398,12 @@ describe("findPageForTarget", () => {
         hash: "h2",
         mtime: 0,
         layer: "knowledge",
-        active: true
-      }
+        active: true,
+      },
     ];
-    expect(findPageForTarget("knowledge/architecture.md", pages)?.path).toBe("knowledge/architecture.md");
+    expect(findPageForTarget("knowledge/architecture.md", pages)?.path).toBe(
+      "knowledge/architecture.md",
+    );
   });
 });
 
@@ -403,7 +421,7 @@ function makeLargeHubGraph(nodeCount: number, groupCount: number): KnowledgeGrap
       layer,
       inbound: index === 0 ? nodeCount - 1 : 1,
       outbound: index === 0 ? 0 : 1,
-      linkCount: index === 0 ? nodeCount - 1 : 2
+      linkCount: index === 0 ? nodeCount - 1 : 2,
     };
   });
 
@@ -413,7 +431,7 @@ function makeLargeHubGraph(nodeCount: number, groupCount: number): KnowledgeGrap
     source: node.id,
     target: hub.id,
     anchor: null,
-    weight: index % 5 === 0 ? 3 : 1
+    weight: index % 5 === 0 ? 3 : 1,
   }));
 
   return {
@@ -423,7 +441,7 @@ function makeLargeHubGraph(nodeCount: number, groupCount: number): KnowledgeGrap
     stats: {
       nodeCount: nodes.length,
       edgeCount: edges.length,
-      unresolvedCount: 0
-    }
+      unresolvedCount: 0,
+    },
   };
 }

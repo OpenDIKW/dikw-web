@@ -16,7 +16,7 @@ describe("shared display components", () => {
     const error = new DikwClientError({
       status: 404,
       code: "not_found",
-      message: "Missing page"
+      message: "Missing page",
     });
     render(<Notice title="无法读取页面" error={error} />);
     expect(screen.getByText("无法读取页面")).toBeInTheDocument();
@@ -29,7 +29,7 @@ describe("shared display components", () => {
       <>
         <EmptyState title="暂无认知条目" detail="Try another filter" />
         <MetricCard label="Information" value="31" detail="31 embeddings" />
-      </>
+      </>,
     );
     expect(screen.getByText("暂无认知条目")).toBeInTheDocument();
     expect(screen.getByText("Try another filter")).toBeInTheDocument();

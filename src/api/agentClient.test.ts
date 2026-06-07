@@ -17,18 +17,20 @@ describe("AgentClient", () => {
             new Response(
               [
                 JSON.stringify({ type: "message_delta", sessionId: "s1", delta: "Hello" }),
-                JSON.stringify({ type: "agent_end", sessionId: "s1" })
+                JSON.stringify({ type: "agent_end", sessionId: "s1" }),
               ].join("\n"),
-              { headers: { "Content-Type": "application/x-ndjson" } }
-            )
+              { headers: { "Content-Type": "application/x-ndjson" } },
+            ),
           );
         }
         return Promise.resolve(new Response("not found", { status: 404 }));
-      })
+      }),
     );
 
     const client = new AgentClient({ coreUrl: "http://127.0.0.1:8765", token: "secret-token" });
-    await expect(client.listSessions()).resolves.toEqual([{ id: "s1", title: "DIKW", messageCount: 0 }]);
+    await expect(client.listSessions()).resolves.toEqual([
+      { id: "s1", title: "DIKW", messageCount: 0 },
+    ]);
 
     const events = [];
     for await (const event of client.sendMessage("s1", "Hi")) {
@@ -37,9 +39,11 @@ describe("AgentClient", () => {
 
     expect(events).toEqual([
       { type: "message_delta", sessionId: "s1", delta: "Hello" },
-      { type: "agent_end", sessionId: "s1" }
+      { type: "agent_end", sessionId: "s1" },
     ]);
-    expect(messageBodies).toEqual([{ message: "Hi", coreUrl: "http://127.0.0.1:8765", token: "secret-token" }]);
+    expect(messageBodies).toEqual([
+      { message: "Hi", coreUrl: "http://127.0.0.1:8765", token: "secret-token" },
+    ]);
   });
 
   it("sends the current core connection when confirming maintenance proposals", async () => {
@@ -61,12 +65,12 @@ describe("AgentClient", () => {
               messages: [],
               toolEvents: [],
               sources: [],
-              proposals: []
-            })
+              proposals: [],
+            }),
           );
         }
         return Promise.resolve(new Response("not found", { status: 404 }));
-      })
+      }),
     );
 
     const client = new AgentClient({ coreUrl: "http://127.0.0.1:8765", token: "secret-token" });
@@ -94,18 +98,18 @@ describe("AgentClient", () => {
               messages: [],
               toolEvents: [],
               sources: [],
-              proposals: []
-            })
+              proposals: [],
+            }),
           );
         }
         return Promise.resolve(new Response("not found", { status: 404 }));
-      })
+      }),
     );
 
     const client = new AgentClient();
     await expect(client.renameSession("s1", "Project Review")).resolves.toMatchObject({
       id: "s1",
-      title: "Project Review"
+      title: "Project Review",
     });
     expect(bodies).toEqual([{ title: "Project Review" }]);
   });
@@ -118,9 +122,19 @@ describe("AgentClient", () => {
           invocationId: "inv-1",
           startTimeMs: 1,
           durationMs: 2,
-          spans: [{ spanId: "sp1", parentSpanId: null, name: "call_llm", startTimeMs: 1, durationMs: 2, status: "ok", attributes: {} }]
-        }
-      ]
+          spans: [
+            {
+              spanId: "sp1",
+              parentSpanId: null,
+              name: "call_llm",
+              startTimeMs: 1,
+              durationMs: 2,
+              status: "ok",
+              attributes: {},
+            },
+          ],
+        },
+      ],
     };
     const paths: string[] = [];
     vi.stubGlobal(
@@ -132,7 +146,7 @@ describe("AgentClient", () => {
           return Promise.resolve(Response.json(view));
         }
         return Promise.resolve(new Response("not found", { status: 404 }));
-      })
+      }),
     );
 
     const client = new AgentClient();

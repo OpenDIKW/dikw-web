@@ -8,12 +8,7 @@ import type { SkippedFile } from "../../utils/import-bundle";
 
 export type ImportCopy = (typeof translations)["en"]["pages"]["import"];
 
-export type RunStage =
-  | "uploading"
-  | "ingest"
-  | "synth"
-  | "lint-propose"
-  | "lint-apply";
+export type RunStage = "uploading" | "ingest" | "synth" | "lint-propose" | "lint-apply";
 
 export interface PipelineStepView {
   id: RunStage;
@@ -25,7 +20,7 @@ export const STEPS: PipelineStepView[] = [
   { id: "ingest", labelKey: "ingest" },
   { id: "synth", labelKey: "synth" },
   { id: "lint-propose", labelKey: "lintPropose" },
-  { id: "lint-apply", labelKey: "lintApply" }
+  { id: "lint-apply", labelKey: "lintApply" },
 ];
 
 const ALL_STAGES_ORDER: PipelineStage[] = [
@@ -37,7 +32,7 @@ const ALL_STAGES_ORDER: PipelineStage[] = [
   "lint-propose",
   "lint-review",
   "lint-apply",
-  "done"
+  "done",
 ];
 
 export function stageRank(stage: PipelineStage): number {
@@ -60,7 +55,7 @@ export function stepMeta(
   status: "done" | "running" | "pending",
   progress: Extract<TaskEvent, { type: "progress" }> | null,
   importResult: { committed: number[]; bytes: number } | null,
-  copy: ImportCopy
+  copy: ImportCopy,
 ): string {
   if (status === "done") {
     if (stepId === "uploading" && importResult) {
@@ -79,7 +74,7 @@ export function stepMeta(
 
 export function taskErrorMessage(
   final: Extract<TaskEvent, { type: "final" }> | null,
-  fallback: string
+  fallback: string,
 ): string {
   if (!final || !final.error) return fallback;
   const m = final.error.message;

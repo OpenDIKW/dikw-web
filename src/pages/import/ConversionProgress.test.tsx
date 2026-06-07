@@ -19,7 +19,7 @@ function conversionFixture(): ConversionState {
         sizeBytes: 4_500_000,
         ext: ".pdf",
         substage: "uploading",
-        startedAt: now - 5000
+        startedAt: now - 5000,
       },
       "sha-done": {
         inputSha: "sha-done",
@@ -27,7 +27,7 @@ function conversionFixture(): ConversionState {
         sizeBytes: 1024,
         ext: ".pdf",
         substage: "done",
-        startedAt: now - 9000
+        startedAt: now - 9000,
       },
       "sha-failed": {
         inputSha: "sha-failed",
@@ -35,20 +35,16 @@ function conversionFixture(): ConversionState {
         sizeBytes: 1024,
         ext: ".pdf",
         substage: "failed",
-        error: { code: "mineru_api", message: "boom" }
-      }
-    }
+        error: { code: "mineru_api", message: "boom" },
+      },
+    },
   };
 }
 
 describe("ConversionProgress", () => {
   it("labels the long server wait as converting (not 'uploading')", () => {
     render(
-      <ConversionProgress
-        copy={copy}
-        conversion={conversionFixture()}
-        onSkipFailed={vi.fn()}
-      />
+      <ConversionProgress copy={copy} conversion={conversionFixture()} onSkipFailed={vi.fn()} />,
     );
     // The misleading "uploading to mineru" is gone; the in-flight row reads as
     // a conversion in progress.
@@ -58,11 +54,7 @@ describe("ConversionProgress", () => {
 
   it("shows an animated progress bar and a live elapsed timer only on active rows", () => {
     render(
-      <ConversionProgress
-        copy={copy}
-        conversion={conversionFixture()}
-        onSkipFailed={vi.fn()}
-      />
+      <ConversionProgress copy={copy} conversion={conversionFixture()} onSkipFailed={vi.fn()} />,
     );
     // Exactly one row is actively converting → exactly one bar + one timer.
     expect(screen.getAllByTestId("conversion-bar")).toHaveLength(1);
@@ -72,15 +64,9 @@ describe("ConversionProgress", () => {
 
   it("surfaces a reassurance hint while work is in flight", () => {
     render(
-      <ConversionProgress
-        copy={copy}
-        conversion={conversionFixture()}
-        onSkipFailed={vi.fn()}
-      />
+      <ConversionProgress copy={copy} conversion={conversionFixture()} onSkipFailed={vi.fn()} />,
     );
-    expect(screen.getByTestId("conversion-hint")).toHaveTextContent(
-      /minute or two/i
-    );
+    expect(screen.getByTestId("conversion-hint")).toHaveTextContent(/minute or two/i);
   });
 
   it("keeps the failed row's error and Skip affordance", () => {
@@ -90,7 +76,7 @@ describe("ConversionProgress", () => {
         copy={copy}
         conversion={conversionFixture()}
         onSkipFailed={onSkipFailed}
-      />
+      />,
     );
     expect(screen.getByText("boom")).toBeInTheDocument();
     const failedRow = screen.getByText("bad.pdf").closest("li") as HTMLElement;
@@ -110,13 +96,11 @@ describe("ConversionProgress", () => {
           sizeBytes: 1,
           ext: ".pdf",
           substage: "done",
-          startedAt: Date.now() - 1000
-        }
-      }
+          startedAt: Date.now() - 1000,
+        },
+      },
     };
-    render(
-      <ConversionProgress copy={copy} conversion={allDone} onSkipFailed={vi.fn()} />
-    );
+    render(<ConversionProgress copy={copy} conversion={allDone} onSkipFailed={vi.fn()} />);
     expect(screen.queryByTestId("conversion-hint")).toBeNull();
     expect(screen.queryByTestId("conversion-bar")).toBeNull();
   });

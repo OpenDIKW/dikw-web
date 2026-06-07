@@ -40,7 +40,7 @@ export class DikwSpanProcessor implements SpanProcessor {
       sessionId,
       invocationId,
       ...withToken("tokensInput", numberAttr(attributes, INPUT_TOKENS_ATTR)),
-      ...withToken("tokensOutput", numberAttr(attributes, OUTPUT_TOKENS_ATTR))
+      ...withToken("tokensOutput", numberAttr(attributes, OUTPUT_TOKENS_ATTR)),
     };
     this.store.record(row);
   }
@@ -79,7 +79,7 @@ const REDACTED_ATTRS = new Set<string>([
   "gcp.vertex.agent.llm_response",
   "gcp.vertex.agent.tool_call_args",
   "gcp.vertex.agent.tool_response",
-  "gcp.vertex.agent.data"
+  "gcp.vertex.agent.data",
 ]);
 
 // Coerce OTel AttributeValue (string | number | boolean | arrays | undefined)
@@ -102,7 +102,7 @@ function coerceAttributes(raw: Record<string, unknown>): Record<string, string |
 
 function firstString(
   attributes: Record<string, string | number | boolean>,
-  keys: readonly string[]
+  keys: readonly string[],
 ): string | undefined {
   for (const key of keys) {
     const value = stringAttr(attributes, key);
@@ -113,12 +113,18 @@ function firstString(
   return undefined;
 }
 
-function stringAttr(attributes: Record<string, string | number | boolean>, key: string): string | undefined {
+function stringAttr(
+  attributes: Record<string, string | number | boolean>,
+  key: string,
+): string | undefined {
   const value = attributes[key];
   return typeof value === "string" ? value : undefined;
 }
 
-function numberAttr(attributes: Record<string, string | number | boolean>, key: string): number | undefined {
+function numberAttr(
+  attributes: Record<string, string | number | boolean>,
+  key: string,
+): number | undefined {
   const value = attributes[key];
   return typeof value === "number" ? value : undefined;
 }

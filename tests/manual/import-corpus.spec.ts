@@ -31,13 +31,13 @@ test.describe.configure({ mode: "serial" });
 test.beforeAll(() => {
   if (!CORPUS_ROOT) {
     throw new Error(
-      "Set DIKW_IMPORT_CORPUS_ROOT to the directory you want to import before running this manual spec."
+      "Set DIKW_IMPORT_CORPUS_ROOT to the directory you want to import before running this manual spec.",
     );
   }
 });
 
 test("redesigned picker accepts the corpus folder and renders preview", async ({
-  page
+  page,
 }, testInfo) => {
   test.setTimeout(120_000);
 
@@ -47,7 +47,7 @@ test("redesigned picker accepts the corpus folder and renders preview", async ({
   // Capture the idle dropzone first.
   await page.screenshot({
     path: testInfo.outputPath("01-idle.png"),
-    fullPage: true
+    fullPage: true,
   });
 
   // Directory upload was removed; feed every file in the corpus into the
@@ -57,13 +57,13 @@ test("redesigned picker accepts the corpus folder and renders preview", async ({
 
   // BundlePreview should appear within a few seconds (build is in-browser).
   await expect(page.getByTestId("import-preview")).toBeVisible({
-    timeout: 30_000
+    timeout: 30_000,
   });
 
   // Take a screenshot of the preview state.
   await page.screenshot({
     path: testInfo.outputPath("02-preview.png"),
-    fullPage: true
+    fullPage: true,
   });
 
   // The included list should have at least one row each for md + assets.
@@ -86,7 +86,7 @@ test("redesigned picker accepts the corpus folder and renders preview", async ({
 });
 
 test("redesigned pipeline runs the corpus end-to-end against live core", async ({
-  page
+  page,
 }, testInfo) => {
   // LLM-driven synth/lint can take a while on 18 documents.
   test.setTimeout(20 * 60_000);
@@ -97,12 +97,12 @@ test("redesigned pipeline runs the corpus end-to-end against live core", async (
   const fileInput = page.locator('[data-testid="import-file-input"]');
   await fileInput.setInputFiles(collectFiles(CORPUS_ROOT!));
   await expect(page.getByTestId("import-preview")).toBeVisible({
-    timeout: 30_000
+    timeout: 30_000,
   });
 
   await page.screenshot({
     path: testInfo.outputPath("10-preview.png"),
-    fullPage: true
+    fullPage: true,
   });
 
   // Kick off the pipeline.
@@ -110,11 +110,11 @@ test("redesigned pipeline runs the corpus end-to-end against live core", async (
 
   // Stepper should mount within seconds.
   await expect(page.getByTestId("import-pipeline")).toBeVisible({
-    timeout: 30_000
+    timeout: 30_000,
   });
   await page.screenshot({
     path: testInfo.outputPath("11-stepper-uploading.png"),
-    fullPage: true
+    fullPage: true,
   });
 
   // Watch for stage transitions by waiting for the meta text on each step.
@@ -124,11 +124,11 @@ test("redesigned pipeline runs the corpus end-to-end against live core", async (
       const txt = document.body.textContent ?? "";
       return /committed|已提交/.test(txt);
     },
-    { timeout: 5 * 60_000 }
+    { timeout: 5 * 60_000 },
   );
   await page.screenshot({
     path: testInfo.outputPath("12-stepper-ingest-done.png"),
-    fullPage: true
+    fullPage: true,
   });
 
   // Either we land in lint-review (proposals exist) or directly on done.
@@ -145,18 +145,18 @@ test("redesigned pipeline runs the corpus end-to-end against live core", async (
   if (isReview) {
     await page.screenshot({
       path: testInfo.outputPath("13-lint-review.png"),
-      fullPage: true
+      fullPage: true,
     });
     // Apply with the default pick (all selected) so we exercise the full path.
     await page.getByTestId("import-lint-apply").click();
     await expect(page.getByTestId("import-done")).toBeVisible({
-      timeout: 10 * 60_000
+      timeout: 10 * 60_000,
     });
   }
 
   await page.screenshot({
     path: testInfo.outputPath("14-done.png"),
-    fullPage: true
+    fullPage: true,
   });
 
   // Verify the new design's done CTAs are present.

@@ -57,7 +57,7 @@ export function TracePage({ agentClient, locale = "en" }: TracePageProps) {
     setError(null);
     Promise.all([
       agentClient.getSession(activeId, controller.signal),
-      agentClient.getSessionTraces(activeId, controller.signal)
+      agentClient.getSessionTraces(activeId, controller.signal),
     ])
       .then(([session, trace]) => {
         setActiveSession(session);
@@ -173,7 +173,9 @@ type TraceCopy = (typeof translations)[Locale]["pages"]["trace"];
 function TraceMessage({ message, copy }: { message: AgentMessage; copy: TraceCopy }) {
   const isUser = message.role === "user";
   return (
-    <article className={`agent-message ${isUser ? "agent-message--user" : "agent-message--assistant"}`}>
+    <article
+      className={`agent-message ${isUser ? "agent-message--user" : "agent-message--assistant"}`}
+    >
       <div className="agent-message__role">{isUser ? copy.userRole : copy.assistantRole}</div>
       <p>{message.content}</p>
     </article>
@@ -184,7 +186,7 @@ function TraceInvocation({
   invocation,
   copy,
   selectedSpanId,
-  onSelectSpan
+  onSelectSpan,
 }: {
   invocation: TraceInvocationView;
   copy: TraceCopy;
@@ -198,7 +200,10 @@ function TraceInvocation({
   return (
     <article className="trace-invocation">
       <header className="trace-invocation__head">
-        <span className="trace-invocation__id" title={`${copy.invocationLabel} · ${invocation.invocationId}`}>
+        <span
+          className="trace-invocation__id"
+          title={`${copy.invocationLabel} · ${invocation.invocationId}`}
+        >
           {copy.invocationLabel} · {invocation.invocationId}
         </span>
         <span className="trace-invocation__time">{formatTimestamp(invocation.startTimeMs)}</span>
@@ -208,9 +213,10 @@ function TraceInvocation({
         {invocation.spans.map((span) => {
           const offset = clamp01((span.startTimeMs - invocation.startTimeMs) / total);
           const width = clamp01(span.durationMs / total, 0.012);
-          const model = typeof span.attributes["gen_ai.request.model"] === "string"
-            ? (span.attributes["gen_ai.request.model"] as string)
-            : null;
+          const model =
+            typeof span.attributes["gen_ai.request.model"] === "string"
+              ? (span.attributes["gen_ai.request.model"] as string)
+              : null;
           return (
             <div className="trace-span-row" role="listitem" key={span.spanId}>
               <button
@@ -221,7 +227,10 @@ function TraceInvocation({
                 aria-expanded={selectedSpanId === span.spanId}
                 onClick={() => onSelectSpan(selectedSpanId === span.spanId ? null : span.spanId)}
               >
-                <span className={`trace-span-dot trace-span-dot--${span.status}`} aria-hidden="true" />
+                <span
+                  className={`trace-span-dot trace-span-dot--${span.status}`}
+                  aria-hidden="true"
+                />
                 <span className="trace-span-name">{span.name}</span>
               </button>
               <div className="trace-span-track">

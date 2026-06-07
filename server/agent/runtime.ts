@@ -26,7 +26,7 @@ export function sourcesFromTool(toolName: string, details: unknown): AgentSource
         path: typeof item.path === "string" ? item.path : "",
         title: typeof item.title === "string" ? item.title : null,
         layer: typeof item.layer === "string" ? item.layer : null,
-        score: typeof item.score === "number" ? item.score : null
+        score: typeof item.score === "number" ? item.score : null,
       }))
       .filter((source) => source.path);
   }
@@ -44,8 +44,8 @@ export function sourcesFromTool(toolName: string, details: unknown): AgentSource
           excerpt: typeof item.description === "string" ? item.description : null,
           layer: null,
           score: null,
-          kind: "web"
-        }
+          kind: "web",
+        },
       ];
     });
   }
@@ -60,8 +60,8 @@ export function sourcesFromTool(toolName: string, details: unknown): AgentSource
         excerpt: null,
         layer: null,
         score: null,
-        kind: "web" as const
-      }
+        kind: "web" as const,
+      },
     ];
   }
   return [];
@@ -75,8 +75,16 @@ function safeWebUrl(value: unknown): string | null {
   }
 }
 
-export function proposalFromTool(toolName: string, details: unknown, id?: string): AgentProposal | null {
-  if (toolName !== "propose_maintenance_action" || !isRecord(details) || !isRecord(details.proposal)) {
+export function proposalFromTool(
+  toolName: string,
+  details: unknown,
+  id?: string,
+): AgentProposal | null {
+  if (
+    toolName !== "propose_maintenance_action" ||
+    !isRecord(details) ||
+    !isRecord(details.proposal)
+  ) {
     return null;
   }
   const action = details.proposal.action;
@@ -88,11 +96,14 @@ export function proposalFromTool(toolName: string, details: unknown, id?: string
     id: id ?? randomUUID(),
     action,
     title: `Run ${action}`,
-    description: typeof details.proposal.description === "string" ? details.proposal.description : `Run ${action}`,
+    description:
+      typeof details.proposal.description === "string"
+        ? details.proposal.description
+        : `Run ${action}`,
     params: isRecord(details.proposal.params) ? details.proposal.params : {},
     status: "pending",
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
 }
 
@@ -102,7 +113,7 @@ export function systemPrompt(): string {
     "dikw-core is the source of truth. Prefer retrieve_knowledge, read_page, page_links, list_wisdom, and dikw_health for any question core can answer.",
     "Use web_search and web_fetch only when core retrieval cannot answer (current events, external references, or explicit user request). Pass full https URLs to web_fetch, ideally from web_search results.",
     "Do not claim that core generated the answer; core returns evidence and you compose the response.",
-    "Maintenance actions must be proposed through the maintenance proposal tool and require user confirmation."
+    "Maintenance actions must be proposed through the maintenance proposal tool and require user confirmation.",
   ].join("\n");
 }
 

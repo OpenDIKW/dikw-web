@@ -7,7 +7,7 @@ export interface Branding {
 }
 
 export const defaultBranding: Branding = {
-  name: { en: "OpenDIKW", "zh-CN": "OpenDIKW" }
+  name: { en: "OpenDIKW", "zh-CN": "OpenDIKW" },
 };
 
 // Cap the startup config fetch so a stalled /config.json can never block the
@@ -41,7 +41,8 @@ function resolveLocalized(raw: unknown, fallback: LocalizedText): LocalizedText 
 // Merge an unknown, possibly-partial external config onto the built-in defaults.
 export function resolveBranding(raw: unknown): Branding {
   const brand = raw && typeof raw === "object" ? (raw as Record<string, unknown>).brand : undefined;
-  const name = brand && typeof brand === "object" ? (brand as Record<string, unknown>).name : undefined;
+  const name =
+    brand && typeof brand === "object" ? (brand as Record<string, unknown>).name : undefined;
   return { name: resolveLocalized(name, defaultBranding.name) };
 }
 

@@ -16,18 +16,25 @@ function makeStore() {
 async function appendRaw(
   sessionService: DatabaseSessionService,
   sessionId: string,
-  event: ReturnType<typeof createEvent>
+  event: ReturnType<typeof createEvent>,
 ): Promise<void> {
-  const session = (await sessionService.getSession({ appName: APP_NAME, userId: USER_ID, sessionId })) as Session;
+  const session = (await sessionService.getSession({
+    appName: APP_NAME,
+    userId: USER_ID,
+    sessionId,
+  })) as Session;
   await sessionService.appendEvent({ session, event });
 }
 
 // Appends the standard tool-using turn used by several tests and returns the session id.
-async function appendToolTurn(sessionService: DatabaseSessionService, sessionId: string): Promise<void> {
+async function appendToolTurn(
+  sessionService: DatabaseSessionService,
+  sessionId: string,
+): Promise<void> {
   await appendRaw(
     sessionService,
     sessionId,
-    createEvent({ author: "user", content: { role: "user", parts: [{ text: "What is DIKW?" }] } })
+    createEvent({ author: "user", content: { role: "user", parts: [{ text: "What is DIKW?" }] } }),
   );
   await appendRaw(
     sessionService,
@@ -36,9 +43,9 @@ async function appendToolTurn(sessionService: DatabaseSessionService, sessionId:
       author: "dikw_agent",
       content: {
         role: "model",
-        parts: [{ functionCall: { id: "tc-1", name: "retrieve_knowledge", args: { q: "DIKW" } } }]
-      }
-    })
+        parts: [{ functionCall: { id: "tc-1", name: "retrieve_knowledge", args: { q: "DIKW" } } }],
+      },
+    }),
   );
   await appendRaw(
     sessionService,
@@ -52,17 +59,29 @@ async function appendToolTurn(sessionService: DatabaseSessionService, sessionId:
             functionResponse: {
               id: "tc-1",
               name: "retrieve_knowledge",
-              response: { page_refs: [{ path: "knowledge/architecture.md", title: "Arch", layer: "knowledge", score: 0.9 }] }
-            }
-          }
-        ]
-      }
-    })
+              response: {
+                page_refs: [
+                  {
+                    path: "knowledge/architecture.md",
+                    title: "Arch",
+                    layer: "knowledge",
+                    score: 0.9,
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      },
+    }),
   );
   await appendRaw(
     sessionService,
     sessionId,
-    createEvent({ author: "dikw_agent", content: { role: "model", parts: [{ text: "Layered answer." }] } })
+    createEvent({
+      author: "dikw_agent",
+      content: { role: "model", parts: [{ text: "Layered answer." }] },
+    }),
   );
 }
 
@@ -97,10 +116,12 @@ describe("AdkSessionStore", () => {
     expect(session.toolEvents[0]).toMatchObject({
       id: "tc-1",
       name: "retrieve_knowledge",
-      status: "succeeded"
+      status: "succeeded",
     });
     expect(session.toolEvents[0].output).toEqual({
-      page_refs: [{ path: "knowledge/architecture.md", title: "Arch", layer: "knowledge", score: 0.9 }]
+      page_refs: [
+        { path: "knowledge/architecture.md", title: "Arch", layer: "knowledge", score: 0.9 },
+      ],
     });
     expect(session.sources[0].path).toBe("knowledge/architecture.md");
   });
@@ -112,12 +133,20 @@ describe("AdkSessionStore", () => {
     await appendRaw(
       sessionService,
       created.id,
-      createEvent({ author: "user", invocationId, content: { role: "user", parts: [{ text: "Q?" }] } })
+      createEvent({
+        author: "user",
+        invocationId,
+        content: { role: "user", parts: [{ text: "Q?" }] },
+      }),
     );
     await appendRaw(
       sessionService,
       created.id,
-      createEvent({ author: "dikw_agent", invocationId, content: { role: "model", parts: [{ text: "Let me check." }] } })
+      createEvent({
+        author: "dikw_agent",
+        invocationId,
+        content: { role: "model", parts: [{ text: "Let me check." }] },
+      }),
     );
     // A tool round-trip in the middle makes this a multi-round turn.
     await appendRaw(
@@ -126,13 +155,24 @@ describe("AdkSessionStore", () => {
       createEvent({
         author: "dikw_agent",
         invocationId,
-        content: { role: "user", parts: [{ functionResponse: { id: "tc-9", name: "retrieve_knowledge", response: { ok: true } } }] }
-      })
+        content: {
+          role: "user",
+          parts: [
+            {
+              functionResponse: { id: "tc-9", name: "retrieve_knowledge", response: { ok: true } },
+            },
+          ],
+        },
+      }),
     );
     await appendRaw(
       sessionService,
       created.id,
-      createEvent({ author: "dikw_agent", invocationId, content: { role: "model", parts: [{ text: "The answer is 4." }] } })
+      createEvent({
+        author: "dikw_agent",
+        invocationId,
+        content: { role: "model", parts: [{ text: "The answer is 4." }] },
+      }),
     );
 
     await store.finalizeTurn(created.id);
@@ -149,15 +189,18 @@ describe("AdkSessionStore", () => {
     await appendRaw(
       sessionService,
       created.id,
-      createEvent({ author: "user", content: { role: "user", parts: [{ text: "search" }] } })
+      createEvent({ author: "user", content: { role: "user", parts: [{ text: "search" }] } }),
     );
     await appendRaw(
       sessionService,
       created.id,
       createEvent({
         author: "dikw_agent",
-        content: { role: "model", parts: [{ functionCall: { id: "tc-2", name: "web_search", args: {} } }] }
-      })
+        content: {
+          role: "model",
+          parts: [{ functionCall: { id: "tc-2", name: "web_search", args: {} } }],
+        },
+      }),
     );
     await appendRaw(
       sessionService,
@@ -166,9 +209,11 @@ describe("AdkSessionStore", () => {
         author: "dikw_agent",
         content: {
           role: "user",
-          parts: [{ functionResponse: { id: "tc-2", name: "web_search", response: { error: "boom" } } }]
-        }
-      })
+          parts: [
+            { functionResponse: { id: "tc-2", name: "web_search", response: { error: "boom" } } },
+          ],
+        },
+      }),
     );
 
     const session = await store.getSession(created.id);
@@ -201,12 +246,12 @@ describe("AdkSessionStore", () => {
               functionResponse: {
                 id: "pr-1",
                 name: "propose_maintenance_action",
-                response: { proposal: { action: "ingest", description: "d", params: {} } }
-              }
-            }
-          ]
-        }
-      })
+                response: { proposal: { action: "ingest", description: "d", params: {} } },
+              },
+            },
+          ],
+        },
+      }),
     );
 
     const initial = await store.getSession(created.id);
@@ -222,11 +267,15 @@ describe("AdkSessionStore", () => {
       params: {},
       taskId: "task-42",
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     });
 
     const reprojected = await store.getSession(created.id);
-    expect(reprojected.proposals[0]).toMatchObject({ id: "pr-1", status: "confirmed", taskId: "task-42" });
+    expect(reprojected.proposals[0]).toMatchObject({
+      id: "pr-1",
+      status: "confirmed",
+      taskId: "task-42",
+    });
   });
 
   it("never renders a context-compaction summary event as a chat message", async () => {
@@ -236,21 +285,23 @@ describe("AdkSessionStore", () => {
     // prompt-building artifact — it must not leak into the chat history.
     const base = createEvent({
       author: "system",
-      content: { role: "model", parts: [{ text: "[Previous Context Summary] earlier turns" }] }
+      content: { role: "model", parts: [{ text: "[Previous Context Summary] earlier turns" }] },
     });
     await appendRaw(sessionService, created.id, {
       ...base,
       isCompacted: true,
       startTime: 1,
       endTime: 2,
-      compactedContent: "earlier turns"
+      compactedContent: "earlier turns",
     } as ReturnType<typeof createEvent>);
     await store.finalizeTurn(created.id);
 
     const session = await store.getSession(created.id);
     expect(session.messages.map((m) => m.role)).toEqual(["user", "assistant"]);
     expect(session.messageCount).toBe(2);
-    expect(session.messages.some((m) => m.content.includes("Previous Context Summary"))).toBe(false);
+    expect(session.messages.some((m) => m.content.includes("Previous Context Summary"))).toBe(
+      false,
+    );
   });
 
   it("produces a stable projection when reopened with a fresh store", async () => {

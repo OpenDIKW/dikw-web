@@ -3,11 +3,15 @@ import { normalizeKnowledgePath } from "./knowledge-path";
 
 describe("normalizeKnowledgePath", () => {
   it("rewrites a leading wiki/ segment to knowledge/", () => {
-    expect(normalizeKnowledgePath("wiki/entities/zhan-na.md")).toBe("knowledge/entities/zhan-na.md");
+    expect(normalizeKnowledgePath("wiki/entities/zhan-na.md")).toBe(
+      "knowledge/entities/zhan-na.md",
+    );
   });
 
   it("leaves an already-knowledge path unchanged", () => {
-    expect(normalizeKnowledgePath("knowledge/entities/y-musk.md")).toBe("knowledge/entities/y-musk.md");
+    expect(normalizeKnowledgePath("knowledge/entities/y-musk.md")).toBe(
+      "knowledge/entities/y-musk.md",
+    );
   });
 
   it("leaves source paths unchanged", () => {

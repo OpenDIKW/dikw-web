@@ -6,11 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { deflateRawSync } from "node:zlib";
-import {
-  extractResultZip,
-  MineruConvertError,
-  safeRelpath
-} from "./mineruConvert";
+import { extractResultZip, MineruConvertError, safeRelpath } from "./mineruConvert";
 
 const enc = (s: string): Uint8Array => new TextEncoder().encode(s);
 
@@ -54,15 +50,13 @@ function buildFixtureZip(entries: ZipFixtureEntry[]): Uint8Array {
     const method = e.method ?? METHOD_STORED;
     const uncompressed = e.data;
     const compressed =
-      method === METHOD_DEFLATE
-        ? new Uint8Array(deflateRawSync(uncompressed))
-        : uncompressed;
+      method === METHOD_DEFLATE ? new Uint8Array(deflateRawSync(uncompressed)) : uncompressed;
     return {
       ...e,
       method,
       uncompressed,
       compressed,
-      crc: crc32(uncompressed)
+      crc: crc32(uncompressed),
     };
   });
   // First pass: compute LFH offsets.
@@ -171,7 +165,7 @@ describe("extractResultZip", () => {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const zip = buildFixtureZip([
       { name: "full.md", data: enc(md), method: METHOD_DEFLATE },
-      { name: "images/fig.png", data: png, method: METHOD_STORED }
+      { name: "images/fig.png", data: png, method: METHOD_STORED },
     ]);
     const result = extractResultZip(zip);
     expect(result.markdown).toContain("![[assets/images/fig.png|the figure]]");
@@ -183,7 +177,7 @@ describe("extractResultZip", () => {
     const md = "# T\n";
     const zip = buildFixtureZip([
       { name: "full.md", data: enc(md) },
-      { name: "../escape.png", data: new Uint8Array([1, 2, 3]) }
+      { name: "../escape.png", data: new Uint8Array([1, 2, 3]) },
     ]);
     const result = extractResultZip(zip);
     expect(result.assets.size).toBe(0);
@@ -194,7 +188,7 @@ describe("extractResultZip", () => {
     const nestedMd = "# DO NOT USE\n";
     const zip = buildFixtureZip([
       { name: "full.md", data: enc(rootMd) },
-      { name: "subdir/full.md", data: enc(nestedMd) }
+      { name: "subdir/full.md", data: enc(nestedMd) },
     ]);
     const result = extractResultZip(zip);
     expect(result.markdown).toContain("Root");
@@ -206,7 +200,7 @@ describe("extractResultZip", () => {
     const zip = buildFixtureZip([
       { name: "full.md", data: enc(md) },
       { name: "images/fig1.png", data: new Uint8Array([1, 2, 3]) },
-      { name: "images/fig2-orphan.png", data: new Uint8Array([4, 5, 6]) }
+      { name: "images/fig2-orphan.png", data: new Uint8Array([4, 5, 6]) },
     ]);
     const result = extractResultZip(zip);
     expect(result.assets.has("assets/images/fig1.png")).toBe(true);
@@ -217,7 +211,7 @@ describe("extractResultZip", () => {
     const md = "# T\n\n![http img](https://example.com/foo.png)\n\n![](images/fig.png)\n";
     const zip = buildFixtureZip([
       { name: "full.md", data: enc(md) },
-      { name: "images/fig.png", data: new Uint8Array([1]) }
+      { name: "images/fig.png", data: new Uint8Array([1]) },
     ]);
     const result = extractResultZip(zip);
     expect(result.markdown).toContain("https://example.com/foo.png");
@@ -230,29 +224,23 @@ describe("extractResultZip", () => {
     const png = new Uint8Array([0x89, 0x50]);
     const zip1 = buildFixtureZip([
       { name: "full.md", data: enc(md) },
-      { name: "images/a.png", data: png }
+      { name: "images/a.png", data: png },
     ]);
     const zip2 = buildFixtureZip([
       { name: "full.md", data: enc(md) },
-      { name: "images/a.png", data: png }
+      { name: "images/a.png", data: png },
     ]);
     const r1 = extractResultZip(zip1);
     const r2 = extractResultZip(zip2);
     expect(r1.markdown).toBe(r2.markdown);
-    expect(Array.from(r1.assets.keys()).sort()).toEqual(
-      Array.from(r2.assets.keys()).sort()
-    );
+    expect(Array.from(r1.assets.keys()).sort()).toEqual(Array.from(r2.assets.keys()).sort());
     for (const key of r1.assets.keys()) {
-      expect(Array.from(r1.assets.get(key)!)).toEqual(
-        Array.from(r2.assets.get(key)!)
-      );
+      expect(Array.from(r1.assets.get(key)!)).toEqual(Array.from(r2.assets.get(key)!));
     }
   });
 
   it("throws missing_full_md when ZIP has no full.md at root", () => {
-    const zip = buildFixtureZip([
-      { name: "other.md", data: enc("# nope") }
-    ]);
+    const zip = buildFixtureZip([{ name: "other.md", data: enc("# nope") }]);
     expect(() => extractResultZip(zip)).toThrow(MineruConvertError);
     try {
       extractResultZip(zip);
@@ -265,7 +253,7 @@ describe("extractResultZip", () => {
     const md = "# T\n\n![](fig.png)\n";
     const zip = buildFixtureZip([
       { name: "full.md", data: enc(md) },
-      { name: "images/sub/fig.png", data: new Uint8Array([7]) }
+      { name: "images/sub/fig.png", data: new Uint8Array([7]) },
     ]);
     const result = extractResultZip(zip);
     expect(result.markdown).toContain("![[assets/images/sub/fig.png]]");
@@ -276,7 +264,7 @@ describe("extractResultZip", () => {
     const zip = buildFixtureZip([
       { name: "full.md", data: enc(md) },
       { name: "a/fig.png", data: new Uint8Array([1]) },
-      { name: "b/fig.png", data: new Uint8Array([2]) }
+      { name: "b/fig.png", data: new Uint8Array([2]) },
     ]);
     const result = extractResultZip(zip);
     // Original ![](fig.png) preserved; both candidates pruned as orphans.

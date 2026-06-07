@@ -8,6 +8,6 @@ loadBranding().then((branding) => {
   createRoot(document.getElementById("root")!).render(
     <StrictMode>
       <App branding={branding} />
-    </StrictMode>
+    </StrictMode>,
   );
 });

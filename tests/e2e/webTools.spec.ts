@@ -5,7 +5,9 @@ test.beforeEach(async ({ page }) => {
   await mockDikwApi(page);
 });
 
-test("renders web_search results as Sources with external links and shows both tool calls", async ({ page }) => {
+test("renders web_search results as Sources with external links and shows both tool calls", async ({
+  page,
+}) => {
   await page.goto("/#chat");
 
   await page.getByLabel("Message").fill("web tools demo");
@@ -14,7 +16,9 @@ test("renders web_search results as Sources with external links and shows both t
   const context = page.getByRole("complementary", { name: "Session context" });
   const conversation = page.getByTestId("agent-conversation-scroll");
 
-  await expect(conversation.getByText("Found two web sources and fetched one page.", { exact: true })).toBeVisible();
+  await expect(
+    conversation.getByText("Found two web sources and fetched one page.", { exact: true }),
+  ).toBeVisible();
 
   const linkA = context.getByRole("link", { name: "https://example.com/a" });
   await expect(linkA).toHaveAttribute("href", "https://example.com/a");

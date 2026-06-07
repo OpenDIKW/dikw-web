@@ -1,10 +1,4 @@
-import {
-  BookOpen,
-  CheckCircle2,
-  Info,
-  Network,
-  Upload
-} from "lucide-react";
+import { BookOpen, CheckCircle2, Info, Network, Upload } from "lucide-react";
 import type { PipelineState } from "../../state/import-pipeline";
 import { formatBytes, type ImportCopy } from "./format";
 
@@ -29,9 +23,7 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
         </div>
         <div>
           <div className="import-done-banner__headline">{copy.doneTitle}</div>
-          <div className="import-done-banner__body">
-            {copy.doneBannerHeadline}
-          </div>
+          <div className="import-done-banner__body">{copy.doneBannerHeadline}</div>
         </div>
         <div className="import-done-banner__actions">
           <button

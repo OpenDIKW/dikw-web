@@ -11,7 +11,8 @@ export interface AssetRef {
   syntax: "markdown" | "wikilink";
 }
 
-const STANDARD_IMG_RE = /!\[([^\]]*)\]\(\s*([^)\n]+?)(?=\s+"[^"\n]*"\s*\)|\s*\))(?:\s+"[^"\n]*")?\s*\)/g;
+const STANDARD_IMG_RE =
+  /!\[([^\]]*)\]\(\s*([^)\n]+?)(?=\s+"[^"\n]*"\s*\)|\s*\))(?:\s+"[^"\n]*")?\s*\)/g;
 const WIKILINK_IMG_RE = /!\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g;
 
 export function extractAssetRefs(body: string): AssetRef[] {
@@ -22,7 +23,7 @@ export function extractAssetRefs(body: string): AssetRef[] {
       alt: m[1] ?? "",
       start: m.index ?? 0,
       end: (m.index ?? 0) + m[0].length,
-      syntax: "markdown"
+      syntax: "markdown",
     });
   }
   for (const m of body.matchAll(WIKILINK_IMG_RE)) {
@@ -31,7 +32,7 @@ export function extractAssetRefs(body: string): AssetRef[] {
       alt: m[2] ?? "",
       start: m.index ?? 0,
       end: (m.index ?? 0) + m[0].length,
-      syntax: "wikilink"
+      syntax: "wikilink",
     });
   }
   refs.sort((a, b) => a.start - b.start);
@@ -93,10 +94,7 @@ export interface ResolveContext {
  *  Returns the POSIX-relative path under project root that the reference points at,
  *  or null if neither candidate exists in ``available``. Remote refs and refs that
  *  escape the project root return null and are treated as missing by the caller. */
-export function resolveAssetRef(
-  originalPath: string,
-  ctx: ResolveContext
-): string | null {
+export function resolveAssetRef(originalPath: string, ctx: ResolveContext): string | null {
   if (isRemoteRef(originalPath)) return null;
   if (originalPath.startsWith("/")) return null;
   const lastSlash = ctx.mdRelPath.lastIndexOf("/");
@@ -104,7 +102,7 @@ export function resolveAssetRef(
 
   const candidates = [
     posixJoinNormalize(mdDir, originalPath),
-    posixJoinNormalize("", originalPath)
+    posixJoinNormalize("", originalPath),
   ];
   for (const cand of candidates) {
     if (cand.startsWith("..")) continue;

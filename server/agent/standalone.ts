@@ -32,7 +32,7 @@ const MIME: Record<string, string> = {
   ".woff": "font/woff",
   ".woff2": "font/woff2",
   ".ttf": "font/ttf",
-  ".txt": "text/plain; charset=utf-8"
+  ".txt": "text/plain; charset=utf-8",
 };
 
 async function main(): Promise<void> {
@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   try {
     const config = await loadAgentConfig({ cwd });
     console.log(
-      `[dikw-web] agent provider=${config.provider} api=${config.api} model=${config.model}`
+      `[dikw-web] agent provider=${config.provider} api=${config.api} model=${config.model}`,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -115,7 +115,7 @@ async function handleRequest(
   req: IncomingMessage,
   res: ServerResponse,
   agentHandler: AgentHandler,
-  webHandler: WebHandler
+  webHandler: WebHandler,
 ): Promise<void> {
   const url = new URL(req.url ?? "/", "http://localhost");
   if (url.pathname === "/agent" || url.pathname.startsWith("/agent/")) {
@@ -137,7 +137,7 @@ async function serveStatic(
   method: string,
   pathname: string,
   accept: string | undefined,
-  res: ServerResponse
+  res: ServerResponse,
 ): Promise<void> {
   if (method !== "GET" && method !== "HEAD") {
     res.statusCode = 405;

@@ -2,9 +2,16 @@
 html[data-theme="light"] {
   color-scheme: light;
   /* PR1: Fonts — UI sans, editorial serif for titles, mono for IDs/paths */
-  --font-ui: "Inter Tight", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans CN", "Noto Sans CJK SC", sans-serif;
-  --font-serif: "Source Serif 4", ui-serif, Georgia, "Songti SC", "Source Han Serif CN", "Noto Serif CJK SC", serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", "Sarasa Mono SC", "Microsoft YaHei Mono", monospace;
+  --font-ui:
+    "Inter Tight", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans CN", "Noto Sans CJK SC",
+    sans-serif;
+  --font-serif:
+    "Source Serif 4", ui-serif, Georgia, "Songti SC", "Source Han Serif CN", "Noto Serif CJK SC",
+    serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", "Sarasa Mono SC",
+    "Microsoft YaHei Mono", monospace;
   font-family: var(--font-ui);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -1193,7 +1200,10 @@ textarea:focus {
   background: transparent;
   color: var(--text);
   text-align: left;
-  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .wiki-tree__item--folder {
@@ -2830,7 +2840,9 @@ textarea:focus {
   border-radius: var(--radius);
   background: var(--surface);
   cursor: pointer;
-  transition: background-color 120ms ease, opacity 120ms ease;
+  transition:
+    background-color 120ms ease,
+    opacity 120ms ease;
 }
 
 .import-lint-card--off {
@@ -3069,8 +3081,7 @@ textarea:focus {
   border-radius: var(--radius);
   background:
     linear-gradient(#edf3f1 1px, transparent 1px),
-    linear-gradient(90deg, #edf3f1 1px, transparent 1px),
-    #fbfdfc;
+    linear-gradient(90deg, #edf3f1 1px, transparent 1px), #fbfdfc;
   background-size: 36px 36px;
 }
 
@@ -3689,8 +3700,7 @@ html[data-theme="dark"] .graph-svg {
 html[data-theme="dark"] .graph-svg {
   background:
     linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px),
-    var(--surface-soft);
+    linear-gradient(90deg, var(--line) 1px, transparent 1px), var(--surface-soft);
 }
 
 html[data-theme="dark"] .graph-svg__nodes text {
@@ -3940,7 +3950,6 @@ html[data-theme="dark"] .markdown-body blockquote {
   }
 }
 
-
 /* ============================================================
    PR1 · Type role overrides
    ─ Big headings + numeric metrics use editorial serif
@@ -4008,20 +4017,45 @@ html[data-theme="dark"] .markdown-body blockquote {
   font-weight: 500;
   border: 1px solid transparent;
 }
-.status-pill--ok    { border-color: color-mix(in srgb, var(--green) 25%, transparent); }
-.status-pill--info  { border-color: color-mix(in srgb, var(--blue)  25%, transparent); }
-.status-pill--warn  { border-color: color-mix(in srgb, var(--amber) 25%, transparent); }
-.status-pill--bad   { border-color: color-mix(in srgb, var(--red)   25%, transparent); }
-.status-pill--muted { border-color: var(--line); }
+.status-pill--ok {
+  border-color: color-mix(in srgb, var(--green) 25%, transparent);
+}
+.status-pill--info {
+  border-color: color-mix(in srgb, var(--blue) 25%, transparent);
+}
+.status-pill--warn {
+  border-color: color-mix(in srgb, var(--amber) 25%, transparent);
+}
+.status-pill--bad {
+  border-color: color-mix(in srgb, var(--red) 25%, transparent);
+}
+.status-pill--muted {
+  border-color: var(--line);
+}
 
 /* Page H1: nudge to a proper display size, ditch hard-bold UI feel */
-.page-header h1 { font-size: 30px; line-height: 1.1; }
+.page-header h1 {
+  font-size: 30px;
+  line-height: 1.1;
+}
 
 /* Reader: longer measure + taller leading on Markdown body */
-.markdown-view { font-size: 15px; line-height: 1.78; }
-.markdown-body h1 { font-size: 32px; }
-.markdown-body h2 { font-size: 22px; }
-.markdown-body h3 { font-size: 17px; font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.005em; }
+.markdown-view {
+  font-size: 15px;
+  line-height: 1.78;
+}
+.markdown-body h1 {
+  font-size: 32px;
+}
+.markdown-body h2 {
+  font-size: 22px;
+}
+.markdown-body h3 {
+  font-size: 17px;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
 
 /* Frontmatter chip: square corners + mono — looks like a data tag, not a button */
 .frontmatter-chip {
@@ -4036,21 +4070,34 @@ html[data-theme="dark"] .markdown-body blockquote {
   color: #fff;
   border-color: var(--accent-strong);
 }
-.agent-message--user .agent-message__role { color: rgba(255,255,255,0.7); }
+.agent-message--user .agent-message__role {
+  color: rgba(255, 255, 255, 0.7);
+}
 
 /* Sidebar nav: 2px left marker on active, single-line label */
-.nav-item.is-active { position: relative; }
+.nav-item.is-active {
+  position: relative;
+}
 .nav-item.is-active::before {
   content: "";
   position: absolute;
-  left: 0; top: 9px; bottom: 9px;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
   width: 2px;
   background: var(--accent);
   border-radius: 1px;
 }
-.nav-item__label span { display: none; } /* hide unused subtitle slot */
-.nav-item__label strong { font-size: 13px; font-weight: 500; }
-.nav-item.is-active .nav-item__label strong { font-weight: 600; }
+.nav-item__label span {
+  display: none;
+} /* hide unused subtitle slot */
+.nav-item__label strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.nav-item.is-active .nav-item__label strong {
+  font-weight: 600;
+}
 
 /* Tabular numerals everywhere a number is displayed */
 .metric-card__value,
@@ -4060,7 +4107,6 @@ html[data-theme="dark"] .markdown-body blockquote {
 .event-progress-heading span {
   font-variant-numeric: tabular-nums;
 }
-
 
 /* ============================================================
    Sidebar groups + richer topbar
@@ -4092,7 +4138,11 @@ html[data-theme="dark"] .markdown-body blockquote {
   transform: scale(1.95);
   transform-origin: 50% 30%;
 }
-.brand strong { font-size: 13.5px; font-weight: 600; letter-spacing: -0.005em; }
+.brand strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
 .brand span {
   margin-top: 2px;
   font-family: var(--font-mono);
@@ -4102,7 +4152,9 @@ html[data-theme="dark"] .markdown-body blockquote {
 }
 
 /* ---- Nav group dividers ---- */
-.nav-list { gap: 1px; }
+.nav-list {
+  gap: 1px;
+}
 .nav-main + .nav-main {
   margin-top: 12px;
   padding-top: 12px;
@@ -4110,8 +4162,15 @@ html[data-theme="dark"] .markdown-body blockquote {
 }
 
 /* tighten nav-item now that it's single-line */
-.nav-item { min-height: 34px; padding: 5px 9px; gap: 9px; }
-.nav-item.is-active::before { top: 6px; bottom: 6px; }
+.nav-item {
+  min-height: 34px;
+  padding: 5px 9px;
+  gap: 9px;
+}
+.nav-item.is-active::before {
+  top: 6px;
+  bottom: 6px;
+}
 
 /* ---- Topbar v2 ---- */
 .topbar {
@@ -4127,7 +4186,9 @@ html[data-theme="dark"] .markdown-body blockquote {
   justify-content: unset; /* override original flex layout */
 }
 /* keep the modifier alive but inert — old callers that still pass it won't break */
-.topbar--status-only { justify-content: unset; }
+.topbar--status-only {
+  justify-content: unset;
+}
 
 .topbar__crumb {
   display: flex;
@@ -4139,8 +4200,13 @@ html[data-theme="dark"] .markdown-body blockquote {
   color: var(--muted);
   overflow: hidden;
 }
-.topbar__crumb-root { color: var(--muted); }
-.topbar__crumb-sep { color: var(--subtle); opacity: 0.6; }
+.topbar__crumb-root {
+  color: var(--muted);
+}
+.topbar__crumb-sep {
+  color: var(--subtle);
+  opacity: 0.6;
+}
 .topbar__crumb-leaf {
   color: var(--accent);
   font-weight: 500;
@@ -4164,7 +4230,8 @@ html[data-theme="dark"] .markdown-body blockquote {
   max-width: 460px;
 }
 .connection-chip__dot {
-  width: 6px; height: 6px;
+  width: 6px;
+  height: 6px;
   border-radius: 999px;
   background: var(--green);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 18%, transparent);
@@ -4181,16 +4248,29 @@ html[data-theme="dark"] .markdown-body blockquote {
   white-space: nowrap;
   max-width: 240px;
 }
-.connection-chip__sep { color: var(--subtle); opacity: 0.55; }
+.connection-chip__sep {
+  color: var(--subtle);
+  opacity: 0.55;
+}
 .connection-chip__token {
   color: var(--muted);
 }
-.connection-chip[data-token="off"] .connection-chip__token { color: var(--amber); }
+.connection-chip[data-token="off"] .connection-chip__token {
+  color: var(--amber);
+}
 
 /* dark mode adjustments for new chrome */
-html[data-theme="dark"] .topbar { background: color-mix(in srgb, var(--surface) 88%, transparent); }
-html[data-theme="dark"] .connection-chip { background: var(--surface-2); border-color: var(--line); }
-html[data-theme="dark"] .brand__mark { background: var(--surface-2); border-color: var(--line); }
+html[data-theme="dark"] .topbar {
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+html[data-theme="dark"] .connection-chip {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
+html[data-theme="dark"] .brand__mark {
+  background: var(--surface-2);
+  border-color: var(--line);
+}
 
 /* mobile rules — keep new topbar gracefully vertical */
 @media (max-width: 900px) {
@@ -4199,10 +4279,14 @@ html[data-theme="dark"] .brand__mark { background: var(--surface-2); border-colo
     gap: 8px;
     padding: 10px 16px;
   }
-  .connection-chip { justify-self: start; max-width: 100%; }
-  .brand { padding: 0 4px 10px; }
+  .connection-chip {
+    justify-self: start;
+    max-width: 100%;
+  }
+  .brand {
+    padding: 0 4px 10px;
+  }
 }
-
 
 /* ============================================================
    PR3 · Metric grid as single hairline container + tighter wiki tree
@@ -4234,8 +4318,12 @@ html[data-theme="dark"] .brand__mark { background: var(--surface-2); border-colo
   grid-template-rows: auto 1fr auto;
   gap: 0;
 }
-.overview-grid > .metric-card:last-child { border-right: 0; }
-.overview-grid > .metric-card:first-child .metric-card__label { color: var(--accent); }
+.overview-grid > .metric-card:last-child {
+  border-right: 0;
+}
+.overview-grid > .metric-card:first-child .metric-card__label {
+  color: var(--accent);
+}
 
 .metric-card__label {
   /* PR3 ramp — mono labels feel like column headers, not bold UI text */
@@ -4268,17 +4356,31 @@ html[data-theme="dark"] .brand__mark { background: var(--surface-2); border-colo
   .overview-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-  .overview-grid > .metric-card { border-right: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
-  .overview-grid > .metric-card:nth-child(3n) { border-right: 0; }
-  .overview-grid > .metric-card:nth-child(n+4) { border-bottom: 0; }
+  .overview-grid > .metric-card {
+    border-right: 1px solid var(--hairline);
+    border-bottom: 1px solid var(--hairline);
+  }
+  .overview-grid > .metric-card:nth-child(3n) {
+    border-right: 0;
+  }
+  .overview-grid > .metric-card:nth-child(n + 4) {
+    border-bottom: 0;
+  }
 }
 @media (max-width: 640px) {
   .overview-grid {
     grid-template-columns: 1fr;
   }
-  .overview-grid > .metric-card { border-right: 0; border-bottom: 1px solid var(--hairline); }
-  .overview-grid > .metric-card:last-child { border-bottom: 0; }
-  .overview-grid > .metric-card .metric-card__value { font-size: 26px; }
+  .overview-grid > .metric-card {
+    border-right: 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .overview-grid > .metric-card:last-child {
+    border-bottom: 0;
+  }
+  .overview-grid > .metric-card .metric-card__value {
+    font-size: 26px;
+  }
 }
 
 /* ---- Wiki tree: single-line file rows ---- */
@@ -4292,9 +4394,18 @@ html[data-theme="dark"] .brand__mark { background: var(--surface-2); border-colo
   padding-top: 4px;
   padding-bottom: 4px;
 }
-.wiki-tree__item--folder { font-weight: 500; font-size: 12.5px; letter-spacing: 0.01em; }
-.wiki-tree__item--file strong { font-weight: 500; font-size: 13px; }
-.wiki-tree__item.is-selected strong { font-weight: 600; }
+.wiki-tree__item--folder {
+  font-weight: 500;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+}
+.wiki-tree__item--file strong {
+  font-weight: 500;
+  font-size: 13px;
+}
+.wiki-tree__item.is-selected strong {
+  font-weight: 600;
+}
 .wiki-tree__item.is-selected {
   box-shadow: none; /* drop the inset 2px marker; use a real ::before */
   position: relative;
@@ -4302,15 +4413,21 @@ html[data-theme="dark"] .brand__mark { background: var(--surface-2); border-colo
 .wiki-tree__item.is-selected::before {
   content: "";
   position: absolute;
-  left: 2px; top: 5px; bottom: 5px;
+  left: 2px;
+  top: 5px;
+  bottom: 5px;
   width: 2px;
   border-radius: 1px;
   background: var(--accent);
 }
 
 /* Folder icon color: walk back the accent saturation so files lead the eye */
-.wiki-tree__item--folder svg:last-of-type { color: var(--muted); }
-.wiki-tree__item:hover svg:last-of-type { color: var(--accent); }
+.wiki-tree__item--folder svg:last-of-type {
+  color: var(--muted);
+}
+.wiki-tree__item:hover svg:last-of-type {
+  color: var(--accent);
+}
 
 /* Explorer header chrome — match the rest of the system */
 .wiki-explorer__header h2 {
@@ -4328,15 +4445,18 @@ html[data-theme="dark"] .brand__mark { background: var(--surface-2); border-colo
 }
 
 /* ---- Markdown table-of-contents callout (also touched by reader spacing) ---- */
-.wiki-source-code { font-family: var(--font-mono); }
+.wiki-source-code {
+  font-family: var(--font-mono);
+}
 
 /* ---- Dark theme: keep the new container coherent ---- */
 html[data-theme="dark"] .overview-grid {
   background: var(--surface);
   border-color: var(--line);
 }
-html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(--hairline); }
-
+html[data-theme="dark"] .overview-grid > .metric-card {
+  border-right-color: var(--hairline);
+}
 
 /* ============================================================
    PR4 · Agent chat: markdown rendering + iconic tool calls
@@ -4345,14 +4465,22 @@ html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(
    ============================================================ */
 
 /* Streaming spinner inside the assistant role line */
-.agent-message__role { display: inline-flex; align-items: center; gap: 6px; }
+.agent-message__role {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
 .agent-message__spinner {
   color: var(--accent);
   animation: pr4-spin 1.1s linear infinite;
 }
 @keyframes pr4-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Assistant bubble can now host real markdown — give it a sensible
@@ -4364,9 +4492,15 @@ html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(
   max-width: none;
   margin: 0;
 }
-.agent-message--assistant .markdown-body > :first-child { margin-top: 0; }
-.agent-message--assistant .markdown-body > :last-child { margin-bottom: 0; }
-.agent-message--assistant .markdown-body p { margin: 0.5em 0; }
+.agent-message--assistant .markdown-body > :first-child {
+  margin-top: 0;
+}
+.agent-message--assistant .markdown-body > :last-child {
+  margin-bottom: 0;
+}
+.agent-message--assistant .markdown-body p {
+  margin: 0.5em 0;
+}
 .agent-message--assistant .markdown-body h1,
 .agent-message--assistant .markdown-body h2,
 .agent-message--assistant .markdown-body h3,
@@ -4378,12 +4512,23 @@ html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(
   border-bottom: 0;
   padding-bottom: 0;
 }
-.agent-message--assistant .markdown-body h1 { font-size: 19px; }
-.agent-message--assistant .markdown-body h2 { font-size: 16.5px; }
-.agent-message--assistant .markdown-body h3 { font-size: 14.5px; }
+.agent-message--assistant .markdown-body h1 {
+  font-size: 19px;
+}
+.agent-message--assistant .markdown-body h2 {
+  font-size: 16.5px;
+}
+.agent-message--assistant .markdown-body h3 {
+  font-size: 14.5px;
+}
 .agent-message--assistant .markdown-body ul,
-.agent-message--assistant .markdown-body ol { margin: 0.55em 0; padding-left: 1.4em; }
-.agent-message--assistant .markdown-body li + li { margin-top: 0.18em; }
+.agent-message--assistant .markdown-body ol {
+  margin: 0.55em 0;
+  padding-left: 1.4em;
+}
+.agent-message--assistant .markdown-body li + li {
+  margin-top: 0.18em;
+}
 .agent-message--assistant .markdown-body code {
   font-family: var(--font-mono);
   font-size: 12.5px;
@@ -4443,11 +4588,14 @@ html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(
   background: transparent;
   transition: background-color 120ms ease;
 }
-.tool-call:hover { background: var(--surface-2); }
+.tool-call:hover {
+  background: var(--surface-2);
+}
 .tool-call__icon {
   display: inline-grid;
   place-items: center;
-  width: 22px; height: 22px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
 }
 .tool-call__name {
@@ -4461,21 +4609,36 @@ html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(
 }
 .tool-call__sr {
   position: absolute;
-  width: 1px; height: 1px;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
 }
-.tool-call__spin { animation: pr4-spin 1.1s linear infinite; }
+.tool-call__spin {
+  animation: pr4-spin 1.1s linear infinite;
+}
 
-.tool-call--running   .tool-call__icon { background: color-mix(in srgb, var(--blue)  14%, transparent); color: var(--blue); }
-.tool-call--succeeded .tool-call__icon { background: color-mix(in srgb, var(--green) 14%, transparent); color: var(--green); }
-.tool-call--failed    .tool-call__icon { background: color-mix(in srgb, var(--red)   14%, transparent); color: var(--red); }
-.tool-call--failed    .tool-call__name { color: var(--red); }
-.tool-call--running   .tool-call__name { color: var(--blue); }
+.tool-call--running .tool-call__icon {
+  background: color-mix(in srgb, var(--blue) 14%, transparent);
+  color: var(--blue);
+}
+.tool-call--succeeded .tool-call__icon {
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+  color: var(--green);
+}
+.tool-call--failed .tool-call__icon {
+  background: color-mix(in srgb, var(--red) 14%, transparent);
+  color: var(--red);
+}
+.tool-call--failed .tool-call__name {
+  color: var(--red);
+}
+.tool-call--running .tool-call__name {
+  color: var(--blue);
+}
 
 /* Old mini-table styling was tuned for the 70/70/1fr layout that no
    longer applies to tool calls; leaving it intact for other call sites. */
-
 
 /* ============================================================
    PR5 · Agent chat layout fixes
@@ -5206,7 +5369,11 @@ html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(
   border-color: var(--hairline);
   background:
     radial-gradient(circle at 50% 42%, var(--surface) 0 42%, transparent 70%),
-    radial-gradient(circle, color-mix(in srgb, var(--line-strong) 52%, transparent) 1px, transparent 1.2px),
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--line-strong) 52%, transparent) 1px,
+      transparent 1.2px
+    ),
     var(--surface-soft);
   background-size:
     100% 100%,
@@ -5228,8 +5395,7 @@ html[data-theme="dark"] .overview-grid > .metric-card { border-right-color: var(
 .graph-svg__nodes g[aria-pressed="true"] circle {
   stroke: var(--accent-strong);
   stroke-width: 3;
-  filter:
-    drop-shadow(0 0 0 color-mix(in srgb, var(--accent) 16%, transparent))
+  filter: drop-shadow(0 0 0 color-mix(in srgb, var(--accent) 16%, transparent))
     drop-shadow(0 3px 8px color-mix(in srgb, var(--accent) 34%, transparent));
 }
 
@@ -5277,8 +5443,16 @@ html[data-theme="dark"] .graph-legend {
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
   background:
-    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--surface) 92%, transparent) 0 36%, transparent 72%),
-    radial-gradient(circle, color-mix(in srgb, var(--line-strong) 46%, transparent) 1px, transparent 1.2px),
+    radial-gradient(
+      circle at 50% 40%,
+      color-mix(in srgb, var(--surface) 92%, transparent) 0 36%,
+      transparent 72%
+    ),
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--line-strong) 46%, transparent) 1px,
+      transparent 1.2px
+    ),
     var(--surface-soft);
   background-size:
     100% 100%,
@@ -5365,8 +5539,16 @@ html[data-theme="dark"] .graph-legend {
 
 html[data-theme="dark"] .graph-pixi-stage {
   background:
-    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--surface) 94%, transparent) 0 34%, transparent 72%),
-    radial-gradient(circle, color-mix(in srgb, var(--line-strong) 34%, transparent) 1px, transparent 1.2px),
+    radial-gradient(
+      circle at 50% 38%,
+      color-mix(in srgb, var(--surface) 94%, transparent) 0 34%,
+      transparent 72%
+    ),
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--line-strong) 34%, transparent) 1px,
+      transparent 1.2px
+    ),
     var(--surface-soft);
 }
 
@@ -5403,7 +5585,9 @@ html[data-theme="dark"] .graph-pixi-stage {
   font-size: 13px;
   text-align: left;
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition:
+    background 120ms ease,
+    color 120ms ease;
 }
 
 .wiki-outline-jump:hover {
@@ -5435,7 +5619,10 @@ html[data-theme="dark"] .graph-pixi-stage {
   color: var(--reader-text);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   cursor: pointer;
-  transition: opacity 180ms ease, transform 180ms ease, color 180ms ease;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    color 180ms ease;
 }
 
 .reader-back-to-top:hover {
@@ -5817,7 +6004,9 @@ html[data-theme="dark"] .graph-pixi-stage {
   background: transparent;
   color: var(--muted);
   cursor: pointer;
-  transition: color 120ms ease, background-color 120ms ease;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease;
 }
 
 .wisdom-star:hover {
@@ -5848,7 +6037,10 @@ html[data-theme="dark"] .graph-pixi-stage {
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+  transition:
+    border-color 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
 }
 
 .wisdom-starred-chip:hover {
@@ -6089,9 +6281,15 @@ html[data-theme="dark"] .graph-pixi-stage {
   background: var(--line-strong);
 }
 
-.trace-span-dot--ok { background: var(--green); }
-.trace-span-dot--error { background: var(--red); }
-.trace-span-dot--unset { background: var(--subtle); }
+.trace-span-dot--ok {
+  background: var(--green);
+}
+.trace-span-dot--error {
+  background: var(--red);
+}
+.trace-span-dot--unset {
+  background: var(--subtle);
+}
 
 .trace-span-name {
   font-family: var(--font-mono);
@@ -6118,8 +6316,12 @@ html[data-theme="dark"] .graph-pixi-stage {
   background: var(--accent);
 }
 
-.trace-span-bar--error { background: var(--red); }
-.trace-span-bar--unset { background: var(--line-strong); }
+.trace-span-bar--error {
+  background: var(--red);
+}
+.trace-span-bar--unset {
+  background: var(--line-strong);
+}
 
 .trace-span-row__meta {
   display: flex;

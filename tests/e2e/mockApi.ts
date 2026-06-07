@@ -13,7 +13,7 @@ import {
   wikiPageBodiesFixture,
   wikiPageLinksFixture,
   wikiPageProvenanceFixture,
-  wikiPagesFixture
+  wikiPagesFixture,
 } from "./fixtures";
 
 export async function mockDikwApi(page: Page) {
@@ -39,7 +39,13 @@ export async function mockDikwApi(page: Page) {
     messageCount: 0,
     lastMessagePreview: "",
     messages: [] as Array<{ id: string; role: string; content: string; createdAt: string }>,
-    toolEvents: [] as Array<{ id: string; type: string; name: string; status: string; createdAt: string }>,
+    toolEvents: [] as Array<{
+      id: string;
+      type: string;
+      name: string;
+      status: string;
+      createdAt: string;
+    }>,
     sources: [] as Array<{
       path: string;
       title: string;
@@ -48,7 +54,7 @@ export async function mockDikwApi(page: Page) {
       score?: number | null;
       kind?: "core" | "web";
     }>,
-    proposals: [] as unknown[]
+    proposals: [] as unknown[],
   };
 
   await page.route("**/agent/**", async (route) => {
@@ -61,14 +67,16 @@ export async function mockDikwApi(page: Page) {
     const traceDetailMatch = /^\/agent\/sessions\/(trace-[^/]+)$/.exec(path);
     if (traceDetailMatch) {
       const session = traceSessions[traceDetailMatch[1]];
-      await route.fulfill(session ? { json: session } : { status: 404, body: "unknown trace session" });
+      await route.fulfill(
+        session ? { json: session } : { status: 404, body: "unknown trace session" },
+      );
       return;
     }
     const traceWaterfallMatch = /^\/agent\/sessions\/(trace-[^/]+)\/traces$/.exec(path);
     if (traceWaterfallMatch) {
       const view = traceViews[traceWaterfallMatch[1]];
       await route.fulfill({
-        json: view ?? { sessionId: traceWaterfallMatch[1], invocations: [] }
+        json: view ?? { sessionId: traceWaterfallMatch[1], invocations: [] },
       });
       return;
     }
@@ -77,7 +85,7 @@ export async function mockDikwApi(page: Page) {
       if (route.request().method() === "POST") {
         hasAgentSession = true;
         await route.fulfill({
-          json: agentSession
+          json: agentSession,
         });
         return;
       }
@@ -96,7 +104,7 @@ export async function mockDikwApi(page: Page) {
         agentSession = {
           ...agentSession,
           title: String(body.title ?? "").trim(),
-          updatedAt: "2026-05-13T00:00:02.000Z"
+          updatedAt: "2026-05-13T00:00:02.000Z",
         };
       } else if (!hasAgentSession) {
         hasAgentSession = true;
@@ -107,8 +115,18 @@ export async function mockDikwApi(page: Page) {
           messageCount: 2,
           lastMessagePreview: "Layered answer.",
           messages: [
-            { id: "m1", role: "user", content: "What is DIKW?", createdAt: "2026-05-13T00:00:00.000Z" },
-            { id: "m2", role: "assistant", content: "Layered answer.", createdAt: "2026-05-13T00:00:01.000Z" }
+            {
+              id: "m1",
+              role: "user",
+              content: "What is DIKW?",
+              createdAt: "2026-05-13T00:00:00.000Z",
+            },
+            {
+              id: "m2",
+              role: "assistant",
+              content: "Layered answer.",
+              createdAt: "2026-05-13T00:00:01.000Z",
+            },
           ],
           toolEvents: [
             {
@@ -116,10 +134,16 @@ export async function mockDikwApi(page: Page) {
               type: "tool_call",
               name: "retrieve_knowledge",
               status: "succeeded",
-              createdAt: "2026-05-13T00:00:00.500Z"
-            }
+              createdAt: "2026-05-13T00:00:00.500Z",
+            },
           ],
-          sources: [{ path: "knowledge/concepts/architecture.md", title: "Architecture", layer: "knowledge" }]
+          sources: [
+            {
+              path: "knowledge/concepts/architecture.md",
+              title: "Architecture",
+              layer: "knowledge",
+            },
+          ],
         };
       }
       await route.fulfill({ json: agentSession });
@@ -144,10 +168,18 @@ export async function mockDikwApi(page: Page) {
             output: {
               query: "DIKW",
               results: [
-                { title: "Example A", url: "https://example.com/a", description: "external snippet a" },
-                { title: "Example B", url: "https://example.com/b", description: "external snippet b" }
-              ]
-            }
+                {
+                  title: "Example A",
+                  url: "https://example.com/a",
+                  description: "external snippet a",
+                },
+                {
+                  title: "Example B",
+                  url: "https://example.com/b",
+                  description: "external snippet b",
+                },
+              ],
+            },
           },
           {
             id: `tool-${turnNumber}-fetch`,
@@ -156,8 +188,8 @@ export async function mockDikwApi(page: Page) {
             status: "succeeded",
             createdAt: "2026-05-13T00:00:01.000Z",
             input: { url: "https://example.com/a" },
-            output: { url: "https://example.com/a", content: "page body", truncated: false }
-          }
+            output: { url: "https://example.com/a", content: "page body", truncated: false },
+          },
         ];
         const sources = [
           {
@@ -166,7 +198,7 @@ export async function mockDikwApi(page: Page) {
             excerpt: "external snippet a",
             layer: null,
             score: null,
-            kind: "web"
+            kind: "web",
           },
           {
             path: "https://example.com/b",
@@ -174,8 +206,8 @@ export async function mockDikwApi(page: Page) {
             excerpt: "external snippet b",
             layer: null,
             score: null,
-            kind: "web"
-          }
+            kind: "web",
+          },
         ];
         agentSession = {
           ...agentSession,
@@ -185,20 +217,38 @@ export async function mockDikwApi(page: Page) {
           lastMessagePreview: assistantMessage,
           messages: [
             ...agentSession.messages,
-            { id: `m${turnNumber * 2 - 1}`, role: "user", content: userMessage, createdAt: "2026-05-13T00:00:00.000Z" },
-            { id: `m${turnNumber * 2}`, role: "assistant", content: assistantMessage, createdAt: "2026-05-13T00:00:01.000Z" }
+            {
+              id: `m${turnNumber * 2 - 1}`,
+              role: "user",
+              content: userMessage,
+              createdAt: "2026-05-13T00:00:00.000Z",
+            },
+            {
+              id: `m${turnNumber * 2}`,
+              role: "assistant",
+              content: assistantMessage,
+              createdAt: "2026-05-13T00:00:01.000Z",
+            },
           ],
           toolEvents: [...agentSession.toolEvents, ...toolEvents],
-          sources: [...agentSession.sources, ...sources]
+          sources: [...agentSession.sources, ...sources],
         };
         await route.fulfill({
           contentType: "application/x-ndjson",
           body: [
-            ...toolEvents.map((event) => JSON.stringify({ type: "tool_event", sessionId: "session-1", event })),
-            JSON.stringify({ type: "message_delta", sessionId: "session-1", delta: assistantMessage }),
-            ...sources.map((source) => JSON.stringify({ type: "source", sessionId: "session-1", source })),
-            JSON.stringify({ type: "agent_end", sessionId: "session-1" })
-          ].join("\n")
+            ...toolEvents.map((event) =>
+              JSON.stringify({ type: "tool_event", sessionId: "session-1", event }),
+            ),
+            JSON.stringify({
+              type: "message_delta",
+              sessionId: "session-1",
+              delta: assistantMessage,
+            }),
+            ...sources.map((source) =>
+              JSON.stringify({ type: "source", sessionId: "session-1", source }),
+            ),
+            JSON.stringify({ type: "agent_end", sessionId: "session-1" }),
+          ].join("\n"),
         });
         return;
       }
@@ -206,7 +256,8 @@ export async function mockDikwApi(page: Page) {
       const assistantMessage = isAutoScrollStress
         ? Array.from(
             { length: 48 },
-            (_, index) => `Auto scroll line ${turnNumber}-${index + 1}: evidence-backed chat output keeps growing.`
+            (_, index) =>
+              `Auto scroll line ${turnNumber}-${index + 1}: evidence-backed chat output keeps growing.`,
           ).join("\n\n")
         : "Layered answer.";
       const toolEvents = isAutoScrollStress
@@ -215,7 +266,7 @@ export async function mockDikwApi(page: Page) {
             type: "tool_call",
             name: `retrieve_knowledge_${index + 1}`,
             status: "succeeded",
-            createdAt: "2026-05-13T00:00:00.500Z"
+            createdAt: "2026-05-13T00:00:00.500Z",
           }))
         : [
             {
@@ -223,8 +274,8 @@ export async function mockDikwApi(page: Page) {
               type: "tool_call",
               name: "retrieve_knowledge",
               status: "succeeded",
-              createdAt: "2026-05-13T00:00:00.500Z"
-            }
+              createdAt: "2026-05-13T00:00:00.500Z",
+            },
           ];
       const sources = isAutoScrollStress
         ? Array.from({ length: 24 }, (_, index) => ({
@@ -232,9 +283,15 @@ export async function mockDikwApi(page: Page) {
             // net-new sources — the right rail dedups identical pages across turns.
             path: `knowledge/concepts/auto-scroll-source-${turnNumber}-${index + 1}.md`,
             title: `Auto Scroll Source ${turnNumber}-${index + 1}`,
-            layer: "knowledge"
+            layer: "knowledge",
           }))
-        : [{ path: `knowledge/concepts/architecture-${turnNumber}.md`, title: `Architecture ${turnNumber}`, layer: "knowledge" }];
+        : [
+            {
+              path: `knowledge/concepts/architecture-${turnNumber}.md`,
+              title: `Architecture ${turnNumber}`,
+              layer: "knowledge",
+            },
+          ];
       agentSession = {
         ...agentSession,
         title: agentSession.title === "New chat" ? userMessage.slice(0, 40) : agentSession.title,
@@ -243,26 +300,42 @@ export async function mockDikwApi(page: Page) {
         lastMessagePreview: assistantMessage,
         messages: [
           ...agentSession.messages,
-          { id: `m${turnNumber * 2 - 1}`, role: "user", content: userMessage, createdAt: "2026-05-13T00:00:00.000Z" },
-          { id: `m${turnNumber * 2}`, role: "assistant", content: assistantMessage, createdAt: "2026-05-13T00:00:01.000Z" }
+          {
+            id: `m${turnNumber * 2 - 1}`,
+            role: "user",
+            content: userMessage,
+            createdAt: "2026-05-13T00:00:00.000Z",
+          },
+          {
+            id: `m${turnNumber * 2}`,
+            role: "assistant",
+            content: assistantMessage,
+            createdAt: "2026-05-13T00:00:01.000Z",
+          },
         ],
         toolEvents: [...agentSession.toolEvents, ...toolEvents],
-        sources: [...agentSession.sources, ...sources]
+        sources: [...agentSession.sources, ...sources],
       };
       await route.fulfill({
         contentType: "application/x-ndjson",
         body: [
-          ...toolEvents.map((event) => JSON.stringify({ type: "tool_event", sessionId: "session-1", event })),
-          JSON.stringify({ type: "message_delta", sessionId: "session-1", delta: assistantMessage }),
+          ...toolEvents.map((event) =>
+            JSON.stringify({ type: "tool_event", sessionId: "session-1", event }),
+          ),
+          JSON.stringify({
+            type: "message_delta",
+            sessionId: "session-1",
+            delta: assistantMessage,
+          }),
           ...sources.map((source) =>
             JSON.stringify({
               type: "source",
               sessionId: "session-1",
-              source
-            })
+              source,
+            }),
           ),
-          JSON.stringify({ type: "agent_end", sessionId: "session-1" })
-        ].join("\n")
+          JSON.stringify({ type: "agent_end", sessionId: "session-1" }),
+        ].join("\n"),
       });
       return;
     }
@@ -321,7 +394,11 @@ export async function mockDikwApi(page: Page) {
       const rest = decodeURIComponent(path.replace("/v1/base/pages/", ""));
       if (rest.endsWith("/provenance")) {
         const target = rest.replace(/\/provenance$/, "");
-        const body = wikiPageProvenanceFixture[target] ?? { path: target, derived_from: [], derived_pages: [] };
+        const body = wikiPageProvenanceFixture[target] ?? {
+          path: target,
+          derived_from: [],
+          derived_pages: [],
+        };
         await route.fulfill({ json: body });
         return;
       }
@@ -340,7 +417,7 @@ export async function mockDikwApi(page: Page) {
         await route.fulfill({
           contentType: "image/png",
           headers: { "Cache-Control": "public, max-age=31536000, immutable" },
-          body: Buffer.from(onePxPngBase64, "base64")
+          body: Buffer.from(onePxPngBase64, "base64"),
         });
         return;
       }
@@ -357,18 +434,22 @@ export async function mockDikwApi(page: Page) {
             created_at: row.created_at,
             started_at: row.started_at,
             finished_at: row.finished_at,
-            params_digest: row.params_digest
+            params_digest: row.params_digest,
           })),
           next_cursor: null,
-          has_more: false
-        }
+          has_more: false,
+        },
       });
       return;
     }
     const taskDetailMatch = /^\/v1\/tasks\/([^/]+)$/.exec(path);
     if (taskDetailMatch) {
-      const row = taskRowsFixture.find((task) => task.task_id === decodeURIComponent(taskDetailMatch[1]));
-      await route.fulfill(row ? { json: row } : { status: 404, body: `unknown task ${taskDetailMatch[1]}` });
+      const row = taskRowsFixture.find(
+        (task) => task.task_id === decodeURIComponent(taskDetailMatch[1]),
+      );
+      await route.fulfill(
+        row ? { json: row } : { status: 404, body: `unknown task ${taskDetailMatch[1]}` },
+      );
       return;
     }
     if (path === "/v1/tasks/eval-task-1/events") {
@@ -377,10 +458,10 @@ export async function mockDikwApi(page: Page) {
       const fromSeq = Number.isFinite(fromSeqParsed) && fromSeqParsed > 0 ? fromSeqParsed : 0;
       const lastSeq = taskEventsFixture.reduce(
         (max, event) => (typeof event.seq === "number" && event.seq > max ? event.seq : max),
-        0
+        0,
       );
       const events = taskEventsFixture.filter(
-        (event) => typeof event.seq === "number" && event.seq >= fromSeq
+        (event) => typeof event.seq === "number" && event.seq >= fromSeq,
       );
       await route.fulfill({
         json: {
@@ -389,8 +470,8 @@ export async function mockDikwApi(page: Page) {
           events,
           next_from_seq: lastSeq + 1,
           has_more: false,
-          last_seq: lastSeq
-        }
+          last_seq: lastSeq,
+        },
       });
       return;
     }
@@ -400,10 +481,10 @@ export async function mockDikwApi(page: Page) {
       const fromSeq = Number.isFinite(fromSeqParsed) && fromSeqParsed > 0 ? fromSeqParsed : 0;
       const lastSeq = bulkTaskEventsFixture.reduce(
         (max, event) => (typeof event.seq === "number" && event.seq > max ? event.seq : max),
-        0
+        0,
       );
       const events = bulkTaskEventsFixture.filter(
-        (event) => typeof event.seq === "number" && event.seq >= fromSeq
+        (event) => typeof event.seq === "number" && event.seq >= fromSeq,
       );
       await route.fulfill({
         json: {
@@ -412,15 +493,15 @@ export async function mockDikwApi(page: Page) {
           events,
           next_from_seq: lastSeq + 1,
           has_more: false,
-          last_seq: lastSeq
-        }
+          last_seq: lastSeq,
+        },
       });
       return;
     }
     if (path === "/v1/retrieve") {
       await route.fulfill({
         contentType: "application/x-ndjson",
-        body: retrieveEventsFixture.map((event) => JSON.stringify(event)).join("\n")
+        body: retrieveEventsFixture.map((event) => JSON.stringify(event)).join("\n"),
       });
       return;
     }
@@ -443,7 +524,7 @@ function toSessionSummary(session: {
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     messageCount: session.messageCount,
-    lastMessagePreview: session.lastMessagePreview
+    lastMessagePreview: session.lastMessagePreview,
   };
 }
 
@@ -467,13 +548,14 @@ const traceSessions: Record<string, unknown> = {
       {
         id: "m2",
         role: "assistant",
-        content: "DIKW stacks data → information → knowledge → wisdom. The agent cites the source pages it read.",
-        createdAt: traceIso(4_180)
-      }
+        content:
+          "DIKW stacks data → information → knowledge → wisdom. The agent cites the source pages it read.",
+        createdAt: traceIso(4_180),
+      },
     ],
     toolEvents: [],
     sources: [],
-    proposals: []
+    proposals: [],
   },
   "trace-demo-wisdom": {
     id: "trace-demo-wisdom",
@@ -487,14 +569,15 @@ const traceSessions: Record<string, unknown> = {
       {
         id: "m2",
         role: "assistant",
-        content: "There are 3 wisdom items in the base: onboarding-playbook, retrieval-tuning, and review-cadence.",
-        createdAt: traceIso(61_880)
-      }
+        content:
+          "There are 3 wisdom items in the base: onboarding-playbook, retrieval-tuning, and review-cadence.",
+        createdAt: traceIso(61_880),
+      },
     ],
     toolEvents: [],
     sources: [],
-    proposals: []
-  }
+    proposals: [],
+  },
 };
 
 const traceViews: Record<string, unknown> = {
@@ -506,7 +589,15 @@ const traceViews: Record<string, unknown> = {
         startTimeMs: T0,
         durationMs: 4_200,
         spans: [
-          { spanId: "s0", parentSpanId: null, name: "invocation", startTimeMs: T0, durationMs: 4_200, status: "ok", attributes: {} },
+          {
+            spanId: "s0",
+            parentSpanId: null,
+            name: "invocation",
+            startTimeMs: T0,
+            durationMs: 4_200,
+            status: "ok",
+            attributes: {},
+          },
           {
             spanId: "s1",
             parentSpanId: "s0",
@@ -516,7 +607,7 @@ const traceViews: Record<string, unknown> = {
             status: "ok",
             attributes: { "gen_ai.request.model": "MiniMax-M3" },
             tokensInput: 1_240,
-            tokensOutput: 58
+            tokensOutput: 58,
           },
           {
             spanId: "s2",
@@ -525,11 +616,11 @@ const traceViews: Record<string, unknown> = {
             startTimeMs: T0 + 940,
             durationMs: 1_500,
             status: "ok",
-            attributes: { "gen_ai.tool.name": "retrieve_knowledge" }
-          }
-        ]
-      }
-    ]
+            attributes: { "gen_ai.tool.name": "retrieve_knowledge" },
+          },
+        ],
+      },
+    ],
   },
   "trace-demo-wisdom": {
     sessionId: "trace-demo-wisdom",
@@ -546,7 +637,7 @@ const traceViews: Record<string, unknown> = {
             startTimeMs: T0 + 60_000,
             durationMs: 1_900,
             status: "ok",
-            attributes: {}
+            attributes: {},
           },
           {
             spanId: "w1",
@@ -555,16 +646,16 @@ const traceViews: Record<string, unknown> = {
             startTimeMs: T0 + 60_300,
             durationMs: 410,
             status: "ok",
-            attributes: { "gen_ai.tool.name": "list_wisdom" }
-          }
-        ]
-      }
-    ]
-  }
+            attributes: { "gen_ai.tool.name": "list_wisdom" },
+          },
+        ],
+      },
+    ],
+  },
 };
 
 const traceSessionSummaries = Object.values(traceSessions).map((session) =>
-  toSessionSummary(session as Parameters<typeof toSessionSummary>[0])
+  toSessionSummary(session as Parameters<typeof toSessionSummary>[0]),
 );
 
 /**

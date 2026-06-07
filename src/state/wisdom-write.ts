@@ -57,11 +57,14 @@ export function loadWisdomWriteState(currentCoreUrl: string): WisdomWriteState |
   return parsed;
 }
 
-export function saveWisdomWriteState(state: Omit<WisdomWriteState, "coreUrl">, currentCoreUrl: string): void {
+export function saveWisdomWriteState(
+  state: Omit<WisdomWriteState, "coreUrl">,
+  currentCoreUrl: string,
+): void {
   if (typeof sessionStorage === "undefined") return;
   sessionStorage.setItem(
     WISDOM_WRITE_STORAGE_KEY,
-    JSON.stringify({ ...state, coreUrl: currentCoreUrl })
+    JSON.stringify({ ...state, coreUrl: currentCoreUrl }),
   );
 }
 

@@ -1,11 +1,5 @@
 import { useMemo } from "react";
-import {
-  AlertTriangle,
-  FileText,
-  Image as ImageIcon,
-  Play,
-  X
-} from "lucide-react";
+import { AlertTriangle, FileText, Image as ImageIcon, Play, X } from "lucide-react";
 import type { ImportBundleResult } from "../../utils/import-bundle";
 import { formatBytes, skippedTag, type ImportCopy } from "./format";
 
@@ -16,12 +10,7 @@ interface BundlePreviewProps {
   onReset: () => void;
 }
 
-export function BundlePreview({
-  copy,
-  bundle,
-  onStart,
-  onReset
-}: BundlePreviewProps) {
+export function BundlePreview({ copy, bundle, onStart, onReset }: BundlePreviewProps) {
   // Split manifest entries into markdown packages (with ref count) and assets.
   const included = useMemo(() => {
     const mdPaths = new Set(bundle.manifest.packages.map((p) => p.md_path));
@@ -33,7 +22,7 @@ export function BundlePreview({
       path: f.path,
       bytes: f.size,
       isMd: mdPaths.has(f.path),
-      refs: refsByMd.get(f.path) ?? 0
+      refs: refsByMd.get(f.path) ?? 0,
     }));
   }, [bundle]);
 
@@ -47,8 +36,8 @@ export function BundlePreview({
         <div>
           <div className="import-preview-head__title">{copy.previewTitle}</div>
           <div className="import-preview-head__hint">
-            {mdCount} {copy.previewPackagesShort} · {assetCount}{" "}
-            {copy.previewAssets} · {formatBytes(bundle.totalBytes)}
+            {mdCount} {copy.previewPackagesShort} · {assetCount} {copy.previewAssets} ·{" "}
+            {formatBytes(bundle.totalBytes)}
             {skippedCount > 0 ? (
               <>
                 {" · "}
@@ -97,9 +86,7 @@ export function BundlePreview({
                 ) : (
                   <span />
                 )}
-                <span className="import-file-row__bytes">
-                  {formatBytes(f.bytes)}
-                </span>
+                <span className="import-file-row__bytes">{formatBytes(f.bytes)}</span>
               </div>
             ))}
           </div>
@@ -111,9 +98,7 @@ export function BundlePreview({
           </div>
           <div className="import-file-list" data-testid="import-skipped-list">
             {bundle.skipped.length === 0 ? (
-              <div className="import-file-list__footer">
-                {copy.previewSkippedHint}
-              </div>
+              <div className="import-file-list__footer">{copy.previewSkippedHint}</div>
             ) : (
               <>
                 {bundle.skipped.map((s) => (
@@ -133,9 +118,7 @@ export function BundlePreview({
                     </span>
                   </div>
                 ))}
-                <div className="import-file-list__footer">
-                  {copy.previewSkippedHint}
-                </div>
+                <div className="import-file-list__footer">{copy.previewSkippedHint}</div>
               </>
             )}
           </div>

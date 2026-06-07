@@ -34,9 +34,7 @@ function writeAscii(view: Uint8Array, offset: number, length: number, value: str
   }
 }
 
-export function splitUstarPath(
-  archivePath: string
-): { name: string; prefix: string } | null {
+export function splitUstarPath(archivePath: string): { name: string; prefix: string } | null {
   const bytes = new TextEncoder().encode(archivePath);
   if (bytes.length <= NAME_FIELD_MAX) {
     return { name: archivePath, prefix: "" };
@@ -61,7 +59,7 @@ function ustarHeader(archivePath: string, size: number): Uint8Array {
   const split = splitUstarPath(archivePath);
   if (split === null) {
     throw new Error(
-      `archive path too long for USTAR (max ${USTAR_PATH_MAX} bytes, requires PAX extended headers we don't emit): ${archivePath}`
+      `archive path too long for USTAR (max ${USTAR_PATH_MAX} bytes, requires PAX extended headers we don't emit): ${archivePath}`,
     );
   }
   const header = new Uint8Array(TAR_BLOCK);
@@ -89,7 +87,7 @@ function ustarHeader(archivePath: string, size: number): Uint8Array {
 }
 
 export function buildTar(
-  entries: ReadonlyArray<{ archivePath: string; data: Uint8Array }>
+  entries: ReadonlyArray<{ archivePath: string; data: Uint8Array }>,
 ): Uint8Array {
   let total = 0;
   for (const e of entries) {

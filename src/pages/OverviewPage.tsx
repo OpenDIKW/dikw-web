@@ -27,11 +27,11 @@ export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
       const [health, info, status] = await Promise.all([
         client.get<HealthReport>("/v1/health", { signal }),
         client.get<InfoResponse>("/v1/info", { signal }),
-        client.get<StorageCounts>("/v1/status", { signal })
+        client.get<StorageCounts>("/v1/status", { signal }),
       ]);
       return { health, info, status };
     },
-    [client]
+    [client],
   );
   const resource = useAsyncResource(load, [client]);
   const data = resource.data;
@@ -42,7 +42,12 @@ export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
         <div>
           <h1>{copy.title}</h1>
         </div>
-        <button className="icon-button" type="button" onClick={resource.reload} aria-label={copy.refresh}>
+        <button
+          className="icon-button"
+          type="button"
+          onClick={resource.reload}
+          aria-label={copy.refresh}
+        >
           <RefreshCw size={18} />
         </button>
       </header>
@@ -52,18 +57,36 @@ export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
       <section className="overview-grid">
         <MetricCard
           label="Server"
-          value={data ? <StatusPill status={data.health.status} /> : resource.loading ? "Loading" : "-"}
+          value={
+            data ? <StatusPill status={data.health.status} /> : resource.loading ? "Loading" : "-"
+          }
           detail={data?.health.version ? `dikw-core ${data.health.version}` : undefined}
         />
-        <MetricCard label="Data" value={formatNumber(data?.health.layer_counts.sources)} detail="source documents" />
-        <MetricCard label="Information" value={formatNumber(data?.health.layer_counts.chunks)} detail={`${formatNumber(data?.status.embeddings)} embeddings`} />
-        <MetricCard label="Knowledge" value={formatNumber(data?.health.layer_counts.knowledge_pages)} detail={`${formatNumber(data?.status.links)} links`} />
+        <MetricCard
+          label="Data"
+          value={formatNumber(data?.health.layer_counts.sources)}
+          detail="source documents"
+        />
+        <MetricCard
+          label="Information"
+          value={formatNumber(data?.health.layer_counts.chunks)}
+          detail={`${formatNumber(data?.status.embeddings)} embeddings`}
+        />
+        <MetricCard
+          label="Knowledge"
+          value={formatNumber(data?.health.layer_counts.knowledge_pages)}
+          detail={`${formatNumber(data?.status.links)} links`}
+        />
         <MetricCard
           label="Wisdom"
           value={formatNumber(data?.health.layer_counts.wisdom_items)}
           detail="wisdom items"
         />
-        <MetricCard label="Assets" value={formatNumber(data?.status.assets)} detail={`${formatNumber(data?.status.asset_embeddings)} asset embeddings`} />
+        <MetricCard
+          label="Assets"
+          value={formatNumber(data?.status.assets)}
+          detail={`${formatNumber(data?.status.asset_embeddings)} asset embeddings`}
+        />
       </section>
 
       {data ? (
@@ -97,11 +120,16 @@ export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
             <dl className="detail-list">
               <div>
                 <dt>LLM</dt>
-                <dd>{data.health.providers.llm.provider} · {data.health.providers.llm.model}</dd>
+                <dd>
+                  {data.health.providers.llm.provider} · {data.health.providers.llm.model}
+                </dd>
               </div>
               <div>
                 <dt>Embedding</dt>
-                <dd>{data.health.providers.embedding.provider} · {data.health.providers.embedding.model}</dd>
+                <dd>
+                  {data.health.providers.embedding.provider} ·{" "}
+                  {data.health.providers.embedding.model}
+                </dd>
               </div>
               <div>
                 <dt>Auth</dt>

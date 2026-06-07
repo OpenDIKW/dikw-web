@@ -5,7 +5,7 @@ import {
   buildLineOption,
   buildScatterOption,
   parseChartFromDetails,
-  type ChartSpec
+  type ChartSpec,
 } from "./chart-spec";
 
 describe("parseChartFromDetails", () => {
@@ -20,7 +20,7 @@ describe("parseChartFromDetails", () => {
     expect(spec!.headers).toEqual(["Experimental runs", "Acidic Variants (%)"]);
     expect(spec!.rows).toEqual([
       ["Ctrl", "17"],
-      ["Innovator", "25"]
+      ["Innovator", "25"],
     ]);
     expect(spec!.freeText).toEqual([]);
   });
@@ -37,7 +37,7 @@ p<=0.05`;
     expect(spec!.headers).toEqual(["Experimental runs", "Balsc Variants (%)"]);
     expect(spec!.rows).toEqual([
       ["Ctrl", "12.8"],
-      ["Innovator", "11.5"]
+      ["Innovator", "11.5"],
     ]);
     expect(spec!.freeText).toEqual(["Basic Variants", "p<=0.05"]);
   });
@@ -61,7 +61,7 @@ p<=0.05`;
     expect(spec).not.toBeNull();
     expect(spec!.rows).toEqual([
       ["Ctrl", "17"],
-      ["Innovator", "25"]
+      ["Innovator", "25"],
     ]);
   });
 
@@ -75,7 +75,7 @@ Innovator | 25`;
     expect(spec!.headers).toEqual(["Run", "Acid"]);
     expect(spec!.rows).toEqual([
       ["Ctrl", "17"],
-      ["Innovator", "25"]
+      ["Innovator", "25"],
     ]);
   });
 
@@ -98,7 +98,7 @@ describe("numeric coercion", () => {
   it("extracts the leading number from annotated cells", () => {
     const spec = parseChartFromDetails(
       "| Run | Value |\n| --- | --- |\n| Ctrl | 17 ± 2 |\n| Innovator | -3.5 |",
-      "bar"
+      "bar",
     );
     const opt = buildBarOption(spec!);
     const series = (opt.series as Array<{ data: Array<number | null> }>)[0];
@@ -108,7 +108,7 @@ describe("numeric coercion", () => {
   it("emits null for non-numeric and empty cells", () => {
     const spec = parseChartFromDetails(
       "| Run | Value |\n| --- | --- |\n| Ctrl | N/A |\n| Innovator |   |",
-      "bar"
+      "bar",
     );
     const opt = buildBarOption(spec!);
     const series = (opt.series as Array<{ data: Array<number | null> }>)[0];
@@ -116,10 +116,7 @@ describe("numeric coercion", () => {
   });
 
   it("parses scientific notation", () => {
-    const spec = parseChartFromDetails(
-      "| X | Y |\n| --- | --- |\n| 1 | 1.5e2 |",
-      "bar"
-    );
+    const spec = parseChartFromDetails("| X | Y |\n| --- | --- |\n| 1 | 1.5e2 |", "bar");
     const opt = buildBarOption(spec!);
     const series = (opt.series as Array<{ data: Array<number | null> }>)[0];
     expect(series.data).toEqual([150]);
@@ -132,9 +129,9 @@ describe("chart option builders", () => {
     headers: ["Run", "Acid"],
     rows: [
       ["Ctrl", "17"],
-      ["Innovator", "25"]
+      ["Innovator", "25"],
     ],
-    freeText: []
+    freeText: [],
   };
 
   it("buildBarOption emits a bar series with category x-axis and numeric values", () => {
@@ -161,15 +158,15 @@ describe("chart option builders", () => {
       headers: ["X", "Y"],
       rows: [
         ["1", "2"],
-        ["3", "4"]
+        ["3", "4"],
       ],
-      freeText: []
+      freeText: [],
     });
     const series = (opt.series as Array<{ type: string; data: number[][] }>)[0];
     expect(series.type).toBe("scatter");
     expect(series.data).toEqual([
       [1, 2],
-      [3, 4]
+      [3, 4],
     ]);
   });
 
@@ -179,12 +176,14 @@ describe("chart option builders", () => {
       headers: ["", "Cu", "Fe"],
       rows: [
         ["Cu", "1.00", "0.00"],
-        ["Fe", "0.00", "1.00"]
+        ["Fe", "0.00", "1.00"],
       ],
-      freeText: []
+      freeText: [],
     });
     expect(opt.visualMap).toBeDefined();
-    const series = (opt.series as Array<{ type: string; data: Array<[number, number, number]> }>)[0];
+    const series = (
+      opt.series as Array<{ type: string; data: Array<[number, number, number]> }>
+    )[0];
     expect(series.type).toBe("heatmap");
     expect(series.data).toContainEqual([0, 0, 1]);
     expect(series.data).toContainEqual([1, 1, 1]);

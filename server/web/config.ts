@@ -25,6 +25,6 @@ export async function loadWebConfig(options: LoadWebConfigOptions = {}): Promise
   const fileEnv = await readEnvFile(join(cwd, ".env.local"));
   const env = { ...fileEnv, ...(options.env ?? process.env) };
   return {
-    mineruApiKey: readOptional(env, "DIKW_WEB_MINERU_API_KEY")
+    mineruApiKey: readOptional(env, "DIKW_WEB_MINERU_API_KEY"),
   };
 }

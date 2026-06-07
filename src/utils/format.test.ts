@@ -6,7 +6,7 @@ import {
   formatScore,
   isTerminalTask,
   statusTone,
-  truncateMiddle
+  truncateMiddle,
 } from "./format";
 
 describe("format helpers", () => {
@@ -32,6 +32,8 @@ describe("format helpers", () => {
     expect(statusTone("unknown")).toBe("muted");
     expect(isTerminalTask("succeeded")).toBe(true);
     expect(isTerminalTask("running")).toBe(false);
-    expect(truncateMiddle("wiki/a/very/long/path/to/a/document.md", 18)).toMatch(/^wiki\/a\/v\.\.\./);
+    expect(truncateMiddle("wiki/a/very/long/path/to/a/document.md", 18)).toMatch(
+      /^wiki\/a\/v\.\.\./,
+    );
   });
 });

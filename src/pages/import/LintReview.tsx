@@ -16,11 +16,9 @@ export function LintReview({
   proposals,
   initialPicked,
   onApply,
-  onSkipAll
+  onSkipAll,
 }: LintReviewProps) {
-  const [picked, setPicked] = useState<Set<number>>(
-    () => new Set(initialPicked)
-  );
+  const [picked, setPicked] = useState<Set<number>>(() => new Set(initialPicked));
   const togglePick = (i: number) =>
     setPicked((prev) => {
       const next = new Set(prev);
@@ -33,17 +31,14 @@ export function LintReview({
   // pick array shape (zero-based indices into the original proposals list)
   // is part of the lint-apply wire contract — see core's routes_lint.py.
   const groups = useMemo(() => {
-    const byKind = new Map<
-      LintKind,
-      Array<{ proposal: FixProposal; idx: number }>
-    >();
+    const byKind = new Map<LintKind, Array<{ proposal: FixProposal; idx: number }>>();
     proposals.forEach((p, idx) => {
       if (!byKind.has(p.issue_kind)) byKind.set(p.issue_kind, []);
       byKind.get(p.issue_kind)!.push({ proposal: p, idx });
     });
     return Array.from(byKind.entries()).map(([kind, items]) => ({
       kind,
-      items
+      items,
     }));
   }, [proposals]);
 
@@ -55,12 +50,8 @@ export function LintReview({
       <section className="panel" data-testid="import-lint-review">
         <div className="import-preview-head">
           <div>
-            <div className="import-preview-head__title">
-              {copy.lintReviewTitle}
-            </div>
-            <div className="import-preview-head__hint">
-              {copy.lintReviewHint}
-            </div>
+            <div className="import-preview-head__title">{copy.lintReviewTitle}</div>
+            <div className="import-preview-head__hint">{copy.lintReviewHint}</div>
           </div>
           <div className="import-preview-head__actions">
             <button
@@ -75,9 +66,7 @@ export function LintReview({
             <button
               type="button"
               className="primary-button"
-              onClick={() =>
-                onApply(Array.from(picked).sort((a, b) => a - b))
-              }
+              onClick={() => onApply(Array.from(picked).sort((a, b) => a - b))}
               disabled={picked.size === 0}
               data-testid="import-lint-apply"
             >
@@ -95,17 +84,14 @@ export function LintReview({
             (allSelected
               ? " import-lint-checkbox--on"
               : someSelected
-              ? " import-lint-checkbox--mixed"
-              : "")
+                ? " import-lint-checkbox--mixed"
+                : "")
           }
           aria-hidden="true"
         >
           {allSelected ? <Check size={11} /> : null}
         </span>
-        <span
-          className="import-lint-bar__count"
-          data-testid="import-lint-selected-count"
-        >
+        <span className="import-lint-bar__count" data-testid="import-lint-selected-count">
           {copy.lintSelected.replace("{n}", String(picked.size))}
         </span>
         <span className="import-lint-bar__sep">·</span>
@@ -139,8 +125,8 @@ export function LintReview({
                     (tone === "amber"
                       ? " import-lint-group__pill--amber"
                       : tone === "red"
-                      ? " import-lint-group__pill--red"
-                      : "")
+                        ? " import-lint-group__pill--red"
+                        : "")
                   }
                 >
                   {copy.lintKinds[g.kind] ?? g.kind}
@@ -155,10 +141,7 @@ export function LintReview({
                   return (
                     <div
                       key={p.proposal_id}
-                      className={
-                        "import-lint-card" +
-                        (on ? "" : " import-lint-card--off")
-                      }
+                      className={"import-lint-card" + (on ? "" : " import-lint-card--off")}
                       onClick={() => togglePick(idx)}
                       role="button"
                       tabIndex={0}
@@ -181,32 +164,19 @@ export function LintReview({
                         {on ? <Check size={11} /> : null}
                       </span>
                       <div className="import-lint-card__body">
-                        <div className="import-lint-card__path">
-                          {p.issue_path}
-                        </div>
-                        <div className="import-lint-card__detail">
-                          {p.issue_detail}
-                        </div>
-                        <div className="import-lint-card__rationale">
-                          {p.rationale}
-                        </div>
+                        <div className="import-lint-card__path">{p.issue_path}</div>
+                        <div className="import-lint-card__detail">{p.issue_detail}</div>
+                        <div className="import-lint-card__rationale">{p.rationale}</div>
                       </div>
                       <div className="import-lint-card__fix">
-                        <div className="import-lint-card__fix-label">
-                          {copy.lintProposedFix}
-                        </div>
+                        <div className="import-lint-card__fix-label">{copy.lintProposedFix}</div>
                         <div className="import-lint-card__fix-body">
                           {p.operations.length === 0 ? (
                             <span className="import-lint-card__fix-empty">—</span>
                           ) : (
                             p.operations.map((op, k) => (
-                              <div
-                                key={k}
-                                className="import-lint-card__fix-op"
-                              >
-                                <span className="import-lint-card__fix-op-kind">
-                                  {op.kind}
-                                </span>
+                              <div key={k} className="import-lint-card__fix-op">
+                                <span className="import-lint-card__fix-op-kind">{op.kind}</span>
                                 <span>{op.path}</span>
                               </div>
                             ))

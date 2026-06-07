@@ -17,18 +17,18 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: "http://127.0.0.1:4321",
-    trace: "on-first-retry"
+    trace: "on-first-retry",
   },
   webServer: {
     command: `${npmRun} dev`,
     port: 4321,
     reuseExistingServer: true,
-    timeout: 120_000
+    timeout: 120_000,
   },
   projects: [
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] }
-    }
-  ]
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
 });

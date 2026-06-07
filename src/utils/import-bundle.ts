@@ -3,12 +3,7 @@
 // formula. Divergence shows up as ``manifest_package_sha256_mismatch`` from
 // the server, so this file must stay aligned with the Python source of truth.
 
-import {
-  extractAssetRefs,
-  isRemoteRef,
-  resolveAssetRef,
-  stripFrontmatter
-} from "./md-asset-refs";
+import { extractAssetRefs, isRemoteRef, resolveAssetRef, stripFrontmatter } from "./md-asset-refs";
 import { buildTar, splitUstarPath } from "./tar";
 
 export { buildTar, splitUstarPath };
@@ -21,7 +16,7 @@ export const ASSET_EXTENSIONS: ReadonlySet<string> = new Set([
   ".webp",
   ".gif",
   ".svg",
-  ".pdf"
+  ".pdf",
 ]);
 
 export interface ManifestFileEntry {
@@ -131,7 +126,7 @@ export function scanFiles(files: File[]): ScanResult {
         skipped.push({
           path: rel,
           reason: "duplicate_path",
-          detail: `${existing.size}B vs ${file.size}B`
+          detail: `${existing.size}B vs ${file.size}B`,
         });
       }
       continue;
@@ -183,7 +178,7 @@ function hex(bytes: Uint8Array): string {
  *  — must agree byte-for-byte with ``md_inspect.package_sha256``. */
 export function computePackageSha256(
   mdSha: string,
-  assetShas: ReadonlyArray<string>
+  assetShas: ReadonlyArray<string>,
 ): Promise<string> {
   const sorted = [mdSha, ...assetShas].slice().sort();
   return sha256HexString(sorted.join("\n"));
@@ -192,9 +187,7 @@ export function computePackageSha256(
 /** Inspect every md: extract refs, resolve them against the file inventory.
  *  Reports missing assets + empty-body cases via ``skipped`` and excludes
  *  those packages from the build. */
-export async function inspectMarkdownFiles(
-  scan: ScanResult
-): Promise<{
+export async function inspectMarkdownFiles(scan: ScanResult): Promise<{
   packages: Array<{ mdProjectRel: string; assetsProjectRel: string[] }>;
   skipped: SkippedFile[];
 }> {
@@ -217,7 +210,7 @@ export async function inspectMarkdownFiles(
     for (const ref of refs) {
       const resolved = resolveAssetRef(ref.originalPath, {
         mdRelPath: mdRel,
-        available
+        available,
       });
       if (resolved === null) {
         // ``http(s)://`` / ``data:`` / other non-file schemes are silently
@@ -237,7 +230,7 @@ export async function inspectMarkdownFiles(
       skipped.push({
         path: mdRel,
         reason: "asset_missing",
-        detail: firstMissing
+        detail: firstMissing,
       });
       continue;
     }
@@ -249,7 +242,7 @@ export async function inspectMarkdownFiles(
 export async function gzip(bytes: Uint8Array): Promise<Blob> {
   if (typeof CompressionStream === "undefined") {
     throw new Error(
-      "CompressionStream is not available in this browser; please upgrade to Chrome 80+, Firefox 113+, or Safari 16.4+."
+      "CompressionStream is not available in this browser; please upgrade to Chrome 80+, Firefox 113+, or Safari 16.4+.",
     );
   }
   // Don't go through Blob.stream() — jsdom's Blob doesn't implement it. The
@@ -268,7 +261,7 @@ export async function gzip(bytes: Uint8Array): Promise<Blob> {
 
 export async function buildImportBundle(
   files: File[],
-  opts: BuildBundleOptions = {}
+  opts: BuildBundleOptions = {},
 ): Promise<ImportBundleResult> {
   const max = opts.maxTotalBytes ?? DEFAULT_MAX_TOTAL_BYTES;
   const scan = scanFiles(files);
@@ -277,7 +270,7 @@ export async function buildImportBundle(
   if (packages.length === 0) {
     throw new ImportBundleError(
       "no_packages",
-      "No importable markdown files were found. Each .md must have a non-empty body and resolvable asset references."
+      "No importable markdown files were found. Each .md must have a non-empty body and resolvable asset references.",
     );
   }
 
@@ -304,7 +297,7 @@ export async function buildImportBundle(
     skipped.push({
       path: projRel,
       reason: "unreferenced_asset",
-      detail: `${file.size}B`
+      detail: `${file.size}B`,
     });
   }
 
@@ -326,7 +319,7 @@ export async function buildImportBundle(
   if (totalBytes > max) {
     throw new ImportBundleError(
       "too_large",
-      `Selected files total ${totalBytes} bytes, exceeding the ${max}-byte limit.`
+      `Selected files total ${totalBytes} bytes, exceeding the ${max}-byte limit.`,
     );
   }
 
@@ -345,7 +338,7 @@ export async function buildImportBundle(
   const manifestFiles: ManifestFileEntry[] = entries.map((e) => ({
     path: e.archivePath,
     size: e.size,
-    sha256: e.sha
+    sha256: e.sha,
   }));
 
   const manifestPackages: ManifestPackageEntry[] = [];
@@ -360,19 +353,17 @@ export async function buildImportBundle(
       id: i,
       md_path: mdArchive,
       asset_paths: assetArchives,
-      package_sha256: pkgSha
+      package_sha256: pkgSha,
     });
   }
 
   const manifest: ManifestJson = {
     files: manifestFiles,
     packages: manifestPackages,
-    total_bytes: totalBytes
+    total_bytes: totalBytes,
   };
 
-  const tarBytes = buildTar(
-    entries.map((e) => ({ archivePath: e.archivePath, data: e.data }))
-  );
+  const tarBytes = buildTar(entries.map((e) => ({ archivePath: e.archivePath, data: e.data })));
   const payload = await gzip(tarBytes);
 
   return {
@@ -381,7 +372,7 @@ export async function buildImportBundle(
     manifest,
     filesCount: entries.length,
     totalBytes,
-    skipped
+    skipped,
   };
 }
 

@@ -5,14 +5,14 @@ import {
   getMarkdownTitle,
   parseMarkdownDocument,
   slugifyHeading,
-  uniqueHeadingSlug
+  uniqueHeadingSlug,
 } from "./markdown";
 import { MarkdownView } from "../components/MarkdownView";
 
 describe("parseMarkdownDocument", () => {
   it("removes YAML frontmatter and parses common metadata", () => {
     const parsed = parseMarkdownDocument(
-      "---\ntitle: Architecture\ntags:\n- DIKW\n- modules\nsources:\n- sources/a.md\n---\n\n# Architecture\n\nBody"
+      "---\ntitle: Architecture\ntags:\n- DIKW\n- modules\nsources:\n- sources/a.md\n---\n\n# Architecture\n\nBody",
     );
 
     expect(parsed.meta.title).toBe("Architecture");
@@ -53,7 +53,9 @@ describe("slugifyHeading", () => {
   it("produces identical slugs for the original heading and its inline-injected form", () => {
     // Asserts the invariant that the two code paths (heading_open vs
     // extractHeadingsWithSlugs) cannot diverge after injectInlineRefs runs.
-    expect(slugifyHeading("Architecture source")).toBe(slugifyHeading("[[Architecture|Architecture]] source"));
+    expect(slugifyHeading("Architecture source")).toBe(
+      slugifyHeading("[[Architecture|Architecture]] source"),
+    );
   });
 });
 
@@ -79,7 +81,7 @@ describe("extractHeadingsWithSlugs", () => {
     expect(extractHeadingsWithSlugs(body)).toEqual([
       { level: 1, title: "Top", slug: "top" },
       { level: 2, title: "Sub", slug: "sub" },
-      { level: 3, title: "Deep", slug: "deep" }
+      { level: 3, title: "Deep", slug: "deep" },
     ]);
   });
 
@@ -89,9 +91,9 @@ describe("extractHeadingsWithSlugs", () => {
     expect(headings.map((h) => h.slug)).toEqual(["introduction", "other", "introduction-2"]);
 
     const { container } = render(<MarkdownView body={body} />);
-    const ids = Array.from(container.querySelectorAll("h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]")).map(
-      (el) => (el as HTMLElement).id
-    );
+    const ids = Array.from(
+      container.querySelectorAll("h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]"),
+    ).map((el) => (el as HTMLElement).id);
     expect(ids).toEqual(headings.map((h) => h.slug));
     for (const heading of headings) {
       expect(container.querySelector(`#${heading.slug}`)).not.toBeNull();
@@ -125,7 +127,8 @@ describe("extractHeadingsWithSlugs", () => {
     // `<details data-foo="bar">` does not pass parseDetailsOpenAttribute, so
     // MarkdownView leaves the block raw and the inner heading enters the main
     // markdown stream. Extractor must follow the same behavior.
-    const body = "# Top\n\n<details data-foo=\"bar\"><summary>x</summary>\n\n## Inside\n\n</details>\n";
+    const body =
+      '# Top\n\n<details data-foo="bar"><summary>x</summary>\n\n## Inside\n\n</details>\n';
     expect(extractHeadingsWithSlugs(body).map((h) => h.slug)).toEqual(["top", "inside"]);
   });
 });

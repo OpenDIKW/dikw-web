@@ -44,7 +44,10 @@ export const test = base.extend<{ consoleGuard: boolean }>({
     await use(page);
 
     if (consoleGuard) {
-      expect(violations, `expected a clean browser console, but saw:\n${violations.join("\n")}`).toEqual([]);
+      expect(
+        violations,
+        `expected a clean browser console, but saw:\n${violations.join("\n")}`,
+      ).toEqual([]);
     }
   },
 });

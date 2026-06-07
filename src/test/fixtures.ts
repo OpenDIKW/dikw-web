@@ -10,7 +10,7 @@ import type {
   TaskEvent,
   TaskListPage,
   TaskRow,
-  TaskRowSummary
+  TaskRowSummary,
 } from "../types";
 
 export const infoFixture: InfoResponse = {
@@ -21,9 +21,9 @@ export const infoFixture: InfoResponse = {
     llm: "anthropic_compat",
     llm_model: "MiniMax-M2.7",
     embedding: "openai_compat",
-    embedding_model: "Qwen3-Embedding-0.6B"
+    embedding_model: "Qwen3-Embedding-0.6B",
   },
-  auth_required: false
+  auth_required: false,
 };
 
 export const healthFixture: HealthReport = {
@@ -35,7 +35,7 @@ export const healthFixture: HealthReport = {
     sources: 2,
     knowledge_pages: 2,
     wisdom_items: 4,
-    chunks: 31
+    chunks: 31,
   },
   providers: {
     llm: {
@@ -45,7 +45,7 @@ export const healthFixture: HealthReport = {
       max_retries: 2,
       max_tokens_synth: 2048,
       timeout_seconds: 60,
-      api_key_present: true
+      api_key_present: true,
     },
     embedding: {
       provider: "openai_compat",
@@ -60,9 +60,9 @@ export const healthFixture: HealthReport = {
       timeout_seconds: 60,
       provider_label: "gitee",
       api_key_present: true,
-      multimodal: null
-    }
-  }
+      multimodal: null,
+    },
+  },
 };
 
 export const statusFixture: StorageCounts = {
@@ -72,7 +72,7 @@ export const statusFixture: StorageCounts = {
   links: 3,
   last_knowledge_log_ts: 1777819200,
   assets: 0,
-  asset_embeddings: 0
+  asset_embeddings: 0,
 };
 
 export const wikiPagesFixture: DocumentRecord[] = [
@@ -84,7 +84,7 @@ export const wikiPagesFixture: DocumentRecord[] = [
     hash: "hash-a",
     mtime: 1777819200,
     layer: "knowledge",
-    active: true
+    active: true,
   },
   {
     doc_id: "knowledge-synthesis",
@@ -94,8 +94,8 @@ export const wikiPagesFixture: DocumentRecord[] = [
     hash: "hash-s",
     mtime: 1777819300,
     layer: "knowledge",
-    active: true
-  }
+    active: true,
+  },
 ];
 
 export const sourcePagesFixture: DocumentRecord[] = [
@@ -107,8 +107,8 @@ export const sourcePagesFixture: DocumentRecord[] = [
     hash: "hash-src-a",
     mtime: 1777819100,
     layer: "source",
-    active: true
-  }
+    active: true,
+  },
 ];
 
 export const graphResultFixture: GraphResult = {
@@ -123,7 +123,7 @@ export const graphResultFixture: GraphResult = {
       active: true,
       mtime: 1777819200,
       inbound: 0,
-      outbound: 1
+      outbound: 1,
     },
     {
       id: "knowledge/synthesis.md",
@@ -133,7 +133,7 @@ export const graphResultFixture: GraphResult = {
       active: true,
       mtime: 1777819300,
       inbound: 1,
-      outbound: 0
+      outbound: 0,
     },
     {
       id: "knowledge/orphan.md",
@@ -143,7 +143,7 @@ export const graphResultFixture: GraphResult = {
       active: true,
       mtime: 1777819400,
       inbound: 0,
-      outbound: 0
+      outbound: 0,
     },
     {
       id: "sources/architecture.md",
@@ -153,8 +153,8 @@ export const graphResultFixture: GraphResult = {
       active: true,
       mtime: 1777819100,
       inbound: 0,
-      outbound: 0
-    }
+      outbound: 0,
+    },
   ],
   edges: [
     {
@@ -164,22 +164,22 @@ export const graphResultFixture: GraphResult = {
       type: "wikilink",
       target_text: "Synthesis",
       anchor: "Details",
-      weight: 2
-    }
+      weight: 2,
+    },
   ],
   unresolved: [
     {
       source: "knowledge/architecture.md",
       target_text: "Missing Concept",
       anchor: null,
-      count: 2
-    }
+      count: 2,
+    },
   ],
   stats: {
     node_count: 4,
     edge_count: 1,
-    unresolved_count: 2
-  }
+    unresolved_count: 2,
+  },
 };
 
 export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
@@ -191,7 +191,7 @@ export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
     body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\n---\n\n# Architecture\n\nLayered DIKW notes.\n\nSee [[Synthesis]].",
     anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }],
     assets: [],
-    frontmatter: { title: "Architecture", tags: ["DIKW"], sources: ["source/a.md"] }
+    frontmatter: { title: "Architecture", tags: ["DIKW"], sources: ["source/a.md"] },
   },
   "knowledge/synthesis.md": {
     doc_id: "knowledge-synthesis",
@@ -201,7 +201,7 @@ export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
     body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body.",
     anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }],
     assets: [],
-    frontmatter: { title: "Synthesis" }
+    frontmatter: { title: "Synthesis" },
   },
   "sources/architecture.md": {
     doc_id: "source-architecture",
@@ -214,8 +214,8 @@ export const wikiPageBodiesFixture: Record<string, PageReadResult> = {
     body: "# Architecture source\n\nThe Architecture is the main topic of this source.",
     anchors: [{ chunk_id: 201, seq: 1, start: 0, end: 38 }],
     assets: [],
-    frontmatter: {}
-  }
+    frontmatter: {},
+  },
 };
 
 export const hitFixture: Hit = {
@@ -230,7 +230,7 @@ export const hitFixture: Hit = {
   layer: "knowledge",
   start: 0,
   end: 21,
-  text: "Layered DIKW notes."
+  text: "Layered DIKW notes.",
 };
 
 export const retrieveEventsFixture: RetrieveStreamEvent[] = [
@@ -248,11 +248,11 @@ export const retrieveEventsFixture: RetrieveStreamEvent[] = [
           layer: "knowledge",
           title: "Architecture",
           score: 0.982,
-          hit_chunk_ids: [101]
-        }
-      ]
-    }
-  }
+          hit_chunk_ids: [101],
+        },
+      ],
+    },
+  },
 ];
 
 export const evalResultFixture = {
@@ -266,13 +266,13 @@ export const evalResultFixture = {
     "doc/hit_at_10": 1,
     hit_at_10: 1,
     mrr: 1,
-    recall_at_100: 1
+    recall_at_100: 1,
   },
   thresholds: {
-    hit_at_3: 0.9
+    hit_at_3: 0.9,
   },
   per_query: [{ q_id: "v1_tang_founding_zh" }, { q_id: "v1_negative_weather_zh" }],
-  negative_diagnostics: [{ q_id: "v1_negative_weather_zh" }]
+  negative_diagnostics: [{ q_id: "v1_negative_weather_zh" }],
 };
 
 export const taskRowsFixture: TaskRow[] = [
@@ -285,7 +285,7 @@ export const taskRowsFixture: TaskRow[] = [
     finished_at: "2026-05-05T09:37:25Z",
     params_digest: "5a516df64ddbc631",
     result: evalResultFixture,
-    error: null
+    error: null,
   },
   {
     task_id: "synth-task-1",
@@ -296,8 +296,8 @@ export const taskRowsFixture: TaskRow[] = [
     finished_at: "2026-05-03T15:21:14Z",
     params_digest: "f73c45125b85",
     result: { pages: 2, created: 1 },
-    error: null
-  }
+    error: null,
+  },
 ];
 
 export const manyTaskRowsFixture: TaskRow[] = Array.from({ length: 25 }, (_, index) => ({
@@ -309,7 +309,7 @@ export const manyTaskRowsFixture: TaskRow[] = Array.from({ length: 25 }, (_, ind
   finished_at: `2026-05-${String(10 + (index % 20)).padStart(2, "0")}T09:00:05Z`,
   params_digest: `digest-${index + 1}`,
   result: { added: index + 1 },
-  error: null
+  error: null,
 }));
 
 export function toTaskSummary(row: TaskRowSummary): TaskRowSummary {
@@ -320,18 +320,18 @@ export function toTaskSummary(row: TaskRowSummary): TaskRowSummary {
     created_at: row.created_at,
     started_at: row.started_at,
     finished_at: row.finished_at,
-    params_digest: row.params_digest
+    params_digest: row.params_digest,
   };
 }
 
 export function toTaskListPage(
   tasks: TaskRowSummary[],
-  opts: { nextCursor?: string | null; hasMore?: boolean } = {}
+  opts: { nextCursor?: string | null; hasMore?: boolean } = {},
 ): TaskListPage {
   return {
     tasks: tasks.map(toTaskSummary),
     next_cursor: opts.nextCursor ?? null,
-    has_more: opts.hasMore ?? false
+    has_more: opts.hasMore ?? false,
   };
 }
 
@@ -348,7 +348,7 @@ export const taskEventsFixture: TaskEvent[] = [
     seq: 1,
     ts: "2026-05-05T09:37:11Z",
     task_id: "eval-task-1",
-    op: "eval"
+    op: "eval",
   },
   {
     type: "progress",
@@ -356,7 +356,7 @@ export const taskEventsFixture: TaskEvent[] = [
     ts: "2026-05-05T09:37:12Z",
     phase: "ingest",
     current: 1,
-    total: 1
+    total: 1,
   },
   {
     type: "progress",
@@ -365,7 +365,7 @@ export const taskEventsFixture: TaskEvent[] = [
     phase: "query",
     current: 1,
     total: 2,
-    detail: { mode: "hybrid", q_id: "v1_tang_founding_zh" }
+    detail: { mode: "hybrid", q_id: "v1_tang_founding_zh" },
   },
   {
     type: "final",
@@ -373,8 +373,8 @@ export const taskEventsFixture: TaskEvent[] = [
     ts: "2026-05-05T09:37:25Z",
     status: "succeeded",
     result: evalResultFixture,
-    error: null
-  }
+    error: null,
+  },
 ];
 
 export const ingestFileErrorEventsFixture: TaskEvent[] = [
@@ -383,7 +383,7 @@ export const ingestFileErrorEventsFixture: TaskEvent[] = [
     seq: 1,
     ts: "2026-05-05T09:37:11Z",
     task_id: "ingest-task-1",
-    op: "ingest"
+    op: "ingest",
   },
   {
     type: "partial",
@@ -393,8 +393,8 @@ export const ingestFileErrorEventsFixture: TaskEvent[] = [
     payload: {
       path: "sources/broken.md",
       kind: "parse_error",
-      message: "invalid YAML front matter"
-    }
+      message: "invalid YAML front matter",
+    },
   },
   {
     type: "final",
@@ -412,12 +412,12 @@ export const ingestFileErrorEventsFixture: TaskEvent[] = [
         {
           path: "sources/broken.md",
           kind: "parse_error",
-          message: "invalid YAML front matter"
-        }
-      ]
+          message: "invalid YAML front matter",
+        },
+      ],
     },
-    error: null
-  }
+    error: null,
+  },
 ];
 
 export async function* createAsyncEvents<T>(events: T[]): AsyncGenerator<T> {
@@ -437,7 +437,7 @@ export function manyTaskEventsFixture(count: number): TaskEvent[] {
       ts: `2026-05-17T10:00:${String(index % 60).padStart(2, "0")}Z`,
       phase: "embed_chunks",
       current: index + 1,
-      total: total - 1
+      total: total - 1,
     });
   }
   events.push({
@@ -446,7 +446,7 @@ export function manyTaskEventsFixture(count: number): TaskEvent[] {
     ts: "2026-05-17T10:01:00Z",
     status: "succeeded",
     result: { added: total - 1 },
-    error: null
+    error: null,
   });
   return events;
 }

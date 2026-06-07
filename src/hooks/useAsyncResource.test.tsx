@@ -4,9 +4,7 @@ import { useAsyncResource } from "./useAsyncResource";
 
 describe("useAsyncResource", () => {
   it("loads data and reloads through the public hook API", async () => {
-    const load = vi.fn()
-      .mockResolvedValueOnce("first")
-      .mockResolvedValueOnce("second");
+    const load = vi.fn().mockResolvedValueOnce("first").mockResolvedValueOnce("second");
 
     const { result } = renderHook(() => useAsyncResource(load, []));
 

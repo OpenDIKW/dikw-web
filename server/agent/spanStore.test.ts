@@ -14,7 +14,7 @@ function row(overrides: Partial<SpanRow> & Pick<SpanRow, "spanId" | "name">): Sp
     attributes: {},
     sessionId: "s1",
     invocationId: "inv-1",
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -28,8 +28,8 @@ describe("SpanStore.getSessionTraces", () => {
         sessionId: null,
         invocationId: null,
         startTimeMs: T0,
-        durationMs: 4_200
-      })
+        durationMs: 4_200,
+      }),
     );
     store.record(
       row({
@@ -38,8 +38,8 @@ describe("SpanStore.getSessionTraces", () => {
         name: "invoke_agent dikw_agent",
         startTimeMs: T0 + 5,
         durationMs: 4_185,
-        attributes: { "gen_ai.conversation.id": "s1" }
-      })
+        attributes: { "gen_ai.conversation.id": "s1" },
+      }),
     );
     store.record(
       row({
@@ -50,8 +50,8 @@ describe("SpanStore.getSessionTraces", () => {
         durationMs: 900,
         attributes: { "gen_ai.request.model": "MiniMax-M3" },
         tokensInput: 1_240,
-        tokensOutput: 58
-      })
+        tokensOutput: 58,
+      }),
     );
     store.record(
       row({
@@ -59,8 +59,8 @@ describe("SpanStore.getSessionTraces", () => {
         parentSpanId: "agent",
         name: "execute_tool retrieve_knowledge",
         startTimeMs: T0 + 940,
-        durationMs: 1_500
-      })
+        durationMs: 1_500,
+      }),
     );
   }
 
@@ -98,8 +98,8 @@ describe("SpanStore.getSessionTraces", () => {
         traceId: "t2",
         name: "invocation",
         sessionId: null,
-        invocationId: null
-      })
+        invocationId: null,
+      }),
     );
     store.record(
       row({
@@ -107,18 +107,23 @@ describe("SpanStore.getSessionTraces", () => {
         traceId: "t2",
         name: "call_llm",
         sessionId: "s2",
-        invocationId: "inv-2"
-      })
+        invocationId: "inv-2",
+      }),
     );
 
     const s1 = store.getSessionTraces("s1");
     expect(s1.invocations).toHaveLength(1);
-    expect(s1.invocations[0].spans.every((span) => span.spanId.startsWith("s2-") === false)).toBe(true);
+    expect(s1.invocations[0].spans.every((span) => span.spanId.startsWith("s2-") === false)).toBe(
+      true,
+    );
 
     const s2 = store.getSessionTraces("s2");
     expect(s2.invocations).toHaveLength(1);
     // s2 root (traceId t2, sessionId null) re-attached + the s2 call_llm.
-    expect(s2.invocations[0].spans.map((span) => span.spanId).sort()).toEqual(["s2-llm", "s2-root"]);
+    expect(s2.invocations[0].spans.map((span) => span.spanId).sort()).toEqual([
+      "s2-llm",
+      "s2-root",
+    ]);
   });
 
   it("returns no invocations for an unknown session", () => {

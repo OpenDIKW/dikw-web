@@ -32,7 +32,7 @@ export function parseNdjsonBuffer(buffer: string): NdjsonParseResult {
 }
 
 export async function* decodeNdjsonStream(
-  stream: ReadableStream<Uint8Array>
+  stream: ReadableStream<Uint8Array>,
 ): AsyncGenerator<unknown> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();

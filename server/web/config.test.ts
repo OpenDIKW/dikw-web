@@ -35,7 +35,10 @@ describe("web config", () => {
   it("trims surrounding whitespace from the configured key", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-web-config-"));
     try {
-      const config = await loadWebConfig({ cwd, env: { DIKW_WEB_MINERU_API_KEY: "  spaced-secret  " } });
+      const config = await loadWebConfig({
+        cwd,
+        env: { DIKW_WEB_MINERU_API_KEY: "  spaced-secret  " },
+      });
 
       expect(config.mineruApiKey).toBe("spaced-secret");
     } finally {
@@ -60,7 +63,7 @@ describe("web config", () => {
       // Hard rename: the old names are no longer a fallback.
       const config = await loadWebConfig({
         cwd,
-        env: { MinerUAPIKey: "legacy-a", DIKW_AGENT_MINERU_API_KEY: "legacy-b" }
+        env: { MinerUAPIKey: "legacy-a", DIKW_AGENT_MINERU_API_KEY: "legacy-b" },
       });
 
       expect(config.mineruApiKey).toBeUndefined();

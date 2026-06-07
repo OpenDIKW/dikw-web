@@ -11,7 +11,7 @@ function doc(path: string, layer: DocumentRecord["layer"], title: string | null)
     hash: "0".repeat(64),
     mtime: 0,
     layer,
-    active: true
+    active: true,
   };
 }
 
@@ -22,7 +22,7 @@ function incoming(src_path: string): IncomingLink {
 const pages: DocumentRecord[] = [
   doc("knowledge/a.md", "knowledge", "Architecture"),
   doc("wisdom/b.md", "wisdom", "Lesson B"),
-  doc("sources/x.md", "source", "Source X")
+  doc("sources/x.md", "source", "Source X"),
 ];
 
 describe("resolveBacklinks", () => {
@@ -30,18 +30,23 @@ describe("resolveBacklinks", () => {
     const refs = resolveBacklinks([incoming("knowledge/a.md"), incoming("wisdom/b.md")], pages);
     expect(refs).toEqual([
       { path: "knowledge/a.md", title: "Architecture", layer: "knowledge" },
-      { path: "wisdom/b.md", title: "Lesson B", layer: "wisdom" }
+      { path: "wisdom/b.md", title: "Lesson B", layer: "wisdom" },
     ]);
   });
 
   it("falls back to the basename when the linking page has no title", () => {
-    const refs = resolveBacklinks([incoming("knowledge/a.md")], [doc("knowledge/a.md", "knowledge", null)]);
+    const refs = resolveBacklinks(
+      [incoming("knowledge/a.md")],
+      [doc("knowledge/a.md", "knowledge", null)],
+    );
     expect(refs).toEqual([{ path: "knowledge/a.md", title: "a", layer: "knowledge" }]);
   });
 
   it("skips incoming links whose src_path is missing or points to an inactive page", () => {
     expect(resolveBacklinks([incoming("knowledge/ghost.md")], pages)).toEqual([]);
-    const inactive: DocumentRecord[] = [{ ...doc("knowledge/stale.md", "knowledge", "Stale"), active: false }];
+    const inactive: DocumentRecord[] = [
+      { ...doc("knowledge/stale.md", "knowledge", "Stale"), active: false },
+    ];
     expect(resolveBacklinks([incoming("knowledge/stale.md")], inactive)).toEqual([]);
   });
 
@@ -53,7 +58,7 @@ describe("resolveBacklinks", () => {
 
   it("optionally filters to the requested layers", () => {
     const refs = resolveBacklinks([incoming("knowledge/a.md"), incoming("wisdom/b.md")], pages, {
-      layers: ["wisdom"]
+      layers: ["wisdom"],
     });
     expect(refs).toEqual([{ path: "wisdom/b.md", title: "Lesson B", layer: "wisdom" }]);
   });
@@ -68,12 +73,14 @@ describe("resolveDerivedPages", () => {
     const refs = resolveDerivedPages([derived("knowledge/a.md"), derived("wisdom/b.md")], pages);
     expect(refs).toEqual([
       { path: "knowledge/a.md", title: "Architecture", layer: "knowledge" },
-      { path: "wisdom/b.md", title: "Lesson B", layer: "wisdom" }
+      { path: "wisdom/b.md", title: "Lesson B", layer: "wisdom" },
     ]);
   });
 
   it("drops derived entries whose path points to an inactive page", () => {
-    const inactive: DocumentRecord[] = [{ ...doc("knowledge/stale.md", "knowledge", "Stale"), active: false }];
+    const inactive: DocumentRecord[] = [
+      { ...doc("knowledge/stale.md", "knowledge", "Stale"), active: false },
+    ];
     expect(resolveDerivedPages([derived("knowledge/stale.md")], inactive)).toEqual([]);
   });
 
@@ -92,14 +99,20 @@ describe("resolveDerivedPages", () => {
 
   it("falls back to path when both pages.data and wire title are missing", () => {
     const refs = resolveDerivedPages([derived("knowledge/unknown.md", null)], pages);
-    expect(refs).toEqual([{ path: "knowledge/unknown.md", title: "knowledge/unknown.md", layer: "knowledge" }]);
+    expect(refs).toEqual([
+      { path: "knowledge/unknown.md", title: "knowledge/unknown.md", layer: "knowledge" },
+    ]);
   });
 
   it("still drops entries whose path matches an inactive page", () => {
     // Inactive doc takes precedence over the wire title — a tombstoned page
     // should not silently reappear in the panel.
-    const inactive: DocumentRecord[] = [{ ...doc("knowledge/stale.md", "knowledge", "Stale"), active: false }];
-    expect(resolveDerivedPages([derived("knowledge/stale.md", "Stale wire title")], inactive)).toEqual([]);
+    const inactive: DocumentRecord[] = [
+      { ...doc("knowledge/stale.md", "knowledge", "Stale"), active: false },
+    ];
+    expect(
+      resolveDerivedPages([derived("knowledge/stale.md", "Stale wire title")], inactive),
+    ).toEqual([]);
   });
 
   it("infers wisdom layer from path for cache-lag entries", () => {
@@ -108,9 +121,11 @@ describe("resolveDerivedPages", () => {
     // "knowledge" would mislabel the chip until the next pages reload.
     const refs = resolveDerivedPages(
       [derived("wisdom/insight.md", "Insight on architecture")],
-      pages
+      pages,
     );
-    expect(refs).toEqual([{ path: "wisdom/insight.md", title: "Insight on architecture", layer: "wisdom" }]);
+    expect(refs).toEqual([
+      { path: "wisdom/insight.md", title: "Insight on architecture", layer: "wisdom" },
+    ]);
   });
 });
 
@@ -118,10 +133,14 @@ describe("mergeSourceReferences", () => {
   it("marks linked+sourced when a path appears in both lists", () => {
     const merged = mergeSourceReferences(
       [{ path: "knowledge/a.md", title: "Architecture", layer: "knowledge" }],
-      [{ path: "knowledge/a.md", title: "Architecture", layer: "knowledge" }]
+      [{ path: "knowledge/a.md", title: "Architecture", layer: "knowledge" }],
     );
     expect(merged).toHaveLength(1);
-    expect(merged[0]).toMatchObject({ path: "knowledge/a.md", title: "Architecture", layer: "knowledge" });
+    expect(merged[0]).toMatchObject({
+      path: "knowledge/a.md",
+      title: "Architecture",
+      layer: "knowledge",
+    });
     expect(new Set(merged[0]?.sources)).toEqual(new Set(["linked", "sourced"]));
   });
 
@@ -129,17 +148,21 @@ describe("mergeSourceReferences", () => {
     const merged = mergeSourceReferences(
       [
         { path: "knowledge/a.md", title: "Architecture", layer: "knowledge" },
-        { path: "knowledge/c.md", title: "Concepts", layer: "knowledge" }
+        { path: "knowledge/c.md", title: "Concepts", layer: "knowledge" },
       ],
       [
         { path: "knowledge/c.md", title: "Concepts", layer: "knowledge" },
-        { path: "knowledge/d.md", title: "Design", layer: "knowledge" }
-      ]
+        { path: "knowledge/d.md", title: "Design", layer: "knowledge" },
+      ],
     );
     // c is double-evidence (top); within single-evidence d is sourced-only
     // (above) and a is linked-only (below) — the two channels form
     // contiguous blocks instead of interleaving by title.
-    expect(merged.map((ref) => ref.path)).toEqual(["knowledge/c.md", "knowledge/d.md", "knowledge/a.md"]);
+    expect(merged.map((ref) => ref.path)).toEqual([
+      "knowledge/c.md",
+      "knowledge/d.md",
+      "knowledge/a.md",
+    ]);
     expect(new Set(merged[0]?.sources)).toEqual(new Set(["linked", "sourced"]));
     expect(merged[1]?.sources).toEqual(["sourced"]);
     expect(merged[2]?.sources).toEqual(["linked"]);
@@ -148,12 +171,12 @@ describe("mergeSourceReferences", () => {
   it("preserves linked-only and sourced-only entries with the right tag", () => {
     const merged = mergeSourceReferences(
       [{ path: "knowledge/a.md", title: "Architecture", layer: "knowledge" }],
-      [{ path: "knowledge/b.md", title: "Lesson B", layer: "wisdom" }]
+      [{ path: "knowledge/b.md", title: "Lesson B", layer: "wisdom" }],
     );
     // sourced-only sorts above linked-only within the single-evidence tier.
     expect(merged).toEqual([
       { path: "knowledge/b.md", title: "Lesson B", layer: "wisdom", sources: ["sourced"] },
-      { path: "knowledge/a.md", title: "Architecture", layer: "knowledge", sources: ["linked"] }
+      { path: "knowledge/a.md", title: "Architecture", layer: "knowledge", sources: ["linked"] },
     ]);
   });
 
@@ -165,8 +188,8 @@ describe("mergeSourceReferences", () => {
       [],
       [
         { path: "knowledge/a.md", title: "Architecture", layer: "knowledge" },
-        { path: "knowledge/a.md", title: "Architecture", layer: "knowledge" }
-      ]
+        { path: "knowledge/a.md", title: "Architecture", layer: "knowledge" },
+      ],
     );
     expect(merged).toHaveLength(1);
     expect(merged[0]?.sources).toEqual(["sourced"]);
@@ -174,7 +197,9 @@ describe("mergeSourceReferences", () => {
 
   it("does not mutate the inputs or share state across calls", () => {
     const linked = [{ path: "knowledge/a.md", title: "Architecture", layer: "knowledge" as const }];
-    const sourced = [{ path: "knowledge/a.md", title: "Architecture", layer: "knowledge" as const }];
+    const sourced = [
+      { path: "knowledge/a.md", title: "Architecture", layer: "knowledge" as const },
+    ];
     const linkedSnapshot = JSON.parse(JSON.stringify(linked));
     const sourcedSnapshot = JSON.parse(JSON.stringify(sourced));
     mergeSourceReferences(linked, sourced);

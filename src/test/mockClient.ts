@@ -23,7 +23,13 @@ export type MockDikwClient = DikwClient & {
 
 // Minimal ``TaskHandle`` for the TasksPage fire-op flow; override per test.
 function defaultHandle(op: string) {
-  return { task_id: `${op}-task`, op, status: "running", created_at: "2026-05-29T00:00:00Z", links: {} };
+  return {
+    task_id: `${op}-task`,
+    op,
+    status: "running",
+    created_at: "2026-05-29T00:00:00Z",
+    links: {},
+  };
 }
 
 export function createMockClient(coreId = ""): MockDikwClient {
@@ -55,6 +61,6 @@ export function createMockClient(coreId = ""): MockDikwClient {
     cancelTask: vi.fn().mockResolvedValue({}),
     // Stable identifier matching the same-origin proxy default — pages that
     // bind state to ``client.coreId`` need a deterministic value in tests.
-    coreId
+    coreId,
   } as unknown as MockDikwClient;
 }
