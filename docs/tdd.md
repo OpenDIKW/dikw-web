@@ -201,6 +201,7 @@ Locale and theme regressions should be caught at the browser boundary:
 - `npm run test:e2e`: Playwright browser tests with mocked `/v1` API responses.
 - `npm run smoke:core`: contract smoke against a LIVE `dikw-core` (not in CI; needs a reachable core).
 - `npm run verify`: typecheck, coverage, build, and E2E gate.
+- `npm run check:bundle`: gzip bundle budget against `dist/` (runs in CI after the verify gate).
 
 ## Test Boundaries
 

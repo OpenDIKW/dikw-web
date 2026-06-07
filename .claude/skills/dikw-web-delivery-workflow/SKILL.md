@@ -40,16 +40,21 @@ a fresh agent that didn't write the code).
 
 6. **Independent review (max 3 rounds).** Repeat until no new actionable findings
    or the cap is hit: `/codex:review --background` → evaluate, keep the valid
-   findings, fix. Then a final `/code-review` pass; resolve every finding.
+   findings, fix. Then a final `/code-review` pass; resolve every finding. Point
+   the reviewer (codex, a fresh agent, or yourself) at **`docs/review-rubric.md`**
+   so the project-specific principles get scored, not just generic correctness.
+   (Note: with `gh pr merge --auto`, CodeRabbit is often outraced and never
+   reviews — see [[feedback_pr_reviews_check]]; this local pass is the real gate.)
 
 7. **Sync docs.** Walk `CLAUDE.md`, `README.md`, and relevant `docs/*.md` against
    the diff. Any contract/behavior/command/doc-index that drifted is updated in
    the **same** change — not "later". (Disk `.md` is English-only in this repo.)
 
 8. **Final gate + PR.** `npm.cmd run verify` (typecheck + coverage + build + e2e)
-   green. Bump `package.json` version (3-digit SemVer) and add a `CHANGELOG.md`
-   entry when warranted. Branch with a descriptive name, commit
-   `<type>(<scope>): <subject>`, push, `gh pr create`.
+   green, then `npm.cmd run check:bundle` (gzip budget; also runs in CI). Bump
+   `package.json` version (3-digit SemVer) and add a `CHANGELOG.md` entry when
+   warranted. Branch with a descriptive name, commit `<type>(<scope>): <subject>`,
+   push, `gh pr create`.
 
 9. **Watch CI + PR comments; resolve then merge.** Actively watch both signals:
    - CI: `gh pr checks <N>` (`--watch` to block); failing logs

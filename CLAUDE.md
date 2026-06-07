@@ -61,10 +61,10 @@ End-to-end loop from request to landed PR. Run autonomously for behavior changes
 3. **Code-review loop — max 3 rounds by default.** Repeat until there are no new actionable findings or the cap is reached:
    - 3.1 Run `/codex:review --background` for an independent review pass.
    - 3.2 Evaluate the findings, decide which are valid, and fix.
-4. **Final pass.** Run `/code-review` and resolve every finding before continuing.
+4. **Final pass.** Run `/code-review`, scored against `docs/review-rubric.md` (the project-specific principles), and resolve every finding before continuing.
 5. **Verify in the browser.** For UI changes, invoke the `dikw-web-verify-frontend` skill: navigate the changed routes via Chrome MCP, confirm a clean runtime console on real data, exercise the affected interactions, and run the `docs/ui-checklist.md` rubric in light + dark — confirm the change actually rendered as intended, not just that unit tests pass.
 6. **Update markdown docs.** Walk `CLAUDE.md`, `README.md`, and the relevant `docs/*.md` against the diff; any contract, behavior, command, or doc index that drifted must be updated in the same change. Don't leave docs to "catch up later".
-7. **Create the PR.** Branch with a descriptive name, commit with `<type>(<scope>): <subject>` matching the project's existing convention (see recent `git log`), push, then `gh pr create`. CI auto-runs typecheck + coverage + build + e2e + Trivy. Bump `package.json.version` manually (standard 3-digit SemVer) when the change warrants it, and add an entry to `CHANGELOG.md` under the matching version heading.
+7. **Create the PR.** Branch with a descriptive name, commit with `<type>(<scope>): <subject>` matching the project's existing convention (see recent `git log`), push, then `gh pr create`. CI auto-runs typecheck + coverage + build + e2e + bundle budget + Trivy. Bump `package.json.version` manually (standard 3-digit SemVer) when the change warrants it, and add an entry to `CHANGELOG.md` under the matching version heading.
 8. **Monitor CI and PR comments; resolve as they surface, then merge.** After pushing, actively watch both signals — don't passively wait, and don't batch resolution to merge time.
    - **CI rollup**: `gh pr checks <N>` (or `--watch` to block until terminal). Failing job logs: `gh run view <run-id> --log-failed`. Flaky e2e gets **one** rerun, not five (see [[project_flaky_graph_e2e]] in memory for which test).
    - **PR review prose**: `gh api repos/{owner}/{repo}/pulls/{N}/reviews` for review bodies, `.../pulls/{N}/comments` for inline threads, `.../issues/{N}/comments` for top-level CodeRabbit summaries. `gh pr checks` shows pass/fail only, not the prose.
@@ -87,6 +87,8 @@ Windows shell: use `npm.cmd` (not `npm`) when invoking from PowerShell.
 - `npx playwright test tests/e2e/chat.spec.ts` — run one E2E spec.
 - `npm.cmd run build` — typecheck, `vite build` (browser bundle to `dist/`), then `build:server` (esbuild bundles `server/agent/standalone.ts` to `dist-server/standalone.mjs` with `--packages=external`, since ADK + MikroORM + native sqlite3 can't be bundled — so the sidecar imports its deps from a production `node_modules` at runtime). `npm.cmd start` runs that standalone sidecar.
 - `npm.cmd run verify` — full gate: typecheck + coverage + build + e2e. Run before committing behavior changes.
+- `npm.cmd run check:bundle` — gzip bundle budget (entry JS / total JS / CSS) against `dist/`; runs in CI after the verify gate. Raise the budgets in `scripts/check-bundle.mjs` deliberately, like the coverage thresholds — don't bump to pass.
+- `npm.cmd run smoke:core` — live-core `/v1` contract smoke (`scripts/smoke-core.mjs`, the `dikw-web-smoke-core` skill). Not a CI gate; needs a reachable core. Run after a `dikw-core` bump or before a demo.
 
 Codex-sandbox fallback when `npm.cmd run dev` fails with `Cannot read directory "../../.."`:
 

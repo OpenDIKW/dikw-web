@@ -11,6 +11,18 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **Bundle-size budget gate** (`npm run check:bundle` → `scripts/check-bundle.mjs`,
+  wired into CI after the verify gate). Asserts gzipped ceilings for the entry JS
+  (`index-*.js`), total JS, and CSS against `dist/`, catching the "a heavy lib
+  crept into the bundle" regression class that typecheck/tests can't see. Budgets
+  are inline with deliberate headroom over the 2026-06 baseline (entry 243 / total
+  1695 / CSS 25 KB gzip) and raised consciously like the coverage thresholds. The
+  CSS ceiling doubles as a backstop for the "no UI framework" rule. No new deps.
+- **Review rubric** (`docs/review-rubric.md`) — the project-specific lens for the
+  pre-merge independent review (Delivery Loop step 6): simplicity-first / surgical
+  / TDD, the repo traps generic reviewers miss (`server/**` `.js` imports, no UI
+  framework, token never exposed, single-language chrome), and the don't-touch
+  list. Wired into `dikw-web-delivery-workflow` and `CLAUDE.md`.
 - **Live-core contract smoke** (`npm run smoke:core` → `scripts/smoke-core.mjs`,
   driven by the new `dikw-web-smoke-core` skill). The e2e suite mocks `/v1`
   entirely, so it can't see real contract drift; this script asserts the consumed
