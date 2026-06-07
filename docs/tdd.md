@@ -206,7 +206,7 @@ Locale and theme regressions should be caught at the browser boundary:
 - Unit tests cover deep modules such as API URL/stream handling, markdown parsing, and formatting.
 - Component and hook tests use Testing Library and assert text, roles, errors, disabled states, and callbacks.
 - Page tests render pages with fixture-backed fake clients. They should cover the primary user flow per page before edge cases.
-- E2E tests use Playwright route mocks by default. They are a UI integration gate, not a real `dikw-core` smoke test.
+- E2E tests use Playwright route mocks by default. They are a UI integration gate, not a real `dikw-core` smoke test. Specs import `test`/`expect` from `tests/e2e/harness.ts`, which fails any test that emits a `console.error` or an uncaught `pageerror` (resource-load 404s and `AbortError` are allowlisted; opt a test out with `test.use({ consoleGuard: false })`).
 
 ## Coverage Policy
 

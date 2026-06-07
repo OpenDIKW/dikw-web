@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./harness";
 import { choCqaAssetId } from "./fixtures";
 import { mockDikwApi } from "./mockApi";
 

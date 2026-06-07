@@ -1,6 +1,6 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./harness";
 
 const execAsync = promisify(exec);
 

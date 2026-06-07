@@ -9,6 +9,28 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+### Added
+
+- **E2E console gate.** Every Playwright spec now imports `test`/`expect` from a
+  new `tests/e2e/harness.ts` instead of `@playwright/test`; the harness fails any
+  test that emits a `console.error` or an uncaught `pageerror`, turning "the
+  console stayed clean" from a manual review step into a deterministic gate.
+  Resource-load 404s (the suite intentionally 404s `config.json` and a missing
+  asset) and `AbortError` are allowlisted; a test that deliberately drives an
+  error path opts out with `test.use({ consoleGuard: false })`.
+- **Project verification skills** (`.claude/skills/`, now tracked in git via a
+  `.gitignore` exception while local settings stay ignored):
+  `dikw-web-verify-frontend` encodes the per-route browser-verification pass
+  (Delivery Loop step 5) with the project's hard-won gotchas (graph canvas needs
+  `--headed`, not Chrome MCP; `requestIdleCallback` paths only hit the timeout in
+  an MCP tab), and `dikw-web-delivery-workflow` makes the Delivery Loop an
+  executable orchestration of the existing skills.
+- **`docs/ui-checklist.md`** — a pass/fail rubric for the qualitative UI rules
+  (single-language chrome, dark reader contrast, small radii, no UI framework,
+  graph filters/legend/no-bloom, the markdown HTML allow-list), run by the
+  `dikw-web-verify-frontend` skill. Test/tooling/docs only — no runtime, wire, or
+  contract change, so no version bump.
+
 ### Changed
 
 - Extracted the dotenv helpers shared by both sidecar config loaders

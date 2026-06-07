@@ -4,7 +4,7 @@
 // bundle preview. We mock /web/mineru with playwright route handlers,
 // so the test never hits mineru.net.
 
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./harness";
 import { gzipSync } from "node:zlib";
 import { mockDikwApi } from "./mockApi";
 
