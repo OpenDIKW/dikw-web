@@ -12,7 +12,7 @@ import {
   Trash2,
   Wrench,
   X,
-  XCircle
+  XCircle,
 } from "lucide-react";
 import type { DikwClient } from "../api/client";
 import { AgentClient } from "../api/agentClient";
@@ -22,7 +22,13 @@ import { Notice } from "../components/Notice";
 import { normalizeKnowledgePath } from "../utils/knowledge-path";
 import { translations, type Locale } from "../i18n";
 import type { AgentClientLike } from "./agentTypes";
-import type { AgentMessage, AgentSession, AgentSource, AgentToolEvent, SessionSummary } from "../agent/types";
+import type {
+  AgentMessage,
+  AgentSession,
+  AgentSource,
+  AgentToolEvent,
+  SessionSummary,
+} from "../agent/types";
 
 interface ChatPageProps {
   client?: DikwClient;
@@ -54,7 +60,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   const stickToBottomRef = useRef<Record<ChatScrollPanel, boolean>>({
     conversation: true,
     sources: true,
-    tools: true
+    tools: true,
   });
 
   useEffect(() => {
@@ -203,16 +209,20 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
       current
         ? {
             ...current,
-            messages: [...(current.messages ?? []), localMessage("user", message)]
+            messages: [...(current.messages ?? []), localMessage("user", message)],
           }
-        : current
+        : current,
     );
 
     let receivedAssistantDelta = false;
     let receivedError = false;
     const assistantRepliesBefore = countAssistantReplies(session);
     try {
-      for await (const event of resolvedAgentClient.sendMessage(session.id, message, controller.signal)) {
+      for await (const event of resolvedAgentClient.sendMessage(
+        session.id,
+        message,
+        controller.signal,
+      )) {
         if (event.type === "message_delta") {
           receivedAssistantDelta = true;
           setStreamingAnswer((value) => value + event.delta);
@@ -265,7 +275,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
   // + kind, so a normalized-equal pair can't collide.
   const sources = [...(activeSession?.sources ?? []), ...streamingSources].reduce<AgentSource[]>(
     (acc, next) => mergeSources(acc, next),
-    []
+    [],
   );
   const toolEvents = [...(activeSession?.toolEvents ?? []), ...streamingTools];
 
@@ -291,14 +301,14 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
     stickToBottomRef.current = {
       conversation: true,
       sources: true,
-      tools: true
+      tools: true,
     };
   }
 
   function trackStickToBottom(panel: ChatScrollPanel, element: HTMLElement) {
     stickToBottomRef.current = {
       ...stickToBottomRef.current,
-      [panel]: isNearBottom(element)
+      [panel]: isNearBottom(element),
     };
   }
 
@@ -316,7 +326,12 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
         <aside className="agent-sessions" aria-label={copy.sessionsTitle}>
           <div className="agent-sessions__header">
             <strong>{copy.sessionsTitle}</strong>
-            <button className="icon-button" type="button" aria-label={copy.newSession} onClick={createSession}>
+            <button
+              className="icon-button"
+              type="button"
+              aria-label={copy.newSession}
+              onClick={createSession}
+            >
               <Plus size={16} />
             </button>
           </div>
@@ -350,7 +365,12 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                     <button className="icon-button" type="submit" aria-label={copy.saveTitle}>
                       <Check size={14} />
                     </button>
-                    <button className="icon-button" type="button" aria-label={copy.cancelRename} onClick={cancelRename}>
+                    <button
+                      className="icon-button"
+                      type="button"
+                      aria-label={copy.cancelRename}
+                      onClick={cancelRename}
+                    >
                       <X size={14} />
                     </button>
                   </form>
@@ -372,7 +392,9 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                       aria-expanded={menuOpenSessionId === session.id}
                       onClick={(event) => {
                         event.stopPropagation();
-                        setMenuOpenSessionId((current) => (current === session.id ? null : session.id));
+                        setMenuOpenSessionId((current) =>
+                          current === session.id ? null : session.id,
+                        );
                       }}
                     >
                       <MoreHorizontal size={14} />
@@ -467,7 +489,8 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                     // rename still carry wiki/ core paths and a "wiki" layer; normalize
                     // both for display (the K layer was renamed in the same change).
                     const displayPath = isWeb ? source.path : normalizeKnowledgePath(source.path);
-                    const displayLayer = source.layer === "wiki" ? "knowledge" : source.layer ?? "base";
+                    const displayLayer =
+                      source.layer === "wiki" ? "knowledge" : (source.layer ?? "base");
                     const safeHref = isWeb && isSafeBrowserWebUrl(source.path) ? source.path : null;
                     return (
                       <article
@@ -476,7 +499,9 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                       >
                         <div className="citation-item__meta">
                           <span>{isWeb ? copy.sourcesWebBadge : displayLayer}</span>
-                          {typeof source.score === "number" ? <span>{source.score.toFixed(3)}</span> : null}
+                          {typeof source.score === "number" ? (
+                            <span>{source.score.toFixed(3)}</span>
+                          ) : null}
                         </div>
                         <div className="citation-item__path">
                           {safeHref ? (
@@ -511,7 +536,11 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                   onScroll={(event) => trackStickToBottom("tools", event.currentTarget)}
                 >
                   {toolEvents.map((event) => (
-                    <li className={`tool-call tool-call--${event.status}`} key={event.id} title={toolStatusLabel(event.status, copy)}>
+                    <li
+                      className={`tool-call tool-call--${event.status}`}
+                      key={event.id}
+                      title={toolStatusLabel(event.status, copy)}
+                    >
                       <span className="tool-call__icon" aria-hidden="true">
                         <ToolStatusIcon status={event.status} />
                       </span>
@@ -524,7 +553,6 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                 <EmptyState title={copy.emptyTools} />
               )}
             </section>
-
           </aside>
 
           <div className="agent-composer">
@@ -538,7 +566,12 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                 disabled={running}
               />
             </label>
-            <button className="primary-button" type="button" onClick={sendMessage} disabled={running || !draft.trim()}>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={sendMessage}
+              disabled={running || !draft.trim()}
+            >
               <Send size={16} />
               {copy.send}
             </button>
@@ -556,7 +589,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
 function MessageBubble({
   assistantRole,
   message,
-  userRole
+  userRole,
 }: {
   assistantRole: string;
   message: AgentMessage;
@@ -565,9 +598,15 @@ function MessageBubble({
   const isUser = message.role === "user";
   const roleLabel = isUser ? userRole : assistantRole;
   return (
-    <article className={`agent-message ${isUser ? "agent-message--user" : "agent-message--assistant"}`}>
+    <article
+      className={`agent-message ${isUser ? "agent-message--user" : "agent-message--assistant"}`}
+    >
       <div className="agent-message__role">{roleLabel}</div>
-      {isUser ? <p>{message.content}</p> : <MarkdownView body={message.content} showFrontmatter={false} />}
+      {isUser ? (
+        <p>{message.content}</p>
+      ) : (
+        <MarkdownView body={message.content} showFrontmatter={false} />
+      )}
     </article>
   );
 }
@@ -584,7 +623,7 @@ function ToolStatusIcon({ status }: { status: AgentToolEvent["status"] }) {
 
 function toolStatusLabel(
   status: AgentToolEvent["status"],
-  copy: (typeof translations)[Locale]["pages"]["chat"]
+  copy: (typeof translations)[Locale]["pages"]["chat"],
 ): string {
   if (status === "running") return copy.toolStatusRunning;
   if (status === "succeeded") return copy.toolStatusSucceeded;
@@ -596,7 +635,7 @@ function localMessage(role: AgentMessage["role"], content: string): AgentMessage
     id: `local-${Date.now()}`,
     role,
     content,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
   };
 }
 
@@ -607,7 +646,7 @@ function mergeSources(items: AgentSource[], next: AgentSource): AgentSource[] {
     (item) =>
       normalizeKnowledgePath(item.path) === nextPath &&
       (item.title ?? "") === (next.title ?? "") &&
-      (item.kind ?? "core") === nextKind
+      (item.kind ?? "core") === nextKind,
   )
     ? items
     : [...items, next];
@@ -680,6 +719,6 @@ function toSummary(session: AgentSession): SessionSummary {
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     messageCount: messages.length,
-    lastMessagePreview: lastMessage?.content ?? ""
+    lastMessagePreview: lastMessage?.content ?? "",
   };
 }

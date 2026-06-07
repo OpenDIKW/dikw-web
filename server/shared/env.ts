@@ -39,7 +39,10 @@ export function parseEnv(text: string): Record<string, string> {
     }
     const key = line.slice(0, separator).trim();
     let value = line.slice(separator + 1).trim();
-    if ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     values[key] = value;
@@ -48,7 +51,10 @@ export function parseEnv(text: string): Record<string, string> {
 }
 
 /** Trimmed value for `key`, or undefined when it is unset or blank. */
-export function readOptional(env: Record<string, string | undefined>, key: string): string | undefined {
+export function readOptional(
+  env: Record<string, string | undefined>,
+  key: string,
+): string | undefined {
   const value = env[key]?.trim();
   return value ? value : undefined;
 }

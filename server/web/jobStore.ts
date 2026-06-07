@@ -94,15 +94,13 @@ export class JobStore {
     // batch that fails fast (e.g. every file hits mineru_quota) would jam the
     // queue with `failed` records for the full TTL window.
     if (this.countLive() >= this.maxLiveJobs) {
-      throw new JobLimitError(
-        `too many concurrent conversion jobs (max ${this.maxLiveJobs})`
-      );
+      throw new JobLimitError(`too many concurrent conversion jobs (max ${this.maxLiveJobs})`);
     }
     const job: Job = {
       id: randomUUID(),
       status: "pending",
       controller,
-      createdAt: this.now()
+      createdAt: this.now(),
     };
     this.jobs.set(job.id, job);
     return job;
@@ -191,8 +189,7 @@ export class JobStore {
     // bounds *accumulation*, not one oversized item).
     const evictable = Array.from(this.jobs.values())
       .filter(
-        (j): j is Job & { finishedAt: number } =>
-          j.finishedAt !== undefined && j.id !== protectId
+        (j): j is Job & { finishedAt: number } => j.finishedAt !== undefined && j.id !== protectId,
       )
       .sort((a, b) => a.finishedAt - b.finishedAt);
     for (const job of evictable) {

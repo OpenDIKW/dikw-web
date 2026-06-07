@@ -5,7 +5,7 @@ import {
   getFunctionCalls,
   getFunctionResponses,
   isCompactedEvent,
-  stringifyContent
+  stringifyContent,
 } from "@google/adk";
 import type { DatabaseSessionService, Event } from "@google/adk";
 import type { Content } from "@google/genai";
@@ -82,8 +82,9 @@ export function mapAdkEvent(sessionId: string, event: Event): AgentStreamEvent[]
     events.push({
       type: "error",
       sessionId,
-      code: typeof event.errorCode === "string" && event.errorCode ? event.errorCode : "agent_error",
-      message: event.errorMessage
+      code:
+        typeof event.errorCode === "string" && event.errorCode ? event.errorCode : "agent_error",
+      message: event.errorMessage,
     });
   }
 
@@ -104,8 +105,8 @@ export function mapAdkEvent(sessionId: string, event: Event): AgentStreamEvent[]
         name: typeof call.name === "string" ? call.name : "",
         status: "running",
         createdAt: isoTimestamp(event),
-        input: call.args
-      }
+        input: call.args,
+      },
     });
   }
 
@@ -121,8 +122,8 @@ export function mapAdkEvent(sessionId: string, event: Event): AgentStreamEvent[]
         status: failed ? "failed" : "succeeded",
         createdAt: isoTimestamp(event),
         output: resp.response,
-        error: failed ? String((resp.response as Record<string, unknown>).error) : undefined
-      }
+        error: failed ? String((resp.response as Record<string, unknown>).error) : undefined,
+      },
     });
     const name = typeof resp.name === "string" ? resp.name : "";
     for (const source of sourcesFromTool(name, resp.response)) {
@@ -157,7 +158,14 @@ export class AdkAgentRunner implements AgentRunner {
     this.createRunner = opts.createRunner ?? ((params) => new Runner(params));
   }
 
-  async runMessage({ sessionId, message, coreUrl, token, signal, onEvent }: RunAgentMessageOptions): Promise<void> {
+  async runMessage({
+    sessionId,
+    message,
+    coreUrl,
+    token,
+    signal,
+    onEvent,
+  }: RunAgentMessageOptions): Promise<void> {
     await onEvent({ type: "agent_start", sessionId });
 
     try {
@@ -170,7 +178,7 @@ export class AdkAgentRunner implements AgentRunner {
         braveApiKey: this.config.braveApiKey,
         jinaApiKey: this.config.jinaApiKey,
         tavilyApiKey: this.config.tavilyApiKey,
-        signal
+        signal,
       });
 
       // One MiniMaxLlm instance backs both the agent and the compaction
@@ -181,7 +189,7 @@ export class AdkAgentRunner implements AgentRunner {
         model: this.config.model,
         apiKey: this.config.apiKey,
         baseUrl: this.config.baseUrl,
-        abortSignal: signal
+        abortSignal: signal,
       });
       const compactor = buildContextCompactor(model, this.config.compaction);
 
@@ -191,17 +199,21 @@ export class AdkAgentRunner implements AgentRunner {
         model,
         instruction: systemPrompt(),
         tools,
-        ...(compactor ? { contextCompactors: [compactor] } : {})
+        ...(compactor ? { contextCompactors: [compactor] } : {}),
       });
 
-      const runner = this.createRunner({ appName: APP_NAME, agent, sessionService: this.sessionService });
+      const runner = this.createRunner({
+        appName: APP_NAME,
+        agent,
+        sessionService: this.sessionService,
+      });
 
       const stream = runner.runAsync({
         userId: USER_ID,
         sessionId,
         newMessage: { role: "user", parts: [{ text: message }] },
         abortSignal: signal,
-        runConfig: { streamingMode: StreamingMode.SSE }
+        runConfig: { streamingMode: StreamingMode.SSE },
       });
       for await (const event of stream) {
         for (const mapped of mapAdkEvent(sessionId, event)) {

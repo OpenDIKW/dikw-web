@@ -27,7 +27,7 @@ export function formatUnixSeconds(value: number | null | undefined): string {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   }).format(new Date(value * 1000));
 }
 
@@ -44,11 +44,14 @@ export function formatIso(value: string | null | undefined): string {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit"
+    second: "2-digit",
   }).format(date);
 }
 
-export function formatDuration(start: string | null | undefined, end: string | null | undefined): string {
+export function formatDuration(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): string {
   if (!start || !end) {
     return "-";
   }

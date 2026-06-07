@@ -22,7 +22,7 @@ import type { CompactionConfig } from "./config.js";
  */
 export function buildContextCompactor(
   llm: BaseLlm,
-  config: CompactionConfig
+  config: CompactionConfig,
 ): BaseContextCompactor | undefined {
   if (!config.enabled) {
     return undefined;
@@ -36,7 +36,7 @@ export function buildContextCompactor(
   const inner = new TokenBasedContextCompactor({
     tokenThreshold,
     eventRetentionSize,
-    summarizer: new LlmSummarizer({ llm })
+    summarizer: new LlmSummarizer({ llm }),
   });
   return new ResilientContextCompactor(inner);
 }
@@ -67,7 +67,10 @@ class ResilientContextCompactor implements BaseContextCompactor {
       if (invocationContext.abortSignal?.aborted) {
         throw error;
       }
-      console.error("[dikw-agent] context compaction failed; proceeding without compaction:", error);
+      console.error(
+        "[dikw-agent] context compaction failed; proceeding without compaction:",
+        error,
+      );
     }
   }
 }

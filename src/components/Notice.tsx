@@ -10,7 +10,12 @@ interface NoticeProps {
 
 export function Notice({ title, error, children, tone = error ? "bad" : "info" }: NoticeProps) {
   const Icon = tone === "info" ? Info : AlertTriangle;
-  const message = error instanceof DikwClientError ? error.message : error instanceof Error ? error.message : null;
+  const message =
+    error instanceof DikwClientError
+      ? error.message
+      : error instanceof Error
+        ? error.message
+        : null;
   const code = error instanceof DikwClientError ? `${error.status} ${error.code}` : null;
 
   return (

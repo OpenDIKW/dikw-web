@@ -24,10 +24,15 @@ describe("injectInlineRefs", () => {
   });
 
   it("scans multiple refs independently in a single pass", () => {
-    const refs = [ref("knowledge/architecture.md", "Architecture"), ref("knowledge/synthesis.md", "Synthesis")];
+    const refs = [
+      ref("knowledge/architecture.md", "Architecture"),
+      ref("knowledge/synthesis.md", "Synthesis"),
+    ];
     const result = injectInlineRefs("Architecture then Synthesis.", refs);
     expect(result.body).toBe("[[Architecture|Architecture]] then [[Synthesis|Synthesis]].");
-    expect(result.matchedPaths).toEqual(new Set(["knowledge/architecture.md", "knowledge/synthesis.md"]));
+    expect(result.matchedPaths).toEqual(
+      new Set(["knowledge/architecture.md", "knowledge/synthesis.md"]),
+    );
   });
 
   it("leaves matchedPaths empty for refs that never appear in the body", () => {
@@ -78,7 +83,10 @@ describe("injectInlineRefs", () => {
 
   it("matches the longest title first when titles overlap by prefix", () => {
     // Refs in 'wrong' order on purpose — the longer title must win.
-    const refs = [ref("knowledge/arch.md", "Arch"), ref("knowledge/architecture.md", "Architecture")];
+    const refs = [
+      ref("knowledge/arch.md", "Arch"),
+      ref("knowledge/architecture.md", "Architecture"),
+    ];
     const result = injectInlineRefs("Architecture is everything.", refs);
     expect(result.body).toBe("[[Architecture|Architecture]] is everything.");
     expect(result.matchedPaths).toEqual(new Set(["knowledge/architecture.md"]));
@@ -87,7 +95,10 @@ describe("injectInlineRefs", () => {
   it("does not re-scan a region that has already been wrapped by a prior ref", () => {
     // After 'Architecture' is wrapped, the inner 'Arch' substring must not be
     // independently re-matched by a later ref.
-    const refs = [ref("knowledge/architecture.md", "Architecture"), ref("knowledge/arch.md", "Arch")];
+    const refs = [
+      ref("knowledge/architecture.md", "Architecture"),
+      ref("knowledge/arch.md", "Arch"),
+    ];
     const result = injectInlineRefs("Architecture mentioned once.", refs);
     expect(result.body).toBe("[[Architecture|Architecture]] mentioned once.");
     expect(result.matchedPaths).toEqual(new Set(["knowledge/architecture.md"]));
@@ -108,17 +119,18 @@ describe("injectInlineRefs", () => {
     const body = "---\ntitle: Architecture notes\n---\n\nBody mentions Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "---\ntitle: Architecture notes\n---\n\nBody mentions [[Architecture|Architecture]]."
+      "---\ntitle: Architecture notes\n---\n\nBody mentions [[Architecture|Architecture]].",
     );
     expect(result.matchedPaths).toEqual(new Set(["knowledge/architecture.md"]));
   });
 
   it("never replaces inside fenced code blocks", () => {
     const refs = [ref("knowledge/architecture.md", "Architecture")];
-    const body = "Plain Architecture.\n\n```ts\nconst Architecture = 1;\n```\n\nLater Architecture again.";
+    const body =
+      "Plain Architecture.\n\n```ts\nconst Architecture = 1;\n```\n\nLater Architecture again.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "Plain [[Architecture|Architecture]].\n\n```ts\nconst Architecture = 1;\n```\n\nLater Architecture again."
+      "Plain [[Architecture|Architecture]].\n\n```ts\nconst Architecture = 1;\n```\n\nLater Architecture again.",
     );
   });
 
@@ -135,16 +147,17 @@ describe("injectInlineRefs", () => {
     const body = "~~~\nArchitecture inside tildes\n~~~\n\nAfter Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "~~~\nArchitecture inside tildes\n~~~\n\nAfter [[Architecture|Architecture]]."
+      "~~~\nArchitecture inside tildes\n~~~\n\nAfter [[Architecture|Architecture]].",
     );
   });
 
   it("never replaces inside indented (4-space) code blocks", () => {
     const refs = [ref("knowledge/arch.md", "Architecture")];
-    const body = "Before Architecture.\n\n    Architecture in indented code\n    more code\n\nAfter Architecture.";
+    const body =
+      "Before Architecture.\n\n    Architecture in indented code\n    more code\n\nAfter Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "Before [[Architecture|Architecture]].\n\n    Architecture in indented code\n    more code\n\nAfter Architecture."
+      "Before [[Architecture|Architecture]].\n\n    Architecture in indented code\n    more code\n\nAfter Architecture.",
     );
     // Only the first plain occurrence (Before) is replaced.
     expect(result.matchedPaths).toEqual(new Set(["knowledge/arch.md"]));
@@ -154,7 +167,9 @@ describe("injectInlineRefs", () => {
     const refs = [ref("knowledge/arch.md", "Architecture")];
     const body = "Use `Architecture.tsx` for the file. Architecture is the concept.";
     const result = injectInlineRefs(body, refs);
-    expect(result.body).toBe("Use `Architecture.tsx` for the file. [[Architecture|Architecture]] is the concept.");
+    expect(result.body).toBe(
+      "Use `Architecture.tsx` for the file. [[Architecture|Architecture]] is the concept.",
+    );
   });
 
   it("never replaces inside display math ($$...$$)", () => {
@@ -162,7 +177,7 @@ describe("injectInlineRefs", () => {
     const body = "$$\\text{Architecture} = f(x)$$\n\nThen Architecture is great.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "$$\\text{Architecture} = f(x)$$\n\nThen [[Architecture|Architecture]] is great."
+      "$$\\text{Architecture} = f(x)$$\n\nThen [[Architecture|Architecture]] is great.",
     );
   });
 
@@ -182,10 +197,11 @@ describe("injectInlineRefs", () => {
 
   it("never replaces inside raw <details> blocks", () => {
     const refs = [ref("knowledge/arch.md", "Architecture")];
-    const body = "Before.\n\n<details>\n<summary>Architecture details</summary>\nInner Architecture.\n</details>\n\nAfter Architecture.";
+    const body =
+      "Before.\n\n<details>\n<summary>Architecture details</summary>\nInner Architecture.\n</details>\n\nAfter Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "Before.\n\n<details>\n<summary>Architecture details</summary>\nInner Architecture.\n</details>\n\nAfter [[Architecture|Architecture]]."
+      "Before.\n\n<details>\n<summary>Architecture details</summary>\nInner Architecture.\n</details>\n\nAfter [[Architecture|Architecture]].",
     );
   });
 
@@ -194,7 +210,7 @@ describe("injectInlineRefs", () => {
     const body = "<table><tr><td>Architecture cell</td></tr></table>\n\nThen Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "<table><tr><td>Architecture cell</td></tr></table>\n\nThen [[Architecture|Architecture]]."
+      "<table><tr><td>Architecture cell</td></tr></table>\n\nThen [[Architecture|Architecture]].",
     );
   });
 
@@ -203,16 +219,17 @@ describe("injectInlineRefs", () => {
     const body = "See [[Architecture]] and ![[notes/Architecture.png]] then Architecture is back.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "See [[Architecture]] and ![[notes/Architecture.png]] then [[Architecture|Architecture]] is back."
+      "See [[Architecture]] and ![[notes/Architecture.png]] then [[Architecture|Architecture]] is back.",
     );
   });
 
   it("never replaces inside a markdown link [text](url) — neither text nor url", () => {
     const refs = [ref("knowledge/arch.md", "Architecture")];
-    const body = "Read [the Architecture guide](https://example.com/Architecture). Then Architecture.";
+    const body =
+      "Read [the Architecture guide](https://example.com/Architecture). Then Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "Read [the Architecture guide](https://example.com/Architecture). Then [[Architecture|Architecture]]."
+      "Read [the Architecture guide](https://example.com/Architecture). Then [[Architecture|Architecture]].",
     );
   });
 
@@ -227,7 +244,7 @@ describe("injectInlineRefs", () => {
   it("does not mutate the input refs array or its entries", () => {
     const original: InlineRefMatch[] = [
       ref("knowledge/architecture.md", "Architecture"),
-      ref("knowledge/synthesis.md", "Synthesis")
+      ref("knowledge/synthesis.md", "Synthesis"),
     ];
     const snapshot = JSON.parse(JSON.stringify(original));
     injectInlineRefs("Architecture then Synthesis.", original);
@@ -236,12 +253,14 @@ describe("injectInlineRefs", () => {
 
   it("returns matchedPaths exactly equal to the set of refs that were injected", () => {
     const refs = [
-      ref("knowledge/architecture.md", "Architecture"),  // present
-      ref("knowledge/synthesis.md", "Synthesis"),         // present
-      ref("knowledge/missing.md", "AbsolutelyMissing")    // absent
+      ref("knowledge/architecture.md", "Architecture"), // present
+      ref("knowledge/synthesis.md", "Synthesis"), // present
+      ref("knowledge/missing.md", "AbsolutelyMissing"), // absent
     ];
     const result = injectInlineRefs("Architecture then Synthesis only.", refs);
-    expect(result.matchedPaths).toEqual(new Set(["knowledge/architecture.md", "knowledge/synthesis.md"]));
+    expect(result.matchedPaths).toEqual(
+      new Set(["knowledge/architecture.md", "knowledge/synthesis.md"]),
+    );
   });
 
   it("counts each matched ref's path exactly once even when scanned in unusual order", () => {
@@ -249,7 +268,7 @@ describe("injectInlineRefs", () => {
     // matchedPaths has one entry.
     const refs = [
       ref("knowledge/arch.md", "Architecture"),
-      ref("knowledge/arch.md", "Architecture")
+      ref("knowledge/arch.md", "Architecture"),
     ];
     const result = injectInlineRefs("Architecture, Architecture, Architecture.", refs);
     expect(result.body).toBe("[[Architecture|Architecture]], Architecture, Architecture.");
@@ -264,26 +283,28 @@ describe("injectInlineRefs — Codex review fix coverage", () => {
     const body = "---\r\ntitle: Architecture notes\r\n---\r\n\r\nBody mentions Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "---\ntitle: Architecture notes\n---\n\nBody mentions [[Architecture|Architecture]]."
+      "---\ntitle: Architecture notes\n---\n\nBody mentions [[Architecture|Architecture]].",
     );
     expect(result.matchedPaths).toEqual(new Set(["knowledge/architecture.md"]));
   });
 
   it("treats CRLF fenced code as protected", () => {
     const refs = [ref("knowledge/arch.md", "Architecture")];
-    const body = "Plain Architecture.\r\n\r\n```ts\r\nconst Architecture = 1;\r\n```\r\n\r\nLater Architecture again.";
+    const body =
+      "Plain Architecture.\r\n\r\n```ts\r\nconst Architecture = 1;\r\n```\r\n\r\nLater Architecture again.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "Plain [[Architecture|Architecture]].\n\n```ts\nconst Architecture = 1;\n```\n\nLater Architecture again."
+      "Plain [[Architecture|Architecture]].\n\n```ts\nconst Architecture = 1;\n```\n\nLater Architecture again.",
     );
   });
 
   it("treats CRLF indented code as protected", () => {
     const refs = [ref("knowledge/arch.md", "Architecture")];
-    const body = "Before Architecture.\r\n\r\n    Architecture in indented code\r\n    more code\r\n\r\nAfter Architecture.";
+    const body =
+      "Before Architecture.\r\n\r\n    Architecture in indented code\r\n    more code\r\n\r\nAfter Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "Before [[Architecture|Architecture]].\n\n    Architecture in indented code\n    more code\n\nAfter Architecture."
+      "Before [[Architecture|Architecture]].\n\n    Architecture in indented code\n    more code\n\nAfter Architecture.",
     );
   });
 
@@ -294,7 +315,7 @@ describe("injectInlineRefs — Codex review fix coverage", () => {
     const result = injectInlineRefs(body, refs);
     // First occurrence (Before) is replaced; the indented fence block is opaque.
     expect(result.body).toBe(
-      "Before [[Architecture|Architecture]].\n\n   ```ts\n   const Architecture = 1;\n   ```\n\nLater."
+      "Before [[Architecture|Architecture]].\n\n   ```ts\n   const Architecture = 1;\n   ```\n\nLater.",
     );
   });
 
@@ -302,10 +323,11 @@ describe("injectInlineRefs — Codex review fix coverage", () => {
     const refs = [ref("knowledge/arch.md", "Architecture")];
     // Opener is 4 backticks; inner uses 3 backticks (which would not close).
     // Closer is also 4 backticks.
-    const body = "Before.\n\n````md\nExample with ```ts inside\nconst Architecture = 1;\n```\n````\n\nAfter Architecture.";
+    const body =
+      "Before.\n\n````md\nExample with ```ts inside\nconst Architecture = 1;\n```\n````\n\nAfter Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "Before.\n\n````md\nExample with ```ts inside\nconst Architecture = 1;\n```\n````\n\nAfter [[Architecture|Architecture]]."
+      "Before.\n\n````md\nExample with ```ts inside\nconst Architecture = 1;\n```\n````\n\nAfter [[Architecture|Architecture]].",
     );
   });
 
@@ -315,7 +337,7 @@ describe("injectInlineRefs — Codex review fix coverage", () => {
     const result = injectInlineRefs(body, refs);
     // Only the leading "Before Architecture" gets replaced.
     expect(result.body).toBe(
-      "Before [[Architecture|Architecture]].\n\n```ts\nconst Architecture = 1;\n// no closing fence"
+      "Before [[Architecture|Architecture]].\n\n```ts\nconst Architecture = 1;\n// no closing fence",
     );
   });
 
@@ -325,7 +347,7 @@ describe("injectInlineRefs — Codex review fix coverage", () => {
     const body = "Read [docs](https://example.com/Architecture(v2)). Then Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "Read [docs](https://example.com/Architecture(v2)). Then [[Architecture|Architecture]]."
+      "Read [docs](https://example.com/Architecture(v2)). Then [[Architecture|Architecture]].",
     );
   });
 
@@ -334,7 +356,7 @@ describe("injectInlineRefs — Codex review fix coverage", () => {
     const body = "See [Architecture overview][arch] for context. Then Architecture.";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "See [Architecture overview][arch] for context. Then [[Architecture|Architecture]]."
+      "See [Architecture overview][arch] for context. Then [[Architecture|Architecture]].",
     );
   });
 
@@ -342,9 +364,7 @@ describe("injectInlineRefs — Codex review fix coverage", () => {
     const refs = [ref("knowledge/arch.md", "Architecture")];
     const body = "See [Architecture][] later. Then Architecture.";
     const result = injectInlineRefs(body, refs);
-    expect(result.body).toBe(
-      "See [Architecture][] later. Then [[Architecture|Architecture]]."
-    );
+    expect(result.body).toBe("See [Architecture][] later. Then [[Architecture|Architecture]].");
   });
 
   it("treats link reference definitions [label]: url as protected", () => {
@@ -352,7 +372,7 @@ describe("injectInlineRefs — Codex review fix coverage", () => {
     const body = "Body Architecture matters.\n\n[arch]: https://example.com/Architecture";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "Body [[Architecture|Architecture]] matters.\n\n[arch]: https://example.com/Architecture"
+      "Body [[Architecture|Architecture]] matters.\n\n[arch]: https://example.com/Architecture",
     );
   });
 
@@ -364,7 +384,7 @@ describe("injectInlineRefs — Codex review fix coverage", () => {
     const body = "Body Architecture matters.\n\n[arch]:https://example.com/Architecture";
     const result = injectInlineRefs(body, refs);
     expect(result.body).toBe(
-      "Body [[Architecture|Architecture]] matters.\n\n[arch]:https://example.com/Architecture"
+      "Body [[Architecture|Architecture]] matters.\n\n[arch]:https://example.com/Architecture",
     );
   });
 });

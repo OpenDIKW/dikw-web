@@ -48,7 +48,7 @@ export async function createDefaultWebHandler(cwd = process.cwd()): Promise<WebH
 export type WebHandler = (
   req: IncomingMessage,
   res: ServerResponse,
-  next?: (err?: unknown) => void
+  next?: (err?: unknown) => void,
 ) => Promise<void>;
 
 export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
@@ -69,12 +69,17 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
       if (req.method === "GET" && parts[1] === "health") {
         return json(res, {
           enabled: Boolean(config.mineruApiKey),
-          hasKey: Boolean(config.mineruApiKey)
+          hasKey: Boolean(config.mineruApiKey),
         });
       }
       if (req.method === "POST" && parts[1] === "convert") {
         if (!config.mineruApiKey) {
-          return errorJson(res, 503, "mineru_disabled", "DIKW_WEB_MINERU_API_KEY is not configured on this sidecar");
+          return errorJson(
+            res,
+            503,
+            "mineru_disabled",
+            "DIKW_WEB_MINERU_API_KEY is not configured on this sidecar",
+          );
         }
         return handleConvert(req, res, url, config.mineruApiKey, fetchFn, jobStore);
       }
@@ -111,7 +116,7 @@ async function handleConvert(
   url: URL,
   apiKey: string,
   fetchFn: typeof fetch,
-  jobStore: JobStore
+  jobStore: JobStore,
 ): Promise<void> {
   const claimedInputSha = url.searchParams.get("inputSha");
   if (!claimedInputSha) {
@@ -124,7 +129,7 @@ async function handleConvert(
       res,
       400,
       "invalid_input_sha",
-      "inputSha must be a 64-char lowercase hex SHA-256"
+      "inputSha must be a 64-char lowercase hex SHA-256",
     );
   }
   let fileName: string;
@@ -135,12 +140,7 @@ async function handleConvert(
     fileBytes = part.data;
   } catch (err) {
     if (err instanceof RequestTooLargeError) {
-      return errorJson(
-        res,
-        413,
-        "mineru_input",
-        `request body exceeds ${err.limitBytes} byte cap`
-      );
+      return errorJson(res, 413, "mineru_input", `request body exceeds ${err.limitBytes} byte cap`);
     }
     const message = err instanceof Error ? err.message : String(err);
     return errorJson(res, 400, "invalid_multipart", message);
@@ -157,7 +157,7 @@ async function handleConvert(
       res,
       400,
       "input_sha_mismatch",
-      `inputSha query param does not match SHA-256 of uploaded bytes`
+      `inputSha query param does not match SHA-256 of uploaded bytes`,
     );
   }
 
@@ -191,7 +191,7 @@ async function handleConvert(
   const client = new MineruClient({
     token: apiKey,
     fetch: fetchFn,
-    signal: controller.signal
+    signal: controller.signal,
   });
   void runConversion(jobStore, job.id, {
     client,
@@ -201,7 +201,7 @@ async function handleConvert(
     stem,
     dataId,
     originalFilename,
-    inputSha
+    inputSha,
   });
   return json(res, { jobId: job.id, status: "pending" }, 202);
 }
@@ -222,18 +222,14 @@ interface ConversionArgs {
  *  on any failure. MUST NOT let a rejection escape — an unhandled rejection in
  *  this `void`-ed promise would crash / log-spam the sidecar. Never references
  *  the request/response objects (they are gone once the 202 was sent). */
-async function runConversion(
-  store: JobStore,
-  jobId: string,
-  args: ConversionArgs
-): Promise<void> {
+async function runConversion(store: JobStore, jobId: string, args: ConversionArgs): Promise<void> {
   try {
     store.setRunning(jobId);
     store.setPhase(jobId, "uploading");
     const handle = await args.client.submit({
       fileName: args.fileName,
       dataId: args.dataId,
-      modelVersion: args.modelVersion
+      modelVersion: args.modelVersion,
     });
     await args.client.upload(handle.uploadUrl, args.fileBytes);
     store.setPhase(jobId, "polling");
@@ -244,7 +240,7 @@ async function runConversion(
     const markdownWithFrontmatter = injectFrontmatter(
       extracted.markdown,
       args.originalFilename,
-      args.inputSha
+      args.inputSha,
     );
     const tarBytes = buildResponseTar(args.stem, markdownWithFrontmatter, extracted.assets);
     // Async gzip so a multi-hundred-MB tar doesn't block the event loop for
@@ -302,7 +298,7 @@ function handleJobCancel(res: ServerResponse, store: JobStore, jobId: string): v
 function buildResponseTar(
   stem: string,
   markdown: string,
-  assets: Map<string, Uint8Array>
+  assets: Map<string, Uint8Array>,
 ): Uint8Array {
   // Sorted entries with mtime=0 (buildTar already enforces mtime=0). Sort
   // assets so byte-identical inputs produce byte-identical tars even
@@ -326,7 +322,7 @@ function injectFrontmatter(markdown: string, originalFilename: string, inputSha:
     `  original_filename: ${yamlSafe(originalFilename)}`,
     `  original_sha256: ${inputSha}`,
     "---",
-    ""
+    "",
   ].join("\n");
   return fm + markdown;
 }
@@ -359,10 +355,7 @@ async function readMultipartFile(req: IncomingMessage): Promise<MultipartFile> {
   return parseMultipartFile(body, ct);
 }
 
-async function bufferRequest(
-  req: IncomingMessage,
-  maxBytes: number
-): Promise<Uint8Array> {
+async function bufferRequest(req: IncomingMessage, maxBytes: number): Promise<Uint8Array> {
   // Track the running total at chunk granularity so an oversized POST is
   // rejected as soon as it crosses the cap, rather than after the whole
   // body has accumulated in memory. Anything that arrives after the cap
@@ -420,10 +413,7 @@ function parseMultipartFile(body: Uint8Array, contentType: string): MultipartFil
     if (body[cursor] === 0x2d && body[cursor + 1] === 0x2d) {
       throw new Error("multipart: reached closing boundary with no file part");
     }
-    if (
-      body[cursor] === crlf[0] &&
-      body[cursor + 1] === crlf[1]
-    ) {
+    if (body[cursor] === crlf[0] && body[cursor + 1] === crlf[1]) {
       cursor += 2;
     }
     const headersEnd = indexOfBytes(body, headersTerm, cursor);
@@ -438,7 +428,7 @@ function parseMultipartFile(body: Uint8Array, contentType: string): MultipartFil
       return {
         filename: filenameMatch[1],
         data: body.slice(partBodyStart, partBodyEnd),
-        mediaType: ctMatch ? ctMatch[1].trim() : "application/octet-stream"
+        mediaType: ctMatch ? ctMatch[1].trim() : "application/octet-stream",
       };
     }
     // Non-file part: skip past `\r\n--<boundary>`, continue at the next

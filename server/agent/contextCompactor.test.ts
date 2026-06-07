@@ -15,7 +15,7 @@ function textEvent(text: string, promptTokenCount?: number, timestamp = 1): Even
     author: "dikw_agent",
     content: { role: "model", parts: [{ text }] },
     timestamp,
-    ...(promptTokenCount === undefined ? {} : { usageMetadata: { promptTokenCount } })
+    ...(promptTokenCount === undefined ? {} : { usageMetadata: { promptTokenCount } }),
   });
 }
 
@@ -34,31 +34,46 @@ function config(overrides: Partial<CompactionConfig> = {}): CompactionConfig {
 
 describe("buildContextCompactor", () => {
   it("returns undefined when compaction is disabled", () => {
-    const compactor = buildContextCompactor(fakeLlm(async function* () {}), config({ enabled: false }));
+    const compactor = buildContextCompactor(
+      fakeLlm(async function* () {}),
+      config({ enabled: false }),
+    );
     expect(compactor).toBeUndefined();
   });
 
   it("builds a compactor (threshold = round(window * ratio)) when enabled", () => {
-    const compactor = buildContextCompactor(fakeLlm(async function* () {}), config());
+    const compactor = buildContextCompactor(
+      fakeLlm(async function* () {}),
+      config(),
+    );
     expect(compactor).toBeDefined();
   });
 
   describe("shouldCompact (ADK TokenBasedContextCompactor, sum of prompt tokens)", () => {
     // window 100 * ratio 0.5 => tokenThreshold 50; retention 1.
     it("is true when summed prompt tokens exceed the threshold and raw events exceed retention", async () => {
-      const compactor = buildContextCompactor(fakeLlm(async function* () {}), config())!;
+      const compactor = buildContextCompactor(
+        fakeLlm(async function* () {}),
+        config(),
+      )!;
       const ctx = ctxWith([textEvent("a", 40, 1), textEvent("b", 40, 2)]); // sum 80 > 50, 2 > 1
       expect(await compactor.shouldCompact(ctx)).toBe(true);
     });
 
     it("is false when summed prompt tokens stay under the threshold", async () => {
-      const compactor = buildContextCompactor(fakeLlm(async function* () {}), config())!;
+      const compactor = buildContextCompactor(
+        fakeLlm(async function* () {}),
+        config(),
+      )!;
       const ctx = ctxWith([textEvent("a", 10, 1), textEvent("b", 10, 2)]); // sum 20 < 50
       expect(await compactor.shouldCompact(ctx)).toBe(false);
     });
 
     it("is false when raw events do not exceed the retention size", async () => {
-      const compactor = buildContextCompactor(fakeLlm(async function* () {}), config())!;
+      const compactor = buildContextCompactor(
+        fakeLlm(async function* () {}),
+        config(),
+      )!;
       const ctx = ctxWith([textEvent("a", 80, 1)]); // 1 raw event <= retention 1
       expect(await compactor.shouldCompact(ctx)).toBe(false);
     });
@@ -70,7 +85,11 @@ describe("buildContextCompactor", () => {
         yield { content: { role: "model", parts: [{ text: "SUMMARY" }] } } as LlmResponse;
       });
       const compactor = buildContextCompactor(llm, config({ retention: 1 }))!;
-      const events = [textEvent("one", undefined, 1), textEvent("two", undefined, 2), textEvent("three", undefined, 3)];
+      const events = [
+        textEvent("one", undefined, 1),
+        textEvent("two", undefined, 2),
+        textEvent("three", undefined, 3),
+      ];
       const ctx = ctxWith(events);
 
       await compactor.compact(ctx);
@@ -89,7 +108,11 @@ describe("buildContextCompactor", () => {
       // slice at a fractional boundary, and a 0 retention would summarize the
       // whole recent history away; the clamp keeps a sane integer retention.
       const compactor = buildContextCompactor(llm, config({ retention: 0.5 }))!;
-      const events = [textEvent("one", undefined, 1), textEvent("two", undefined, 2), textEvent("three", undefined, 3)];
+      const events = [
+        textEvent("one", undefined, 1),
+        textEvent("two", undefined, 2),
+        textEvent("three", undefined, 3),
+      ];
       const ctx = ctxWith(events);
 
       await compactor.compact(ctx);
@@ -104,7 +127,11 @@ describe("buildContextCompactor", () => {
         throw new Error("llm down");
       });
       const compactor = buildContextCompactor(llm, config({ retention: 1 }))!;
-      const events = [textEvent("one", undefined, 1), textEvent("two", undefined, 2), textEvent("three", undefined, 3)];
+      const events = [
+        textEvent("one", undefined, 1),
+        textEvent("two", undefined, 2),
+        textEvent("three", undefined, 3),
+      ];
       const ctx = ctxWith(events);
 
       await expect(compactor.compact(ctx)).resolves.toBeUndefined();
@@ -119,7 +146,11 @@ describe("buildContextCompactor", () => {
         throw new Error("aborted"); // the summarizer call torn down by the turn signal
       });
       const compactor = buildContextCompactor(llm, config({ retention: 1 }))!;
-      const events = [textEvent("one", undefined, 1), textEvent("two", undefined, 2), textEvent("three", undefined, 3)];
+      const events = [
+        textEvent("one", undefined, 1),
+        textEvent("two", undefined, 2),
+        textEvent("three", undefined, 3),
+      ];
       const controller = new AbortController();
       controller.abort();
       const ctx = ctxWith(events, controller.signal);

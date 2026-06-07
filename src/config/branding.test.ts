@@ -3,7 +3,9 @@ import { defaultBranding, loadBranding, resolveBranding } from "./branding";
 
 describe("resolveBranding", () => {
   it("applies a full per-locale name override", () => {
-    const result = resolveBranding({ brand: { name: { en: "Maibo-DIKW", "zh-CN": "迈博知识库" } } });
+    const result = resolveBranding({
+      brand: { name: { en: "Maibo-DIKW", "zh-CN": "迈博知识库" } },
+    });
     expect(result.name).toEqual({ en: "Maibo-DIKW", "zh-CN": "迈博知识库" });
   });
 
@@ -28,7 +30,7 @@ describe("resolveBranding", () => {
     ["a bare string", "nope"],
     ["missing brand", {}],
     ["brand without name", { brand: {} }],
-    ["name of wrong type", { brand: { name: 5 } }]
+    ["name of wrong type", { brand: { name: 5 } }],
   ])("returns defaults for malformed input (%s)", (_label, raw) => {
     expect(resolveBranding(raw)).toEqual(defaultBranding);
   });
@@ -42,11 +44,14 @@ describe("loadBranding", () => {
   it("resolves branding from a valid config.json", async () => {
     stubFetch(() =>
       Promise.resolve(
-        new Response(JSON.stringify({ brand: { name: { en: "Maibo-DIKW", "zh-CN": "迈博知识库" } } }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" }
-        })
-      )
+        new Response(
+          JSON.stringify({ brand: { name: { en: "Maibo-DIKW", "zh-CN": "迈博知识库" } } }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+      ),
     );
     const result = await loadBranding();
     expect(result.name).toEqual({ en: "Maibo-DIKW", "zh-CN": "迈博知识库" });
@@ -67,9 +72,9 @@ describe("loadBranding", () => {
       Promise.resolve(
         new Response("<!doctype html><title>app</title>", {
           status: 200,
-          headers: { "Content-Type": "text/html" }
-        })
-      )
+          headers: { "Content-Type": "text/html" },
+        }),
+      ),
     );
     expect(await loadBranding()).toEqual(defaultBranding);
   });

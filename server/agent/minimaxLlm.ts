@@ -1,12 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { BaseLlm } from "@google/adk";
 import type { LlmRequest, LlmResponse } from "@google/adk";
-import type {
-  Content,
-  FunctionDeclaration,
-  Part,
-  Schema
-} from "@google/genai";
+import type { Content, FunctionDeclaration, Part, Schema } from "@google/genai";
 
 /**
  * Custom ADK LLM adapter for MiniMax via its Anthropic-compatible endpoint.
@@ -127,7 +122,8 @@ export class MiniMaxLlm extends BaseLlm {
     this.abortSignal = opts.abortSignal;
     // Auth: `x-api-key` (SDK default) is the live-verified method for MiniMax.
     this.client =
-      opts.client ?? (new Anthropic({ baseURL: opts.baseUrl, apiKey: opts.apiKey }) as unknown as AnthropicLike);
+      opts.client ??
+      (new Anthropic({ baseURL: opts.baseUrl, apiKey: opts.apiKey }) as unknown as AnthropicLike);
   }
 
   async connect(): Promise<never> {
@@ -137,7 +133,7 @@ export class MiniMaxLlm extends BaseLlm {
   async *generateContentAsync(
     llmRequest: LlmRequest,
     stream?: boolean,
-    abortSignal?: AbortSignal
+    abortSignal?: AbortSignal,
   ): AsyncGenerator<LlmResponse, void> {
     this.maybeAppendUserContent(llmRequest);
 
@@ -150,10 +146,14 @@ export class MiniMaxLlm extends BaseLlm {
     // consume the stream (the SDK builds the final message from its events).
     const emitPartials = stream !== false;
     for await (const event of anthropicStream) {
-      if (emitPartials && event.type === "content_block_delta" && event.delta?.type === "text_delta") {
+      if (
+        emitPartials &&
+        event.type === "content_block_delta" &&
+        event.delta?.type === "text_delta"
+      ) {
         yield {
           content: { role: "model", parts: [{ text: event.delta.text ?? "" }] },
-          partial: true
+          partial: true,
         };
       }
     }
@@ -169,8 +169,8 @@ export class MiniMaxLlm extends BaseLlm {
           functionCall: {
             id: tool.id,
             name: tool.name,
-            args: (tool.input ?? {}) as Record<string, unknown>
-          }
+            args: (tool.input ?? {}) as Record<string, unknown>,
+          },
         });
       }
       // Other block kinds (e.g. MiniMax `thinking`) are intentionally dropped.
@@ -184,9 +184,9 @@ export class MiniMaxLlm extends BaseLlm {
       usageMetadata: {
         promptTokenCount,
         candidatesTokenCount,
-        totalTokenCount: promptTokenCount + candidatesTokenCount
+        totalTokenCount: promptTokenCount + candidatesTokenCount,
       },
-      finishReason: mapFinishReason(final.stop_reason)
+      finishReason: mapFinishReason(final.stop_reason),
     };
   }
 
@@ -195,7 +195,7 @@ export class MiniMaxLlm extends BaseLlm {
     const params: AnthropicMessageParams = {
       model: this.model,
       max_tokens: config.maxOutputTokens ?? DEFAULT_MAX_TOKENS,
-      messages: toAnthropicMessages(llmRequest.contents ?? [])
+      messages: toAnthropicMessages(llmRequest.contents ?? []),
     };
 
     const system = systemInstructionToString(config.systemInstruction);
@@ -219,7 +219,9 @@ export class MiniMaxLlm extends BaseLlm {
  * allocating a fresh `AbortSignal.any` composite on every call.
  */
 function mergeAbortSignals(a?: AbortSignal, b?: AbortSignal): AbortSignal | undefined {
-  const signals = [...new Set([a, b].filter((signal): signal is AbortSignal => signal !== undefined))];
+  const signals = [
+    ...new Set([a, b].filter((signal): signal is AbortSignal => signal !== undefined)),
+  ];
   if (signals.length === 0) {
     return undefined;
   }
@@ -251,7 +253,10 @@ function toAnthropicMessages(contents: Content[]): AnthropicMessageParam[] {
  * requires to live in a USER turn — so any part producing a `tool_result` forces
  * the whole message to the user role. Otherwise role follows genai: model→assistant.
  */
-function contentToAnthropic(content: Content): { role: "user" | "assistant"; blocks: AnthropicContentBlockParam[] } {
+function contentToAnthropic(content: Content): {
+  role: "user" | "assistant";
+  blocks: AnthropicContentBlockParam[];
+} {
   const blocks: AnthropicContentBlockParam[] = [];
   let hasToolResult = false;
   for (const part of content.parts ?? []) {
@@ -278,7 +283,7 @@ function partToBlock(part: Part): AnthropicContentBlockParam | null {
       type: "tool_use",
       id: call.id ?? "",
       name: call.name ?? "",
-      input: call.args ?? {}
+      input: call.args ?? {},
     };
   }
   if (part.functionResponse) {
@@ -286,7 +291,7 @@ function partToBlock(part: Part): AnthropicContentBlockParam | null {
     return {
       type: "tool_result",
       tool_use_id: resp.id ?? "",
-      content: JSON.stringify(resp.response ?? {})
+      content: JSON.stringify(resp.response ?? {}),
     };
   }
   return null;
@@ -336,7 +341,8 @@ function toAnthropicTools(tools: unknown): AnthropicTool[] {
   }
   const out: AnthropicTool[] = [];
   for (const tool of tools) {
-    const declarations = (tool as { functionDeclarations?: FunctionDeclaration[] })?.functionDeclarations;
+    const declarations = (tool as { functionDeclarations?: FunctionDeclaration[] })
+      ?.functionDeclarations;
     if (!Array.isArray(declarations)) {
       continue;
     }
@@ -350,7 +356,7 @@ function toAnthropicTools(tools: unknown): AnthropicTool[] {
       out.push({
         name: decl.name,
         ...(decl.description ? { description: decl.description } : {}),
-        input_schema: inputSchema
+        input_schema: inputSchema,
       });
     }
   }

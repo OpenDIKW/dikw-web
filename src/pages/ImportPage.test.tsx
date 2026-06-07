@@ -4,17 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ImportPage } from "./ImportPage";
 import { createMockClient, type MockDikwClient } from "../test/mockClient";
 import { DikwClientError } from "../api/client";
-import {
-  PIPELINE_STORAGE_KEY,
-  type PipelineState
-} from "../state/import-pipeline";
-import type {
-  ApplyReport,
-  FixProposal,
-  ImportResponse,
-  TaskEvent,
-  TaskHandle
-} from "../types";
+import { PIPELINE_STORAGE_KEY, type PipelineState } from "../state/import-pipeline";
+import type { ApplyReport, FixProposal, ImportResponse, TaskEvent, TaskHandle } from "../types";
 
 /** Create a File whose ``webkitRelativePath`` matches the picker shape so
  *  ``computeProjectRelPath`` strips the top dir consistently with the input
@@ -23,7 +14,7 @@ function file(name: string, body: string): File {
   const f = new File([body], name.split("/").pop()!, { type: "text/markdown" });
   Object.defineProperty(f, "webkitRelativePath", {
     value: name,
-    configurable: true
+    configurable: true,
   });
   return f;
 }
@@ -32,7 +23,7 @@ function file(name: string, body: string): File {
 function selectFile(input: HTMLInputElement, ...files: File[]): void {
   Object.defineProperty(input, "files", {
     value: files,
-    configurable: true
+    configurable: true,
   });
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
@@ -46,7 +37,7 @@ function succeededStream(): AsyncGenerator<TaskEvent> {
       type: "final",
       seq: 1,
       ts: new Date().toISOString(),
-      status: "succeeded"
+      status: "succeeded",
     } as TaskEvent;
   })();
 }
@@ -63,7 +54,7 @@ function progressOnlyStream(): AsyncGenerator<TaskEvent> {
       ts: new Date().toISOString(),
       phase: "scan",
       current: 1,
-      total: 1
+      total: 1,
     } as TaskEvent;
   })();
 }
@@ -81,7 +72,7 @@ function throwingStream(error: unknown): AsyncGenerator<TaskEvent> {
       ts: new Date().toISOString(),
       phase: "synth",
       current: 1,
-      total: 1
+      total: 1,
     } as TaskEvent;
     throw error;
   })();
@@ -93,7 +84,7 @@ function handle(taskId: string, op: string): TaskHandle {
     op,
     status: "running",
     created_at: new Date().toISOString(),
-    links: {}
+    links: {},
   };
 }
 
@@ -105,7 +96,7 @@ function importResponse(overrides: Partial<ImportResponse> = {}): ImportResponse
     applied_at: new Date().toISOString(),
     committed: [0],
     rejected: [],
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -118,46 +109,38 @@ function sampleProposals(): FixProposal[] {
       issue_kind: "broken_wikilink",
       issue_path: "sources/a.md",
       issue_detail: "[[missing-page]] does not resolve",
-      operations: [
-        { kind: "update_page", path: "sources/a.md" }
-      ],
+      operations: [{ kind: "update_page", path: "sources/a.md" }],
       rationale: "Wikilink target was renamed in 2024-Q3.",
-      source: "heuristic"
+      source: "heuristic",
     },
     {
       proposal_id: "p2",
       issue_kind: "missing_provenance",
       issue_path: "sources/a.md",
       issue_detail: "frontmatter has no `provenance:` field",
-      operations: [
-        { kind: "reconcile_provenance", path: "sources/a.md" }
-      ],
+      operations: [{ kind: "reconcile_provenance", path: "sources/a.md" }],
       rationale: "Provenance is required for wisdom linkage.",
-      source: "heuristic"
+      source: "heuristic",
     },
     {
       proposal_id: "p3",
       issue_kind: "missing_provenance",
       issue_path: "sources/b.md",
       issue_detail: "frontmatter has no `provenance:` field",
-      operations: [
-        { kind: "reconcile_provenance", path: "sources/b.md" }
-      ],
+      operations: [{ kind: "reconcile_provenance", path: "sources/b.md" }],
       rationale: "Provenance is required for wisdom linkage.",
-      source: "heuristic"
-    }
+      source: "heuristic",
+    },
   ];
 }
 
 function applyReport(overrides: Partial<ApplyReport> = {}): ApplyReport {
   return {
-    applied: [
-      { kind: "update_page", path: "sources/a.md" }
-    ],
+    applied: [{ kind: "update_page", path: "sources/a.md" }],
     skipped: [],
     knowledge_paths_changed: ["sources/a.md"],
     proposal_task_id: null,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -212,16 +195,14 @@ describe("ImportPage — idle picker", () => {
       input,
       file("V/a.md", "Body text with no embeds.\n"),
       // .txt is unsupported — filtered at selection, never bundled.
-      file("V/notes.txt", "Plain notes")
+      file("V/notes.txt", "Plain notes"),
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("import-preview")).toBeInTheDocument();
     });
     // The unsupported file is reported in a picker notice, not the skipped list.
-    expect(
-      screen.getByText("Skipped 1 file(s) in an unsupported format.")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Skipped 1 file(s) in an unsupported format.")).toBeInTheDocument();
     expect(screen.queryByText("notes.txt")).not.toBeInTheDocument();
     // The supported markdown is still bundled.
     const included = screen.getByTestId("import-included-list");
@@ -239,7 +220,7 @@ describe("ImportPage — idle picker", () => {
       // Empty body after frontmatter → ``inspectMarkdownFiles`` emits an
       // ``empty_body`` skip; the extension is supported so it still reaches
       // the bundler (unlike unsupported extensions, filtered earlier).
-      file("V/empty.md", "")
+      file("V/empty.md", ""),
     );
 
     await waitFor(() => {
@@ -264,9 +245,7 @@ describe("ImportPage — idle picker", () => {
     // Then a selection where every file is unsupported.
     selectFile(input, file("V/archive.zip", "PK fake zip"));
     await waitFor(() => {
-      expect(
-        screen.getByText("Skipped 1 file(s) in an unsupported format.")
-      ).toBeInTheDocument();
+      expect(screen.getByText("Skipped 1 file(s) in an unsupported format.")).toBeInTheDocument();
     });
     // The stale preview must be gone so the previous file can't be imported.
     expect(screen.queryByTestId("import-preview")).not.toBeInTheDocument();
@@ -279,16 +258,14 @@ describe("ImportPage — idle picker", () => {
     const dropzone = screen.getByTestId("import-dropzone");
     const dirEntry = { isDirectory: true, isFile: false };
     const dataTransfer = {
-      items: [
-        { kind: "file", webkitGetAsEntry: () => dirEntry, getAsFile: () => null }
-      ],
-      files: []
+      items: [{ kind: "file", webkitGetAsEntry: () => dirEntry, getAsFile: () => null }],
+      files: [],
     };
     fireEvent.drop(dropzone, { dataTransfer });
 
     await waitFor(() => {
       expect(
-        screen.getByText("Folders aren't supported — drop individual files.")
+        screen.getByText("Folders aren't supported — drop individual files."),
       ).toBeInTheDocument();
     });
     expect(screen.queryByTestId("import-preview")).not.toBeInTheDocument();
@@ -308,8 +285,8 @@ describe("ImportPage — pipeline resume", () => {
       streamTaskEvents: vi.fn(() =>
         (async function* () {
           await new Promise(() => {});
-        })()
-      )
+        })(),
+      ),
     });
     render(<ImportPage client={client} locale="en" />);
 
@@ -319,9 +296,7 @@ describe("ImportPage — pipeline resume", () => {
     });
     expect(screen.getByTestId("import-cancel")).toBeInTheDocument();
     // Storage still carries the resumed state — it was not clobbered.
-    expect(sessionStorage.getItem(PIPELINE_STORAGE_KEY)).toContain(
-      "resumed-ingest"
-    );
+    expect(sessionStorage.getItem(PIPELINE_STORAGE_KEY)).toContain("resumed-ingest");
   });
 
   it("renders the resume banner with title and detail when picking up mid-pipeline", async () => {
@@ -331,8 +306,8 @@ describe("ImportPage — pipeline resume", () => {
       streamTaskEvents: vi.fn(() =>
         (async function* () {
           await new Promise(() => {});
-        })()
-      )
+        })(),
+      ),
     });
     render(<ImportPage client={client} locale="en" />);
 
@@ -347,7 +322,7 @@ describe("ImportPage — pipeline resume", () => {
   it("does NOT render the resume banner for a fresh in-session start", async () => {
     const client = createMockClient();
     Object.assign(client, {
-      importBundle: vi.fn(() => new Promise(() => {})) // hang in upload
+      importBundle: vi.fn(() => new Promise(() => {})), // hang in upload
     });
     render(<ImportPage client={client} locale="en" />);
 
@@ -370,8 +345,8 @@ describe("ImportPage — pipeline resume", () => {
         () =>
           new Promise(() => {
             importInvoked = true;
-          })
-      )
+          }),
+      ),
     });
     render(<ImportPage client={client} locale="en" />);
     const input = screen.getByTestId("import-file-input") as HTMLInputElement;
@@ -405,8 +380,8 @@ describe("ImportPage — lint review", () => {
         bytes: 4096,
         applied_at: "",
         committed: [0],
-        rejected: []
-      }
+        rejected: [],
+      },
     });
     const client = createMockClient();
     render(<ImportPage client={client} locale="en" />);
@@ -434,9 +409,7 @@ describe("ImportPage — lint review", () => {
     await userEvent.click(card);
     expect(card).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByTestId("import-lint-apply")).toHaveTextContent("Apply 2 / 3");
-    expect(screen.getByTestId("import-lint-selected-count")).toHaveTextContent(
-      "2 selected"
-    );
+    expect(screen.getByTestId("import-lint-selected-count")).toHaveTextContent("2 selected");
 
     // "Select none" zeroes the selection and disables Apply.
     await userEvent.click(screen.getByTestId("import-lint-select-none"));
@@ -455,7 +428,7 @@ describe("ImportPage — lint review", () => {
     Object.assign(client, {
       startLintApply,
       streamTaskEvents: vi.fn(() => succeededStream()),
-      getTaskResult: vi.fn().mockResolvedValue(applyReport())
+      getTaskResult: vi.fn().mockResolvedValue(applyReport()),
     });
 
     // Deselect p2 so the picked list is [0, 2] — ordering matters for the
@@ -469,9 +442,9 @@ describe("ImportPage — lint review", () => {
     expect(startLintApply).toHaveBeenCalledWith(
       expect.objectContaining({
         proposalTaskId: "t_propose_1",
-        pick: [0, 2]
+        pick: [0, 2],
       }),
-      expect.any(AbortSignal)
+      expect.any(AbortSignal),
     );
 
     // Pipeline lands on the done state.
@@ -498,7 +471,7 @@ describe("ImportPage — done summary", () => {
       applyReport: applyReport(),
       proposals: sampleProposals(),
       picked: [0, 1, 2],
-      ...extra
+      ...extra,
     });
     render(<ImportPage client={createMockClient()} locale="en" />);
   }
@@ -507,9 +480,7 @@ describe("ImportPage — done summary", () => {
     renderDone();
     await screen.findByTestId("import-done");
     expect(screen.getByText("Import complete")).toBeInTheDocument();
-    expect(
-      screen.getByText("Your knowledge base has been updated")
-    ).toBeInTheDocument();
+    expect(screen.getByText("Your knowledge base has been updated")).toBeInTheDocument();
     expect(screen.getByTestId("import-done-open-wiki")).toBeInTheDocument();
     expect(screen.getByTestId("import-done-open-graph")).toBeInTheDocument();
     expect(screen.getByTestId("import-restart")).toBeInTheDocument();
@@ -545,7 +516,7 @@ describe("ImportPage — failure and cancel", () => {
   it("renders a Notice with a Start-a-new-import retry button on failure", async () => {
     seedPipeline({
       stage: "failed",
-      error: { stage: "synth", message: "synth crashed", code: "internal" }
+      error: { stage: "synth", message: "synth crashed", code: "internal" },
     });
     render(<ImportPage client={createMockClient()} locale="en" />);
 
@@ -558,7 +529,7 @@ describe("ImportPage — failure and cancel", () => {
   it("renders a cancelled Notice on user-cancelled state", async () => {
     seedPipeline({
       stage: "cancelled",
-      error: { stage: "ingest", message: "ingest cancelled by user" }
+      error: { stage: "ingest", message: "ingest cancelled by user" },
     });
     render(<ImportPage client={createMockClient()} locale="en" />);
     expect(await screen.findByText("Import cancelled")).toBeInTheDocument();
@@ -579,20 +550,18 @@ describe("ImportPage — event-stream race reconciliation", () => {
       ts: new Date().toISOString(),
       status: "succeeded",
       result: {},
-      error: null
+      error: null,
     };
     const getTaskFinalEvent = vi.fn().mockResolvedValue(finalEvent);
     Object.assign(client, {
       importBundle: vi.fn().mockResolvedValue(importResponse()),
       startIngest: vi.fn().mockResolvedValue(handle("ingest-1", "ingest")),
       startSynth: vi.fn().mockResolvedValue(handle("synth-1", "synth")),
-      startLintPropose: vi
-        .fn()
-        .mockResolvedValue(handle("propose-1", "lint.propose")),
+      startLintPropose: vi.fn().mockResolvedValue(handle("propose-1", "lint.propose")),
       // Every stage's stream ends WITHOUT a final event — the race.
       streamTaskEvents: vi.fn(() => progressOnlyStream()),
       getTaskFinalEvent,
-      getTaskResult: vi.fn().mockResolvedValue({ proposals: [] })
+      getTaskResult: vi.fn().mockResolvedValue({ proposals: [] }),
     });
     render(<ImportPage client={client} locale="en" />);
 
@@ -606,14 +575,8 @@ describe("ImportPage — event-stream race reconciliation", () => {
     expect(screen.queryByText("Import failed")).not.toBeInTheDocument();
     expect(screen.queryByText("ingest failed")).not.toBeInTheDocument();
     // Reconcile fired for each task stage that drained without a final.
-    expect(getTaskFinalEvent).toHaveBeenCalledWith(
-      "ingest-1",
-      expect.any(AbortSignal)
-    );
-    expect(getTaskFinalEvent).toHaveBeenCalledWith(
-      "synth-1",
-      expect.any(AbortSignal)
-    );
+    expect(getTaskFinalEvent).toHaveBeenCalledWith("ingest-1", expect.any(AbortSignal));
+    expect(getTaskFinalEvent).toHaveBeenCalledWith("synth-1", expect.any(AbortSignal));
   });
 
   it("treats a follow stream that threw a gateway error as success when the row succeeded (#56)", async () => {
@@ -628,28 +591,26 @@ describe("ImportPage — event-stream race reconciliation", () => {
       ts: new Date().toISOString(),
       status: "succeeded",
       result: {},
-      error: null
+      error: null,
     };
     const getTaskFinalEvent = vi.fn().mockResolvedValue(finalEvent);
     Object.assign(client, {
       importBundle: vi.fn().mockResolvedValue(importResponse()),
       startIngest: vi.fn().mockResolvedValue(handle("ingest-1", "ingest")),
       startSynth: vi.fn().mockResolvedValue(handle("synth-1", "synth")),
-      startLintPropose: vi
-        .fn()
-        .mockResolvedValue(handle("propose-1", "lint.propose")),
+      startLintPropose: vi.fn().mockResolvedValue(handle("propose-1", "lint.propose")),
       // Every stage's follow throws a 502 mid-stream (retries exhausted).
       streamTaskEvents: vi.fn(() =>
         throwingStream(
           new DikwClientError({
             status: 502,
             code: "http_502",
-            message: "Error 502: Bad gateway"
-          })
-        )
+            message: "Error 502: Bad gateway",
+          }),
+        ),
       ),
       getTaskFinalEvent,
-      getTaskResult: vi.fn().mockResolvedValue({ proposals: [] })
+      getTaskResult: vi.fn().mockResolvedValue({ proposals: [] }),
     });
     render(<ImportPage client={client} locale="en" />);
 
@@ -662,9 +623,6 @@ describe("ImportPage — event-stream race reconciliation", () => {
     await screen.findByTestId("import-done");
     expect(screen.queryByText("Import failed")).not.toBeInTheDocument();
     expect(screen.queryByText(/synth failed/i)).not.toBeInTheDocument();
-    expect(getTaskFinalEvent).toHaveBeenCalledWith(
-      "synth-1",
-      expect.any(AbortSignal)
-    );
+    expect(getTaskFinalEvent).toHaveBeenCalledWith("synth-1", expect.any(AbortSignal));
   });
 });

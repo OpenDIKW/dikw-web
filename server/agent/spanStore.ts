@@ -1,4 +1,8 @@
-import type { SessionTraceView, TraceInvocationView, TraceSpanView } from "../../src/agent/traceTypes.js";
+import type {
+  SessionTraceView,
+  TraceInvocationView,
+  TraceSpanView,
+} from "../../src/agent/traceTypes.js";
 
 /**
  * Flat span row extracted from a finished OTel span by DikwSpanProcessor.
@@ -75,16 +79,14 @@ export class SpanStore {
 
     const invocations: TraceInvocationView[] = [];
     for (const [invocationId, bucket] of groups) {
-      const spans = bucket
-        .map(toSpanView)
-        .sort((a, b) => a.startTimeMs - b.startTimeMs);
+      const spans = bucket.map(toSpanView).sort((a, b) => a.startTimeMs - b.startTimeMs);
       const startTimeMs = Math.min(...spans.map((span) => span.startTimeMs));
       const endTimeMs = Math.max(...spans.map((span) => span.startTimeMs + span.durationMs));
       invocations.push({
         invocationId,
         startTimeMs,
         durationMs: endTimeMs - startTimeMs,
-        spans
+        spans,
       });
     }
 
@@ -103,6 +105,6 @@ function toSpanView(row: SpanRow): TraceSpanView {
     status: row.status,
     attributes: row.attributes,
     ...(typeof row.tokensInput === "number" ? { tokensInput: row.tokensInput } : {}),
-    ...(typeof row.tokensOutput === "number" ? { tokensOutput: row.tokensOutput } : {})
+    ...(typeof row.tokensOutput === "number" ? { tokensOutput: row.tokensOutput } : {}),
   };
 }

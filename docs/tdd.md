@@ -199,8 +199,10 @@ Locale and theme regressions should be caught at the browser boundary:
 - `npm test`: one-shot Vitest suite.
 - `npm run test:coverage`: unit, component, hook, and page coverage with thresholds.
 - `npm run test:e2e`: Playwright browser tests with mocked `/v1` API responses.
+- `npm run lint`: ESLint flat config, `--max-warnings 0`; part of `verify`.
+- `npm run format:check` / `npm run format`: Prettier across code (markdown excluded); part of `verify`.
 - `npm run smoke:core`: contract smoke against a LIVE `dikw-core` (not in CI; needs a reachable core).
-- `npm run verify`: typecheck, coverage, build, and E2E gate.
+- `npm run verify`: lint, format check, typecheck, coverage, build, and E2E gate.
 - `npm run check:bundle`: gzip bundle budget against `dist/` (runs in CI after the verify gate).
 
 ## Test Boundaries
@@ -208,7 +210,7 @@ Locale and theme regressions should be caught at the browser boundary:
 - Unit tests cover deep modules such as API URL/stream handling, markdown parsing, and formatting.
 - Component and hook tests use Testing Library and assert text, roles, errors, disabled states, and callbacks.
 - Page tests render pages with fixture-backed fake clients. They should cover the primary user flow per page before edge cases.
-- E2E tests use Playwright route mocks by default. They are a UI integration gate, not a real `dikw-core` smoke test. Specs import `test`/`expect` from `tests/e2e/harness.ts`, which fails any test that emits a `console.error` or an uncaught `pageerror` (resource-load 404s and `AbortError` are allowlisted; opt a test out with `test.use({ consoleGuard: false })`).
+- E2E tests use Playwright route mocks by default. They are a UI integration gate, not a real `dikw-core` smoke test. Specs import `test`/`expect` from `tests/e2e/harness.ts`, which fails any test that emits a `console.error` or an uncaught `pageerror` (resource-load 404s and `AbortError` are allowlisted; opt a test out with `test.use({ consoleGuard: false })`). `tests/e2e/perf.spec.ts` additionally asserts a Cumulative Layout Shift budget (≤ 0.1) per primary route; LCP and long-task totals are measured as annotations but not gated (runner-dependent timing).
 
 ## Coverage Policy
 

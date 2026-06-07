@@ -19,19 +19,19 @@ export const translations = {
       tasks: "Tasks",
       import: "Import",
       settings: "Settings",
-      trace: "Trace"
+      trace: "Trace",
     },
     navGroups: {
       knowledge: "Knowledge",
       interact: "Interact",
       work: "Work",
-      system: "System"
+      system: "System",
     },
     pages: {
       overview: {
         title: "Overview",
         refresh: "Refresh overview",
-        errorTitle: "Could not read dikw-core status"
+        errorTitle: "Could not read dikw-core status",
       },
       chat: {
         title: "Chat",
@@ -53,7 +53,8 @@ export const translations = {
         errorTitle: "Agent failed",
         noResponseError: "Agent returned no response. Please try again.",
         emptyAnswerTitle: "Start a chat",
-        emptyAnswerDetail: "The agent will retrieve core knowledge, inspect pages, and compose an answer with sources.",
+        emptyAnswerDetail:
+          "The agent will retrieve core knowledge, inspect pages, and compose an answer with sources.",
         userRole: "User",
         assistantRole: "Agent",
         contextTitle: "Session context",
@@ -64,7 +65,7 @@ export const translations = {
         emptyTools: "No tool calls yet",
         toolStatusRunning: "Running",
         toolStatusSucceeded: "Succeeded",
-        toolStatusFailed: "Failed"
+        toolStatusFailed: "Failed",
       },
       trace: {
         title: "Trace",
@@ -86,7 +87,7 @@ export const translations = {
         durationUnit: "ms",
         userRole: "User",
         assistantRole: "Agent",
-        errorTitle: "Could not load traces"
+        errorTitle: "Could not load traces",
       },
       retrieve: {
         title: "Retrieve",
@@ -98,9 +99,10 @@ export const translations = {
         errorTitle: "Retrieve failed",
         chunksTitle: "Chunks",
         emptyChunks: "No chunks yet",
-        emptyChunksDetail: "Run retrieve to show final chunks; streaming partial results appear as a preview.",
+        emptyChunksDetail:
+          "Run retrieve to show final chunks; streaming partial results appear as a preview.",
         pageRefsTitle: "Page Refs",
-        emptyPageRefs: "No page refs"
+        emptyPageRefs: "No page refs",
       },
       wiki: {
         title: "Base",
@@ -136,7 +138,7 @@ export const translations = {
         referenceSourceLinked: "linked",
         referenceSourceSourced: "sourced",
         referenceSourceLinkedAria: "Linked via body wikilink",
-        referenceSourceSourcedAria: "Linked via frontmatter source"
+        referenceSourceSourcedAria: "Linked via frontmatter source",
       },
       graph: {
         title: "Graph",
@@ -148,8 +150,9 @@ export const translations = {
         readingPages: "Reading",
         pages: "pages",
         emptyGraph: "No graph nodes to display",
-        partialReadWarning: "Some page bodies could not be read. The graph continues with returned pages.",
-        errorTitle: "Could not build graph"
+        partialReadWarning:
+          "Some page bodies could not be read. The graph continues with returned pages.",
+        errorTitle: "Could not build graph",
       },
       wisdom: {
         title: "Wisdom",
@@ -215,7 +218,7 @@ export const translations = {
           slug: "Slug must be kebab-case (a-z, 0-9, dashes)",
           author: "Author must be kebab-case (a-z, 0-9, dashes)",
           duplicate: "A page with this path already exists",
-          listLoading: "Page list still loading — try again in a moment"
+          listLoading: "Page list still loading — try again in a moment",
         },
         unresolvedWikilink: "[[{title}]] isn't a wisdom page.",
         cancel: "Cancel",
@@ -227,12 +230,12 @@ export const translations = {
           draft: "draft",
           published: "published",
           favorite: "favorite",
-          archived: "archived"
+          archived: "archived",
         },
         favorite: "Add to favorites",
         unfavorite: "Remove from favorites",
         starredOnly: "Starred only",
-        addSource: "Add source"
+        addSource: "Add source",
       },
       tasks: {
         title: "Tasks",
@@ -259,14 +262,14 @@ export const translations = {
           lintPropose: "Lint Propose",
           lintApply: "Lint Apply",
           running: "Task running",
-          errorTitle: "Action could not be completed"
+          errorTitle: "Action could not be completed",
         },
         eventPagination: {
           prev: "Prev",
           next: "Next",
           pageOf: "Page {current} / {total}",
-          ariaLabel: "event pagination"
-        }
+          ariaLabel: "event pagination",
+        },
       },
       import: {
         title: "Import",
@@ -315,24 +318,24 @@ export const translations = {
         pipelineLeaveHint: "You can leave this page; progress is saved per-session.",
         pipelinePhaseLabel: "phase",
         resumeBannerTitle: "Resumed your import",
-        resumeBannerBody: "This page was refreshed mid-pipeline. We picked up polling against the running task — no need to re-upload.",
+        resumeBannerBody:
+          "This page was refreshed mid-pipeline. We picked up polling against the running task — no need to re-upload.",
         stages: {
           uploading: "Upload",
           ingest: "Ingest",
           synth: "Synth",
           lintPropose: "Lint propose",
-          lintApply: "Lint apply"
+          lintApply: "Lint apply",
         },
         stageDescriptions: {
           uploading: "Package bundle and POST to dikw-core",
           ingest: "Parse markdown, hash assets, write data layer",
           synth: "Derive information & knowledge from data",
           lintPropose: "Detect issues, generate fix proposals",
-          lintApply: "Apply the proposals you picked"
+          lintApply: "Apply the proposals you picked",
         },
         lintReviewTitle: "Review lint proposals",
-        lintReviewHint:
-          "Pick the fixes to apply — unchecked proposals are left alone.",
+        lintReviewHint: "Pick the fixes to apply — unchecked proposals are left alone.",
         lintGroupCount: "{n} proposals",
         lintProposedFix: "Proposed fix",
         lintKinds: {
@@ -340,7 +343,7 @@ export const translations = {
           orphan_page: "Orphan page",
           duplicate_title: "Duplicate title",
           non_atomic_page: "Non-atomic page",
-          missing_provenance: "Missing provenance"
+          missing_provenance: "Missing provenance",
         },
         lintSelected: "{n} selected",
         selectAll: "Select all",
@@ -363,7 +366,8 @@ export const translations = {
         summarySkippedUser: "Skipped by you",
         summaryProposalsTotal: "Proposals received",
         summaryNoLint: "No lint proposals",
-        doneTaskHistoryHint: "All task records are kept in Tasks — including the source proposal payloads.",
+        doneTaskHistoryHint:
+          "All task records are kept in Tasks — including the source proposal payloads.",
         errorTitle: "Import failed",
         cancelledTitle: "Import cancelled",
         errorStageLabel: "Stage",
@@ -384,14 +388,14 @@ export const translations = {
             polling: "Converting on mineru…",
             downloading: "Finishing up…",
             done: "done",
-            failed: "failed"
-          }
-        }
-      }
+            failed: "failed",
+          },
+        },
+      },
     },
     connection: {
       tokenConfigured: "token configured",
-      noToken: "no token"
+      noToken: "no token",
     },
     settings: {
       title: "Settings",
@@ -412,8 +416,8 @@ export const translations = {
       languageDetail: "Navigation and settings use the selected language.",
       english: "English",
       chinese: "简体中文",
-      currentTheme: "Resolved theme"
-    }
+      currentTheme: "Resolved theme",
+    },
   },
   "zh-CN": {
     brandSubtitle: "知识工作台",
@@ -428,19 +432,19 @@ export const translations = {
       tasks: "任务",
       import: "导入",
       settings: "设置",
-      trace: "调用追踪"
+      trace: "调用追踪",
     },
     navGroups: {
       knowledge: "知识",
       interact: "对话",
       work: "工作",
-      system: "系统"
+      system: "系统",
     },
     pages: {
       overview: {
         title: "工作台概览",
         refresh: "刷新概览",
-        errorTitle: "无法读取 dikw-core 状态"
+        errorTitle: "无法读取 dikw-core 状态",
       },
       chat: {
         title: "会话",
@@ -473,7 +477,7 @@ export const translations = {
         emptyTools: "暂无工具调用",
         toolStatusRunning: "运行中",
         toolStatusSucceeded: "已完成",
-        toolStatusFailed: "失败"
+        toolStatusFailed: "失败",
       },
       trace: {
         title: "调用追踪",
@@ -495,7 +499,7 @@ export const translations = {
         durationUnit: "ms",
         userRole: "用户",
         assistantRole: "智能体",
-        errorTitle: "无法加载调用追踪"
+        errorTitle: "无法加载调用追踪",
       },
       retrieve: {
         title: "检索上下文",
@@ -509,7 +513,7 @@ export const translations = {
         emptyChunks: "尚无 chunks",
         emptyChunksDetail: "运行检索后会显示最终 chunks；流式 partial 会先作为预览出现。",
         pageRefsTitle: "Page Refs",
-        emptyPageRefs: "尚无 page refs"
+        emptyPageRefs: "尚无 page refs",
       },
       wiki: {
         title: "知识库",
@@ -545,7 +549,7 @@ export const translations = {
         referenceSourceLinked: "链接",
         referenceSourceSourced: "出处",
         referenceSourceLinkedAria: "通过正文双链关联",
-        referenceSourceSourcedAria: "通过 frontmatter 出处关联"
+        referenceSourceSourcedAria: "通过 frontmatter 出处关联",
       },
       graph: {
         title: "知识图谱",
@@ -558,7 +562,7 @@ export const translations = {
         pages: "pages",
         emptyGraph: "没有可显示的图谱节点",
         partialReadWarning: "部分页面正文读取失败，图谱已用已返回页面继续构建。",
-        errorTitle: "无法构建知识图谱"
+        errorTitle: "无法构建知识图谱",
       },
       wisdom: {
         title: "认知沉淀",
@@ -624,7 +628,7 @@ export const translations = {
           slug: "Slug 必须为 kebab-case(小写字母/数字/短横线)",
           author: "作者也需要 kebab-case(小写字母/数字/短横线)",
           duplicate: "该路径已存在",
-          listLoading: "页面列表还在加载,稍后再试"
+          listLoading: "页面列表还在加载,稍后再试",
         },
         unresolvedWikilink: "[[{title}]] 不是认知层页面。",
         cancel: "取消",
@@ -636,12 +640,12 @@ export const translations = {
           draft: "草稿",
           published: "已发布",
           favorite: "收藏",
-          archived: "归档"
+          archived: "归档",
         },
         favorite: "加入收藏",
         unfavorite: "取消收藏",
         starredOnly: "仅看收藏",
-        addSource: "添加来源"
+        addSource: "添加来源",
       },
       tasks: {
         title: "任务",
@@ -668,20 +672,22 @@ export const translations = {
           lintPropose: "Lint 提案",
           lintApply: "Lint 应用",
           running: "任务运行中",
-          errorTitle: "操作未能完成"
+          errorTitle: "操作未能完成",
         },
         eventPagination: {
           prev: "上一页",
           next: "下一页",
           pageOf: "第 {current} 页 / 共 {total} 页",
-          ariaLabel: "事件分页"
-        }
+          ariaLabel: "事件分页",
+        },
       },
       import: {
         title: "导入",
-        description: "把本地 markdown 和引用的素材上传到 dikw-core，自动完成 ingest → synth → lint，刷新页面也能接着跑。",
+        description:
+          "把本地 markdown 和引用的素材上传到 dikw-core，自动完成 ingest → synth → lint，刷新页面也能接着跑。",
         pickerTitle: "把文件拖到这里",
-        pickerHint: "Markdown 笔记和它引用的图片、PDF 会被打包成一次导入。不支持的格式会被自动过滤。",
+        pickerHint:
+          "Markdown 笔记和它引用的图片、PDF 会被打包成一次导入。不支持的格式会被自动过滤。",
         pickFiles: "选择文件",
         folderNotSupported: "不支持文件夹，请拖入单个文件。",
         filteredUnsupported: "已过滤 {n} 个不支持的文件。",
@@ -728,14 +734,14 @@ export const translations = {
           ingest: "解析入库",
           synth: "知识合成",
           lintPropose: "智能检查",
-          lintApply: "应用修复"
+          lintApply: "应用修复",
         },
         stageDescriptions: {
           uploading: "把选中的文件打包发送给 dikw-core",
           ingest: "解析 Markdown，登记图片资产",
           synth: "从笔记中推导信息层和知识层",
           lintPropose: "找出可修复的小问题",
-          lintApply: "把你勾选的修复写回知识库"
+          lintApply: "把你勾选的修复写回知识库",
         },
         lintReviewTitle: "审阅修复建议",
         lintReviewHint: "勾选你希望应用的修复，未勾选的不会动你的文件。",
@@ -746,7 +752,7 @@ export const translations = {
           orphan_page: "孤立页面",
           duplicate_title: "标题重复",
           non_atomic_page: "颗粒度偏大",
-          missing_provenance: "缺少出处"
+          missing_provenance: "缺少出处",
         },
         lintSelected: "已勾选 {n} 项",
         selectAll: "全选",
@@ -790,14 +796,14 @@ export const translations = {
             polling: "正在 mineru 转换…",
             downloading: "即将完成…",
             done: "完成",
-            failed: "失败"
-          }
-        }
-      }
+            failed: "失败",
+          },
+        },
+      },
     },
     connection: {
       tokenConfigured: "已配置令牌",
-      noToken: "未配置令牌"
+      noToken: "未配置令牌",
     },
     settings: {
       title: "设置",
@@ -818,9 +824,9 @@ export const translations = {
       languageDetail: "导航和设置页会使用选择的语言。",
       english: "English",
       chinese: "简体中文",
-      currentTheme: "当前主题"
-    }
-  }
+      currentTheme: "当前主题",
+    },
+  },
 } satisfies Record<Locale, unknown>;
 
 export function isLocale(value: string | null): value is Locale {

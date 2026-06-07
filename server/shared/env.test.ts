@@ -19,7 +19,7 @@ describe("parseEnv", () => {
   });
 
   it("leaves mismatched or unquoted values untouched", () => {
-    expect(parseEnv("A=\"half\nB=plain")).toEqual({ A: "\"half", B: "plain" });
+    expect(parseEnv('A="half\nB=plain')).toEqual({ A: '"half', B: "plain" });
   });
 
   it("trims whitespace around key and value", () => {
@@ -28,7 +28,7 @@ describe("parseEnv", () => {
 
   it("splits on the first = so values may contain =", () => {
     expect(parseEnv("URL=https://example/path?a=1&b=2")).toEqual({
-      URL: "https://example/path?a=1&b=2"
+      URL: "https://example/path?a=1&b=2",
     });
   });
 

@@ -6,9 +6,9 @@ export const infoFixture = {
     llm: "anthropic_compat",
     llm_model: "MiniMax-M2.7",
     embedding: "openai_compat",
-    embedding_model: "Qwen3-Embedding-0.6B"
+    embedding_model: "Qwen3-Embedding-0.6B",
   },
-  auth_required: false
+  auth_required: false,
 };
 
 export const healthFixture = {
@@ -20,7 +20,7 @@ export const healthFixture = {
     sources: 1,
     knowledge_pages: 3,
     wisdom_items: 4,
-    chunks: 31
+    chunks: 31,
   },
   providers: {
     llm: {
@@ -30,7 +30,7 @@ export const healthFixture = {
       max_retries: 2,
       max_tokens_synth: 2048,
       timeout_seconds: 60,
-      api_key_present: true
+      api_key_present: true,
     },
     embedding: {
       provider: "openai_compat",
@@ -45,9 +45,9 @@ export const healthFixture = {
       timeout_seconds: 60,
       provider_label: "gitee",
       api_key_present: true,
-      multimodal: null
-    }
-  }
+      multimodal: null,
+    },
+  },
 };
 
 export const statusFixture = {
@@ -57,7 +57,7 @@ export const statusFixture = {
   links: 3,
   last_knowledge_log_ts: 1777819200,
   assets: 0,
-  asset_embeddings: 0
+  asset_embeddings: 0,
 };
 
 export const wikiPagesFixture = [
@@ -69,7 +69,7 @@ export const wikiPagesFixture = [
     hash: "hash-a",
     mtime: 1777819200,
     layer: "knowledge",
-    active: true
+    active: true,
   },
   {
     doc_id: "knowledge-synthesis",
@@ -79,7 +79,7 @@ export const wikiPagesFixture = [
     hash: "hash-s",
     mtime: 1777819300,
     layer: "knowledge",
-    active: true
+    active: true,
   },
   {
     doc_id: "knowledge-orphan",
@@ -89,7 +89,7 @@ export const wikiPagesFixture = [
     hash: "hash-o",
     mtime: 1777819400,
     layer: "knowledge",
-    active: true
+    active: true,
   },
   {
     doc_id: "source-architecture",
@@ -99,7 +99,7 @@ export const wikiPagesFixture = [
     hash: "hash-src-a",
     mtime: 1777819100,
     layer: "source",
-    active: true
+    active: true,
   },
   {
     doc_id: "source-active-learning-medium",
@@ -109,7 +109,7 @@ export const wikiPagesFixture = [
     hash: "hash-src-active-learning",
     mtime: 1777819500,
     layer: "source",
-    active: true
+    active: true,
   },
   {
     doc_id: "source-cho-cqa",
@@ -119,12 +119,13 @@ export const wikiPagesFixture = [
     hash: "hash-src-cho-cqa",
     mtime: 1777819600,
     layer: "source",
-    active: true
-  }
+    active: true,
+  },
 ];
 
 export const choCqaAssetId = "1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72";
-export const choCqaMissingPath = "assets/images/deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.jpg";
+export const choCqaMissingPath =
+  "assets/images/deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef.jpg";
 
 // 1×1 transparent PNG, base64-encoded.
 export const onePxPngBase64 =
@@ -142,7 +143,7 @@ export const graphResultFixture = {
       active: true,
       mtime: 1777819200,
       inbound: 0,
-      outbound: 1
+      outbound: 1,
     },
     {
       id: "knowledge/concepts/synthesis.md",
@@ -152,7 +153,7 @@ export const graphResultFixture = {
       active: true,
       mtime: 1777819300,
       inbound: 1,
-      outbound: 0
+      outbound: 0,
     },
     {
       id: "knowledge/concepts/orphan.md",
@@ -162,7 +163,7 @@ export const graphResultFixture = {
       active: true,
       mtime: 1777819400,
       inbound: 0,
-      outbound: 0
+      outbound: 0,
     },
     {
       id: "sources/architecture.md",
@@ -172,8 +173,8 @@ export const graphResultFixture = {
       active: true,
       mtime: 1777819100,
       inbound: 0,
-      outbound: 0
-    }
+      outbound: 0,
+    },
   ],
   edges: [
     {
@@ -183,22 +184,22 @@ export const graphResultFixture = {
       type: "wikilink",
       target_text: "Synthesis",
       anchor: null,
-      weight: 1
-    }
+      weight: 1,
+    },
   ],
   unresolved: [
     {
       source: "knowledge/concepts/architecture.md",
       target_text: "Missing Concept",
       anchor: null,
-      count: 1
-    }
+      count: 1,
+    },
   ],
   stats: {
     node_count: 4,
     edge_count: 1,
-    unresolved_count: 1
-  }
+    unresolved_count: 1,
+  },
 };
 
 export const wikiPageBodiesFixture = {
@@ -207,10 +208,15 @@ export const wikiPageBodiesFixture = {
     path: "knowledge/concepts/architecture.md",
     layer: "knowledge",
     title: "Architecture",
-    body: "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\nstatus: draft\n---\n\n# Architecture\n\nLayered DIKW notes with `inline code`.\n\n> Evidence should stay readable in dark mode.\n\n| Layer | Purpose |\n| --- | --- |\n| Knowledge | Durable notes |\n\nInline chemistry $\\mathrm { C O } _ { 2 }$ stays readable.\n\n$$x^2 + y^2 = z^2$$\n\n<table><caption>Hybrid studies</caption><thead><tr><th>First principles</th><th>Training method</th></tr></thead><tbody><tr><td>Mass balance</td><td>FBA</td></tr></tbody></table>\n\n```ts\nconst layer = \"knowledge\";\n```\n\n[Jump to links](#links)\n\n## Links\n\nSee [[Synthesis]] and [[Missing Concept]].",
+    body: '---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\nstatus: draft\n---\n\n# Architecture\n\nLayered DIKW notes with `inline code`.\n\n> Evidence should stay readable in dark mode.\n\n| Layer | Purpose |\n| --- | --- |\n| Knowledge | Durable notes |\n\nInline chemistry $\\mathrm { C O } _ { 2 }$ stays readable.\n\n$$x^2 + y^2 = z^2$$\n\n<table><caption>Hybrid studies</caption><thead><tr><th>First principles</th><th>Training method</th></tr></thead><tbody><tr><td>Mass balance</td><td>FBA</td></tr></tbody></table>\n\n```ts\nconst layer = "knowledge";\n```\n\n[Jump to links](#links)\n\n## Links\n\nSee [[Synthesis]] and [[Missing Concept]].',
     anchors: [{ chunk_id: 101, seq: 1, start: 0, end: 21 }],
     assets: [],
-    frontmatter: { title: "Architecture", tags: ["DIKW"], sources: ["source/a.md"], status: "draft" }
+    frontmatter: {
+      title: "Architecture",
+      tags: ["DIKW"],
+      sources: ["source/a.md"],
+      status: "draft",
+    },
   },
   "knowledge/concepts/synthesis.md": {
     doc_id: "knowledge-synthesis",
@@ -219,7 +225,7 @@ export const wikiPageBodiesFixture = {
     title: "Synthesis",
     body: "---\ntitle: Synthesis\n---\n\n# Synthesis\n\nSynthesis Body.",
     anchors: [{ chunk_id: 102, seq: 1, start: 0, end: 15 }],
-    assets: []
+    assets: [],
   },
   "knowledge/concepts/orphan.md": {
     doc_id: "knowledge-orphan",
@@ -228,7 +234,7 @@ export const wikiPageBodiesFixture = {
     title: "Orphan",
     body: "# Orphan\n\nNo graph links yet.",
     anchors: [],
-    assets: []
+    assets: [],
   },
   "sources/architecture.md": {
     doc_id: "source-architecture",
@@ -237,16 +243,16 @@ export const wikiPageBodiesFixture = {
     title: "Architecture source",
     body: "# Architecture source\n\nThe Architecture is the main topic of this source.",
     anchors: [],
-    assets: []
+    assets: [],
   },
   "sources/active-learning-medium/active-learning-medium.md": {
     doc_id: "source-active-learning-medium",
     path: "sources/active-learning-medium/active-learning-medium.md",
     layer: "source",
     title: "Active Learning Medium",
-    body: "# Active Learning Medium\n\n<details>\n<summary>flowchart</summary>\n\n```mermaid\ngraph LR\n    A[\"Vitamins Amino acids Metal salts etc.\"] --> B[\"Medium combinations\"]\n    B --> C[\"Incubation (37°C, 5% CO₂, 7 days)\"]\n    C --> D[\"Chemical assay, A450\"]\n```\n</details>\n\nAfter the diagram.",
+    body: '# Active Learning Medium\n\n<details>\n<summary>flowchart</summary>\n\n```mermaid\ngraph LR\n    A["Vitamins Amino acids Metal salts etc."] --> B["Medium combinations"]\n    B --> C["Incubation (37°C, 5% CO₂, 7 days)"]\n    C --> D["Chemical assay, A450"]\n```\n</details>\n\nAfter the diagram.',
     anchors: [],
-    assets: []
+    assets: [],
   },
   "sources/cho-cqa/cho-cqa.md": {
     doc_id: "source-cho-cqa",
@@ -284,10 +290,10 @@ export const wikiPageBodiesFixture = {
         bytes: 1234,
         original_paths: [`assets/images/${choCqaAssetId}.jpg`],
         media_meta: null,
-        url: `/v1/assets/${choCqaAssetId}`
-      }
-    ]
-  }
+        url: `/v1/assets/${choCqaAssetId}`,
+      },
+    ],
+  },
 };
 
 import type { PageLinksResult, PageProvenanceResult } from "../../src/types";
@@ -302,10 +308,10 @@ export const wikiPageLinksFixture: Record<string, PageLinksResult> = {
         src_path: "knowledge/concepts/architecture.md",
         link_type: "wikilink",
         anchor: null,
-        line: 3
-      }
-    ]
-  }
+        line: 3,
+      },
+    ],
+  },
 };
 
 export const wikiPageProvenanceFixture: Record<string, PageProvenanceResult> = {
@@ -313,10 +319,18 @@ export const wikiPageProvenanceFixture: Record<string, PageProvenanceResult> = {
     path: "sources/architecture.md",
     derived_from: [],
     derived_pages: [
-      { doc_id: "knowledge-architecture", path: "knowledge/concepts/architecture.md", title: "Architecture" },
-      { doc_id: "knowledge-synthesis", path: "knowledge/concepts/synthesis.md", title: "Synthesis" }
-    ]
-  }
+      {
+        doc_id: "knowledge-architecture",
+        path: "knowledge/concepts/architecture.md",
+        title: "Architecture",
+      },
+      {
+        doc_id: "knowledge-synthesis",
+        path: "knowledge/concepts/synthesis.md",
+        title: "Synthesis",
+      },
+    ],
+  },
 };
 
 export const hitFixture = {
@@ -331,7 +345,7 @@ export const hitFixture = {
   layer: "knowledge",
   start: 0,
   end: 21,
-  text: "Layered DIKW notes."
+  text: "Layered DIKW notes.",
 };
 
 export const retrieveEventsFixture = [
@@ -349,11 +363,11 @@ export const retrieveEventsFixture = [
           layer: "knowledge",
           title: "Architecture",
           score: 0.982,
-          hit_chunk_ids: [101]
-        }
-      ]
-    }
-  }
+          hit_chunk_ids: [101],
+        },
+      ],
+    },
+  },
 ];
 
 export const evalResultFixture = {
@@ -365,11 +379,11 @@ export const evalResultFixture = {
     "doc/hit_at_3": 1,
     hit_at_3: 1,
     "doc/hit_at_10": 1,
-    hit_at_10: 1
+    hit_at_10: 1,
   },
   thresholds: { hit_at_3: 0.9 },
   per_query: [{ q_id: "v1_tang_founding_zh" }, { q_id: "v1_negative_weather_zh" }],
-  negative_diagnostics: [{ q_id: "v1_negative_weather_zh" }]
+  negative_diagnostics: [{ q_id: "v1_negative_weather_zh" }],
 };
 
 export const taskRowsFixture = [
@@ -382,7 +396,7 @@ export const taskRowsFixture = [
     finished_at: "2026-05-05T09:37:25Z",
     params_digest: "5a516df64ddbc631",
     result: evalResultFixture,
-    error: null
+    error: null,
   },
   {
     task_id: "events-bulk-1",
@@ -393,8 +407,8 @@ export const taskRowsFixture = [
     finished_at: "2026-05-17T10:01:00Z",
     params_digest: "bulk-evt",
     result: { added: 24 },
-    error: null
-  }
+    error: null,
+  },
 ];
 
 export const taskEventsFixture = [
@@ -407,9 +421,16 @@ export const taskEventsFixture = [
     phase: "query",
     current: 1,
     total: 2,
-    detail: { mode: "hybrid", q_id: "v1_tang_founding_zh" }
+    detail: { mode: "hybrid", q_id: "v1_tang_founding_zh" },
   },
-  { type: "final", seq: 4, ts: "2026-05-05T09:37:25Z", status: "succeeded", result: evalResultFixture, error: null }
+  {
+    type: "final",
+    seq: 4,
+    ts: "2026-05-05T09:37:25Z",
+    status: "succeeded",
+    result: evalResultFixture,
+    error: null,
+  },
 ];
 
 export const bulkTaskEventsFixture = (() => {
@@ -422,7 +443,7 @@ export const bulkTaskEventsFixture = (() => {
       ts: `2026-05-17T10:00:${String(index % 60).padStart(2, "0")}Z`,
       phase: "embed_chunks",
       current: index + 1,
-      total: total - 1
+      total: total - 1,
     });
   }
   events.push({
@@ -431,7 +452,7 @@ export const bulkTaskEventsFixture = (() => {
     ts: "2026-05-17T10:01:00Z",
     status: "succeeded",
     result: { added: total - 1 },
-    error: null
+    error: null,
   });
   return events;
 })();

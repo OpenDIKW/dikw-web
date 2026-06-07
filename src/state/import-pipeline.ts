@@ -9,11 +9,7 @@
 // Upload itself is a single POST — if the user refreshes mid-upload we can't
 // recover the request, so we reset to ``idle`` on next mount.
 
-import type {
-  ApplyReport,
-  FixProposal,
-  ImportResponse
-} from "../types";
+import type { ApplyReport, FixProposal, ImportResponse } from "../types";
 
 export type PipelineStage =
   | "idle"
@@ -38,14 +34,7 @@ export interface ConversionFileState {
   fileName: string;
   sizeBytes: number;
   ext: string;
-  substage:
-    | "queued"
-    | "hashing"
-    | "uploading"
-    | "polling"
-    | "downloading"
-    | "done"
-    | "failed";
+  substage: "queued" | "hashing" | "uploading" | "polling" | "downloading" | "done" | "failed";
   /** Epoch ms when this file started processing (left the ``queued`` state).
    *  Drives the per-row elapsed timer in ConversionProgress. In-memory only —
    *  the ``converting`` stage is never persisted (see savePipelineState). */
@@ -94,7 +83,7 @@ const TASK_STAGES: ReadonlySet<PipelineStage> = new Set([
   "ingest",
   "synth",
   "lint-propose",
-  "lint-apply"
+  "lint-apply",
 ]);
 
 export function initialState(): PipelineState {
@@ -151,10 +140,7 @@ export function loadPipelineState(currentCoreUrl: string): PipelineState {
   return parsed;
 }
 
-export function savePipelineState(
-  state: PipelineState,
-  currentCoreUrl: string
-): void {
+export function savePipelineState(state: PipelineState, currentCoreUrl: string): void {
   if (typeof sessionStorage === "undefined") return;
   // ``uploading`` is intentionally not persisted — we'd just have to wipe it
   // on the next mount. Keeping the previous persisted state intact (if any)
@@ -180,7 +166,7 @@ export function savePipelineState(
   }
   sessionStorage.setItem(
     PIPELINE_STORAGE_KEY,
-    JSON.stringify({ ...state, coreUrl: state.coreUrl ?? currentCoreUrl })
+    JSON.stringify({ ...state, coreUrl: state.coreUrl ?? currentCoreUrl }),
   );
 }
 

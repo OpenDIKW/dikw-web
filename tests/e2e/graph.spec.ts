@@ -42,7 +42,9 @@ test("shows the global graph and opens a node in the wiki reader", async ({ page
   await detail.getByRole("button", { name: "Open in Base" }).click();
 
   await expect(page).toHaveURL(/#base$/);
-  await expect(page.getByRole("main", { name: "Wiki reader" }).getByRole("heading", { name: "Architecture" })).toBeVisible();
+  await expect(
+    page.getByRole("main", { name: "Wiki reader" }).getByRole("heading", { name: "Architecture" }),
+  ).toBeVisible();
 });
 
 test("opens source graph nodes in the matching knowledge document", async ({ page }) => {
@@ -65,13 +67,15 @@ test("graph canvas renders on first entry without manual refresh", async ({ page
   await page.goto("/#graph");
 
   await expect(page.getByRole("img", { name: "Base graph" })).toBeVisible();
-  await expect(page.locator('.graph-pixi-mount[data-ready="true"]')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.graph-pixi-mount[data-ready="true"]')).toBeVisible({
+    timeout: 15000,
+  });
 
   await expect
     .poll(
       async () =>
         Number(await page.locator(".graph-pixi-stage").getAttribute("data-render-count")) || 0,
-      { timeout: 5000 }
+      { timeout: 5000 },
     )
     .toBeGreaterThanOrEqual(1);
 });
@@ -83,7 +87,9 @@ test("renders a nonblank Pixi graph canvas", async ({ page }) => {
   // Wait for Pixi to finish async init (data-ready flips to "true" after engineRef is set
   // and setPixiReady(true) fires). Avoids racing the brief 0x0 canvas window where
   // Playwright's toBeVisible can return false even though the element is attached.
-  await expect(page.locator('.graph-pixi-mount[data-ready="true"]')).toBeVisible({ timeout: 15000 });
+  await expect(page.locator('.graph-pixi-mount[data-ready="true"]')).toBeVisible({
+    timeout: 15000,
+  });
   await page.getByLabel("Graph search").focus();
 
   const canvasContract = await page.evaluate(() => {
@@ -103,7 +109,7 @@ test("renders a nonblank Pixi graph canvas", async ({ page }) => {
       stageWidth: stage.getBoundingClientRect().width,
       stageHeight: stage.getBoundingClientRect().height,
       canvasWidth: rect.width,
-      canvasHeight: rect.height
+      canvasHeight: rect.height,
     };
   });
 

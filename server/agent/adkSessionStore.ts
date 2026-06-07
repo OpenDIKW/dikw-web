@@ -4,10 +4,17 @@ import {
   getFunctionCalls,
   getFunctionResponses,
   isCompactedEvent,
-  stringifyContent
+  stringifyContent,
 } from "@google/adk";
 import type { DatabaseSessionService, Event, Session } from "@google/adk";
-import type { AgentMessage, AgentProposal, AgentSession, AgentSource, AgentToolEvent, SessionSummary } from "../../src/agent/types.js";
+import type {
+  AgentMessage,
+  AgentProposal,
+  AgentSession,
+  AgentSource,
+  AgentToolEvent,
+  SessionSummary,
+} from "../../src/agent/types.js";
 import { validateSessionTitle } from "./sessionStore.js";
 import { proposalFromTool, sourcesFromTool } from "./runtime.js";
 
@@ -47,8 +54,8 @@ export class AdkSessionStore {
         title: DEFAULT_TITLE,
         createdAt: timestamp(),
         messageCount: 0,
-        lastMessagePreview: ""
-      }
+        lastMessagePreview: "",
+      },
     });
     return projectSession(session);
   }
@@ -61,9 +68,11 @@ export class AdkSessionStore {
   async listSessions(): Promise<SessionSummary[]> {
     const { sessions } = await this.sessionService.listSessions({
       appName: this.appName,
-      userId: this.userId
+      userId: this.userId,
     });
-    return sessions.map((session) => summaryFromState(session)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return sessions
+      .map((session) => summaryFromState(session))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
   async renameSession(id: string, title: string): Promise<AgentSession> {
@@ -77,26 +86,34 @@ export class AdkSessionStore {
     await this.sessionService.deleteSession({
       appName: this.appName,
       userId: this.userId,
-      sessionId: id
+      sessionId: id,
     });
   }
 
   async recordProposal(id: string, proposal: AgentProposal): Promise<AgentSession> {
     const session = await this.loadSession(id);
     const key = proposalStateKey(proposal.id);
-    const prev = isRecord(session.state[key]) ? (session.state[key] as Record<string, unknown>) : {};
+    const prev = isRecord(session.state[key])
+      ? (session.state[key] as Record<string, unknown>)
+      : {};
     await this.persistState(session, {
-      [key]: { ...prev, status: proposal.status, taskId: proposal.taskId }
+      [key]: { ...prev, status: proposal.status, taskId: proposal.taskId },
     });
     return this.getSession(id);
   }
 
-  async updateProposalStatus(id: string, proposalId: string, status: AgentProposal["status"]): Promise<AgentSession> {
+  async updateProposalStatus(
+    id: string,
+    proposalId: string,
+    status: AgentProposal["status"],
+  ): Promise<AgentSession> {
     const session = await this.loadSession(id);
     const key = proposalStateKey(proposalId);
-    const prev = isRecord(session.state[key]) ? (session.state[key] as Record<string, unknown>) : {};
+    const prev = isRecord(session.state[key])
+      ? (session.state[key] as Record<string, unknown>)
+      : {};
     await this.persistState(session, {
-      [key]: { ...prev, status }
+      [key]: { ...prev, status },
     });
     return this.getSession(id);
   }
@@ -106,9 +123,10 @@ export class AdkSessionStore {
     const projected = projectSession(session);
     const delta: Record<string, unknown> = {
       messageCount: projected.messages.length,
-      lastMessagePreview: projected.lastMessagePreview
+      lastMessagePreview: projected.lastMessagePreview,
     };
-    const currentTitle = typeof session.state.title === "string" ? session.state.title : DEFAULT_TITLE;
+    const currentTitle =
+      typeof session.state.title === "string" ? session.state.title : DEFAULT_TITLE;
     if (currentTitle === DEFAULT_TITLE) {
       const firstUser = projected.messages.find((message) => message.role === "user");
       if (firstUser) {
@@ -125,7 +143,7 @@ export class AdkSessionStore {
     const session = await this.sessionService.getSession({
       appName: this.appName,
       userId: this.userId,
-      sessionId: id
+      sessionId: id,
     });
     if (!session) {
       throw new Error(`session ${id} not found`);
@@ -168,7 +186,7 @@ function projectSession(session: Session): AgentSession {
     messages,
     toolEvents,
     sources,
-    proposals
+    proposals,
   };
 }
 
@@ -180,7 +198,10 @@ function projectMessages(events: Event[]): AgentMessage[] {
   const collected: OrderedMessage[] = [];
   // Group agent text by invocation so all streamed deltas of one turn collapse
   // into a single assistant bubble (mirrors the old pi behavior).
-  const assistantByInvocation = new Map<string, { id: string; createdAt: string; order: number; text: string[] }>();
+  const assistantByInvocation = new Map<
+    string,
+    { id: string; createdAt: string; order: number; text: string[] }
+  >();
 
   events.forEach((event, index) => {
     // Context-compaction summary events (author "system", model-role text) are
@@ -196,7 +217,7 @@ function projectMessages(events: Event[]): AgentMessage[] {
           role: "user",
           content: text,
           createdAt: isoFromMs(event.timestamp),
-          order: index
+          order: index,
         });
       }
       return;
@@ -214,7 +235,7 @@ function projectMessages(events: Event[]): AgentMessage[] {
         id: event.id,
         createdAt: isoFromMs(event.timestamp),
         order: index,
-        text: [text]
+        text: [text],
       });
     }
   });
@@ -233,7 +254,7 @@ function projectMessages(events: Event[]): AgentMessage[] {
       role: "assistant",
       content,
       createdAt: bucket.createdAt,
-      order: bucket.order
+      order: bucket.order,
     });
   }
 
@@ -265,7 +286,7 @@ function projectToolEvents(events: Event[]): AgentToolEvent[] {
         name: typeof call.name === "string" ? call.name : "",
         status: "running",
         createdAt,
-        input: call.args
+        input: call.args,
       }));
     }
     for (const resp of getFunctionResponses(event)) {
@@ -276,12 +297,12 @@ function projectToolEvents(events: Event[]): AgentToolEvent[] {
       upsert(resp.id, (prev) => ({
         id: resp.id as string,
         type: "tool_call",
-        name: typeof resp.name === "string" ? resp.name : prev?.name ?? "",
+        name: typeof resp.name === "string" ? resp.name : (prev?.name ?? ""),
         status: failed ? "failed" : "succeeded",
         createdAt: prev?.createdAt ?? createdAt,
         input: prev?.input,
         output: resp.response,
-        error: failed ? String((resp.response as Record<string, unknown>).error) : undefined
+        error: failed ? String((resp.response as Record<string, unknown>).error) : undefined,
       }));
     }
   }
@@ -349,7 +370,8 @@ function summaryFromState(session: Session): SessionSummary {
     createdAt: typeof state.createdAt === "string" ? state.createdAt : updatedAt,
     updatedAt,
     messageCount: typeof state.messageCount === "number" ? state.messageCount : 0,
-    lastMessagePreview: typeof state.lastMessagePreview === "string" ? state.lastMessagePreview : ""
+    lastMessagePreview:
+      typeof state.lastMessagePreview === "string" ? state.lastMessagePreview : "",
   };
 }
 

@@ -1,21 +1,41 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ArrowUp, ChevronDown, ChevronRight, FileText, Folder, FolderOpen, RefreshCw, Search, X } from "lucide-react";
+import {
+  ArrowUp,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Folder,
+  FolderOpen,
+  RefreshCw,
+  Search,
+  X,
+} from "lucide-react";
 import { DikwClient, DikwClientError } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { translations, type Locale } from "../i18n";
-import type { DocumentRecord, PageLinksResult, PageProvenanceResult, PageReadResult } from "../types";
+import type {
+  DocumentRecord,
+  PageLinksResult,
+  PageProvenanceResult,
+  PageReadResult,
+} from "../types";
 import { findPageForTarget } from "../utils/graph";
 import {
   mergeSourceReferences,
   resolveBacklinks,
   resolveDerivedPages,
-  type SourceReference
+  type SourceReference,
 } from "../utils/links";
-import { extractHeadingsWithSlugs, getMarkdownTitle, parseMarkdownDocument, type HeadingEntry } from "../utils/markdown";
+import {
+  extractHeadingsWithSlugs,
+  getMarkdownTitle,
+  parseMarkdownDocument,
+  type HeadingEntry,
+} from "../utils/markdown";
 import { basename, displayTitle, formatUnixSeconds, truncateMiddle } from "../utils/format";
 import { injectInlineRefs } from "../utils/source-inline-refs";
 
@@ -44,7 +64,13 @@ type PreviewState =
 type WikiReaderTab = "read" | "info" | "outline" | "source";
 type WikiCopy = (typeof translations)["en"]["pages"]["wiki"];
 
-export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = "", assetToken = "" }: WikiPageProps) {
+export function WikiPage({
+  client,
+  initialPath,
+  locale = "en",
+  assetBaseUrl = "",
+  assetToken = "",
+}: WikiPageProps) {
   const copy = translations[locale].pages.wiki;
   const [filter, setFilter] = useState("");
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -60,8 +86,9 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   const didAutoSelectRef = useRef(false);
 
   const loadPages = useCallback(
-    (signal: AbortSignal) => client.get<DocumentRecord[]>("/v1/base/pages", { signal, params: { active: true } }),
-    [client]
+    (signal: AbortSignal) =>
+      client.get<DocumentRecord[]>("/v1/base/pages", { signal, params: { active: true } }),
+    [client],
   );
   const pages = useAsyncResource(loadPages, [client]);
 
@@ -78,7 +105,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
   // file count) so wisdom can't leak into #base through a join or preview.
   const basePages = useMemo(
     () => (pages.data ?? []).filter((doc) => doc.layer === "source" || doc.layer === "knowledge"),
-    [pages.data]
+    [pages.data],
   );
 
   const visiblePages = useMemo(() => {
@@ -108,7 +135,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
       }
     }
     return next;
-  }, [expandedDirs, filter, selectedPath, tree, visiblePages]);
+  }, [expandedDirs, filter, selectedPath, tree]);
 
   useEffect(() => {
     if (!pages.data) {
@@ -140,7 +167,9 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     setPageLoading(true);
     setPageError(null);
     client
-      .get<PageReadResult>(`/v1/base/pages/${encodePath(selectedPath)}`, { signal: controller.signal })
+      .get<PageReadResult>(`/v1/base/pages/${encodePath(selectedPath)}`, {
+        signal: controller.signal,
+      })
       .then((nextPage) => {
         if (!controller.signal.aborted) {
           setPage(nextPage);
@@ -174,7 +203,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     client
       .get<PageLinksResult>(`/v1/base/pages/${encodePath(loadedPath)}/links`, {
         signal: controller.signal,
-        params: { direction: "in" }
+        params: { direction: "in" },
       })
       .then((result) => {
         if (!controller.signal.aborted) {
@@ -203,7 +232,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     client
       .get<PageProvenanceResult>(`/v1/base/pages/${encodePath(loadedPath)}/provenance`, {
         signal: controller.signal,
-        params: { direction: "in" }
+        params: { direction: "in" },
       })
       .then((result) => {
         if (controller.signal.aborted) {
@@ -216,7 +245,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
         if (result.derived_from.length > 0 && typeof console !== "undefined") {
           // eslint-disable-next-line no-console
           console.warn(
-            `[wiki] /provenance for source page ${loadedPath} returned ${result.derived_from.length} derived_from entries; core contract says this should be empty.`
+            `[wiki] /provenance for source page ${loadedPath} returned ${result.derived_from.length} derived_from entries; core contract says this should be empty.`,
           );
         }
         setDerived(result);
@@ -337,7 +366,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
       hash: "",
       mtime: 0,
       layer: ref.layer,
-      active: true
+      active: true,
     };
     previewByPath(ref.path, ref.title, stub);
   }
@@ -362,9 +391,13 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
     // a source→source switch updates `page` before the in-flight /links or
     // /provenance call settles.
     const linked =
-      backlinks && backlinks.path === page?.path ? resolveBacklinks(backlinks.incoming, basePages) : [];
+      backlinks && backlinks.path === page?.path
+        ? resolveBacklinks(backlinks.incoming, basePages)
+        : [];
     const sourced =
-      derived && derived.path === page?.path ? resolveDerivedPages(derived.derived_pages, basePages) : [];
+      derived && derived.path === page?.path
+        ? resolveDerivedPages(derived.derived_pages, basePages)
+        : [];
     // Base exposes only source + knowledge. resolveDerivedPages emits a
     // cache-lag fallback for any provenance path not in basePages (inferring
     // `wisdom` for `wisdom/...`), so drop wisdom refs here too — otherwise a
@@ -388,7 +421,7 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
 
   const unlinkedReferences = useMemo<SourceReference[]>(
     () => sourceReferences.filter((ref) => !enhancedSourceBody.matchedPaths.has(ref.path)),
-    [sourceReferences, enhancedSourceBody.matchedPaths]
+    [sourceReferences, enhancedSourceBody.matchedPaths],
   );
 
   return (
@@ -397,14 +430,21 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
         <div>
           <h1>{copy.title}</h1>
         </div>
-        <button className="icon-button" type="button" onClick={refreshWiki} aria-label={copy.refresh}>
+        <button
+          className="icon-button"
+          type="button"
+          onClick={refreshWiki}
+          aria-label={copy.refresh}
+        >
           <RefreshCw size={18} />
         </button>
       </header>
 
       {pages.error ? <Notice title={copy.listErrorTitle} error={pages.error} /> : null}
 
-      <section className={`wiki-layout ${preview.kind !== "idle" ? "wiki-layout--preview-open" : ""}`}>
+      <section
+        className={`wiki-layout ${preview.kind !== "idle" ? "wiki-layout--preview-open" : ""}`}
+      >
         <aside className="wiki-sidebar">
           <div className="wiki-explorer__header">
             <div>
@@ -421,7 +461,12 @@ export function WikiPage({ client, initialPath, locale = "en", assetBaseUrl = ""
               placeholder={copy.searchPlaceholder}
             />
             {filter ? (
-              <button className="wiki-search__clear" type="button" onClick={() => setFilter("")} aria-label={copy.clearSearch}>
+              <button
+                className="wiki-search__clear"
+                type="button"
+                onClick={() => setFilter("")}
+                aria-label={copy.clearSearch}
+              >
                 <X size={14} aria-hidden="true" />
               </button>
             ) : null}
@@ -469,7 +514,7 @@ function WikiTree({
   selectedPath,
   expandedIds,
   onToggle,
-  onSelect
+  onSelect,
 }: {
   nodes: WikiTreeNode[];
   selectedPath: string | null;
@@ -500,7 +545,7 @@ function WikiTreeNodeView({
   selectedPath,
   expandedIds,
   onToggle,
-  onSelect
+  onSelect,
 }: {
   node: WikiTreeNode;
   depth: number;
@@ -511,7 +556,11 @@ function WikiTreeNodeView({
 }) {
   if (node.doc) {
     return (
-      <div role="treeitem" aria-label={displayFileName(node.doc)} aria-selected={selectedPath === node.doc.path}>
+      <div
+        role="treeitem"
+        aria-label={displayFileName(node.doc)}
+        aria-selected={selectedPath === node.doc.path}
+      >
         <button
           className={`wiki-tree__item wiki-tree__item--file ${selectedPath === node.doc.path ? "is-selected" : ""}`}
           type="button"
@@ -539,7 +588,11 @@ function WikiTreeNodeView({
         style={{ paddingLeft: `${10 + depth * 16}px` }}
         onClick={() => onToggle(node.id)}
       >
-        {expanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
+        {expanded ? (
+          <ChevronDown size={15} aria-hidden="true" />
+        ) : (
+          <ChevronRight size={15} aria-hidden="true" />
+        )}
         <FolderIcon size={15} aria-hidden="true" />
         <strong>{node.name}</strong>
       </button>
@@ -573,7 +626,7 @@ function WikiReader({
   copy,
   assetBaseUrl,
   assetToken,
-  enhancedBody
+  enhancedBody,
 }: {
   page: PageReadResult | null;
   doc: DocumentRecord | null;
@@ -591,7 +644,7 @@ function WikiReader({
   const [showBackToTop, setShowBackToTop] = useState(false);
   const parsed = useMemo(
     () => (page ? parseMarkdownDocument(page.body, { stripDuplicateTitle: false }) : null),
-    [page]
+    [page],
   );
   const headings = useMemo(() => (parsed ? extractHeadingsWithSlugs(parsed.body) : []), [parsed]);
   const wikilinks = useMemo(() => (parsed ? extractWikiLinkTargets(parsed.body) : []), [parsed]);
@@ -646,7 +699,9 @@ function WikiReader({
             <div className="reader-header__path">{page.path}</div>
             <div className="reader-header__meta reader-header__meta--inline">
               <span className="soft-label">{formatUnixSeconds(doc?.mtime)}</span>
-              <span className="soft-label">{page.layer} · {formatAnchorCount(page.anchors.length)}</span>
+              <span className="soft-label">
+                {page.layer} · {formatAnchorCount(page.anchors.length)}
+              </span>
             </div>
           </div>
           <WikiReaderTabs activeTab={activeTab} onSelect={setActiveTab} copy={copy} />
@@ -662,13 +717,15 @@ function WikiReader({
                 assetToken={assetToken}
               />
               {references.length > 0 ? (
-                <WikiBacklinksSection references={references} onOpenBacklink={onOpenBacklink} copy={copy} />
+                <WikiBacklinksSection
+                  references={references}
+                  onOpenBacklink={onOpenBacklink}
+                  copy={copy}
+                />
               ) : null}
             </section>
           ) : null}
-          {activeTab === "info" ? (
-            <WikiInfoPanel page={page} doc={doc} copy={copy} />
-          ) : null}
+          {activeTab === "info" ? <WikiInfoPanel page={page} doc={doc} copy={copy} /> : null}
           {activeTab === "outline" ? (
             <WikiOutlinePanel
               headings={headings}
@@ -706,7 +763,7 @@ function WikiReader({
 function WikiReaderTabs({
   activeTab,
   onSelect,
-  copy
+  copy,
 }: {
   activeTab: WikiReaderTab;
   onSelect: (tab: WikiReaderTab) => void;
@@ -716,7 +773,7 @@ function WikiReaderTabs({
     { id: "read", label: copy.readTab },
     { id: "info", label: copy.infoTab },
     { id: "outline", label: copy.outlineTab },
-    { id: "source", label: copy.sourceTab }
+    { id: "source", label: copy.sourceTab },
   ];
   return (
     <div className="wiki-reader-tabs" role="tablist" aria-label={copy.tabList}>
@@ -739,7 +796,7 @@ function WikiReaderTabs({
 function WikiInfoPanel({
   page,
   doc,
-  copy
+  copy,
 }: {
   page: PageReadResult;
   doc: DocumentRecord | null;
@@ -760,7 +817,11 @@ function WikiInfoPanel({
     .map(([key, value]) => [key, stringifyFrontmatterValue(value)] as const)
     .filter(([, value]) => value !== "");
   return (
-    <section className="wiki-reader-tab-panel wiki-info-panel" role="tabpanel" aria-label={copy.infoPanel}>
+    <section
+      className="wiki-reader-tab-panel wiki-info-panel"
+      role="tabpanel"
+      aria-label={copy.infoPanel}
+    >
       <dl className="wiki-info-grid">
         <div>
           <dt>path</dt>
@@ -809,7 +870,7 @@ function WikiOutlinePanel({
   anchors,
   onWikiLink,
   onJumpToHeading,
-  copy
+  copy,
 }: {
   headings: HeadingEntry[];
   wikilinks: string[];
@@ -819,7 +880,11 @@ function WikiOutlinePanel({
   copy: WikiCopy;
 }) {
   return (
-    <section className="wiki-reader-tab-panel wiki-outline-panel" role="tabpanel" aria-label={copy.outlinePanel}>
+    <section
+      className="wiki-reader-tab-panel wiki-outline-panel"
+      role="tabpanel"
+      aria-label={copy.outlinePanel}
+    >
       <div className="wiki-outline-summary">
         <span className="soft-label">{headings.length} headings</span>
         <span className="soft-label">{wikilinks.length} wikilinks</span>
@@ -833,7 +898,10 @@ function WikiOutlinePanel({
               <p className="wiki-outline-hint soft-label">{copy.outlineJumpHint}</p>
               <ol className="wiki-outline-list">
                 {headings.map((heading, index) => (
-                  <li key={`${heading.slug}-${index}`} style={{ paddingLeft: `${Math.max(0, heading.level - 1) * 10}px` }}>
+                  <li
+                    key={`${heading.slug}-${index}`}
+                    style={{ paddingLeft: `${Math.max(0, heading.level - 1) * 10}px` }}
+                  >
                     <button
                       type="button"
                       className="wiki-outline-jump"
@@ -854,7 +922,12 @@ function WikiOutlinePanel({
           {wikilinks.length ? (
             <div className="wiki-outline-links">
               {wikilinks.map((target) => (
-                <button className="inline-wikilink" type="button" key={target} onClick={() => onWikiLink(target)}>
+                <button
+                  className="inline-wikilink"
+                  type="button"
+                  key={target}
+                  onClick={() => onWikiLink(target)}
+                >
                   {target}
                 </button>
               ))}
@@ -871,7 +944,7 @@ function WikiOutlinePanel({
 function WikiBacklinksSection({
   references,
   onOpenBacklink,
-  copy
+  copy,
 }: {
   references: SourceReference[];
   onOpenBacklink: (path: string) => void;
@@ -883,7 +956,11 @@ function WikiBacklinksSection({
       <ul className="wiki-backlinks__list">
         {references.map((ref) => (
           <li className="wiki-backlinks__item" key={ref.path}>
-            <button type="button" className="inline-wikilink" onClick={() => onOpenBacklink(ref.path)}>
+            <button
+              type="button"
+              className="inline-wikilink"
+              onClick={() => onOpenBacklink(ref.path)}
+            >
               {ref.title}
             </button>
             <span className="soft-label wiki-backlinks__layer">{ref.layer}</span>
@@ -915,7 +992,7 @@ function WikiLinkPreview({
   onClose,
   onOpen,
   onFilter,
-  copy
+  copy,
 }: {
   preview: PreviewState;
   onClose: () => void;
@@ -924,7 +1001,11 @@ function WikiLinkPreview({
   copy: WikiCopy;
 }) {
   return (
-    <aside className="wiki-preview panel wiki-preview--open" role="region" aria-label={copy.previewRegion}>
+    <aside
+      className="wiki-preview panel wiki-preview--open"
+      role="region"
+      aria-label={copy.previewRegion}
+    >
       {preview.kind === "loading" ? (
         <PreviewFrame title={copy.previewTitle} onClose={onClose} closeLabel={copy.previewClose}>
           <EmptyState title={copy.previewLoading} detail={preview.target} />
@@ -934,7 +1015,11 @@ function WikiLinkPreview({
         <PreviewFrame title={copy.previewTitle} onClose={onClose} closeLabel={copy.previewClose}>
           <article className="wiki-preview-card">
             <div className="reader-header__path">{preview.page.path}</div>
-            <h2>{preview.page.title || getMarkdownTitle(preview.page.body) || basename(preview.page.path)}</h2>
+            <h2>
+              {preview.page.title ||
+                getMarkdownTitle(preview.page.body) ||
+                basename(preview.page.path)}
+            </h2>
             <div className="wiki-preview-card__meta">
               <span className="soft-label">{preview.page.layer}</span>
               <span className="soft-label">{formatAnchorCount(preview.page.anchors.length)}</span>
@@ -944,7 +1029,11 @@ function WikiLinkPreview({
                 the selection effect would round-trip the unknown path back to the
                 default page since visiblePages doesn't contain it yet. */}
             {preview.doc.doc_id ? (
-              <button className="secondary-button" type="button" onClick={() => onOpen(preview.page.path)}>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => onOpen(preview.page.path)}
+              >
                 {copy.previewOpen}
               </button>
             ) : null}
@@ -956,7 +1045,11 @@ function WikiLinkPreview({
           <div className="wiki-preview-card wiki-preview-card--empty">
             <h2>{copy.previewNotFound}</h2>
             <p>{preview.target}</p>
-            <button className="secondary-button" type="button" onClick={() => onFilter(preview.target)}>
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={() => onFilter(preview.target)}
+            >
               {copy.previewFilter}
             </button>
           </div>
@@ -975,7 +1068,7 @@ function PreviewFrame({
   title,
   onClose,
   closeLabel,
-  children
+  children,
 }: {
   title: string;
   onClose: () => void;
@@ -1010,7 +1103,7 @@ function buildWikiTree(docs: DocumentRecord[]): WikiTreeNode[] {
           id,
           name: isFile ? displayFileName(doc) : part,
           children: [],
-          doc: isFile ? doc : null
+          doc: isFile ? doc : null,
         };
         current.children.push(child);
       }
@@ -1053,7 +1146,13 @@ function treeNodeRank(parent: WikiTreeNode, node: WikiTreeNode): number {
 }
 
 function pickDefaultPagePath(docs: DocumentRecord[]): string | null {
-  return (docs.find((doc) => doc.layer === "knowledge" || doc.path.startsWith("knowledge/")) ?? docs[0] ?? null)?.path ?? null;
+  return (
+    (
+      docs.find((doc) => doc.layer === "knowledge" || doc.path.startsWith("knowledge/")) ??
+      docs[0] ??
+      null
+    )?.path ?? null
+  );
 }
 
 function collectDirectoryIds(nodes: WikiTreeNode[], target: Set<string>) {
@@ -1078,7 +1177,10 @@ function summarizeMarkdown(body: string): string {
   const parsed = parseMarkdownDocument(body, { stripDuplicateTitle: false });
   const text = parsed.body
     .replace(/^# .+$/m, "")
-    .replace(/\[\[([^\]|]+)\|?([^\]]+)?\]\]/g, (_match, target: string, label?: string) => label ?? target)
+    .replace(
+      /\[\[([^\]|]+)\|?([^\]]+)?\]\]/g,
+      (_match, target: string, label?: string) => label ?? target,
+    )
     .replace(/`([^`]+)`/g, "$1")
     .replace(/[#*_>[\]()-]/g, " ")
     .replace(/\s+/g, " ")
@@ -1111,7 +1213,9 @@ function stringifyFrontmatterValue(value: unknown): string {
     return value;
   }
   if (Array.isArray(value)) {
-    return value.map((entry) => (typeof entry === "string" ? entry : JSON.stringify(entry))).join(", ");
+    return value
+      .map((entry) => (typeof entry === "string" ? entry : JSON.stringify(entry)))
+      .join(", ");
   }
   if (value === null || value === undefined) {
     return "";

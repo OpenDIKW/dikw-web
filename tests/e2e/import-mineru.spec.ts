@@ -8,10 +8,6 @@ import { expect, test } from "./harness";
 import { gzipSync } from "node:zlib";
 import { mockDikwApi } from "./mockApi";
 
-const SIG_LFH = 0x04034b50;
-const SIG_CD = 0x02014b50;
-const SIG_EOCD = 0x06054b50;
-const FLAG_UTF8 = 0x0800;
 const TAR_BLOCK = 512;
 
 // ---- USTAR writer (mirrors src/utils/tar.ts buildTar so reader on the
@@ -71,18 +67,16 @@ function writeOctal(view: Uint8Array, off: number, len: number, value: number) {
 function makeConvertResponse(
   stem: string,
   markdown: string,
-  assets: Array<[string, Uint8Array]>
+  assets: Array<[string, Uint8Array]>,
 ): { body: Buffer; contentType: string } {
-  const entries = [
-    { archivePath: `${stem}.md`, data: new TextEncoder().encode(markdown) }
-  ];
+  const entries = [{ archivePath: `${stem}.md`, data: new TextEncoder().encode(markdown) }];
   for (const [k, v] of [...assets].sort(([a], [b]) => a.localeCompare(b))) {
     entries.push({ archivePath: k, data: v });
   }
   const tar = buildTar(entries);
   return {
     body: Buffer.from(gzipSync(Buffer.from(tar))),
-    contentType: "application/x-tar+gzip"
+    contentType: "application/x-tar+gzip",
   };
 }
 
@@ -98,7 +92,7 @@ async function installMineruJobRoutes(
   page: import("@playwright/test").Page,
   opts:
     | { kind: "success"; stem: string; markdown: string; assets?: Array<[string, Uint8Array]> }
-    | { kind: "fail"; error: { code: string; message: string } }
+    | { kind: "fail"; error: { code: string; message: string } },
 ): Promise<{ convertCalls: string[] }> {
   const convertCalls: string[] = [];
   await page.route("**/web/mineru/convert**", async (route) => {
@@ -106,7 +100,7 @@ async function installMineruJobRoutes(
     await route.fulfill({
       status: 202,
       contentType: "application/json",
-      body: JSON.stringify({ jobId: "job-1", status: "pending" })
+      body: JSON.stringify({ jobId: "job-1", status: "pending" }),
     });
   });
   await page.route("**/web/mineru/jobs/**", async (route) => {
@@ -115,7 +109,7 @@ async function installMineruJobRoutes(
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ ok: true })
+        body: JSON.stringify({ ok: true }),
       });
       return;
     }
@@ -125,13 +119,13 @@ async function installMineruJobRoutes(
         await route.fulfill({
           status: 200,
           headers: { "Content-Type": fixture.contentType },
-          body: fixture.body
+          body: fixture.body,
         });
       } else {
         await route.fulfill({
           status: 409,
           contentType: "application/json",
-          body: JSON.stringify({ error: { code: "not_ready", message: "not ready" } })
+          body: JSON.stringify({ error: { code: "not_ready", message: "not ready" } }),
         });
       }
       return;
@@ -141,7 +135,11 @@ async function installMineruJobRoutes(
       opts.kind === "success"
         ? { jobId: "job-1", status: "succeeded" }
         : { jobId: "job-1", status: "failed", error: opts.error };
-    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
   });
   return { convertCalls };
 }
@@ -151,7 +149,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("dropping a .docx routes through the /web/mineru job flow and shows bundle preview", async ({
-  page
+  page,
 }) => {
   // Override the default disabled health → enabled.
   await page.route("**/web/mineru/health", async (route) => {
@@ -161,7 +159,7 @@ test("dropping a .docx routes through the /web/mineru job flow and shows bundle 
     kind: "success",
     stem: "demo",
     markdown:
-      "---\nsource:\n  converter: mineru\n  original_filename: \"demo.docx\"\n  original_sha256: aaa\n---\n# Demo\n\nBody from mineru.\n"
+      '---\nsource:\n  converter: mineru\n  original_filename: "demo.docx"\n  original_sha256: aaa\n---\n# Demo\n\nBody from mineru.\n',
   });
 
   await page.goto("/#import");
@@ -172,8 +170,8 @@ test("dropping a .docx routes through the /web/mineru job flow and shows bundle 
     {
       name: "demo.docx",
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0xde, 0xad])
-    }
+      buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0xde, 0xad]),
+    },
   ]);
 
   // ConversionProgress appears first…
@@ -187,7 +185,7 @@ test("dropping a .docx routes through the /web/mineru job flow and shows bundle 
 });
 
 test("shortens a long office filename for MinerU while forwarding the true original", async ({
-  page
+  page,
 }) => {
   await page.route("**/web/mineru/health", async (route) => {
     await route.fulfill({ json: { enabled: true, hasKey: true } });
@@ -202,7 +200,7 @@ test("shortens a long office filename for MinerU while forwarding the true origi
   const { convertCalls } = await installMineruJobRoutes(page, {
     kind: "success",
     stem: shortStem,
-    markdown: "# Demo\n\nBody from mineru.\n"
+    markdown: "# Demo\n\nBody from mineru.\n",
   });
 
   await page.goto("/#import");
@@ -211,23 +209,20 @@ test("shortens a long office filename for MinerU while forwarding the true origi
   await fileInput.setInputFiles([
     {
       name: longName,
-      mimeType:
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0xde, 0xad])
-    }
+      mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04, 0xde, 0xad]),
+    },
   ]);
 
   // Preview appears only when the browser requested the shortened `${stem}.md`.
   await expect(page.getByTestId("import-preview")).toBeVisible({ timeout: 5000 });
   expect(convertCalls.length).toBe(1);
   // The true (long) original is forwarded so frontmatter provenance stays intact.
-  expect(convertCalls[0]).toContain(
-    `originalFilename=${encodeURIComponent(longName)}`
-  );
+  expect(convertCalls[0]).toContain(`originalFilename=${encodeURIComponent(longName)}`);
 });
 
 test("mineru disabled: office files filtered at selection with a notice, .md still works", async ({
-  page
+  page,
 }) => {
   // Default mockApi already returns enabled=false. Install a defensive
   // route that fails loudly if anything in the UI tries to convert.
@@ -236,21 +231,19 @@ test("mineru disabled: office files filtered at selection with a notice, .md sti
     unexpectedConvertCalls += 1;
     await route.fulfill({
       status: 500,
-      body: "/web/mineru/convert called in mineru-disabled flow"
+      body: "/web/mineru/convert called in mineru-disabled flow",
     });
   });
 
   await page.goto("/#import");
-  await expect(
-    page.getByText("Mineru not configured", { exact: false })
-  ).toBeVisible();
+  await expect(page.getByText("Mineru not configured", { exact: false })).toBeVisible();
 
   const fileInput = page.locator('[data-testid="import-file-input"]');
   await fileInput.setInputFiles([
     {
       name: "note.md",
       mimeType: "text/markdown",
-      buffer: Buffer.from("# Note\n")
+      buffer: Buffer.from("# Note\n"),
     },
     // Office files survive setInputFiles (the accept attr is for the UI
     // picker only; programmatic setInputFiles bypasses it) — with mineru
@@ -258,28 +251,24 @@ test("mineru disabled: office files filtered at selection with a notice, .md sti
     {
       name: "ignored.docx",
       mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04])
-    }
+      buffer: Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+    },
   ]);
   // Bundle preview shows for the .md, the office file is reported as filtered,
   // and the convert route was never hit.
   await expect(page.getByTestId("import-preview")).toBeVisible();
-  await expect(
-    page.getByText("Skipped 1 file(s) in an unsupported format.")
-  ).toBeVisible();
+  await expect(page.getByText("Skipped 1 file(s) in an unsupported format.")).toBeVisible();
   expect(unexpectedConvertCalls).toBe(0);
 });
 
-test("conversion failure: per-file Skip surfaces and dismisses the row", async ({
-  page
-}) => {
+test("conversion failure: per-file Skip surfaces and dismisses the row", async ({ page }) => {
   await page.route("**/web/mineru/health", async (route) => {
     await route.fulfill({ json: { enabled: true, hasKey: true } });
   });
   // The quota error now surfaces via the job status, not the convert POST.
   await installMineruJobRoutes(page, {
     kind: "fail",
-    error: { code: "mineru_quota", message: "Daily quota exceeded" }
+    error: { code: "mineru_quota", message: "Daily quota exceeded" },
   });
 
   // Gate on the health probe so mineruEnabled is resolved before we select —
@@ -293,8 +282,8 @@ test("conversion failure: per-file Skip surfaces and dismisses the row", async (
     {
       name: "fail.pdf",
       mimeType: "application/pdf",
-      buffer: Buffer.from([0x25, 0x50, 0x44, 0x46])
-    }
+      buffer: Buffer.from([0x25, 0x50, 0x44, 0x46]),
+    },
   ]);
 
   // The failed row appears with a Skip button.

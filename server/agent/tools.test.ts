@@ -6,7 +6,9 @@ import { WebToolClient } from "./tools";
 // tool list anymore — Tavily owns the "web_search" tool now. Tests exercise the
 // class method directly so the implementation does not silently rot.
 describe("WebToolClient.search (Brave, retained dead-code path)", () => {
-  function makeBraveResponse(results: Array<{ title: string; url: string; description: string; age?: string }>) {
+  function makeBraveResponse(
+    results: Array<{ title: string; url: string; description: string; age?: string }>,
+  ) {
     return Response.json({ web: { results } });
   }
 
@@ -20,23 +22,28 @@ describe("WebToolClient.search (Brave, retained dead-code path)", () => {
       calls.push({ url: new URL(String(input)), init });
       return makeBraveResponse([
         { title: "Result A", url: "https://example.com/a", description: "desc a" },
-        { title: "Result B", url: "https://example.com/b", description: "desc b" }
+        { title: "Result B", url: "https://example.com/b", description: "desc b" },
       ]);
     });
 
-    const client = makeClient({ braveApiKey: "brave-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      braveApiKey: "brave-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     const out = await client.search("DIKW", 2, "pw");
 
     expect(out).toMatchObject({
       query: "DIKW",
       results: [
         { title: "Result A", url: "https://example.com/a", description: "desc a" },
-        { title: "Result B", url: "https://example.com/b", description: "desc b" }
-      ]
+        { title: "Result B", url: "https://example.com/b", description: "desc b" },
+      ],
     });
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].url.origin + calls[0].url.pathname).toBe("https://api.search.brave.com/res/v1/web/search");
+    expect(calls[0].url.origin + calls[0].url.pathname).toBe(
+      "https://api.search.brave.com/res/v1/web/search",
+    );
     expect(calls[0].url.searchParams.get("q")).toBe("DIKW");
     expect(calls[0].url.searchParams.get("count")).toBe("2");
     expect(calls[0].url.searchParams.get("freshness")).toBe("pw");
@@ -49,9 +56,14 @@ describe("WebToolClient.search (Brave, retained dead-code path)", () => {
   it("truncates long descriptions to 500 characters", async () => {
     const longDesc = "x".repeat(900);
     const fetchImpl = vi.fn(async () =>
-      makeBraveResponse([{ title: "Long", url: "https://example.com/long", description: longDesc }])
+      makeBraveResponse([
+        { title: "Long", url: "https://example.com/long", description: longDesc },
+      ]),
     );
-    const client = makeClient({ braveApiKey: "brave-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      braveApiKey: "brave-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     const out = await client.search("q", 5);
     expect(out.results[0].description.length).toBeLessThanOrEqual(500);
     expect(out.results[0].description.endsWith("…")).toBe(true);
@@ -66,13 +78,20 @@ describe("WebToolClient.search (Brave, retained dead-code path)", () => {
 
   it("surfaces the status code without forwarding the response body when Brave returns non-2xx", async () => {
     const fetchImpl = vi.fn(async () => new Response("rate limited", { status: 429 }));
-    const client = makeClient({ braveApiKey: "brave-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      braveApiKey: "brave-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     await expect(client.search("DIKW", 5)).rejects.toThrow(/^upstream 429$/);
   });
 });
 
 describe("WebToolClient.fetchPage (Jina web_fetch)", () => {
-  function makeClient(opts: { jinaApiKey?: string; signal?: AbortSignal; fetchImpl: typeof fetch }) {
+  function makeClient(opts: {
+    jinaApiKey?: string;
+    signal?: AbortSignal;
+    fetchImpl: typeof fetch;
+  }) {
     return new WebToolClient({ coreUrl: "http://127.0.0.1:8765", ...opts });
   }
 
@@ -82,21 +101,26 @@ describe("WebToolClient.fetchPage (Jina web_fetch)", () => {
       calls.push({ url: new URL(String(input)), init });
       return new Response("# Title\n\nbody here", {
         status: 200,
-        headers: { "Content-Type": "text/plain; charset=utf-8" }
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
       });
     });
 
-    const client = makeClient({ jinaApiKey: "jina-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      jinaApiKey: "jina-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     const out = await client.fetchPage("https://example.com/page?x=1", "markdown");
 
     expect(out).toMatchObject({
       url: "https://example.com/page?x=1",
       content: "# Title\n\nbody here",
-      truncated: false
+      truncated: false,
     });
     expect(calls).toHaveLength(1);
     expect(calls[0].url.origin).toBe("https://r.jina.ai");
-    expect(calls[0].url.pathname + calls[0].url.search).toContain(encodeURIComponent("https://example.com/page?x=1"));
+    expect(calls[0].url.pathname + calls[0].url.search).toContain(
+      encodeURIComponent("https://example.com/page?x=1"),
+    );
     const headers = new Headers(calls[0].init?.headers as HeadersInit);
     expect(headers.get("Authorization")).toBe("Bearer jina-secret");
     expect(headers.get("X-Return-Format")).toBe("markdown");
@@ -104,15 +128,23 @@ describe("WebToolClient.fetchPage (Jina web_fetch)", () => {
 
   it("rejects non http(s) urls with a parameter error and never calls fetch", async () => {
     const fetchImpl = vi.fn();
-    const client = makeClient({ jinaApiKey: "jina-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
-    await expect(client.fetchPage("ftp://example.com", "markdown")).rejects.toThrow(/http or https/);
+    const client = makeClient({
+      jinaApiKey: "jina-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    await expect(client.fetchPage("ftp://example.com", "markdown")).rejects.toThrow(
+      /http or https/,
+    );
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("truncates content over 50 KB and flags truncated=true", async () => {
     const big = "a".repeat(60_000);
     const fetchImpl = vi.fn(async () => new Response(big, { status: 200 }));
-    const client = makeClient({ jinaApiKey: "jina-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      jinaApiKey: "jina-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     const out = await client.fetchPage("https://example.com/big", "markdown");
     expect(out.truncated).toBe(true);
     expect(out.content.length).toBeLessThanOrEqual(50_000);
@@ -121,7 +153,9 @@ describe("WebToolClient.fetchPage (Jina web_fetch)", () => {
   it("throws a clear error without leaking the value when jina key is missing", async () => {
     const fetchImpl = vi.fn();
     const client = makeClient({ fetchImpl: fetchImpl as unknown as typeof fetch });
-    await expect(client.fetchPage("https://example.com/x", "markdown")).rejects.toThrow(/DIKW_AGENT_JINA_API_KEY/);
+    await expect(client.fetchPage("https://example.com/x", "markdown")).rejects.toThrow(
+      /DIKW_AGENT_JINA_API_KEY/,
+    );
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
@@ -138,10 +172,13 @@ describe("WebToolClient.fetchPage (Jina web_fetch)", () => {
     ["http://example.local/printer"],
     ["javascript:alert(1)"],
     ["data:text/html,<script>alert(1)</script>"],
-    ["https://user:pass@example.com/secret?token=abc"]
+    ["https://user:pass@example.com/secret?token=abc"],
   ])("rejects unsafe url %s and never calls fetch", async (badUrl) => {
     const fetchImpl = vi.fn();
-    const client = makeClient({ jinaApiKey: "jina-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      jinaApiKey: "jina-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     await expect(client.fetchPage(badUrl, "markdown")).rejects.toThrow();
     expect(fetchImpl).not.toHaveBeenCalled();
   });
@@ -156,7 +193,7 @@ describe("WebToolClient.fetchPage (Jina web_fetch)", () => {
     const client = makeClient({
       jinaApiKey: "jina-secret",
       signal: controller.signal,
-      fetchImpl: fetchImpl as unknown as typeof fetch
+      fetchImpl: fetchImpl as unknown as typeof fetch,
     });
     await client.fetchPage("https://example.com/x", "markdown");
     expect(capturedSignal).not.toBeNull();
@@ -178,20 +215,23 @@ describe("WebToolClient.tavilySearch (web_search)", () => {
         query: "DIKW",
         results: [
           { title: "Result A", url: "https://example.com/a", content: "snippet a", score: 0.9 },
-          { title: "Result B", url: "https://example.com/b", content: "snippet b", score: 0.8 }
-        ]
+          { title: "Result B", url: "https://example.com/b", content: "snippet b", score: 0.8 },
+        ],
       });
     });
 
-    const client = makeClient({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      tavilyApiKey: "tavily-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     const out = await client.tavilySearch("DIKW", 2);
 
     expect(out).toMatchObject({
       query: "DIKW",
       results: [
         { title: "Result A", url: "https://example.com/a", description: "snippet a" },
-        { title: "Result B", url: "https://example.com/b", description: "snippet b" }
-      ]
+        { title: "Result B", url: "https://example.com/b", description: "snippet b" },
+      ],
     });
 
     expect(calls).toHaveLength(1);
@@ -209,10 +249,13 @@ describe("WebToolClient.tavilySearch (web_search)", () => {
     const fetchImpl = vi.fn(async () =>
       Response.json({
         query: "q",
-        results: [{ title: "Long", url: "https://example.com/long", content: longContent }]
-      })
+        results: [{ title: "Long", url: "https://example.com/long", content: longContent }],
+      }),
     );
-    const client = makeClient({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      tavilyApiKey: "tavily-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     const out = await client.tavilySearch("q", 5);
     const desc = out.results[0].description;
     expect(desc.length).toBeLessThanOrEqual(500);
@@ -235,11 +278,14 @@ describe("WebToolClient.tavilySearch (web_search)", () => {
           { title: "metadata", url: "http://169.254.169.254/", content: "x" },
           { title: "loopback", url: "http://localhost/", content: "x" },
           { title: "creds", url: "https://u:p@example.com/", content: "x" },
-          { title: "xss", url: "javascript:1", content: "x" }
-        ]
-      })
+          { title: "xss", url: "javascript:1", content: "x" },
+        ],
+      }),
     );
-    const client = makeClient({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      tavilyApiKey: "tavily-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     const out = await client.tavilySearch("q", 5);
     expect(out.results.map((r) => r.url)).toEqual(["https://example.com/a"]);
   });
@@ -248,17 +294,23 @@ describe("WebToolClient.tavilySearch (web_search)", () => {
     const fetchImpl = vi.fn(async () =>
       Response.json({
         query: "q",
-        results: [null, "string", 7, { url: "https://example.com/a", title: "A", content: "d" }]
-      })
+        results: [null, "string", 7, { url: "https://example.com/a", title: "A", content: "d" }],
+      }),
     );
-    const client = makeClient({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      tavilyApiKey: "tavily-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     const out = await client.tavilySearch("q", 5);
     expect(out.results).toEqual([{ title: "A", url: "https://example.com/a", description: "d" }]);
   });
 
   it("returns empty results when Tavily results field is not an array", async () => {
     const fetchImpl = vi.fn(async () => Response.json({ query: "q", results: null }));
-    const client = makeClient({ tavilyApiKey: "tavily-secret", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      tavilyApiKey: "tavily-secret",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     const out = await client.tavilySearch("q", 5);
     expect(out.results).toEqual([]);
   });
@@ -266,7 +318,10 @@ describe("WebToolClient.tavilySearch (web_search)", () => {
   it("wraps upstream non-2xx with status code only and never forwards the response body", async () => {
     const reflected = `{"api_key":"tvly-secret-leak","query":"DIKW"}`;
     const fetchImpl = vi.fn(async () => new Response(reflected, { status: 502 }));
-    const client = makeClient({ tavilyApiKey: "tvly-secret-leak", fetchImpl: fetchImpl as unknown as typeof fetch });
+    const client = makeClient({
+      tavilyApiKey: "tvly-secret-leak",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
     await expect(client.tavilySearch("DIKW", 5)).rejects.toThrow(/^upstream 502$/);
     try {
       await client.tavilySearch("DIKW", 5);

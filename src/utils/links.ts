@@ -24,7 +24,7 @@ export interface SourceReference extends BacklinkRef {
 export function resolveBacklinks(
   incoming: IncomingLink[],
   pages: DocumentRecord[],
-  opts?: { layers?: Layer[] }
+  opts?: { layers?: Layer[] },
 ): BacklinkRef[] {
   const byPath = new Map(pages.map((page) => [page.path, page]));
   const seen = new Set<string>();
@@ -45,11 +45,13 @@ export function resolveBacklinks(
     refs.push({
       path: doc.path,
       title: displayTitle(doc),
-      layer: doc.layer
+      layer: doc.layer,
     });
   }
 
-  refs.sort((a, b) => (a.layer === b.layer ? a.title.localeCompare(b.title) : a.layer.localeCompare(b.layer)));
+  refs.sort((a, b) =>
+    a.layer === b.layer ? a.title.localeCompare(b.title) : a.layer.localeCompare(b.layer),
+  );
   return refs;
 }
 
@@ -66,7 +68,10 @@ export function resolveBacklinks(
  * point at K-pages (knowledge / wisdom) per the core contract, so callers never
  * need to filter to a subset.
  */
-export function resolveDerivedPages(derived: DerivedPage[], pages: DocumentRecord[]): BacklinkRef[] {
+export function resolveDerivedPages(
+  derived: DerivedPage[],
+  pages: DocumentRecord[],
+): BacklinkRef[] {
   const byPath = new Map(pages.map((page) => [page.path, page]));
   const seen = new Set<string>();
   const refs: BacklinkRef[] = [];
@@ -93,7 +98,9 @@ export function resolveDerivedPages(derived: DerivedPage[], pages: DocumentRecor
     }
   }
 
-  refs.sort((a, b) => (a.layer === b.layer ? a.title.localeCompare(b.title) : a.layer.localeCompare(b.layer)));
+  refs.sort((a, b) =>
+    a.layer === b.layer ? a.title.localeCompare(b.title) : a.layer.localeCompare(b.layer),
+  );
   return refs;
 }
 
@@ -111,7 +118,10 @@ export function resolveDerivedPages(derived: DerivedPage[], pages: DocumentRecor
  * `linked` side; both sides are expected to agree because they are joined
  * against the same `pages.data` snapshot in the caller.
  */
-export function mergeSourceReferences(linked: BacklinkRef[], sourced: BacklinkRef[]): SourceReference[] {
+export function mergeSourceReferences(
+  linked: BacklinkRef[],
+  sourced: BacklinkRef[],
+): SourceReference[] {
   const byPath = new Map<string, SourceReference>();
 
   for (const ref of linked) {

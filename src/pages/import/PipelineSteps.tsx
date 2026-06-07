@@ -2,14 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, RefreshCw } from "lucide-react";
 import type { PipelineStage } from "../../state/import-pipeline";
 import type { TaskEvent } from "../../types";
-import {
-  formatBytes,
-  formatElapsed,
-  stageRank,
-  stepMeta,
-  STEPS,
-  type ImportCopy
-} from "./format";
+import { formatBytes, formatElapsed, stageRank, stepMeta, STEPS, type ImportCopy } from "./format";
 
 interface PipelineStepsProps {
   copy: ImportCopy;
@@ -38,7 +31,7 @@ export function PipelineSteps({
   ingestTaskId,
   synthTaskId,
   lintProposeTaskId,
-  lintApplyTaskId
+  lintApplyTaskId,
 }: PipelineStepsProps) {
   const currentRank = stageRank(stage);
   const stepNumber = useMemo(() => {
@@ -55,12 +48,9 @@ export function PipelineSteps({
     return () => window.clearInterval(id);
   }, []);
 
-  const progress =
-    activeEvent && activeEvent.type === "progress" ? activeEvent : null;
+  const progress = activeEvent && activeEvent.type === "progress" ? activeEvent : null;
   const pct =
-    progress && progress.total > 0
-      ? Math.round((progress.current / progress.total) * 100)
-      : null;
+    progress && progress.total > 0 ? Math.round((progress.current / progress.total) * 100) : null;
 
   const activeTaskIdForStage = (() => {
     switch (stage) {
@@ -77,33 +67,21 @@ export function PipelineSteps({
     }
   })();
   const activeStep = STEPS.find((s) => s.id === stage);
-  const activeStageDesc = activeStep
-    ? copy.stageDescriptions[activeStep.labelKey]
-    : "";
+  const activeStageDesc = activeStep ? copy.stageDescriptions[activeStep.labelKey] : "";
 
   return (
     <>
       {wasResumed ? (
-        <div
-          className="import-resume-banner"
-          role="status"
-          data-testid="import-resume-banner"
-        >
+        <div className="import-resume-banner" role="status" data-testid="import-resume-banner">
           <span className="import-resume-banner__icon" aria-hidden="true">
             <RefreshCw size={16} />
           </span>
           <div className="import-resume-banner__body">
-            <div className="import-resume-banner__title">
-              {copy.resumeBannerTitle}
-            </div>
-            <div className="import-resume-banner__detail">
-              {copy.resumeBannerBody}
-            </div>
+            <div className="import-resume-banner__title">{copy.resumeBannerTitle}</div>
+            <div className="import-resume-banner__detail">{copy.resumeBannerBody}</div>
           </div>
           {activeTaskIdForStage ? (
-            <code className="import-resume-banner__task-id">
-              {activeTaskIdForStage}
-            </code>
+            <code className="import-resume-banner__task-id">{activeTaskIdForStage}</code>
           ) : null}
         </div>
       ) : null}
@@ -111,9 +89,7 @@ export function PipelineSteps({
       <section className="panel" data-testid="import-pipeline">
         <div className="import-pipeline-head">
           <div>
-            <div className="import-pipeline-head__title">
-              {copy.pipelineTitle}
-            </div>
+            <div className="import-pipeline-head__title">{copy.pipelineTitle}</div>
             <div className="import-pipeline-head__hint">
               {copy.pipelineStepOf
                 .replace("{n}", String(stepNumber))
@@ -133,21 +109,13 @@ export function PipelineSteps({
           {STEPS.map((step, i) => {
             const rank = stageRank(step.id);
             const status =
-              rank < currentRank
-                ? "done"
-                : rank === currentRank
-                ? "running"
-                : "pending";
+              rank < currentRank ? "done" : rank === currentRank ? "running" : "pending";
             const label = copy.stages[step.labelKey];
-            const fill =
-              status === "done" ? 100 : status === "running" ? pct ?? null : 0;
+            const fill = status === "done" ? 100 : status === "running" ? (pct ?? null) : 0;
             const indeterminate = status === "running" && pct == null;
             const meta = stepMeta(step.id, status, progress, importResult, copy);
             return (
-              <div
-                className={`import-step import-step--${status}`}
-                key={step.id}
-              >
+              <div className={`import-step import-step--${status}`} key={step.id}>
                 <div className="import-step__head">
                   <span className="import-step__marker" aria-hidden="true">
                     {status === "done" ? (
@@ -169,9 +137,7 @@ export function PipelineSteps({
                 >
                   <div
                     className="import-step__bar-fill"
-                    style={
-                      indeterminate ? undefined : { width: `${fill ?? 0}%` }
-                    }
+                    style={indeterminate ? undefined : { width: `${fill ?? 0}%` }}
                   />
                 </div>
                 <div className="import-step__meta">{meta}</div>
@@ -184,17 +150,13 @@ export function PipelineSteps({
           <div className="import-active-stage__head">
             <div className="import-active-stage__head-left">
               <span className="import-dot-pulse" aria-hidden="true" />
-              <span className="import-active-stage__desc">
-                {activeStageDesc}
-              </span>
+              <span className="import-active-stage__desc">{activeStageDesc}</span>
             </div>
             {/* Skip the task id here when the resume banner already shows it
                 — duplicate text breaks getByText queries in tests and is
                 redundant for the user. */}
             {activeTaskIdForStage && !wasResumed ? (
-              <code className="import-active-stage__task-id">
-                {activeTaskIdForStage}
-              </code>
+              <code className="import-active-stage__task-id">{activeTaskIdForStage}</code>
             ) : null}
           </div>
           <div className="import-active-stage__body">
@@ -242,8 +204,7 @@ export function PipelineSteps({
             {importResult.committed.length > 0 ? (
               <span className="import-pill import-pill--green">
                 <Check size={11} />
-                {copy.stages.ingest} · {importResult.committed.length}{" "}
-                {copy.previewPackagesShort}
+                {copy.stages.ingest} · {importResult.committed.length} {copy.previewPackagesShort}
               </span>
             ) : null}
             {importResult.rejected.length > 0 ? (

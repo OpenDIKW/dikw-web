@@ -19,7 +19,7 @@ export function parseSessionTitle(value: unknown): SessionTitleParseResult {
 
 export const SESSION_TITLE_ERROR_MESSAGES: Record<"required" | "too_long", string> = {
   required: "session title is required",
-  too_long: "session title is too long"
+  too_long: "session title is too long",
 };
 
 export function validateSessionTitle(value: unknown): string {

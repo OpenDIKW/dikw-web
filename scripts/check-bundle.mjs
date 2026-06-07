@@ -28,7 +28,10 @@ const LABELS = {
 };
 
 function gzipKB(files) {
-  const bytes = files.reduce((sum, file) => sum + gzipSync(readFileSync(join(ASSETS, file))).length, 0);
+  const bytes = files.reduce(
+    (sum, file) => sum + gzipSync(readFileSync(join(ASSETS, file))).length,
+    0,
+  );
   return bytes / 1024;
 }
 
@@ -58,13 +61,15 @@ let failed = false;
 for (const key of Object.keys(BUDGET)) {
   const over = actual[key] > BUDGET[key];
   if (over) failed = true;
-  console.log(`${over ? "✖" : "✓"} ${LABELS[key]}: ${actual[key].toFixed(1)} KB gzip (budget ${BUDGET[key]} KB)`);
+  console.log(
+    `${over ? "✖" : "✓"} ${LABELS[key]}: ${actual[key].toFixed(1)} KB gzip (budget ${BUDGET[key]} KB)`,
+  );
 }
 
 if (failed) {
   console.error(
     "\nBundle budget exceeded. Trim the import, or — if the growth is justified — raise the" +
-      " budget in scripts/check-bundle.mjs deliberately (don't bump it just to pass)."
+      " budget in scripts/check-bundle.mjs deliberately (don't bump it just to pass).",
   );
   process.exit(1);
 }

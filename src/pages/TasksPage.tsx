@@ -5,8 +5,21 @@ import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
 import { translations, type Locale } from "../i18n";
-import type { IngestError, TaskEvent, TaskHandle, TaskRow, TaskRowSummary, TaskStatus } from "../types";
-import { formatDuration, formatIso, formatNumber, formatScore, isTerminalTask } from "../utils/format";
+import type {
+  IngestError,
+  TaskEvent,
+  TaskHandle,
+  TaskRow,
+  TaskRowSummary,
+  TaskStatus,
+} from "../types";
+import {
+  formatDuration,
+  formatIso,
+  formatNumber,
+  formatScore,
+  isTerminalTask,
+} from "../utils/format";
 
 interface TasksPageProps {
   client: DikwClient;
@@ -22,7 +35,14 @@ type TaskListItem = TaskRowSummary & {
 };
 type TasksCopy = (typeof translations)["en"]["pages"]["tasks"];
 
-const taskStatuses: Array<"" | TaskStatus> = ["", "pending", "running", "succeeded", "failed", "cancelled"];
+const taskStatuses: Array<"" | TaskStatus> = [
+  "",
+  "pending",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+];
 const TASK_OP_SUGGESTIONS = ["ingest", "synth", "lint.propose", "lint.apply"] as const;
 const PAGE_LIMIT = 20;
 const EVENT_PAGE_SIZE = 20;
@@ -80,7 +100,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
       try {
         const page = await client.listTasks(
           { status: status || undefined, op: op.trim() || undefined, limit: PAGE_LIMIT },
-          signal
+          signal,
         );
         // A newer list reset (filter change or Refresh) superseded this load.
         if (signal?.aborted || listGenRef.current !== gen) return;
@@ -95,7 +115,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         setHasMore(false);
       }
     },
-    [client, op, status]
+    [client, op, status],
   );
 
   useEffect(() => {
@@ -114,7 +134,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         status: status || undefined,
         op: op.trim() || undefined,
         limit: PAGE_LIMIT,
-        cursor: nextCursor
+        cursor: nextCursor,
       });
       // A list reset (filter change or Refresh) happened while this page was
       // in flight — discard so we neither append a stale page nor clobber the
@@ -141,7 +161,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         const patch = taskPatches[row.task_id];
         return patch ? { ...row, ...patch } : row;
       }),
-    [rows, taskPatches]
+    [rows, taskPatches],
   );
   const selected = useMemo(() => {
     const fromList = visibleTasks.find((task) => task.task_id === selectedId);
@@ -163,7 +183,8 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     // absent from the filtered list yet still streaming in the detail pane.
     // (Both null must NOT count as "following", or the initial auto-select is
     // suppressed when nothing is selected yet.)
-    const following = eventTapeTaskIdRef.current !== null && eventTapeTaskIdRef.current === selectedId;
+    const following =
+      eventTapeTaskIdRef.current !== null && eventTapeTaskIdRef.current === selectedId;
     if (!rows.length) {
       if (selectedId !== null && !following) setSelectedId(null);
       return;
@@ -191,8 +212,8 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
             status: full.status,
             finished_at: full.finished_at,
             result: full.result,
-            error: full.error
-          }
+            error: full.error,
+          },
         }));
       })
       .catch(() => {
@@ -203,7 +224,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const eventPageCount = Math.max(1, Math.ceil(events.length / EVENT_PAGE_SIZE));
   const pagedEvents = useMemo(
     () => events.slice(eventPageIndex * EVENT_PAGE_SIZE, (eventPageIndex + 1) * EVENT_PAGE_SIZE),
-    [events, eventPageIndex]
+    [events, eventPageIndex],
   );
 
   useEffect(() => {
@@ -279,8 +300,8 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         status: event.status,
         finished_at: event.ts,
         result: event.result ?? null,
-        error: event.error ?? null
-      }
+        error: event.error ?? null,
+      },
     }));
   }
 
@@ -297,7 +318,11 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     setEventStickTail(!isTerminalTask(row.status));
     setFollowing(true);
     try {
-      for await (const event of client.streamTaskEvents(row.task_id, undefined, controller.signal)) {
+      for await (const event of client.streamTaskEvents(
+        row.task_id,
+        undefined,
+        controller.signal,
+      )) {
         if (controllerRef.current !== controller) {
           break;
         }
@@ -323,7 +348,11 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
     hydratedRef.current.clear();
     setTaskPatches({});
     void loadFirstPage();
-    if (selected && isTerminalTask(selected.status) && eventTapeTaskIdRef.current === selected.task_id) {
+    if (
+      selected &&
+      isTerminalTask(selected.status) &&
+      eventTapeTaskIdRef.current === selected.task_id
+    ) {
       void follow(selected);
     }
   }
@@ -351,7 +380,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         created_at: handle.created_at,
         started_at: null,
         finished_at: null,
-        params_digest: ""
+        params_digest: "",
       });
     } catch (error) {
       setActionPending(false);
@@ -394,7 +423,12 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         <div>
           <h1>{copy.title}</h1>
         </div>
-        <button className="icon-button" type="button" onClick={refreshTasks} aria-label={copy.refresh}>
+        <button
+          className="icon-button"
+          type="button"
+          onClick={refreshTasks}
+          aria-label={copy.refresh}
+        >
           <RefreshCw size={18} />
         </button>
       </header>
@@ -402,7 +436,10 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
       <section className="panel filter-bar">
         <label className="field">
           <span>{copy.statusLabel}</span>
-          <select value={status} onChange={(event) => setStatus(event.target.value as "" | TaskStatus)}>
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value as "" | TaskStatus)}
+          >
             {taskStatuses.map((value) => (
               <option value={value} key={value || "all"}>
                 {value || "all"}
@@ -431,10 +468,20 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
           <button className="secondary-button" type="button" onClick={onSynth} disabled={busy}>
             {copy.actions.synth}
           </button>
-          <button className="secondary-button" type="button" onClick={onLintPropose} disabled={busy}>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={onLintPropose}
+            disabled={busy}
+          >
             {copy.actions.lintPropose}
           </button>
-          <button className="secondary-button" type="button" onClick={onLintApply} disabled={!canApply}>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={onLintApply}
+            disabled={!canApply}
+          >
             {copy.actions.lintApply}
           </button>
           {showBusyIndicator ? (
@@ -523,10 +570,17 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
                   <dd>{selected.params_digest || "-"}</dd>
                 </div>
               </dl>
-              {selected.result ? <TaskResultSummary op={selected.op} result={selected.result} /> : null}
+              {selected.result ? (
+                <TaskResultSummary op={selected.op} result={selected.result} />
+              ) : null}
               {selected.error ? <TaskErrorSummary error={selected.error} /> : null}
               <div className="button-row">
-                <button className="secondary-button" type="button" onClick={() => follow(selected)} disabled={following}>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => follow(selected)}
+                  disabled={following}
+                >
                   <Play size={16} />
                   {isTerminalTask(selected.status) ? "Load events" : "Follow"}
                 </button>
@@ -569,7 +623,7 @@ function EventTape({
   onChangeEventPage,
   following,
   selected,
-  copy
+  copy,
 }: {
   events: TaskEvent[];
   pagedEvents: TaskEvent[];
@@ -585,7 +639,9 @@ function EventTape({
       <div className="event-empty">
         <EmptyState
           title={following ? copy.waitingEvents : copy.eventsNotLoaded}
-          detail={isTerminalTask(selected.status) ? copy.terminalEventDetail : copy.runningEventDetail}
+          detail={
+            isTerminalTask(selected.status) ? copy.terminalEventDetail : copy.runningEventDetail
+          }
         />
       </div>
     );
@@ -598,7 +654,10 @@ function EventTape({
       </div>
       <div className="event-tape">
         {pagedEvents.map((event) => (
-          <article className={`event-tape__item event-tape__item--${event.type}`} key={`${event.seq}-${event.type}-${event.ts}`}>
+          <article
+            className={`event-tape__item event-tape__item--${event.type}`}
+            key={`${event.seq}-${event.type}-${event.ts}`}
+          >
             <div className="event-tape__meta">
               <span>#{event.seq}</span>
               <span>{event.type}</span>
@@ -627,7 +686,7 @@ function EventBody({ event, op, copy }: { event: TaskEvent; op: string; copy: Ta
     const progressBarClass = [
       "progress-bar",
       percentage === null ? "progress-bar--indeterminate" : "",
-      percentage === null && event.phase === "scan" ? "progress-bar--scan" : ""
+      percentage === null && event.phase === "scan" ? "progress-bar--scan" : "",
     ]
       .filter(Boolean)
       .join(" ");
@@ -646,7 +705,11 @@ function EventBody({ event, op, copy }: { event: TaskEvent; op: string; copy: Ta
     );
   }
   if (event.type === "log") {
-    return <p>{event.level}: {event.message}</p>;
+    return (
+      <p>
+        {event.level}: {event.message}
+      </p>
+    );
   }
   if (event.type === "partial") {
     if (event.kind === "file_error") {
@@ -665,7 +728,11 @@ function EventBody({ event, op, copy }: { event: TaskEvent; op: string; copy: Ta
     );
   }
   if (event.type === "error") {
-    return <p>{event.code}: {event.message}</p>;
+    return (
+      <p>
+        {event.code}: {event.message}
+      </p>
+    );
   }
   return <p>{event.op}</p>;
 }
@@ -688,12 +755,22 @@ function formatProgressLabel(event: ProgressEvent, copy: TasksCopy): string {
   return `${verb} ${formatNumber(event.current)} · ${copy.totalUnknown}`;
 }
 
-function TaskResultSummary({ op, result, compact = false }: { op: string; result: Record<string, unknown>; compact?: boolean }) {
+function TaskResultSummary({
+  op,
+  result,
+  compact = false,
+}: {
+  op: string;
+  result: Record<string, unknown>;
+  compact?: boolean;
+}) {
   if (op === "eval" || "metrics" in result) {
     return <EvalResultSummary result={result} compact={compact} />;
   }
 
-  const entries = Object.entries(result).filter(([, value]) => typeof value !== "object" || value === null);
+  const entries = Object.entries(result).filter(
+    ([, value]) => typeof value !== "object" || value === null,
+  );
   const ingestErrors = op === "ingest" ? getIngestErrors(result.errors) : [];
   return (
     <section className={`result-summary ${compact ? "result-summary--compact" : ""}`}>
@@ -720,7 +797,13 @@ function TaskResultSummary({ op, result, compact = false }: { op: string; result
   );
 }
 
-function EvalResultSummary({ result, compact }: { result: Record<string, unknown>; compact?: boolean }) {
+function EvalResultSummary({
+  result,
+  compact,
+}: {
+  result: Record<string, unknown>;
+  compact?: boolean;
+}) {
   const metrics = isRecord(result.metrics) ? result.metrics : {};
   const thresholds = isRecord(result.thresholds) ? result.thresholds : {};
   const perQuery = Array.isArray(result.per_query) ? result.per_query : [];
@@ -731,7 +814,12 @@ function EvalResultSummary({ result, compact }: { result: Record<string, unknown
     <section className={`result-summary ${compact ? "result-summary--compact" : ""}`}>
       <div className="section-title">
         <span>Eval result</span>
-        {typeof result.passed === "boolean" ? <StatusPill status={result.passed ? "succeeded" : "failed"} label={result.passed ? "passed" : "failed"} /> : null}
+        {typeof result.passed === "boolean" ? (
+          <StatusPill
+            status={result.passed ? "succeeded" : "failed"}
+            label={result.passed ? "passed" : "failed"}
+          />
+        ) : null}
       </div>
       <div className="eval-dataset-line">
         <strong>{String(result.dataset_name ?? "eval")}</strong>
@@ -754,13 +842,21 @@ function EvalResultSummary({ result, compact }: { result: Record<string, unknown
           </div>
         ))}
       </div>
-      {!compact && metricRows.length ? <MetricTable metrics={metrics} thresholds={thresholds} /> : null}
+      {!compact && metricRows.length ? (
+        <MetricTable metrics={metrics} thresholds={thresholds} />
+      ) : null}
       <JsonDetails summary="Raw eval JSON" value={result} />
     </section>
   );
 }
 
-function MetricTable({ metrics, thresholds }: { metrics: Record<string, unknown>; thresholds: Record<string, unknown> }) {
+function MetricTable({
+  metrics,
+  thresholds,
+}: {
+  metrics: Record<string, unknown>;
+  thresholds: Record<string, unknown>;
+}) {
   return (
     <div className="metrics-table">
       <div className="metrics-table__row metrics-table__head">
@@ -772,7 +868,9 @@ function MetricTable({ metrics, thresholds }: { metrics: Record<string, unknown>
         <div className="metrics-table__row" key={key}>
           <span>{key}</span>
           <strong>{typeof value === "number" ? formatScore(value) : String(value)}</strong>
-          <span>{typeof thresholds[key] === "number" ? formatScore(thresholds[key] as number) : "-"}</span>
+          <span>
+            {typeof thresholds[key] === "number" ? formatScore(thresholds[key] as number) : "-"}
+          </span>
         </div>
       ))}
     </div>
@@ -837,8 +935,11 @@ function normalizeIngestError(value: unknown): IngestError {
   const kind = value.kind;
   return {
     path: String(value.path ?? "-"),
-    kind: kind === "read_error" || kind === "storage_error" || kind === "parse_error" ? kind : "parse_error",
-    message: String(value.message ?? "Unknown file error")
+    kind:
+      kind === "read_error" || kind === "storage_error" || kind === "parse_error"
+        ? kind
+        : "parse_error",
+    message: String(value.message ?? "Unknown file error"),
   };
 }
 
@@ -851,7 +952,9 @@ function compactDetail(detail: Record<string, unknown>): string {
   const path = detail.path;
   const outcome = detail.outcome;
   const mode = detail.mode;
-  const parts = [mode, qid, path, outcome].filter((value): value is string => typeof value === "string" && value.length > 0);
+  const parts = [mode, qid, path, outcome].filter(
+    (value): value is string => typeof value === "string" && value.length > 0,
+  );
   if (!parts.length) {
     return "";
   }
@@ -863,7 +966,7 @@ function PaginationBar({
   pageCount,
   copy,
   onChange,
-  className = "task-list__pagination"
+  className = "task-list__pagination",
 }: {
   pageIndex: number;
   pageCount: number;

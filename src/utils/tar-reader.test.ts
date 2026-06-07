@@ -22,14 +22,14 @@ describe("readTar", () => {
     const entries = [
       { archivePath: "sources/foo.md", data: enc("# foo\n") },
       { archivePath: "sources/foo/assets/img.png", data: new Uint8Array([1, 2, 3, 4, 5]) },
-      { archivePath: "sources/bar.md", data: enc("# bar with **bold**\n") }
+      { archivePath: "sources/bar.md", data: enc("# bar with **bold**\n") },
     ];
     const tar = buildTar(entries);
     const parsed = readTar(tar);
     expect(parsed.map((e) => e.archivePath)).toEqual([
       "sources/foo.md",
       "sources/foo/assets/img.png",
-      "sources/bar.md"
+      "sources/bar.md",
     ]);
     for (let i = 0; i < entries.length; i++) {
       // Compare via Array.from because Vitest's TypedArray deep-equal can

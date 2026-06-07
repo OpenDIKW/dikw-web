@@ -13,35 +13,35 @@ vi.mock("mermaid", () => ({
         throw new Error("Invalid Mermaid");
       }
       return { svg: '<svg role="img" data-testid="mermaid-svg"><text>flowchart</text></svg>' };
-    })
-  }
+    }),
+  },
 }));
 
 const echartsSetOptionMock = vi.fn();
 const echartsInitMock = vi.fn((_el?: HTMLElement, _theme?: string) => ({
   setOption: echartsSetOptionMock,
   dispose: vi.fn(),
-  resize: vi.fn()
+  resize: vi.fn(),
 }));
 
 vi.mock("echarts/core", () => ({
   init: echartsInitMock,
-  use: vi.fn()
+  use: vi.fn(),
 }));
 vi.mock("echarts/charts", () => ({
   BarChart: {},
   LineChart: {},
   ScatterChart: {},
-  HeatmapChart: {}
+  HeatmapChart: {},
 }));
 vi.mock("echarts/components", () => ({
   GridComponent: {},
   TooltipComponent: {},
   TitleComponent: {},
-  VisualMapComponent: {}
+  VisualMapComponent: {},
 }));
 vi.mock("echarts/renderers", () => ({
-  CanvasRenderer: {}
+  CanvasRenderer: {},
 }));
 
 function makeAsset(overrides: Partial<PageAsset> = {}): PageAsset {
@@ -50,10 +50,12 @@ function makeAsset(overrides: Partial<PageAsset> = {}): PageAsset {
     kind: "image",
     mime: "image/jpeg",
     bytes: 1234,
-    original_paths: ["assets/images/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.jpg"],
+    original_paths: [
+      "assets/images/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.jpg",
+    ],
     media_meta: null,
     url: "/v1/assets/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72",
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -65,7 +67,7 @@ describe("MarkdownView", () => {
         body={
           "---\ntitle: Architecture\ntags:\n- DIKW\nsources:\n- source/a.md\n---\n\n# Architecture\n\n| A | B |\n| - | - |\n| 1 | 2 |\n\n```ts\nconst x = 1\n```\n"
         }
-      />
+      />,
     );
 
     expect(screen.getByLabelText("Document metadata")).toBeInTheDocument();
@@ -87,7 +89,7 @@ describe("MarkdownView", () => {
         body={
           "Before\n\n<table><caption>Hybrid studies</caption><thead><tr><th>First principles</th><th>Training</th></tr></thead><tbody><tr><td>Mass balance<br>kinetics</td><td>FBA</td></tr></tbody></table>\n\nAfter"
         }
-      />
+      />,
     );
 
     const wrapper = document.querySelector(".markdown-table-wrap");
@@ -105,14 +107,16 @@ describe("MarkdownView", () => {
         body={
           '<script>alert("x")</script>\n\n<div onclick="bad()">not table</div>\n\n<table onclick="bad()"><tr><td onclick="bad()">A<script>alert("x")</script></td></tr></table>'
         }
-      />
+      />,
     );
 
     expect(document.querySelector(".markdown-body script")).not.toBeInTheDocument();
     expect(document.querySelector(".markdown-body [onclick]")).not.toBeInTheDocument();
     expect(document.querySelector(".markdown-table-wrap table")).toBeInTheDocument();
     expect(screen.getByText("A")).toBeInTheDocument();
-    expect(document.querySelector(".markdown-body > div:not(.markdown-table-wrap)")).not.toBeInTheDocument();
+    expect(
+      document.querySelector(".markdown-body > div:not(.markdown-table-wrap)"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/not table/)).toBeInTheDocument();
   });
 
@@ -131,7 +135,7 @@ describe("MarkdownView", () => {
         body={
           '<details open><summary>flowchart</summary>\n\n**bold detail**\n\n</details>\n\n<details><summary>notes</summary>\n\nplain detail\n\n</details>\n\n<div onclick="bad()">not allowed</div>'
         }
-      />
+      />,
     );
 
     const details = document.querySelectorAll(".markdown-details");
@@ -141,7 +145,9 @@ describe("MarkdownView", () => {
     expect(screen.getByText("flowchart")).toBeInTheDocument();
     expect(screen.getByText("bold detail").tagName.toLowerCase()).toBe("strong");
     expect(screen.queryByText(/<details/)).not.toBeInTheDocument();
-    expect(document.querySelector(".markdown-body > div:not(.markdown-table-wrap)")).not.toBeInTheDocument();
+    expect(
+      document.querySelector(".markdown-body > div:not(.markdown-table-wrap)"),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/not allowed/)).toBeInTheDocument();
   });
 
@@ -160,12 +166,14 @@ describe("MarkdownView", () => {
 
     render(<MarkdownView body={"```mermaid\nbroken graph\n```"} />);
 
-    await waitFor(() => expect(screen.getByText("Mermaid diagram could not be rendered.")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Mermaid diagram could not be rendered.")).toBeInTheDocument(),
+    );
     expect(screen.getByText("broken graph")).toBeInTheDocument();
     expect(mermaid.initialize).toHaveBeenCalledWith(
       expect.objectContaining({
-        suppressErrorRendering: true
-      })
+        suppressErrorRendering: true,
+      }),
     );
   });
 
@@ -181,9 +189,11 @@ describe("MarkdownView", () => {
     const asset = makeAsset();
     render(
       <MarkdownView
-        body={"Caption text.\n\n![[assets/images/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.jpg]]"}
+        body={
+          "Caption text.\n\n![[assets/images/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.jpg]]"
+        }
         assets={[asset]}
-      />
+      />,
     );
     const img = document.querySelector<HTMLImageElement>("img.markdown-image");
     expect(img).not.toBeNull();
@@ -197,7 +207,7 @@ describe("MarkdownView", () => {
       <MarkdownView
         body={"![[anywhere/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.jpg]]"}
         assets={[asset]}
-      />
+      />,
     );
     const img = document.querySelector<HTMLImageElement>("img.markdown-image");
     expect(img).not.toBeNull();
@@ -216,10 +226,12 @@ describe("MarkdownView", () => {
     const asset = makeAsset();
     render(
       <MarkdownView
-        body={"![[assets/images/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.jpg]]"}
+        body={
+          "![[assets/images/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.jpg]]"
+        }
         assets={[asset]}
         assetBaseUrl="http://core.example:8765"
-      />
+      />,
     );
     const img = document.querySelector<HTMLImageElement>("img.markdown-image");
     expect(img).not.toBeNull();
@@ -231,7 +243,9 @@ describe("MarkdownView", () => {
     const pngBytes = new Uint8Array([137, 80, 78, 71]);
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(pngBytes, { status: 200, headers: { "Content-Type": "image/jpeg" } }));
+      .mockResolvedValue(
+        new Response(pngBytes, { status: 200, headers: { "Content-Type": "image/jpeg" } }),
+      );
     const blobUrl = "blob:http://localhost/asset-blob";
     const createObjectUrlSpy = vi.spyOn(URL, "createObjectURL").mockReturnValue(blobUrl);
     const revokeSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
@@ -239,10 +253,12 @@ describe("MarkdownView", () => {
     try {
       const { unmount } = render(
         <MarkdownView
-          body={"![[assets/images/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.jpg]]"}
+          body={
+            "![[assets/images/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.jpg]]"
+          }
           assets={[asset]}
           assetToken="secret-token"
-        />
+        />,
       );
       const initial = document.querySelector<HTMLImageElement>("img.markdown-image");
       expect(initial).not.toBeNull();
@@ -251,7 +267,7 @@ describe("MarkdownView", () => {
 
       await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
       expect(fetchSpy.mock.calls[0][1]).toMatchObject({
-        headers: { Authorization: "Bearer secret-token" }
+        headers: { Authorization: "Bearer secret-token" },
       });
 
       await waitFor(() => {
@@ -274,7 +290,9 @@ describe("MarkdownView", () => {
     const pngBytes = new Uint8Array([137, 80, 78, 71]);
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
-      .mockResolvedValue(new Response(pngBytes, { status: 200, headers: { "Content-Type": "image/jpeg" } }));
+      .mockResolvedValue(
+        new Response(pngBytes, { status: 200, headers: { "Content-Type": "image/jpeg" } }),
+      );
     let blobCounter = 0;
     const createObjectUrlSpy = vi
       .spyOn(URL, "createObjectURL")
@@ -285,20 +303,20 @@ describe("MarkdownView", () => {
       const body =
         "![[assets/images/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.jpg]]";
       const { rerender } = render(
-        <MarkdownView body={body} assets={[asset]} assetToken="token-a" />
+        <MarkdownView body={body} assets={[asset]} assetToken="token-a" />,
       );
       await waitFor(() => {
         const img = document.querySelector<HTMLImageElement>("img.markdown-image");
         expect(img?.getAttribute("src")).toBe("blob:http://localhost/asset-1");
       });
       expect(fetchSpy.mock.calls[0][1]).toMatchObject({
-        headers: { Authorization: "Bearer token-a" }
+        headers: { Authorization: "Bearer token-a" },
       });
 
       rerender(<MarkdownView body={body} assets={[asset]} assetToken="token-b" />);
       await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
       expect(fetchSpy.mock.calls[1][1]).toMatchObject({
-        headers: { Authorization: "Bearer token-b" }
+        headers: { Authorization: "Bearer token-b" },
       });
       expect(revokeSpy).toHaveBeenCalledWith("blob:http://localhost/asset-1");
     } finally {
@@ -311,8 +329,8 @@ describe("MarkdownView", () => {
   it("renders standard ![alt](path) against the matching PageAsset url", () => {
     const asset = makeAsset({
       original_paths: [
-        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png"
-      ]
+        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png",
+      ],
     });
     render(
       <MarkdownView
@@ -320,7 +338,7 @@ describe("MarkdownView", () => {
           "Caption.\n\n![Kitchen](./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png)"
         }
         assets={[asset]}
-      />
+      />,
     );
     const img = document.querySelector<HTMLImageElement>("img.markdown-image");
     expect(img).not.toBeNull();
@@ -332,8 +350,8 @@ describe("MarkdownView", () => {
   it("prefixes standard image asset URLs with assetBaseUrl when provided", () => {
     const asset = makeAsset({
       original_paths: [
-        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png"
-      ]
+        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png",
+      ],
     });
     render(
       <MarkdownView
@@ -342,7 +360,7 @@ describe("MarkdownView", () => {
         }
         assets={[asset]}
         assetBaseUrl="http://core.example:8765"
-      />
+      />,
     );
     const img = document.querySelector<HTMLImageElement>("img.markdown-image");
     expect(img).not.toBeNull();
@@ -366,7 +384,7 @@ describe("MarkdownView", () => {
       mime: "image/png",
       asset_id: "2222222222222222222222222222222222222222222222222222222222222222",
       url: "/v1/assets/2222222222222222222222222222222222222222222222222222222222222222",
-      original_paths: ["./images/封面.png"]
+      original_paths: ["./images/封面.png"],
     });
     render(<MarkdownView body={"![cover](./images/封面.png)"} assets={[asset]} />);
     const img = document.querySelector<HTMLImageElement>("img.markdown-image");
@@ -378,8 +396,8 @@ describe("MarkdownView", () => {
   it("strips inline markup from standard image alt text per CommonMark", () => {
     const asset = makeAsset({
       original_paths: [
-        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png"
-      ]
+        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png",
+      ],
     });
     render(
       <MarkdownView
@@ -387,7 +405,7 @@ describe("MarkdownView", () => {
           "![Figure **1**: see _intro_](./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png)"
         }
         assets={[asset]}
-      />
+      />,
     );
     const img = document.querySelector<HTMLImageElement>("img.markdown-image");
     expect(img).not.toBeNull();
@@ -397,8 +415,8 @@ describe("MarkdownView", () => {
   it("preserves the title attribute on standard image syntax for local assets", () => {
     const asset = makeAsset({
       original_paths: [
-        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png"
-      ]
+        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png",
+      ],
     });
     render(
       <MarkdownView
@@ -406,7 +424,7 @@ describe("MarkdownView", () => {
           '![Kitchen](./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png "厨房场景")'
         }
         assets={[asset]}
-      />
+      />,
     );
     const img = document.querySelector<HTMLImageElement>("img.markdown-image");
     expect(img).not.toBeNull();
@@ -416,8 +434,8 @@ describe("MarkdownView", () => {
   it("keeps title on standard image hydration when assetToken is provided", () => {
     const asset = makeAsset({
       original_paths: [
-        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png"
-      ]
+        "./images/scenes/1cdf336db39595a85c787a23c42fce7571e5aa6c4783ddc3225a48f9677a0a72.png",
+      ],
     });
     render(
       <MarkdownView
@@ -426,7 +444,7 @@ describe("MarkdownView", () => {
         }
         assets={[asset]}
         assetToken="secret-token"
-      />
+      />,
     );
     const img = document.querySelector<HTMLImageElement>("img.markdown-image");
     expect(img).not.toBeNull();
@@ -442,9 +460,7 @@ describe("MarkdownView", () => {
   });
 
   it("renders a broken-image placeholder for standard syntax when the asset is missing", () => {
-    render(
-      <MarkdownView body={"![Missing](./images/scenes/missing.png)"} assets={[]} />
-    );
+    render(<MarkdownView body={"![Missing](./images/scenes/missing.png)"} assets={[]} />);
     const placeholder = document.querySelector(".md-broken-image");
     expect(placeholder).not.toBeNull();
     expect(placeholder!.textContent).toContain("./images/scenes/missing.png");
@@ -459,13 +475,15 @@ describe("MarkdownView", () => {
         body={
           "<details>\n<summary>bar</summary>\n\n| Run | Acid |\n| --- | --- |\n| Ctrl | 17 |\n| Innovator | 25 |\n</details>"
         }
-      />
+      />,
     );
     const chart = document.querySelector('.markdown-chart[data-chart-type="bar"]');
     expect(chart).not.toBeNull();
     await waitFor(() => expect(echartsInitMock).toHaveBeenCalled());
     expect(echartsSetOptionMock).toHaveBeenCalled();
-    const option = echartsSetOptionMock.mock.calls[0][0] as { series: Array<{ type: string; data: number[] }> };
+    const option = echartsSetOptionMock.mock.calls[0][0] as {
+      series: Array<{ type: string; data: number[] }>;
+    };
     expect(option.series[0].type).toBe("bar");
     expect(option.series[0].data).toEqual([17, 25]);
   });
@@ -481,7 +499,7 @@ describe("MarkdownView", () => {
           body={
             "<details>\n<summary>bar</summary>\n\n| Run | Acid |\n| --- | --- |\n| Ctrl | 17 |\n</details>"
           }
-        />
+        />,
       );
       await waitFor(() => expect(echartsInitMock).toHaveBeenCalled());
       const initArgs = echartsInitMock.mock.calls[0];
@@ -503,11 +521,14 @@ describe("MarkdownView", () => {
         body={
           "<details>\n<summary>heatmap</summary>\n\n| | Cu | Fe |\n| --- | --- | --- |\n| Cu | 1.00 | 0.00 |\n| Fe | 0.00 | 1.00 |\n</details>"
         }
-      />
+      />,
     );
     expect(document.querySelector('.markdown-chart[data-chart-type="heatmap"]')).not.toBeNull();
     await waitFor(() => expect(echartsSetOptionMock).toHaveBeenCalled());
-    const option = echartsSetOptionMock.mock.calls[0][0] as { series: Array<{ type: string }>; visualMap: unknown };
+    const option = echartsSetOptionMock.mock.calls[0][0] as {
+      series: Array<{ type: string }>;
+      visualMap: unknown;
+    };
     expect(option.series[0].type).toBe("heatmap");
     expect(option.visualMap).toBeDefined();
   });
@@ -523,7 +544,7 @@ describe("MarkdownView", () => {
         body={
           "<details>\n<summary>bar</summary>\n\n| Run | Acid |\n| --- | --- |\n| Ctrl | 17 |\n| Innovator | 25 |\n</details>"
         }
-      />
+      />,
     );
     await waitFor(() => {
       const chart = document.querySelector(".markdown-chart");
@@ -540,7 +561,9 @@ describe("MarkdownView", () => {
   it("keeps the <details> fallback when a chart block has a malformed body", () => {
     echartsInitMock.mockClear();
     render(
-      <MarkdownView body={"<details>\n<summary>bar</summary>\n\nNot a table at all.\n</details>"} />
+      <MarkdownView
+        body={"<details>\n<summary>bar</summary>\n\nNot a table at all.\n</details>"}
+      />,
     );
     expect(document.querySelector(".markdown-chart")).toBeNull();
     expect(document.querySelector(".markdown-details")).not.toBeNull();

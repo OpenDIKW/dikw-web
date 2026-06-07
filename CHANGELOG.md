@@ -11,6 +11,27 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **ESLint gate** (`npm run lint` → `eslint.config.js`, flat config, `--max-warnings 0`,
+  in `verify` + CI). Covers the lint layer `tsc --strict` misses: React hook
+  dependency/order rules, unused symbols (tsconfig has no `noUnusedLocals`), and no raw
+  `console` in the shipped browser bundle. react-hooks is pinned to its two classic
+  rules (rules-of-hooks + exhaustive-deps) rather than the v7 `recommended` preset,
+  whose opinionated rules (set-state-in-effect, immutability, …) would force a
+  non-surgical refactor of working code; type-checked rules are omitted to keep it
+  fast. Pre-existing violations were resolved — dead types/imports removed, two useless
+  assignments and an over-escaped regex fixed, and genuinely intentional hook-dep
+  omissions annotated with a reason.
+- **Prettier** (`npm run format` / `format:check`, in `verify` + CI) across code
+  (`.ts/.tsx/.js/.mjs/.css/.json`); a one-time repo-wide reformat landed in its own
+  commit (`printWidth` 100 to match the codebase). Markdown is excluded
+  (`.prettierignore`) — prettier's prose pass is cosmetic churn (e.g. `*italic*` →
+  `_italic_`) with no correctness value on the hand-maintained docs.
+- **Layout-shift (CLS) perf budget** (`tests/e2e/perf.spec.ts`, rides `test:e2e`).
+  Asserts Cumulative Layout Shift ≤ 0.1 on the primary routes (overview / base / graph
+  / tasks / chat / wisdom) — the one Core Web Vital stable under headless Chromium.
+  LCP and long-task totals are measured and surfaced as Playwright annotations but
+  never gate (runner-dependent timing), the same reasoning that keeps `smoke:core` out
+  of CI. 2026-06 baselines: CLS 0.00–0.05 across all six routes.
 - **Bundle-size budget gate** (`npm run check:bundle` → `scripts/check-bundle.mjs`,
   wired into CI after the verify gate). Asserts gzipped ceilings for the entry JS
   (`index-*.js`), total JS, and CSS against `dist/`, catching the "a heavy lib

@@ -1,6 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
-import { DatabaseSessionService, LlmAgent, Runner, StreamingMode, isCompactedEvent } from "@google/adk";
+import {
+  DatabaseSessionService,
+  LlmAgent,
+  Runner,
+  StreamingMode,
+  isCompactedEvent,
+} from "@google/adk";
 import type { Event } from "@google/adk";
 import { MiniMaxLlm, type AnthropicLike } from "./minimaxLlm";
 import { buildContextCompactor } from "./contextCompactor";
@@ -17,7 +23,10 @@ const SUMMARY_MARKER = "SUMMARY_MARKER_42";
  * distinctive reply so we can prove the compaction summary is created, fed back
  * into the prompt, and filtered out of the chat projection.
  */
-function makeFakeClient(promptTokens: number): { client: AnthropicLike; calls: Array<{ messages: unknown[]; system?: string }> } {
+function makeFakeClient(promptTokens: number): {
+  client: AnthropicLike;
+  calls: Array<{ messages: unknown[]; system?: string }>;
+} {
   const calls: Array<{ messages: unknown[]; system?: string }> = [];
   const client: AnthropicLike = {
     messages: {
@@ -28,13 +37,12 @@ function makeFakeClient(promptTokens: number): { client: AnthropicLike; calls: A
         const reply = {
           content: [{ type: "text", text }],
           usage: { input_tokens: promptTokens, output_tokens: 2 },
-          stop_reason: "end_turn"
+          stop_reason: "end_turn",
         };
-        // eslint-disable-next-line require-yield
         async function* iterate() {}
         return Object.assign(iterate(), { finalMessage: async () => reply });
-      }
-    }
+      },
+    },
   };
   return { client, calls };
 }
@@ -44,7 +52,7 @@ async function runTurn(runner: Runner, sessionId: string, text: string): Promise
     userId: USER,
     sessionId,
     newMessage: { role: "user", parts: [{ text }] },
-    runConfig: { streamingMode: StreamingMode.SSE }
+    runConfig: { streamingMode: StreamingMode.SSE },
   });
   // Drain the stream so the turn completes and its events are persisted.
   for await (const _event of stream) {
@@ -55,8 +63,18 @@ async function runTurn(runner: Runner, sessionId: string, text: string): Promise
 describe("context compaction (end-to-end through the real ADK Runner)", () => {
   it("fires compaction, rebuilds the prompt from the summary, and hides the summary from chat history", async () => {
     const { client, calls } = makeFakeClient(1000); // window 100 * 0.5 => threshold 50; 1000 trips it fast
-    const model = new MiniMaxLlm({ model: "MiniMax-M3", apiKey: "k", baseUrl: "https://example.invalid", client });
-    const compactor = buildContextCompactor(model, { enabled: true, contextWindow: 100, ratio: 0.5, retention: 1 });
+    const model = new MiniMaxLlm({
+      model: "MiniMax-M3",
+      apiKey: "k",
+      baseUrl: "https://example.invalid",
+      client,
+    });
+    const compactor = buildContextCompactor(model, {
+      enabled: true,
+      contextWindow: 100,
+      ratio: 0.5,
+      retention: 1,
+    });
     expect(compactor).toBeDefined();
 
     const agent = new LlmAgent({
@@ -65,7 +83,7 @@ describe("context compaction (end-to-end through the real ADK Runner)", () => {
       model,
       instruction: "system instruction",
       tools: [],
-      contextCompactors: [compactor!]
+      contextCompactors: [compactor!],
     });
 
     const sessionService = new DatabaseSessionService("sqlite://:memory:");
@@ -76,7 +94,11 @@ describe("context compaction (end-to-end through the real ADK Runner)", () => {
     await runTurn(runner, session.id, "second question");
     await runTurn(runner, session.id, "third question");
 
-    const reloaded = await sessionService.getSession({ appName: APP, userId: USER, sessionId: session.id });
+    const reloaded = await sessionService.getSession({
+      appName: APP,
+      userId: USER,
+      sessionId: session.id,
+    });
 
     // 1. A CompactedEvent was created and persisted, carrying the summary text.
     const compactedEvents = reloaded!.events.filter((e: Event) => isCompactedEvent(e));

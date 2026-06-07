@@ -28,7 +28,10 @@ interface ParseMarkdownOptions {
   stripDuplicateTitle?: string | false;
 }
 
-export function parseMarkdownDocument(source: string, options: ParseMarkdownOptions = {}): ParsedMarkdownDocument {
+export function parseMarkdownDocument(
+  source: string,
+  options: ParseMarkdownOptions = {},
+): ParsedMarkdownDocument {
   const normalized = source.replace(/\r\n/g, "\n");
   const frontmatter = extractFrontmatter(normalized);
   if (!frontmatter) {
@@ -37,8 +40,10 @@ export function parseMarkdownDocument(source: string, options: ParseMarkdownOpti
 
   const meta = parseYamlSubset(frontmatter.raw);
   const duplicateTitle =
-    options.stripDuplicateTitle === false ? undefined : options.stripDuplicateTitle ?? meta.title;
-  const body = duplicateTitle ? stripDuplicateTopHeading(frontmatter.body.trimStart(), duplicateTitle) : frontmatter.body.trimStart();
+    options.stripDuplicateTitle === false ? undefined : (options.stripDuplicateTitle ?? meta.title);
+  const body = duplicateTitle
+    ? stripDuplicateTopHeading(frontmatter.body.trimStart(), duplicateTitle)
+    : frontmatter.body.trimStart();
   return { body, meta };
 }
 
@@ -61,7 +66,7 @@ function extractFrontmatter(source: string): { raw: string; body: string } | nul
   }
   return {
     raw: source.slice(4, end),
-    body: source.slice(end + "\n---\n".length)
+    body: source.slice(end + "\n---\n".length),
   };
 }
 
@@ -147,9 +152,7 @@ function normalizeHeading(value: string): string {
 // slugs when one operates on the original body and the other on the enhanced
 // body, and Outline clicks silently no-op.
 function stripWikilinkSyntax(value: string): string {
-  return value
-    .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2")
-    .replace(/\[\[([^\]]+)\]\]/g, "$1");
+  return value.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2").replace(/\[\[([^\]]+)\]\]/g, "$1");
 }
 
 export function slugifyHeading(value: string): string {
@@ -182,7 +185,8 @@ export function uniqueHeadingSlug(env: Record<string, unknown>, value: string): 
 // Shared with MarkdownView. Both files use these to identify the same set of
 // <details>...</details> blocks. Keep them here as the single source of truth
 // so heading slug extraction stays aligned with how MarkdownView renders.
-export const rawDetailsPattern = /<details\b([^>]*)>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/gi;
+export const rawDetailsPattern =
+  /<details\b([^>]*)>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/gi;
 
 export function parseDetailsOpenAttribute(attributes: string): boolean | null {
   const trimmed = attributes.trim();

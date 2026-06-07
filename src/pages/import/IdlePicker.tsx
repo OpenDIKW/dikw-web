@@ -1,11 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { FileText, Upload } from "lucide-react";
 import { Notice } from "../../components/Notice";
-import {
-  ImportBundleError,
-  lowerExt,
-  type ImportBundleResult
-} from "../../utils/import-bundle";
+import { ImportBundleError, lowerExt, type ImportBundleResult } from "../../utils/import-bundle";
 import { isSelectableExt } from "../../utils/import-extensions";
 import { BundlePreview } from "./BundlePreview";
 import { readDroppedItems } from "./readDroppedItems";
@@ -27,8 +23,7 @@ interface IdlePickerProps {
 }
 
 const NATIVE_ACCEPT = ".md,.png,.jpg,.jpeg,.webp,.gif,.svg,.pdf";
-const MINERU_ACCEPT =
-  ".md,.png,.jpg,.jpeg,.webp,.gif,.svg,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx";
+const MINERU_ACCEPT = ".md,.png,.jpg,.jpeg,.webp,.gif,.svg,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx";
 
 export function IdlePicker({
   copy,
@@ -39,7 +34,7 @@ export function IdlePicker({
   bundleError,
   onStart,
   onReset,
-  mineruEnabled = false
+  mineruEnabled = false,
 }: IdlePickerProps) {
   const accept = mineruEnabled ? MINERU_ACCEPT : NATIVE_ACCEPT;
   const fileRef = useRef<HTMLInputElement>(null);
@@ -59,9 +54,7 @@ export function IdlePicker({
     (rawFiles: File[], skippedDirectory: boolean) => {
       const messages: string[] = [];
       if (skippedDirectory) messages.push(copy.folderNotSupported);
-      const supported = rawFiles.filter((f) =>
-        isSelectableExt(lowerExt(f.name), mineruEnabled)
-      );
+      const supported = rawFiles.filter((f) => isSelectableExt(lowerExt(f.name), mineruEnabled));
       const filtered = rawFiles.length - supported.length;
       if (filtered > 0) {
         messages.push(copy.filteredUnsupported.replace("{n}", String(filtered)));
@@ -76,7 +69,7 @@ export function IdlePicker({
         onReset();
       }
     },
-    [copy, mineruEnabled, onFilesChosen, onReset]
+    [copy, mineruEnabled, onFilesChosen, onReset],
   );
 
   const onDrop = useCallback(
@@ -95,10 +88,10 @@ export function IdlePicker({
         },
         (err) => {
           onDropError(err);
-        }
+        },
       );
     },
-    [handleChosen, onDropError]
+    [handleChosen, onDropError],
   );
 
   const handleReset = useCallback(() => {
@@ -178,20 +171,13 @@ export function IdlePicker({
         <Notice
           title={copy.bundleErrorTitle}
           error={
-            bundleError instanceof ImportBundleError
-              ? new Error(bundleError.message)
-              : bundleError
+            bundleError instanceof ImportBundleError ? new Error(bundleError.message) : bundleError
           }
         />
       ) : null}
 
       {bundle ? (
-        <BundlePreview
-          copy={copy}
-          bundle={bundle}
-          onStart={onStart}
-          onReset={handleReset}
-        />
+        <BundlePreview copy={copy} bundle={bundle} onStart={onStart} onReset={handleReset} />
       ) : null}
     </>
   );

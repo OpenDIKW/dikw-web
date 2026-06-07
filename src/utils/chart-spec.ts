@@ -56,7 +56,7 @@ export function parseChartFromDetails(content: string, type: ChartType): ChartSp
     type,
     headers,
     rows: dataRows,
-    freeText
+    freeText,
   };
 }
 
@@ -82,7 +82,7 @@ function buildCategoryOption(spec: ChartSpec, seriesType: "bar" | "line"): EChar
   const series: Record<string, unknown> = {
     type: seriesType,
     data: values,
-    name: spec.headers[1] ?? "value"
+    name: spec.headers[1] ?? "value",
   };
   if (seriesType === "line") {
     series.smooth = true;
@@ -92,7 +92,7 @@ function buildCategoryOption(spec: ChartSpec, seriesType: "bar" | "line"): EChar
     tooltip: { trigger: "axis" },
     xAxis: { type: "category", data: categories, name: spec.headers[0] ?? "" },
     yAxis: { type: "value", name: spec.headers[1] ?? "" },
-    series: [series]
+    series: [series],
   } as EChartsOption;
 }
 
@@ -117,9 +117,9 @@ export function buildScatterOption(spec: ChartSpec): EChartsOption {
       {
         type: "scatter",
         data: points,
-        name: spec.headers[1] ?? "value"
-      }
-    ]
+        name: spec.headers[1] ?? "value",
+      },
+    ],
   };
 }
 
@@ -154,16 +154,16 @@ export function buildHeatmapOption(spec: ChartSpec): EChartsOption {
       calculable: true,
       orient: "horizontal",
       left: "center",
-      bottom: 0
+      bottom: 0,
     },
     series: [
       {
         type: "heatmap",
         data,
         name: "value",
-        label: { show: false }
-      }
-    ]
+        label: { show: false },
+      },
+    ],
   };
 }
 

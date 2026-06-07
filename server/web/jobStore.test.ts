@@ -14,7 +14,7 @@ function fixedClock(start = 0): { now: () => number; advance: (ms: number) => vo
     now: () => t,
     advance: (ms: number) => {
       t += ms;
-    }
+    },
   };
 }
 

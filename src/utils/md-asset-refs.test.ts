@@ -4,19 +4,17 @@ import {
   isRemoteRef,
   posixJoinNormalize,
   resolveAssetRef,
-  stripFrontmatter
+  stripFrontmatter,
 } from "./md-asset-refs";
 
 describe("extractAssetRefs", () => {
   it("matches standard markdown image with optional title", () => {
-    const refs = extractAssetRefs(
-      'before ![alt text](images/foo.png "the title") after'
-    );
+    const refs = extractAssetRefs('before ![alt text](images/foo.png "the title") after');
     expect(refs).toHaveLength(1);
     expect(refs[0]).toMatchObject({
       originalPath: "images/foo.png",
       alt: "alt text",
-      syntax: "markdown"
+      syntax: "markdown",
     });
   });
 
@@ -26,7 +24,7 @@ describe("extractAssetRefs", () => {
     expect(refs[0]).toMatchObject({
       originalPath: "diagram.png",
       alt: "the alias",
-      syntax: "wikilink"
+      syntax: "wikilink",
     });
   });
 
@@ -66,9 +64,7 @@ describe("isRemoteRef", () => {
 
 describe("stripFrontmatter", () => {
   it("strips a closed front-matter block", () => {
-    expect(stripFrontmatter("---\ntitle: x\n---\nbody here\n")).toBe(
-      "body here\n"
-    );
+    expect(stripFrontmatter("---\ntitle: x\n---\nbody here\n")).toBe("body here\n");
   });
 
   it("leaves text alone when the block is unterminated", () => {
@@ -87,9 +83,7 @@ describe("posixJoinNormalize", () => {
   });
 
   it("flags paths that escape the project root with a leading .. segment", () => {
-    expect(posixJoinNormalize("notes", "../../escape.png").startsWith("..")).toBe(
-      true
-    );
+    expect(posixJoinNormalize("notes", "../../escape.png").startsWith("..")).toBe(true);
   });
 
   it("treats backslashes as separators (windows-y input)", () => {
@@ -102,21 +96,21 @@ describe("resolveAssetRef", () => {
     "notes/foo.md",
     "notes/img/diagram.png",
     "assets/logo.png",
-    "diagram.png"
+    "diagram.png",
   ]);
 
   it("resolves sibling-of-md first", () => {
-    expect(
-      resolveAssetRef("img/diagram.png", { mdRelPath: "notes/foo.md", available })
-    ).toBe("notes/img/diagram.png");
+    expect(resolveAssetRef("img/diagram.png", { mdRelPath: "notes/foo.md", available })).toBe(
+      "notes/img/diagram.png",
+    );
   });
 
   it("falls back to project-root when sibling miss", () => {
     expect(
       resolveAssetRef("assets/logo.png", {
         mdRelPath: "notes/foo.md",
-        available
-      })
+        available,
+      }),
     ).toBe("assets/logo.png");
   });
 
@@ -124,8 +118,8 @@ describe("resolveAssetRef", () => {
     expect(
       resolveAssetRef("img/missing.png", {
         mdRelPath: "notes/foo.md",
-        available
-      })
+        available,
+      }),
     ).toBeNull();
   });
 
@@ -133,8 +127,8 @@ describe("resolveAssetRef", () => {
     expect(
       resolveAssetRef("https://example.com/x.png", {
         mdRelPath: "notes/foo.md",
-        available
-      })
+        available,
+      }),
     ).toBeNull();
   });
 
@@ -142,8 +136,8 @@ describe("resolveAssetRef", () => {
     expect(
       resolveAssetRef("/absolute/a.png", {
         mdRelPath: "notes/foo.md",
-        available
-      })
+        available,
+      }),
     ).toBeNull();
   });
 });

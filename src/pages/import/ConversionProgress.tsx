@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, Check, FileText, Loader2, X } from "lucide-react";
-import type {
-  ConversionFileState,
-  ConversionState
-} from "../../state/import-pipeline";
+import type { ConversionFileState, ConversionState } from "../../state/import-pipeline";
 import { formatBytes, formatElapsed, type ImportCopy } from "./format";
 
 interface ConversionProgressProps {
@@ -31,11 +28,7 @@ function isActive(substage: ConversionFileState["substage"]): boolean {
 /** Renders one row per file currently going through /web/mineru/convert.
  *  No spinner duplication with PipelineSteps — this surface is exclusive
  *  to the ``converting`` stage. */
-export function ConversionProgress({
-  copy,
-  conversion,
-  onSkipFailed
-}: ConversionProgressProps) {
+export function ConversionProgress({ copy, conversion, onSkipFailed }: ConversionProgressProps) {
   const c = copy.conversion;
   const count = conversion.inputOrder.length;
   const queuedTemplate = count === 1 ? c.queuedOne : c.queuedMany;
@@ -58,9 +51,7 @@ export function ConversionProgress({
     <section className="panel" data-testid="conversion-progress">
       <header className="panel__header">
         <h2 className="panel__title">{c.title}</h2>
-        <p className="panel__subtitle">
-          {queuedTemplate.replace("{n}", String(count))}
-        </p>
+        <p className="panel__subtitle">{queuedTemplate.replace("{n}", String(count))}</p>
         {anyActive ? (
           <p className="conversion-hint" data-testid="conversion-hint">
             {c.hint}
@@ -112,9 +103,7 @@ export function ConversionProgress({
               ) : null}
               {file.substage === "failed" && file.error ? (
                 <div className="conversion-row__fail">
-                  <span className="conversion-row__error">
-                    {file.error.message}
-                  </span>
+                  <span className="conversion-row__error">{file.error.message}</span>
                   <button
                     type="button"
                     className="secondary-button"

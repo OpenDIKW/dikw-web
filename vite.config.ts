@@ -25,24 +25,24 @@ export default defineConfig(({ mode }) => {
           "src/test/**",
           "src/main.tsx",
           "src/types.ts",
-          "src/vite-env.d.ts"
+          "src/vite-env.d.ts",
         ],
         thresholds: {
           statements: 60,
           branches: 45,
           functions: 55,
-          lines: 60
-        }
-      }
+          lines: 60,
+        },
+      },
     },
     server: {
       proxy: {
         "/v1": {
           target,
           changeOrigin: true,
-          secure: false
-        }
-      }
-    }
+          secure: false,
+        },
+      },
+    },
   };
 });

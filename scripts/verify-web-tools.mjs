@@ -15,7 +15,11 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ProxyAgent, setGlobalDispatcher } from "undici";
 
-const proxyUrl = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
+const proxyUrl =
+  process.env.HTTPS_PROXY ||
+  process.env.https_proxy ||
+  process.env.HTTP_PROXY ||
+  process.env.http_proxy;
 if (proxyUrl) {
   setGlobalDispatcher(new ProxyAgent(proxyUrl));
 }
@@ -81,7 +85,10 @@ function parseEnv(text) {
     if (separator === -1) continue;
     const key = line.slice(0, separator).trim();
     let value = line.slice(separator + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
       value = value.slice(1, -1);
     }
     values[key] = value;
@@ -94,7 +101,7 @@ async function tavilySearch(apiKey, q, count) {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify({ api_key: apiKey, query: q, max_results: count }),
-    signal: AbortSignal.timeout(TIMEOUT_MS)
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error(`tavily ${response.status}: ${await response.text()}`);
@@ -106,13 +113,16 @@ async function tavilySearch(apiKey, q, count) {
       title: typeof item.title === "string" ? item.title : "",
       url: typeof item.url === "string" ? item.url : "",
       description:
-        content.length > WEB_SEARCH_DESC_MAX ? content.slice(0, WEB_SEARCH_DESC_MAX - 1) + "…" : content
+        content.length > WEB_SEARCH_DESC_MAX
+          ? content.slice(0, WEB_SEARCH_DESC_MAX - 1) + "…"
+          : content,
     };
   });
   return { query: q, results };
 }
 
 // Retained; not exposed via the script CLI. Use Tavily as the live web_search probe.
+// eslint-disable-next-line no-unused-vars -- retained for provider rotation; intentionally not wired into the CLI
 async function braveSearch(apiKey, q, count) {
   const url = new URL("https://api.search.brave.com/res/v1/web/search");
   url.searchParams.set("q", q);
@@ -121,9 +131,9 @@ async function braveSearch(apiKey, q, count) {
     headers: {
       Accept: "application/json",
       "Accept-Encoding": "gzip",
-      "X-Subscription-Token": apiKey
+      "X-Subscription-Token": apiKey,
     },
-    signal: AbortSignal.timeout(TIMEOUT_MS)
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error(`brave ${response.status}: ${await response.text()}`);
@@ -137,7 +147,7 @@ async function braveSearch(apiKey, q, count) {
       description:
         description.length > WEB_SEARCH_DESC_MAX
           ? description.slice(0, WEB_SEARCH_DESC_MAX - 1) + "…"
-          : description
+          : description,
     };
   });
   return { query: q, results };
@@ -150,9 +160,9 @@ async function jinaFetch(apiKey, rawUrl) {
     headers: {
       Accept: "text/plain",
       Authorization: `Bearer ${apiKey}`,
-      "X-Return-Format": "markdown"
+      "X-Return-Format": "markdown",
     },
-    signal: AbortSignal.timeout(TIMEOUT_MS)
+    signal: AbortSignal.timeout(TIMEOUT_MS),
   });
   if (!response.ok) {
     throw new Error(`jina ${response.status}: ${await response.text()}`);
@@ -162,7 +172,7 @@ async function jinaFetch(apiKey, rawUrl) {
   return {
     url: safeUrl,
     content: truncated ? text.slice(0, WEB_FETCH_MAX_CHARS) : text,
-    truncated
+    truncated,
   };
 }
 

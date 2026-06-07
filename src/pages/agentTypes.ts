@@ -9,5 +9,9 @@ export interface AgentClientLike {
   renameSession(sessionId: string, title: string, signal?: AbortSignal): Promise<AgentSession>;
   deleteSession(sessionId: string, signal?: AbortSignal): Promise<void>;
   abort(sessionId: string, signal?: AbortSignal): Promise<void>;
-  sendMessage(sessionId: string, message: string, signal?: AbortSignal): AsyncGenerator<AgentStreamEvent>;
+  sendMessage(
+    sessionId: string,
+    message: string,
+    signal?: AbortSignal,
+  ): AsyncGenerator<AgentStreamEvent>;
 }

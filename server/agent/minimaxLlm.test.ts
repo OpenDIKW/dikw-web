@@ -42,10 +42,10 @@ function makeFakeClient(opts: {
         return Object.assign(iterable, {
           async finalMessage() {
             return opts.final as never;
-          }
+          },
         }) as never;
-      }
-    }
+      },
+    },
   };
 }
 
@@ -62,17 +62,17 @@ const canned = {
     { type: "content_block_delta", delta: { type: "text_delta", text: "Hel" } },
     { type: "content_block_delta", delta: { type: "text_delta", text: "lo" } },
     // thinking_delta must NOT produce a partial response
-    { type: "content_block_delta", delta: { type: "thinking_delta", text: "(reasoning)" } }
+    { type: "content_block_delta", delta: { type: "thinking_delta", text: "(reasoning)" } },
   ] satisfies FakeStreamEvent[],
   final: {
     content: [
       { type: "thinking", thinking: "ignored" },
       { type: "text", text: "Hello" },
-      { type: "tool_use", id: "call_1", name: "get_weather", input: { city: "Paris" } }
+      { type: "tool_use", id: "call_1", name: "get_weather", input: { city: "Paris" } },
     ],
     usage: { input_tokens: 12, output_tokens: 7 },
-    stop_reason: "tool_use"
-  } satisfies FakeFinalMessage
+    stop_reason: "tool_use",
+  } satisfies FakeFinalMessage,
 };
 
 describe("MiniMaxLlm", () => {
@@ -82,13 +82,13 @@ describe("MiniMaxLlm", () => {
       model: "MiniMax-M3",
       apiKey: "x",
       baseUrl: "https://example/anthropic",
-      client: makeFakeClient({ events: canned.events, final: canned.final, captured })
+      client: makeFakeClient({ events: canned.events, final: canned.final, captured }),
     });
 
     const request: LlmRequest = {
       contents: [{ role: "user", parts: [{ text: "hi" }] }],
       liveConnectConfig: {},
-      toolsDict: {}
+      toolsDict: {},
     };
 
     const responses = await drain(llm.generateContentAsync(request, true));
@@ -110,12 +110,12 @@ describe("MiniMaxLlm", () => {
     expect(fcPart?.functionCall).toMatchObject({
       id: "call_1",
       name: "get_weather",
-      args: { city: "Paris" }
+      args: { city: "Paris" },
     });
     expect(finalResp.usageMetadata).toMatchObject({
       promptTokenCount: 12,
       candidatesTokenCount: 7,
-      totalTokenCount: 19
+      totalTokenCount: 19,
     });
     expect(finalResp.finishReason).toBe("STOP");
   });
@@ -126,13 +126,13 @@ describe("MiniMaxLlm", () => {
       model: "MiniMax-M3",
       apiKey: "x",
       baseUrl: "https://example/anthropic",
-      client: makeFakeClient({ events: canned.events, final: canned.final, captured })
+      client: makeFakeClient({ events: canned.events, final: canned.final, captured }),
     });
 
     const request: LlmRequest = {
       contents: [{ role: "user", parts: [{ text: "hi" }] }],
       liveConnectConfig: {},
-      toolsDict: {}
+      toolsDict: {},
     };
 
     const responses = await drain(llm.generateContentAsync(request, false));
@@ -151,7 +151,7 @@ describe("MiniMaxLlm", () => {
     expect(finalResp.usageMetadata).toMatchObject({
       promptTokenCount: 12,
       candidatesTokenCount: 7,
-      totalTokenCount: 19
+      totalTokenCount: 19,
     });
   });
 
@@ -161,7 +161,15 @@ describe("MiniMaxLlm", () => {
       model: "MiniMax-M3",
       apiKey: "x",
       baseUrl: "https://example/anthropic",
-      client: makeFakeClient({ events: [], final: { content: [], usage: { input_tokens: 1, output_tokens: 1 }, stop_reason: "end_turn" }, captured })
+      client: makeFakeClient({
+        events: [],
+        final: {
+          content: [],
+          usage: { input_tokens: 1, output_tokens: 1 },
+          stop_reason: "end_turn",
+        },
+        captured,
+      }),
     });
 
     const request: LlmRequest = {
@@ -170,9 +178,15 @@ describe("MiniMaxLlm", () => {
         { role: "user", parts: [{ text: "first" }] },
         { role: "user", parts: [{ text: "second" }] },
         // model turn with a tool call -> assistant role
-        { role: "model", parts: [{ functionCall: { id: "c1", name: "lookup", args: { q: "x" } } }] },
+        {
+          role: "model",
+          parts: [{ functionCall: { id: "c1", name: "lookup", args: { q: "x" } } }],
+        },
         // tool response -> must land in a USER turn as tool_result
-        { role: "user", parts: [{ functionResponse: { id: "c1", name: "lookup", response: { answer: 42 } } }] }
+        {
+          role: "user",
+          parts: [{ functionResponse: { id: "c1", name: "lookup", response: { answer: 42 } } }],
+        },
       ],
       config: {
         systemInstruction: "You are helpful.",
@@ -186,17 +200,17 @@ describe("MiniMaxLlm", () => {
                   type: "OBJECT",
                   properties: {
                     q: { type: "STRING", description: "query" },
-                    tags: { type: "ARRAY", items: { type: "STRING" } }
+                    tags: { type: "ARRAY", items: { type: "STRING" } },
                   },
-                  required: ["q"]
-                }
-              }
-            ]
-          }
-        ]
+                  required: ["q"],
+                },
+              },
+            ],
+          },
+        ],
       } as never,
       liveConnectConfig: {},
-      toolsDict: {}
+      toolsDict: {},
     };
 
     await drain(llm.generateContentAsync(request, true));
@@ -218,22 +232,30 @@ describe("MiniMaxLlm", () => {
     expect(params.messages[0].role).toBe("user");
     expect(params.messages[0].content).toEqual([
       { type: "text", text: "first" },
-      { type: "text", text: "second" }
+      { type: "text", text: "second" },
     ]);
     expect(params.messages[1].role).toBe("assistant");
-    expect(params.messages[1].content[0]).toMatchObject({ type: "tool_use", id: "c1", name: "lookup", input: { q: "x" } });
+    expect(params.messages[1].content[0]).toMatchObject({
+      type: "tool_use",
+      id: "c1",
+      name: "lookup",
+      input: { q: "x" },
+    });
     // tool_result forced into a user turn
     expect(params.messages[2].role).toBe("user");
     expect(params.messages[2].content[0]).toMatchObject({
       type: "tool_result",
       tool_use_id: "c1",
-      content: JSON.stringify({ answer: 42 })
+      content: JSON.stringify({ answer: 42 }),
     });
 
     // tool input_schema lowercased + recursive
     const schema = params.tools?.[0].input_schema as {
       type: string;
-      properties: { q: { type: string; description: string }; tags: { type: string; items: { type: string } } };
+      properties: {
+        q: { type: string; description: string };
+        tags: { type: string; items: { type: string } };
+      };
       required: string[];
     };
     expect(params.tools?.[0].name).toBe("lookup");
@@ -255,8 +277,8 @@ describe("MiniMaxLlm", () => {
         events: canned.events,
         final: canned.final,
         captured,
-        throwOnAbort: true
-      })
+        throwOnAbort: true,
+      }),
     });
 
     const controller = new AbortController();
@@ -265,10 +287,12 @@ describe("MiniMaxLlm", () => {
     const request: LlmRequest = {
       contents: [{ role: "user", parts: [{ text: "hi" }] }],
       liveConnectConfig: {},
-      toolsDict: {}
+      toolsDict: {},
     };
 
-    await expect(drain(llm.generateContentAsync(request, true, controller.signal))).rejects.toThrow("aborted");
+    await expect(drain(llm.generateContentAsync(request, true, controller.signal))).rejects.toThrow(
+      "aborted",
+    );
     // signal must have been forwarded to the transport
     expect(captured[0]?.options?.signal).toBe(controller.signal);
   });
@@ -281,13 +305,13 @@ describe("MiniMaxLlm", () => {
       apiKey: "x",
       baseUrl: "https://example/anthropic",
       abortSignal: controller.signal,
-      client: makeFakeClient({ events: canned.events, final: canned.final, captured })
+      client: makeFakeClient({ events: canned.events, final: canned.final, captured }),
     });
 
     const request: LlmRequest = {
       contents: [{ role: "user", parts: [{ text: "hi" }] }],
       liveConnectConfig: {},
-      toolsDict: {}
+      toolsDict: {},
     };
 
     // ADK's compaction summarizer calls generateContentAsync(request, false) — no per-call signal.
@@ -304,13 +328,13 @@ describe("MiniMaxLlm", () => {
       apiKey: "x",
       baseUrl: "https://example/anthropic",
       abortSignal: turn.signal,
-      client: makeFakeClient({ events: canned.events, final: canned.final, captured })
+      client: makeFakeClient({ events: canned.events, final: canned.final, captured }),
     });
 
     const request: LlmRequest = {
       contents: [{ role: "user", parts: [{ text: "hi" }] }],
       liveConnectConfig: {},
-      toolsDict: {}
+      toolsDict: {},
     };
 
     await drain(llm.generateContentAsync(request, true, perCall.signal));
@@ -331,13 +355,13 @@ describe("MiniMaxLlm", () => {
       apiKey: "x",
       baseUrl: "https://example/anthropic",
       abortSignal: turn.signal,
-      client: makeFakeClient({ events: canned.events, final: canned.final, captured })
+      client: makeFakeClient({ events: canned.events, final: canned.final, captured }),
     });
 
     const request: LlmRequest = {
       contents: [{ role: "user", parts: [{ text: "hi" }] }],
       liveConnectConfig: {},
-      toolsDict: {}
+      toolsDict: {},
     };
 
     // ADK commonly forwards the turn signal as the per-call arg; the Set dedup
@@ -352,7 +376,15 @@ describe("MiniMaxLlm", () => {
       model: "MiniMax-M3",
       apiKey: "x",
       baseUrl: "https://example/anthropic",
-      client: makeFakeClient({ events: [], final: { content: [], usage: { input_tokens: 0, output_tokens: 0 }, stop_reason: "end_turn" }, captured: [] })
+      client: makeFakeClient({
+        events: [],
+        final: {
+          content: [],
+          usage: { input_tokens: 0, output_tokens: 0 },
+          stop_reason: "end_turn",
+        },
+        captured: [],
+      }),
     });
     await expect(llm.connect()).rejects.toThrow(/live\/bidi connect/);
   });

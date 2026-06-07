@@ -3,7 +3,6 @@ import {
   layoutGalaxyGraph,
   type GalaxyGraph,
   type PositionedGalaxyGraph,
-  type PositionedGalaxyNode
 } from "../utils/galaxyGraph";
 
 interface GraphCanvasProps {
@@ -42,7 +41,7 @@ export function GraphCanvas({
   graph,
   focusedNodeIds,
   focusedNodeId,
-  onSelectNode
+  onSelectNode,
 }: GraphCanvasProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -52,7 +51,7 @@ export function GraphCanvas({
 
   const positionedGraph = useMemo(
     () => layoutGalaxyGraph(graph, { width: size.width, height: size.height }),
-    [graph, size.height, size.width]
+    [graph, size.height, size.width],
   );
 
   useEffect(() => {
@@ -61,7 +60,9 @@ export function GraphCanvas({
     const observer = new ResizeObserver(([entry]) => {
       const width = Math.max(Math.round(entry.contentRect.width), 320);
       const height = Math.max(Math.round(entry.contentRect.height), 360);
-      setSize((current) => (current.width === width && current.height === height ? current : { width, height }));
+      setSize((current) =>
+        current.width === width && current.height === height ? current : { width, height },
+      );
     });
     observer.observe(element);
     return () => observer.disconnect();
@@ -92,6 +93,7 @@ export function GraphCanvas({
       engineRef.current?.destroy();
       engineRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-once: create the Pixi engine and seed its initial size; later size changes are driven by the resize effect below
   }, []);
 
   useEffect(() => {
@@ -102,7 +104,7 @@ export function GraphCanvas({
     engine.render(positionedGraph, {
       focusedNodeIds,
       focusedNodeId,
-      palette: readPalette(stage)
+      palette: readPalette(stage),
     });
     stage.dataset.renderCount = String((Number(stage.dataset.renderCount) || 0) + 1);
   }, [focusedNodeId, focusedNodeIds, positionedGraph, size.height, size.width, pixiReady]);
@@ -132,7 +134,7 @@ export function GraphCanvas({
               left: `${node.x}px`,
               top: `${node.y}px`,
               width: `${Math.max(node.radius * 2 + 10, 28)}px`,
-              height: `${Math.max(node.radius * 2 + 10, 28)}px`
+              height: `${Math.max(node.radius * 2 + 10, 28)}px`,
             }}
             onClick={() => onSelectNode(node.id)}
           />
@@ -154,7 +156,7 @@ async function createPixiGraphEngine(mount: HTMLElement): Promise<PixiEngine> {
     antialias: true,
     autoDensity: true,
     resolution: Math.min(window.devicePixelRatio || 1, 2),
-    powerPreference: "high-performance"
+    powerPreference: "high-performance",
   });
   mount.replaceChildren(app.canvas);
   return new PixiGraphEngine(app, pixi);
@@ -176,7 +178,7 @@ class PixiGraphEngine implements PixiEngine {
 
   constructor(
     private app: import("pixi.js").Application,
-    private pixi: typeof import("pixi.js")
+    private pixi: typeof import("pixi.js"),
   ) {
     this.world = new pixi.Container();
     this.nebulaLayer = new pixi.Container();
@@ -212,7 +214,10 @@ class PixiGraphEngine implements PixiEngine {
       const source = nodeById.get(edge.source);
       const target = nodeById.get(edge.target);
       if (!source || !target) continue;
-      const focused = state.focusedNodeIds.size > 0 && state.focusedNodeIds.has(edge.source) && state.focusedNodeIds.has(edge.target);
+      const focused =
+        state.focusedNodeIds.size > 0 &&
+        state.focusedNodeIds.has(edge.source) &&
+        state.focusedNodeIds.has(edge.target);
       const idleAlpha = largeGraph ? 0.035 : 0.33;
       const alpha = state.focusedNodeIds.size
         ? focused
@@ -232,7 +237,7 @@ class PixiGraphEngine implements PixiEngine {
       [...graph.nodes]
         .sort((a, b) => b.labelPriority - a.labelPriority || a.id.localeCompare(b.id))
         .slice(0, largeGraph ? 5 : 18)
-        .map((node) => node.id)
+        .map((node) => node.id),
     );
 
     for (const node of graph.nodes) {
@@ -247,7 +252,7 @@ class PixiGraphEngine implements PixiEngine {
       this.nodeLayer.stroke({
         color: state.palette.surface,
         width: selected ? (largeGraph ? 1.7 : 2.4) : largeGraph ? 0.75 : 1.4,
-        alpha: selected ? 0.95 : 0.82
+        alpha: selected ? 0.95 : 0.82,
       });
 
       if (selected || topLabels.has(node.id)) {
@@ -257,8 +262,8 @@ class PixiGraphEngine implements PixiEngine {
             fill: state.palette.text,
             fontSize: selected ? 12 : 10,
             fontWeight: selected ? "600" : "500",
-            fontFamily: "Inter, ui-sans-serif, system-ui"
-          }
+            fontFamily: "Inter, ui-sans-serif, system-ui",
+          },
         });
         label.anchor.set(0.5, 0);
         label.x = node.x;
@@ -324,7 +329,7 @@ class PixiGraphEngine implements PixiEngine {
       () => canvas.removeEventListener("pointerdown", onPointerDown),
       () => canvas.removeEventListener("pointermove", onPointerMove),
       () => canvas.removeEventListener("pointerup", onPointerUp),
-      () => canvas.removeEventListener("pointercancel", onPointerUp)
+      () => canvas.removeEventListener("pointercancel", onPointerUp),
     );
   }
 
@@ -336,7 +341,7 @@ class PixiGraphEngine implements PixiEngine {
   private screenToWorld(x: number, y: number): { x: number; y: number } {
     return {
       x: (x - this.x) / this.scale,
-      y: (y - this.y) / this.scale
+      y: (y - this.y) / this.scale,
     };
   }
 }
@@ -345,7 +350,7 @@ function FallbackGraphSvg({
   graph,
   focusedNodeIds,
   width,
-  height
+  height,
 }: {
   graph: PositionedGalaxyGraph;
   focusedNodeIds: Set<string>;
@@ -360,7 +365,9 @@ function FallbackGraphSvg({
           const source = nodes.get(edge.source);
           const target = nodes.get(edge.target);
           if (!source || !target) return null;
-          const muted = focusedNodeIds.size > 0 && (!focusedNodeIds.has(edge.source) || !focusedNodeIds.has(edge.target));
+          const muted =
+            focusedNodeIds.size > 0 &&
+            (!focusedNodeIds.has(edge.source) || !focusedNodeIds.has(edge.target));
           return (
             <line
               key={edge.id}
@@ -390,7 +397,7 @@ function readPalette(element: HTMLElement): GraphPalette {
     text: cssColorToNumber(style.getPropertyValue("--text") || "#18211f"),
     muted: cssColorToNumber(style.getPropertyValue("--muted") || "#66736f"),
     surface: cssColorToNumber(style.getPropertyValue("--surface") || "#fbfaf6"),
-    line: cssColorToNumber(style.getPropertyValue("--line-strong") || "#b9c7c2")
+    line: cssColorToNumber(style.getPropertyValue("--line-strong") || "#b9c7c2"),
   };
 }
 
@@ -409,7 +416,13 @@ function cssColorToNumber(value: string): number {
 function parseHex(value: string): number {
   const hex = value.replace("#", "").trim();
   if (hex.length === 3) {
-    return Number.parseInt(hex.split("").map((char) => char + char).join(""), 16);
+    return Number.parseInt(
+      hex
+        .split("")
+        .map((char) => char + char)
+        .join(""),
+      16,
+    );
   }
   return Number.parseInt(hex.slice(0, 6), 16);
 }

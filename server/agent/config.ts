@@ -52,8 +52,8 @@ export async function loadAgentConfig(options: LoadAgentConfigOptions = {}): Pro
       enabled: readBoolean(env, "DIKW_AGENT_COMPACTION_ENABLED", true),
       contextWindow: readPositiveNumber(env, "DIKW_AGENT_CONTEXT_WINDOW", 1_048_576),
       ratio: readPositiveNumber(env, "DIKW_AGENT_COMPACTION_RATIO", 0.5),
-      retention: readPositiveNumber(env, "DIKW_AGENT_COMPACTION_RETENTION", 8)
-    }
+      retention: readPositiveNumber(env, "DIKW_AGENT_COMPACTION_RETENTION", 8),
+    },
   };
 }
 
@@ -65,7 +65,11 @@ function readRequired(env: Record<string, string | undefined>, key: string): str
   return value;
 }
 
-function readPositiveNumber(env: Record<string, string | undefined>, key: string, fallback: number): number {
+function readPositiveNumber(
+  env: Record<string, string | undefined>,
+  key: string,
+  fallback: number,
+): number {
   const raw = env[key]?.trim();
   if (!raw) {
     return fallback;
@@ -74,7 +78,11 @@ function readPositiveNumber(env: Record<string, string | undefined>, key: string
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-function readBoolean(env: Record<string, string | undefined>, key: string, fallback: boolean): boolean {
+function readBoolean(
+  env: Record<string, string | undefined>,
+  key: string,
+  fallback: boolean,
+): boolean {
   const value = env[key]?.trim().toLowerCase();
   if (value === undefined || value === "") {
     return fallback;
@@ -87,7 +95,9 @@ function readBoolean(env: Record<string, string | undefined>, key: string, fallb
   }
   // Surface a typo'd flag (e.g. "disabled") instead of silently keeping the
   // default, which can leave a feature on when the operator meant to turn it off.
-  console.warn(`[dikw-agent] ${key}="${value}" is not a recognized boolean; using default ${fallback}`);
+  console.warn(
+    `[dikw-agent] ${key}="${value}" is not a recognized boolean; using default ${fallback}`,
+  );
   return fallback;
 }
 

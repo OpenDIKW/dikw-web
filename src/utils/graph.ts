@@ -78,7 +78,7 @@ interface ParsedWikiLink {
   anchor: string | null;
 }
 
-const wikiLinkPattern = /\[\[([^\]\|\n]+?)(?:\|[^\]\n]+?)?\]\]/g;
+const wikiLinkPattern = /\[\[([^\]|\n]+?)(?:\|[^\]\n]+?)?\]\]/g;
 
 export function toKnowledgeGraph(result: GraphResult): KnowledgeGraph {
   const usedEdgeIds = new Map<string, number>();
@@ -89,7 +89,7 @@ export function toKnowledgeGraph(result: GraphResult): KnowledgeGraph {
     layer: node.layer,
     inbound: node.inbound,
     outbound: node.outbound,
-    linkCount: node.inbound + node.outbound
+    linkCount: node.inbound + node.outbound,
   }));
   const edges = result.edges.map((edge) => {
     const seen = usedEdgeIds.get(edge.id) ?? 0;
@@ -99,14 +99,14 @@ export function toKnowledgeGraph(result: GraphResult): KnowledgeGraph {
       source: edge.source,
       target: edge.target,
       anchor: edge.anchor,
-      weight: edge.weight
+      weight: edge.weight,
     };
   });
   const unresolvedLinks = result.unresolved.map((link) => ({
     source: link.source,
     target: link.target_text,
     anchor: link.anchor,
-    count: link.count
+    count: link.count,
   }));
 
   return {
@@ -116,12 +116,15 @@ export function toKnowledgeGraph(result: GraphResult): KnowledgeGraph {
     stats: {
       nodeCount: result.stats.node_count,
       edgeCount: result.stats.edge_count,
-      unresolvedCount: result.stats.unresolved_count
-    }
+      unresolvedCount: result.stats.unresolved_count,
+    },
   };
 }
 
-export function buildKnowledgeGraph(pages: DocumentRecord[], bodies: Record<string, PageReadResult | undefined>): KnowledgeGraph {
+export function buildKnowledgeGraph(
+  pages: DocumentRecord[],
+  bodies: Record<string, PageReadResult | undefined>,
+): KnowledgeGraph {
   const nodeMap = new Map(
     pages.map((page) => [
       page.path,
@@ -132,9 +135,9 @@ export function buildKnowledgeGraph(pages: DocumentRecord[], bodies: Record<stri
         layer: page.layer,
         inbound: 0,
         outbound: 0,
-        linkCount: 0
-      } satisfies GraphNode
-    ])
+        linkCount: 0,
+      } satisfies GraphNode,
+    ]),
   );
   const edgeMap = new Map<string, GraphEdge>();
   const unresolvedLinks: GraphUnresolvedLink[] = [];
@@ -146,7 +149,12 @@ export function buildKnowledgeGraph(pages: DocumentRecord[], bodies: Record<stri
     for (const link of links) {
       const target = findPageForTarget(link.target, pages);
       if (!target) {
-        unresolvedLinks.push({ source: page.path, target: link.target, anchor: link.anchor, count: 1 });
+        unresolvedLinks.push({
+          source: page.path,
+          target: link.target,
+          anchor: link.anchor,
+          count: 1,
+        });
         continue;
       }
       if (target.path === page.path) {
@@ -163,7 +171,7 @@ export function buildKnowledgeGraph(pages: DocumentRecord[], bodies: Record<stri
           source: page.path,
           target: target.path,
           anchor: link.anchor,
-          weight: 1
+          weight: 1,
         });
       }
       outboundTargets.add(target.path);
@@ -184,7 +192,7 @@ export function buildKnowledgeGraph(pages: DocumentRecord[], bodies: Record<stri
 
   const nodes = Array.from(nodeMap.values()).map((node) => ({
     ...node,
-    linkCount: node.inbound + node.outbound
+    linkCount: node.inbound + node.outbound,
   }));
   const edges = Array.from(edgeMap.values());
 
@@ -195,8 +203,8 @@ export function buildKnowledgeGraph(pages: DocumentRecord[], bodies: Record<stri
     stats: {
       nodeCount: nodes.length,
       edgeCount: edges.length,
-      unresolvedCount: sumUnresolvedCounts(unresolvedLinks)
-    }
+      unresolvedCount: sumUnresolvedCounts(unresolvedLinks),
+    },
   };
 }
 
@@ -212,7 +220,10 @@ export function extractWikiLinks(body: string): ParsedWikiLink[] {
   return links;
 }
 
-export function filterKnowledgeGraph(graph: KnowledgeGraph, filters: GraphFilterState): FilteredKnowledgeGraph {
+export function filterKnowledgeGraph(
+  graph: KnowledgeGraph,
+  filters: GraphFilterState,
+): FilteredKnowledgeGraph {
   const query = filters.query.trim().toLowerCase();
   const nodes = graph.nodes.filter((node) => {
     if (filters.layer !== "all" && node.layer !== filters.layer) {
@@ -230,8 +241,12 @@ export function filterKnowledgeGraph(graph: KnowledgeGraph, filters: GraphFilter
     return true;
   });
   const visibleNodeIds = new Set(nodes.map((node) => node.id));
-  const edges = graph.edges.filter((edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target));
-  const hiddenNodeIds = new Set(graph.nodes.filter((node) => !visibleNodeIds.has(node.id)).map((node) => node.id));
+  const edges = graph.edges.filter(
+    (edge) => visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target),
+  );
+  const hiddenNodeIds = new Set(
+    graph.nodes.filter((node) => !visibleNodeIds.has(node.id)).map((node) => node.id),
+  );
 
   return {
     nodes,
@@ -241,26 +256,38 @@ export function filterKnowledgeGraph(graph: KnowledgeGraph, filters: GraphFilter
     stats: {
       nodeCount: nodes.length,
       edgeCount: edges.length,
-      unresolvedCount: sumUnresolvedCounts(graph.unresolvedLinks.filter((link) => visibleNodeIds.has(link.source)))
-    }
+      unresolvedCount: sumUnresolvedCounts(
+        graph.unresolvedLinks.filter((link) => visibleNodeIds.has(link.source)),
+      ),
+    },
   };
 }
 
-export function layoutKnowledgeGraph(graph: KnowledgeGraph, options: GraphLayoutOptions): PositionedKnowledgeGraph {
+export function layoutKnowledgeGraph(
+  graph: KnowledgeGraph,
+  options: GraphLayoutOptions,
+): PositionedKnowledgeGraph {
   const nodes: Array<GraphNode & SimulationNodeDatum> = graph.nodes.map((node) => ({ ...node }));
-  const links: Array<GraphEdge & SimulationLinkDatum<GraphNode & SimulationNodeDatum>> = graph.edges.map((edge) => ({ ...edge }));
+  const links: Array<GraphEdge & SimulationLinkDatum<GraphNode & SimulationNodeDatum>> =
+    graph.edges.map((edge) => ({ ...edge }));
   const radiusFor = (node: GraphNode) => graphNodeRadius(node, options.nodeSizeScale);
 
   const simulation = forceSimulation(nodes)
     .force(
       "link",
-      forceLink<GraphNode & SimulationNodeDatum, GraphEdge & SimulationLinkDatum<GraphNode & SimulationNodeDatum>>(links)
+      forceLink<
+        GraphNode & SimulationNodeDatum,
+        GraphEdge & SimulationLinkDatum<GraphNode & SimulationNodeDatum>
+      >(links)
         .id((node) => node.id)
         .distance(options.linkDistance)
-        .strength(0.62)
+        .strength(0.62),
     )
     .force("charge", forceManyBody().strength(options.repelStrength))
-    .force("collide", forceCollide<GraphNode & SimulationNodeDatum>().radius((node) => radiusFor(node) + 8))
+    .force(
+      "collide",
+      forceCollide<GraphNode & SimulationNodeDatum>().radius((node) => radiusFor(node) + 8),
+    )
     .force("center", forceCenter(options.width / 2, options.height / 2))
     .stop();
 
@@ -271,7 +298,7 @@ export function layoutKnowledgeGraph(graph: KnowledgeGraph, options: GraphLayout
     ...node,
     x: node.x ?? options.width / 2,
     y: node.y ?? options.height / 2,
-    radius: radiusFor(node)
+    radius: radiusFor(node),
   }));
 
   return {
@@ -279,8 +306,8 @@ export function layoutKnowledgeGraph(graph: KnowledgeGraph, options: GraphLayout
     nodes: positioned,
     edges: graph.edges.map((edge) => ({
       ...edge,
-      thickness: Math.max(1.15, Math.sqrt(edge.weight) * options.linkThicknessScale)
-    }))
+      thickness: Math.max(1.15, Math.sqrt(edge.weight) * options.linkThicknessScale),
+    })),
   };
 }
 
@@ -288,7 +315,10 @@ export function findPageForTarget(target: string, pages: DocumentRecord[]): Docu
   const normalizedTarget = normalizeTarget(target);
   const exactMatches = pages.filter((page) => {
     const candidates = getPageMatchCandidates(page);
-    return candidates.includes(normalizedTarget) || normalizeTarget(page.path).endsWith(`/${normalizedTarget}`);
+    return (
+      candidates.includes(normalizedTarget) ||
+      normalizeTarget(page.path).endsWith(`/${normalizedTarget}`)
+    );
   });
   if (exactMatches.length > 0) {
     // Wikilinks by convention point at K (wiki/wisdom) pages — when a target
@@ -297,14 +327,18 @@ export function findPageForTarget(target: string, pages: DocumentRecord[]): Docu
     // the K page. Otherwise the inline-injected source-back-reference
     // wikilinks added in `injectInlineRefs` could self-resolve back to the
     // source page they were rendered in.
-    const layerRank = (layer: typeof exactMatches[number]["layer"]) => (layer === "source" ? 1 : 0);
+    const layerRank = (layer: (typeof exactMatches)[number]["layer"]) =>
+      layer === "source" ? 1 : 0;
     const sorted = [...exactMatches].sort((a, b) => layerRank(a.layer) - layerRank(b.layer));
     return sorted[0];
   }
 
   const targetTokens = normalizedTarget.split(/[/-]+/).filter((token) => token.length >= 3);
   const allTokensMatch = findUniqueMatch(pages, (page) =>
-    getPageMatchCandidates(page).some((candidate) => targetTokens.length > 0 && targetTokens.every((token) => candidate.includes(token)))
+    getPageMatchCandidates(page).some(
+      (candidate) =>
+        targetTokens.length > 0 && targetTokens.every((token) => candidate.includes(token)),
+    ),
   );
   if (allTokensMatch) {
     return allTokensMatch;
@@ -314,15 +348,26 @@ export function findPageForTarget(target: string, pages: DocumentRecord[]): Docu
   if (!lastToken) {
     return null;
   }
-  return findUniqueMatch(pages, (page) => getPageMatchCandidates(page).some((candidate) => candidate.includes(lastToken)));
+  return findUniqueMatch(pages, (page) =>
+    getPageMatchCandidates(page).some((candidate) => candidate.includes(lastToken)),
+  );
 }
 
 function getPageMatchCandidates(page: DocumentRecord): string[] {
   const pathWithoutWiki = page.path.replace(/^wiki\//, "");
-  return [page.path, pathWithoutWiki, page.title ?? "", basename(page.path), basename(page.path).replace(/\.md$/i, "")].map(normalizeTarget);
+  return [
+    page.path,
+    pathWithoutWiki,
+    page.title ?? "",
+    basename(page.path),
+    basename(page.path).replace(/\.md$/i, ""),
+  ].map(normalizeTarget);
 }
 
-function findUniqueMatch(pages: DocumentRecord[], predicate: (page: DocumentRecord) => boolean): DocumentRecord | null {
+function findUniqueMatch(
+  pages: DocumentRecord[],
+  predicate: (page: DocumentRecord) => boolean,
+): DocumentRecord | null {
   const matches = pages.filter(predicate);
   return matches.length === 1 ? matches[0] : null;
 }
@@ -342,7 +387,6 @@ function splitAnchor(target: string): [string, string | null] {
   return [path.trim(), anchor?.trim() || null];
 }
 
-
 function sumUnresolvedCounts(links: GraphUnresolvedLink[]): number {
   return links.reduce((total, link) => total + link.count, 0);
 }
@@ -351,12 +395,16 @@ function graphNodeRadius(node: GraphNode, scale: number): number {
   return (7 + Math.sqrt(node.linkCount) * 3.8) * scale;
 }
 
-function fitNodesToViewport<T extends SimulationNodeDatum>(nodes: T[], width: number, height: number): Array<T & { x: number; y: number }> {
+function fitNodesToViewport<T extends SimulationNodeDatum>(
+  nodes: T[],
+  width: number,
+  height: number,
+): Array<T & { x: number; y: number }> {
   const pad = 28;
   const finiteNodes = nodes.map((node) => ({
     ...node,
-    x: Number.isFinite(node.x) ? node.x ?? 0 : 0,
-    y: Number.isFinite(node.y) ? node.y ?? 0 : 0
+    x: Number.isFinite(node.x) ? (node.x ?? 0) : 0,
+    y: Number.isFinite(node.y) ? (node.y ?? 0) : 0,
   }));
   if (!finiteNodes.length) {
     return [];
@@ -379,7 +427,7 @@ function fitNodesToViewport<T extends SimulationNodeDatum>(nodes: T[], width: nu
   return finiteNodes.map((node) => ({
     ...node,
     x: clamp(offsetX + (node.x - minX) * scale, 0, width),
-    y: clamp(offsetY + (node.y - minY) * scale, 0, height)
+    y: clamp(offsetY + (node.y - minY) * scale, 0, height),
   }));
 }
 

@@ -18,6 +18,6 @@ export function webApiPlugin(): Plugin {
           next(err);
         }
       });
-    }
+    },
   };
 }

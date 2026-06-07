@@ -15,6 +15,10 @@ permissions:
 
 jobs:
   verify:
+    # NOTE: this exact job name is a *required status check* in branch protection.
+    # Renaming it orphans the required check (GitHub matches by name) and BLOCKS
+    # every merge until protection is updated — so keep it stable even though the
+    # `verify` script now also runs lint + format:check.
     name: Verify (typecheck + coverage + build + e2e)
     runs-on: ubuntu-latest
     timeout-minutes: 20

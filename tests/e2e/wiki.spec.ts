@@ -17,7 +17,9 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
   await expect(page.locator(".wiki-layout")).not.toHaveClass(/wiki-layout--preview-open/);
 
   const reader = page.getByRole("main", { name: "Wiki reader" });
-  await expect(reader.locator(".markdown-table-wrap table").filter({ hasText: "Hybrid studies" })).toBeVisible();
+  await expect(
+    reader.locator(".markdown-table-wrap table").filter({ hasText: "Hybrid studies" }),
+  ).toBeVisible();
   await expect(reader.locator(".katex").first()).toBeVisible();
   await expect(reader).not.toContainText("<table>");
 
@@ -55,15 +57,23 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
 
   await reader.getByRole("button", { name: "Synthesis", exact: true }).click();
 
-  await page.getByRole("region", { name: "Wiki link preview" }).getByRole("button", { name: "Open as main document" }).click();
+  await page
+    .getByRole("region", { name: "Wiki link preview" })
+    .getByRole("button", { name: "Open as main document" })
+    .click();
   await expect(reader.getByRole("heading", { name: "Synthesis" })).toBeVisible();
 
-  await page.getByRole("tree", { name: "Base directory" }).getByRole("button", { name: "concepts", exact: true }).click();
+  await page
+    .getByRole("tree", { name: "Base directory" })
+    .getByRole("button", { name: "concepts", exact: true })
+    .click();
   await expect(reader.getByText("Select a document to start reading")).toBeVisible();
   await expect(reader.getByRole("heading", { name: "Synthesis" })).toHaveCount(0);
 });
 
-test("jumps to a heading via the Outline tab and exposes a back-to-top button", async ({ page }) => {
+test("jumps to a heading via the Outline tab and exposes a back-to-top button", async ({
+  page,
+}) => {
   await page.goto("/#base");
 
   const reader = page.getByRole("main", { name: "Wiki reader" });
@@ -88,7 +98,9 @@ test("jumps to a heading via the Outline tab and exposes a back-to-top button", 
   await expect(reader.getByRole("tab", { name: "Read" })).toHaveAttribute("aria-selected", "true");
   await expect(reader.locator("#links")).toBeVisible();
   await expect
-    .poll(() => page.evaluate(() => (window as unknown as { __scrolledIds: string[] }).__scrolledIds))
+    .poll(() =>
+      page.evaluate(() => (window as unknown as { __scrolledIds: string[] }).__scrolledIds),
+    )
     .toContain("links");
 
   // Back-to-top button: hidden until user scrolls past the threshold.
@@ -109,7 +121,9 @@ test("jumps to a heading via the Outline tab and exposes a back-to-top button", 
   await expect(reader.getByRole("button", { name: "Back to top" })).toHaveCount(0);
 });
 
-test("source page inlines K-page title in body and keeps unmatched refs in the panel", async ({ page }) => {
+test("source page inlines K-page title in body and keeps unmatched refs in the panel", async ({
+  page,
+}) => {
   await page.goto("/#base");
 
   const tree = page.getByRole("tree", { name: "Base directory" });
@@ -130,7 +144,9 @@ test("source page inlines K-page title in body and keeps unmatched refs in the p
   await expect(refs.getByRole("button", { name: "Architecture", exact: true })).toHaveCount(0);
 
   // Synthesis 只有 sourced(matched 的 Architecture 没在 panel 里,所以也没 linked chip)。
-  const synthesisItem = refs.getByRole("listitem").filter({ has: page.getByRole("button", { name: "Synthesis", exact: true }) });
+  const synthesisItem = refs
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("button", { name: "Synthesis", exact: true }) });
   await expect(synthesisItem.getByText("sourced", { exact: true })).toBeVisible();
   await expect(refs.getByText("linked", { exact: true })).toHaveCount(0);
 

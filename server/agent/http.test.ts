@@ -39,11 +39,15 @@ describe("agent HTTP sidecar", () => {
     return { sessionService, store };
   }
 
-  async function appendEvent(sessionService: DatabaseSessionService, sessionId: string, event: ReturnType<typeof createEvent>) {
+  async function appendEvent(
+    sessionService: DatabaseSessionService,
+    sessionId: string,
+    event: ReturnType<typeof createEvent>,
+  ) {
     const session = (await sessionService.getSession({
       appName: APP_NAME,
       userId: USER_ID,
-      sessionId
+      sessionId,
     })) as Session;
     await sessionService.appendEvent({ session, event });
   }
@@ -54,7 +58,7 @@ describe("agent HTTP sidecar", () => {
       () =>
         new Promise<void>((resolve) => {
           server.close(() => resolve());
-        })
+        }),
     );
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
     const address = server.address();
@@ -75,7 +79,10 @@ describe("agent HTTP sidecar", () => {
         await appendEvent(
           sessionService,
           sessionId,
-          createEvent({ author: "user", content: { role: "user", parts: [{ text: "What is DIKW?" }] } })
+          createEvent({
+            author: "user",
+            content: { role: "user", parts: [{ text: "What is DIKW?" }] },
+          }),
         );
         await appendEvent(
           sessionService,
@@ -91,19 +98,27 @@ describe("agent HTTP sidecar", () => {
                     name: "retrieve_knowledge",
                     response: {
                       page_refs: [
-                        { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge", score: 0.9 }
-                      ]
-                    }
-                  }
-                }
-              ]
-            }
-          })
+                        {
+                          path: "knowledge/architecture.md",
+                          title: "Architecture",
+                          layer: "knowledge",
+                          score: 0.9,
+                        },
+                      ],
+                    },
+                  },
+                },
+              ],
+            },
+          }),
         );
         await appendEvent(
           sessionService,
           sessionId,
-          createEvent({ author: "dikw_agent", content: { role: "model", parts: [{ text: "Layered answer." }] } })
+          createEvent({
+            author: "dikw_agent",
+            content: { role: "model", parts: [{ text: "Layered answer." }] },
+          }),
         );
         await store.finalizeTurn(sessionId);
 
@@ -116,32 +131,43 @@ describe("agent HTTP sidecar", () => {
             type: "tool_call",
             name: "retrieve_knowledge",
             status: "succeeded",
-            createdAt: "2026-05-13T00:00:00.500Z"
-          }
+            createdAt: "2026-05-13T00:00:00.500Z",
+          },
         });
         await onEvent({ type: "message_delta", sessionId, delta: "Layered answer." });
         await onEvent({
           type: "source",
           sessionId,
-          source: { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" }
+          source: { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge" },
         });
         await onEvent({ type: "agent_end", sessionId });
-      }
+      },
     };
     const baseUrl = await listen(createAgentHandler({ store, runner }));
 
-    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as { id: string };
+    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
+      id: string;
+    };
     const stream = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "What is DIKW?", coreUrl: "http://127.0.0.1:8765", token: "core-token" })
+      body: JSON.stringify({
+        message: "What is DIKW?",
+        coreUrl: "http://127.0.0.1:8765",
+        token: "core-token",
+      }),
     });
     const events = (await stream.text())
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line) as { type: string });
 
-    expect(events.map((event) => event.type)).toEqual(["tool_event", "message_delta", "source", "agent_end"]);
+    expect(events.map((event) => event.type)).toEqual([
+      "tool_event",
+      "message_delta",
+      "source",
+      "agent_end",
+    ]);
     expect(runInputs).toEqual([{ coreUrl: "http://127.0.0.1:8765", token: "core-token" }]);
 
     const reopened = (await (await fetch(`${baseUrl}/sessions/${created.id}`)).json()) as {
@@ -153,7 +179,10 @@ describe("agent HTTP sidecar", () => {
     expect(reopened.toolEvents[0]).toMatchObject({ id: "tool-1" });
     expect(reopened.sources[0].path).toBe("knowledge/architecture.md");
 
-    const summaries = (await (await fetch(`${baseUrl}/sessions`)).json()) as Array<{ id: string; messageCount: number }>;
+    const summaries = (await (await fetch(`${baseUrl}/sessions`)).json()) as Array<{
+      id: string;
+      messageCount: number;
+    }>;
     expect(summaries).toEqual([expect.objectContaining({ id: created.id, messageCount: 2 })]);
 
     await fetch(`${baseUrl}/sessions/${created.id}`, { method: "DELETE" });
@@ -165,11 +194,13 @@ describe("agent HTTP sidecar", () => {
     const runner: AgentRunner = {
       async runMessage() {
         throw new Error("runner should not be called in this test");
-      }
+      },
     };
     const baseUrl = await listen(createAgentHandler({ store, runner }));
 
-    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as { id: string };
+    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
+      id: string;
+    };
     // Seed a pending proposal with a known id.
     await appendEvent(
       sessionService,
@@ -183,12 +214,12 @@ describe("agent HTTP sidecar", () => {
               functionResponse: {
                 id: "pr-1",
                 name: "propose_maintenance_action",
-                response: { proposal: { action: "ingest", description: "d", params: {} } }
-              }
-            }
-          ]
-        }
-      })
+                response: { proposal: { action: "ingest", description: "d", params: {} } },
+              },
+            },
+          ],
+        },
+      }),
     );
 
     // runMaintenanceProposal uses global fetch to hit core; stub it. We then talk to
@@ -200,9 +231,11 @@ describe("agent HTTP sidecar", () => {
     try {
       const res = await nodeFetch(`${baseUrl}/sessions/${created.id}/proposals/pr-1/confirm`, {
         method: "POST",
-        body: JSON.stringify({ coreUrl: "http://127.0.0.1:8765", token: "core-token" })
+        body: JSON.stringify({ coreUrl: "http://127.0.0.1:8765", token: "core-token" }),
       });
-      confirmed = JSON.parse(res) as { proposals: Array<{ id: string; status: string; taskId?: string }> };
+      confirmed = JSON.parse(res) as {
+        proposals: Array<{ id: string; status: string; taskId?: string }>;
+      };
     } finally {
       vi.unstubAllGlobals();
     }
@@ -219,20 +252,22 @@ describe("agent HTTP sidecar", () => {
     const runner: AgentRunner = {
       async runMessage() {
         throw new Error("runner should not be called without coreUrl");
-      }
+      },
     };
     const baseUrl = await listen(createAgentHandler({ store, runner }));
 
-    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as { id: string };
+    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
+      id: string;
+    };
     const response = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "What is DIKW?" })
+      body: JSON.stringify({ message: "What is DIKW?" }),
     });
 
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({
-      error: { code: "invalid_request", message: "coreUrl is required" }
+      error: { code: "invalid_request", message: "coreUrl is required" },
     });
   });
 
@@ -241,13 +276,15 @@ describe("agent HTTP sidecar", () => {
     const runner: AgentRunner = {
       async runMessage() {
         throw new Error("runner should not be called for traces");
-      }
+      },
     };
     const spanStore = new SpanStore();
 
-    const created = (await (async () => {
+    const created = await (async () => {
       const baseUrl = await listen(createAgentHandler({ store, runner, spanStore }));
-      const session = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as { id: string };
+      const session = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
+        id: string;
+      };
       spanStore.record({
         traceId: "t1",
         spanId: "sp1",
@@ -260,18 +297,21 @@ describe("agent HTTP sidecar", () => {
         sessionId: session.id,
         invocationId: "inv-1",
         tokensInput: 42,
-        tokensOutput: 7
+        tokensOutput: 7,
       });
       const traces = (await (await fetch(`${baseUrl}/sessions/${session.id}/traces`)).json()) as {
         sessionId: string;
-        invocations: Array<{ invocationId: string; spans: Array<{ name: string; tokensInput?: number }> }>;
+        invocations: Array<{
+          invocationId: string;
+          spans: Array<{ name: string; tokensInput?: number }>;
+        }>;
       };
       expect(traces.sessionId).toBe(session.id);
       expect(traces.invocations).toHaveLength(1);
       expect(traces.invocations[0].invocationId).toBe("inv-1");
       expect(traces.invocations[0].spans[0]).toMatchObject({ name: "call_llm", tokensInput: 42 });
       return session;
-    })());
+    })();
 
     // Without a span store, the route returns an empty view (never 404).
     const baseUrl2 = await listen(createAgentHandler({ store, runner }));
@@ -287,32 +327,34 @@ describe("agent HTTP sidecar", () => {
     const runner: AgentRunner = {
       async runMessage() {
         throw new Error("runner should not be called when renaming");
-      }
+      },
     };
     const baseUrl = await listen(createAgentHandler({ store, runner }));
 
-    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as { id: string };
+    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
+      id: string;
+    };
     const renamedResponse = await fetch(`${baseUrl}/sessions/${created.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Project Review" })
+      body: JSON.stringify({ title: "Project Review" }),
     });
     const renamed = (await renamedResponse.json()) as { title: string };
 
     expect(renamedResponse.status).toBe(200);
     expect(renamed.title).toBe("Project Review");
     await expect((await fetch(`${baseUrl}/sessions`)).json()).resolves.toEqual([
-      expect.objectContaining({ id: created.id, title: "Project Review" })
+      expect.objectContaining({ id: created.id, title: "Project Review" }),
     ]);
 
     const invalidResponse = await fetch(`${baseUrl}/sessions/${created.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "   " })
+      body: JSON.stringify({ title: "   " }),
     });
     expect(invalidResponse.status).toBe(400);
     await expect(invalidResponse.json()).resolves.toEqual({
-      error: { code: "invalid_request", message: "session title is required" }
+      error: { code: "invalid_request", message: "session title is required" },
     });
   });
 });
@@ -323,14 +365,18 @@ function nodeFetch(url: string, init: { method: string; body?: string }): Promis
   return new Promise((resolve, reject) => {
     import("node:http")
       .then(({ request }) => {
-        const req = request(url, { method: init.method, headers: { "Content-Type": "application/json" } }, (res) => {
-          let text = "";
-          res.setEncoding("utf8");
-          res.on("data", (chunk) => {
-            text += chunk;
-          });
-          res.on("end", () => resolve(text));
-        });
+        const req = request(
+          url,
+          { method: init.method, headers: { "Content-Type": "application/json" } },
+          (res) => {
+            let text = "";
+            res.setEncoding("utf8");
+            res.on("data", (chunk) => {
+              text += chunk;
+            });
+            res.on("end", () => resolve(text));
+          },
+        );
         req.on("error", reject);
         if (init.body) {
           req.write(init.body);

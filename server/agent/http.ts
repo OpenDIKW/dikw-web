@@ -27,7 +27,10 @@ export function resolveSessionsDir(cwd: string, override?: string): string {
   return join(cwd, ".agent-sessions");
 }
 
-export async function createDefaultAgentHandler(cwd = process.cwd(), options: { sessionsDir?: string } = {}) {
+export async function createDefaultAgentHandler(
+  cwd = process.cwd(),
+  options: { sessionsDir?: string } = {},
+) {
   const config = await loadAgentConfig({ cwd });
   const dir = resolveSessionsDir(cwd, options.sessionsDir);
   await mkdir(dir, { recursive: true }); // sqlite3 creates the file, not the dir
@@ -46,11 +49,17 @@ export async function createDefaultAgentHandler(cwd = process.cwd(), options: { 
 export function createAgentHandler(options: AgentHandlerOptions = {}) {
   const { store, runner, spanStore } = options;
   if (!store || !runner) {
-    throw new Error("createAgentHandler requires both store and runner (use createDefaultAgentHandler)");
+    throw new Error(
+      "createAgentHandler requires both store and runner (use createDefaultAgentHandler)",
+    );
   }
   const activeControllers = new Map<string, AbortController>();
 
-  return async function agentHandler(req: IncomingMessage, res: ServerResponse, next?: (error?: unknown) => void) {
+  return async function agentHandler(
+    req: IncomingMessage,
+    res: ServerResponse,
+    next?: (error?: unknown) => void,
+  ) {
     try {
       const url = new URL(req.url ?? "/", "http://localhost");
       const parts = url.pathname.split("/").filter(Boolean);
@@ -71,13 +80,21 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         return json(res, await store.getSession(sessionId));
       }
       if (req.method === "GET" && parts.length === 3 && parts[2] === "traces") {
-        return json(res, spanStore ? spanStore.getSessionTraces(sessionId) : { sessionId, invocations: [] });
+        return json(
+          res,
+          spanStore ? spanStore.getSessionTraces(sessionId) : { sessionId, invocations: [] },
+        );
       }
       if (req.method === "PATCH" && parts.length === 2) {
         const body = await readJsonBody(req);
         const parsed = parseSessionTitle(isRecord(body) ? body.title : undefined);
         if (!parsed.ok) {
-          return errorJson(res, 400, "invalid_request", SESSION_TITLE_ERROR_MESSAGES[parsed.reason]);
+          return errorJson(
+            res,
+            400,
+            "invalid_request",
+            SESSION_TITLE_ERROR_MESSAGES[parsed.reason],
+          );
         }
         return json(res, await store.renameSession(sessionId, parsed.title));
       }
@@ -112,14 +129,14 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
             coreUrl: connection.coreUrl,
             token: connection.token,
             signal: controller.signal,
-            onEvent: writeEvent
+            onEvent: writeEvent,
           });
         } catch (error) {
           writeEvent({
             type: "error",
             sessionId,
             code: "agent_error",
-            message: error instanceof Error ? error.message : String(error)
+            message: error instanceof Error ? error.message : String(error),
           });
         } finally {
           activeControllers.delete(sessionId);
@@ -143,7 +160,11 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
           if (!proposal) {
             return errorJson(res, 404, "not_found", "proposal not found");
           }
-          const task = await runMaintenanceProposal(proposal.action, proposal.params ?? {}, connection);
+          const task = await runMaintenanceProposal(
+            proposal.action,
+            proposal.params ?? {},
+            connection,
+          );
           proposal.status = "succeeded";
           proposal.taskId = task.task_id;
           return json(res, await store.recordProposal(sessionId, proposal));
@@ -186,17 +207,20 @@ export function maintenanceEndpoint(action: AgentMaintenanceAction): string {
 async function runMaintenanceProposal(
   action: AgentMaintenanceAction,
   params: Record<string, unknown>,
-  connection: CoreConnection
+  connection: CoreConnection,
 ): Promise<{ task_id?: string }> {
   const endpoint = maintenanceEndpoint(action);
-  const headers: Record<string, string> = { Accept: "application/json", "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
   if (connection.token) {
     headers.Authorization = `Bearer ${connection.token}`;
   }
   const response = await fetch(`${connection.coreUrl}${endpoint}`, {
     method: "POST",
     headers,
-    body: JSON.stringify(params)
+    body: JSON.stringify(params),
   });
   if (!response.ok) {
     throw new Error(await response.text());
@@ -215,7 +239,7 @@ function readCoreConnection(body: unknown): CoreConnection | { error: string } {
     }
     return {
       coreUrl: url.toString().replace(/\/$/, ""),
-      ...(typeof body.token === "string" && body.token ? { token: body.token } : {})
+      ...(typeof body.token === "string" && body.token ? { token: body.token } : {}),
     };
   } catch {
     return { error: "coreUrl must be an absolute http(s) URL" };

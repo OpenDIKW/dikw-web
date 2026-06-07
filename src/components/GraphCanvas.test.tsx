@@ -6,12 +6,28 @@ import type { KnowledgeGraph } from "../utils/graph";
 
 const tinyKnowledgeGraph: KnowledgeGraph = {
   nodes: [
-    { id: "a", title: "A", path: "knowledge/a.md", layer: "knowledge", inbound: 0, outbound: 1, linkCount: 1 },
-    { id: "b", title: "B", path: "knowledge/b.md", layer: "knowledge", inbound: 1, outbound: 0, linkCount: 1 }
+    {
+      id: "a",
+      title: "A",
+      path: "knowledge/a.md",
+      layer: "knowledge",
+      inbound: 0,
+      outbound: 1,
+      linkCount: 1,
+    },
+    {
+      id: "b",
+      title: "B",
+      path: "knowledge/b.md",
+      layer: "knowledge",
+      inbound: 1,
+      outbound: 0,
+      linkCount: 1,
+    },
   ],
   edges: [{ id: "a->b", source: "a", target: "b", anchor: null, weight: 1 }],
   stats: { nodeCount: 2, edgeCount: 1, unresolvedCount: 0 },
-  unresolvedLinks: []
+  unresolvedLinks: [],
 };
 
 function mockResizeObserverWithSize(width: number, height: number) {
@@ -34,11 +50,11 @@ function mockResizeObserverWithSize(width: number, height: number) {
           bottom: height,
           x: 0,
           y: 0,
-          toJSON: () => ({})
+          toJSON: () => ({}),
         } as DOMRectReadOnly,
         borderBoxSize: [],
         contentBoxSize: [],
-        devicePixelContentBoxSize: []
+        devicePixelContentBoxSize: [],
       } as unknown as ResizeObserverEntry;
       cb([entry], this as unknown as ResizeObserver);
     }
@@ -64,7 +80,7 @@ describe("GraphCanvas SVG fallback geometry", () => {
           focusedNodeIds={new Set()}
           focusedNodeId={null}
           onSelectNode={() => {}}
-        />
+        />,
       );
     });
 

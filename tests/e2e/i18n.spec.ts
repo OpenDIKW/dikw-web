@@ -8,7 +8,7 @@ const englishRoutes = [
   { hash: "graph", heading: "Graph" },
   { hash: "tasks", heading: "Tasks" },
   { hash: "wisdom", heading: "Wisdom" },
-  { hash: "settings", heading: "Settings" }
+  { hash: "settings", heading: "Settings" },
 ];
 
 const chineseRoutes = [
@@ -18,7 +18,7 @@ const chineseRoutes = [
   { hash: "graph", heading: "知识图谱" },
   { hash: "tasks", heading: "任务" },
   { hash: "wisdom", heading: "认知沉淀" },
-  { hash: "settings", heading: "设置" }
+  { hash: "settings", heading: "设置" },
 ];
 
 const cjkText = /[\u3400-\u9fff]/;
@@ -59,11 +59,15 @@ test("Chinese locale keeps page chrome single-language", async ({ page }) => {
     const header = page.getByTestId("page-header");
     await expect(header.getByRole("heading", { name: route.heading, exact: true })).toBeVisible();
     await expect(header.locator(".eyebrow")).toHaveCount(0);
-    await expect(header).not.toContainText(/Overview|Chat|Base|Knowledge|Graph|Tasks|Wisdom|Settings/);
+    await expect(header).not.toContainText(
+      /Overview|Chat|Base|Knowledge|Graph|Tasks|Wisdom|Settings/,
+    );
   }
 });
 
-test("default English locale keeps page-level chrome free of Chinese fallback text", async ({ page }) => {
+test("default English locale keeps page-level chrome free of Chinese fallback text", async ({
+  page,
+}) => {
   for (const route of businessRoutes) {
     await page.goto(`/#${route}`);
     await expect(page.locator(".content")).not.toContainText(cjkText);

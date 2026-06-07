@@ -27,14 +27,19 @@ interface CapturedResponse {
   body: Buffer;
 }
 
-function makeReq(opts: { method: string; url: string; headers?: Record<string, string>; body?: Buffer }): IncomingMessage {
+function makeReq(opts: {
+  method: string;
+  url: string;
+  headers?: Record<string, string>;
+  body?: Buffer;
+}): IncomingMessage {
   const body = opts.body ?? Buffer.alloc(0);
   const stream = Readable.from([body]) as unknown as IncomingMessage;
   Object.defineProperty(stream, "method", { value: opts.method, enumerable: true });
   Object.defineProperty(stream, "url", { value: opts.url, enumerable: true });
   Object.defineProperty(stream, "headers", {
     value: opts.headers ?? {},
-    enumerable: true
+    enumerable: true,
   });
   return stream;
 }
@@ -65,7 +70,7 @@ function makeRes(): { res: ServerResponse; captured: Promise<CapturedResponse> }
       }
       status = (this as { statusCode: number }).statusCode;
       resolveCaptured({ status, headers, body: Buffer.concat(chunks) });
-    }
+    },
   } as unknown as ServerResponse;
   return { res, captured };
 }
@@ -75,17 +80,17 @@ function makeRes(): { res: ServerResponse; captured: Promise<CapturedResponse> }
 function makeMultipart(
   filename: string,
   mediaType: string,
-  data: Buffer
+  data: Buffer,
 ): { body: Buffer; contentType: string } {
   const boundary = "----dikwweb-test-boundary-12345";
   const head = Buffer.from(
     `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${mediaType}\r\n\r\n`,
-    "utf-8"
+    "utf-8",
   );
   const tail = Buffer.from(`\r\n--${boundary}--\r\n`, "utf-8");
   return {
     body: Buffer.concat([head, data, tail]),
-    contentType: `multipart/form-data; boundary=${boundary}`
+    contentType: `multipart/form-data; boundary=${boundary}`,
   };
 }
 
@@ -129,7 +134,7 @@ function makeFixtureZip(map: Map<string, Uint8Array>): Uint8Array {
       method: 8,
       uncompressed: data,
       compressed,
-      crc: crc32(data)
+      crc: crc32(data),
     });
   }
   const lfhOffsets: number[] = [];
@@ -208,10 +213,10 @@ function mineruFetchMock(fixtureZip: Uint8Array): typeof fetch {
           code: 0,
           data: {
             batch_id: "batch-id-1",
-            file_urls: ["https://oss.example/up?sig=x"]
-          }
+            file_urls: ["https://oss.example/up?sig=x"],
+          },
         }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
     if (u === "https://oss.example/up?sig=x" && init?.method === "PUT") {
@@ -222,12 +227,10 @@ function mineruFetchMock(fixtureZip: Uint8Array): typeof fetch {
         JSON.stringify({
           code: 0,
           data: {
-            extract_result: [
-              { state: "done", full_zip_url: "https://cdn.example/result.zip" }
-            ]
-          }
+            extract_result: [{ state: "done", full_zip_url: "https://cdn.example/result.zip" }],
+          },
         }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
     if (u === "https://cdn.example/result.zip") {
@@ -243,7 +246,7 @@ function mineruFetchMock(fixtureZip: Uint8Array): typeof fetch {
 
 async function submitConvert(
   handler: WebHandler,
-  opts: { inputSha: string; body: Buffer; contentType: string; originalFilename?: string }
+  opts: { inputSha: string; body: Buffer; contentType: string; originalFilename?: string },
 ): Promise<CapturedResponse> {
   let url = `/mineru/convert?inputSha=${opts.inputSha}`;
   if (opts.originalFilename) {
@@ -251,8 +254,13 @@ async function submitConvert(
   }
   const { res, captured } = makeRes();
   await handler(
-    makeReq({ method: "POST", url, headers: { "content-type": opts.contentType }, body: opts.body }),
-    res
+    makeReq({
+      method: "POST",
+      url,
+      headers: { "content-type": opts.contentType },
+      body: opts.body,
+    }),
+    res,
   );
   return captured;
 }
@@ -287,7 +295,12 @@ async function driveJob(store: JobStore, jobId: string, maxMs = 4000): Promise<v
   throw new Error(`job ${jobId} did not reach a terminal state within ${maxMs}ms`);
 }
 
-function jsonBody(r: CapturedResponse): { jobId?: string; status?: string; ok?: boolean; error?: { code?: string; message?: string } } {
+function jsonBody(r: CapturedResponse): {
+  jobId?: string;
+  status?: string;
+  ok?: boolean;
+  error?: { code?: string; message?: string };
+} {
   return JSON.parse(r.body.toString("utf-8"));
 }
 
@@ -297,8 +310,11 @@ function pendingForeverFetch(): typeof fetch {
     const u = String(url);
     if (u === "https://mineru.net/api/v4/file-urls/batch") {
       return new Response(
-        JSON.stringify({ code: 0, data: { batch_id: "b1", file_urls: ["https://oss.example/up?sig=x"] } }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        JSON.stringify({
+          code: 0,
+          data: { batch_id: "b1", file_urls: ["https://oss.example/up?sig=x"] },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
     if (u === "https://oss.example/up?sig=x" && init?.method === "PUT") {
@@ -307,7 +323,7 @@ function pendingForeverFetch(): typeof fetch {
     if (u.startsWith("https://mineru.net/api/v4/extract-results/batch/")) {
       return new Response(
         JSON.stringify({ code: 0, data: { extract_result: [{ state: "pending" }] } }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
     throw new Error(`unexpected fetch to ${u}`);
@@ -345,7 +361,7 @@ describe("/web/mineru/convert — guards", () => {
     const req = makeReq({
       method: "POST",
       url: "/mineru/convert?inputSha=abc",
-      headers: { "content-type": "multipart/form-data; boundary=xyz" }
+      headers: { "content-type": "multipart/form-data; boundary=xyz" },
     });
     const { res, captured } = makeRes();
     await handler(req, res);
@@ -360,7 +376,7 @@ describe("/web/mineru/convert — guards", () => {
     const req = makeReq({
       method: "POST",
       url: "/mineru/convert",
-      headers: { "content-type": "multipart/form-data; boundary=xyz" }
+      headers: { "content-type": "multipart/form-data; boundary=xyz" },
     });
     const { res, captured } = makeRes();
     await handler(req, res);
@@ -380,15 +396,15 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     const fixtureZip = makeFixtureZip(
       new Map([
         ["full.md", new TextEncoder().encode(fixtureMd)],
-        ["images/fig.png", fixturePng]
-      ])
+        ["images/fig.png", fixturePng],
+      ]),
     );
     const { body, contentType } = makeMultipart("test.pdf", "application/pdf", fileBytes);
     const jobStore = new JobStore();
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
       fetch: mineruFetchMock(fixtureZip),
-      jobStore
+      jobStore,
     });
 
     // Submit returns immediately with a job id — the request never holds open
@@ -413,9 +429,7 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     const entries = readTar(new Uint8Array(tar));
     const names = entries.map((e) => e.archivePath).sort();
     expect(names).toEqual(["assets/images/fig.png", "test.md"]);
-    const md = new TextDecoder().decode(
-      entries.find((e) => e.archivePath === "test.md")!.data
-    );
+    const md = new TextDecoder().decode(entries.find((e) => e.archivePath === "test.md")!.data);
     // Frontmatter present and deterministic (no timestamps).
     expect(md).toContain("converter: mineru");
     expect(md).toContain(`original_sha256: ${inputSha}`);
@@ -428,7 +442,7 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     const fileBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
     const inputSha = sha256Hex(fileBytes);
     const fixtureZip = makeFixtureZip(
-      new Map([["full.md", new TextEncoder().encode("# Title\n")]])
+      new Map([["full.md", new TextEncoder().encode("# Title\n")]]),
     );
     // The browser uploads under a shortened name but forwards the true
     // original so frontmatter stays honest.
@@ -438,14 +452,14 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
       fetch: mineruFetchMock(fixtureZip),
-      jobStore
+      jobStore,
     });
 
     const submit = await submitConvert(handler, {
       inputSha,
       body,
       contentType,
-      originalFilename: original
+      originalFilename: original,
     });
     expect(submit.status).toBe(202);
     const jobId = jsonBody(submit).jobId!;
@@ -458,7 +472,7 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     // browser's `${stem}.md` lookup.
     expect(entries.map((e) => e.archivePath)).toContain("shortname.md");
     const md = new TextDecoder().decode(
-      entries.find((e) => e.archivePath === "shortname.md")!.data
+      entries.find((e) => e.archivePath === "shortname.md")!.data,
     );
     // Frontmatter keeps the true original, not the shortened upload name.
     expect(md).toContain(`original_filename: "${original}"`);
@@ -468,7 +482,7 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     const fetchMock: typeof fetch = async () =>
       new Response(JSON.stringify({ code: "A0202", msg: "bad token" }), {
         status: 401,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       });
     const fileBytes = Buffer.from([0x78, 0x78]);
     const inputSha = sha256Hex(fileBytes);
@@ -477,7 +491,7 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
       fetch: fetchMock,
-      jobStore
+      jobStore,
     });
 
     // The POST still succeeds (202) — the upstream auth error only emerges once
@@ -498,22 +512,18 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
   it("rejects with input_sha_mismatch when claimed sha doesn't match bytes", async () => {
     const fileBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
     const wrongSha = "0".repeat(64);
-    const { body, contentType } = makeMultipart(
-      "x.pdf",
-      "application/pdf",
-      fileBytes
-    );
+    const { body, contentType } = makeMultipart("x.pdf", "application/pdf", fileBytes);
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
       fetch: (async () => {
         throw new Error("should not be reached");
-      }) as unknown as typeof fetch
+      }) as unknown as typeof fetch,
     });
     const req = makeReq({
       method: "POST",
       url: `/mineru/convert?inputSha=${wrongSha}`,
       headers: { "content-type": contentType },
-      body
+      body,
     });
     const { res, captured } = makeRes();
     await handler(req, res);
@@ -525,22 +535,18 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
 
   it("rejects with invalid_input_sha when claimed sha is not 64-hex", async () => {
     const fileBytes = Buffer.from([0x25, 0x50, 0x44, 0x46]);
-    const { body, contentType } = makeMultipart(
-      "x.pdf",
-      "application/pdf",
-      fileBytes
-    );
+    const { body, contentType } = makeMultipart("x.pdf", "application/pdf", fileBytes);
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
       fetch: (async () => {
         throw new Error("should not be reached");
-      }) as unknown as typeof fetch
+      }) as unknown as typeof fetch,
     });
     const req = makeReq({
       method: "POST",
       url: "/mineru/convert?inputSha=not-a-hex-digest",
       headers: { "content-type": contentType },
-      body
+      body,
     });
     const { res, captured } = makeRes();
     await handler(req, res);
@@ -567,7 +573,7 @@ describe("/web/mineru/jobs — status / result / cancel", () => {
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
       fetch: pendingForeverFetch(),
-      jobStore
+      jobStore,
     });
 
     const submit = await submitConvert(handler, { inputSha, body, contentType });
@@ -597,7 +603,7 @@ describe("/web/mineru/jobs — status / result / cancel", () => {
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
       fetch: mineruFetchMock(fixtureZip),
-      jobStore
+      jobStore,
     });
 
     const submit = await submitConvert(handler, { inputSha, body, contentType });
@@ -623,7 +629,7 @@ describe("/web/mineru/jobs — status / result / cancel", () => {
       if (u === "https://mineru.net/api/v4/file-urls/batch") {
         return new Response(JSON.stringify({ code: 0, data: {} }), {
           status: 200,
-          headers: { "Content-Type": "application/json" }
+          headers: { "Content-Type": "application/json" },
         });
       }
       throw new Error(`unexpected fetch to ${u}`);
@@ -632,7 +638,11 @@ describe("/web/mineru/jobs — status / result / cancel", () => {
     const inputSha = sha256Hex(fileBytes);
     const { body, contentType } = makeMultipart("y.pdf", "application/pdf", fileBytes);
     const jobStore = new JobStore();
-    const handler = createWebHandler({ config: { mineruApiKey: TOKEN }, fetch: fetchMock, jobStore });
+    const handler = createWebHandler({
+      config: { mineruApiKey: TOKEN },
+      fetch: fetchMock,
+      jobStore,
+    });
 
     const submit = await submitConvert(handler, { inputSha, body, contentType });
     expect(submit.status).toBe(202);
@@ -652,7 +662,7 @@ describe("/web/mineru/jobs — status / result / cancel", () => {
     const handler = createWebHandler({
       config: { mineruApiKey: TOKEN },
       fetch: pendingForeverFetch(),
-      jobStore
+      jobStore,
     });
 
     const first = await submitConvert(handler, { inputSha, body, contentType });

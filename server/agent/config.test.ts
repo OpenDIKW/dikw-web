@@ -16,9 +16,9 @@ describe("agent config", () => {
           "DIKW_AGENT_API=anthropic-messages",
           "DIKW_AGENT_API_KEY=secret-minimax-key",
           "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
-          "DIKW_AGENT_MODEL=MiniMax-M2.7"
+          "DIKW_AGENT_MODEL=MiniMax-M2.7",
         ].join("\n"),
-        "utf8"
+        "utf8",
       );
 
       const config = await loadAgentConfig({ cwd, env: {} });
@@ -42,13 +42,13 @@ describe("agent config", () => {
           "DIKW_AGENT_PROVIDER=minimax",
           "DIKW_AGENT_API=anthropic-messages",
           "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
-          "DIKW_AGENT_MODEL=MiniMax-M2.7"
+          "DIKW_AGENT_MODEL=MiniMax-M2.7",
         ].join("\n"),
-        "utf8"
+        "utf8",
       );
 
       await expect(loadAgentConfig({ cwd, env: {} })).rejects.toThrow(
-        "DIKW_AGENT_API_KEY is required"
+        "DIKW_AGENT_API_KEY is required",
       );
     } finally {
       await rm(cwd, { recursive: true, force: true });
@@ -68,9 +68,9 @@ describe("agent config", () => {
           "DIKW_AGENT_MODEL=MiniMax-M2.7",
           "DIKW_AGENT_BRAVE_API_KEY=  brave-secret  ",
           "DIKW_AGENT_JINA_API_KEY=jina-secret",
-          "DIKW_AGENT_TAVILY_API_KEY=  tavily-secret  "
+          "DIKW_AGENT_TAVILY_API_KEY=  tavily-secret  ",
         ].join("\n"),
-        "utf8"
+        "utf8",
       );
 
       const config = await loadAgentConfig({ cwd, env: {} });
@@ -93,9 +93,9 @@ describe("agent config", () => {
           "DIKW_AGENT_API=anthropic-messages",
           "DIKW_AGENT_API_KEY=secret-minimax-key",
           "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
-          "DIKW_AGENT_MODEL=MiniMax-M2.7"
+          "DIKW_AGENT_MODEL=MiniMax-M2.7",
         ].join("\n"),
-        "utf8"
+        "utf8",
       );
 
       const config = await loadAgentConfig({ cwd, env: {} });
@@ -116,9 +116,9 @@ describe("agent config", () => {
         [
           "DIKW_AGENT_API_KEY=secret-minimax-key",
           "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
-          "DIKW_AGENT_MODEL=MiniMax-M3"
+          "DIKW_AGENT_MODEL=MiniMax-M3",
         ].join("\n"),
-        "utf8"
+        "utf8",
       );
 
       const config = await loadAgentConfig({ cwd, env: {} });
@@ -127,7 +127,7 @@ describe("agent config", () => {
         enabled: true,
         contextWindow: 1_048_576,
         ratio: 0.5,
-        retention: 8
+        retention: 8,
       });
     } finally {
       await rm(cwd, { recursive: true, force: true });
@@ -146,9 +146,9 @@ describe("agent config", () => {
           "DIKW_AGENT_COMPACTION_ENABLED=false",
           "DIKW_AGENT_CONTEXT_WINDOW=200000",
           "DIKW_AGENT_COMPACTION_RATIO=0.6",
-          "DIKW_AGENT_COMPACTION_RETENTION=12"
+          "DIKW_AGENT_COMPACTION_RETENTION=12",
         ].join("\n"),
-        "utf8"
+        "utf8",
       );
 
       const config = await loadAgentConfig({ cwd, env: {} });
@@ -157,7 +157,7 @@ describe("agent config", () => {
         enabled: false,
         contextWindow: 200000,
         ratio: 0.6,
-        retention: 12
+        retention: 12,
       });
     } finally {
       await rm(cwd, { recursive: true, force: true });
@@ -175,9 +175,9 @@ describe("agent config", () => {
           "DIKW_AGENT_MODEL=MiniMax-M3",
           "DIKW_AGENT_CONTEXT_WINDOW=not-a-number",
           "DIKW_AGENT_COMPACTION_RATIO=-1",
-          "DIKW_AGENT_COMPACTION_RETENTION="
+          "DIKW_AGENT_COMPACTION_RETENTION=",
         ].join("\n"),
-        "utf8"
+        "utf8",
       );
 
       const config = await loadAgentConfig({ cwd, env: {} });
@@ -186,7 +186,7 @@ describe("agent config", () => {
         enabled: true,
         contextWindow: 1_048_576,
         ratio: 0.5,
-        retention: 8
+        retention: 8,
       });
     } finally {
       await rm(cwd, { recursive: true, force: true });
@@ -203,9 +203,9 @@ describe("agent config", () => {
           "DIKW_AGENT_API_KEY=secret-minimax-key",
           "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
           "DIKW_AGENT_MODEL=MiniMax-M3",
-          "DIKW_AGENT_COMPACTION_ENABLED=disabled"
+          "DIKW_AGENT_COMPACTION_ENABLED=disabled",
         ].join("\n"),
-        "utf8"
+        "utf8",
       );
 
       const config = await loadAgentConfig({ cwd, env: {} });
@@ -231,9 +231,9 @@ describe("agent config", () => {
           "DIKW_AGENT_API_KEY=secret-minimax-key",
           "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic",
           "DIKW_AGENT_MODEL=MiniMax-M2.7",
-          "DIKW_CORE_URL=http://127.0.0.1:9999"
+          "DIKW_CORE_URL=http://127.0.0.1:9999",
         ].join("\n"),
-        "utf8"
+        "utf8",
       );
 
       const config = await loadAgentConfig({ cwd, env: {} });

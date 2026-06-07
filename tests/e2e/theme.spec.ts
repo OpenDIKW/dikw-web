@@ -23,7 +23,7 @@ test("dark Wiki reader uses low-glare surfaces with readable contrast", async ({
       { selector: ".markdown-body blockquote", label: "blockquote", minimum: 4.5 },
       { selector: ".markdown-table-wrap td", label: "table cell", minimum: 4.5 },
       { selector: ".wiki-reader-tabs button", label: "reader tab", minimum: 3 },
-      { selector: ".reader-header__path", label: "reader metadata", minimum: 3 }
+      { selector: ".reader-header__path", label: "reader metadata", minimum: 3 },
     ];
 
     return selectors.map(({ selector, label, minimum }) => {
@@ -34,9 +34,12 @@ test("dark Wiki reader uses low-glare surfaces with readable contrast", async ({
       return {
         label,
         selector,
-        ratio: contrastRatio(readColor(getComputedStyle(element).color), effectiveBackground(element)),
+        ratio: contrastRatio(
+          readColor(getComputedStyle(element).color),
+          effectiveBackground(element),
+        ),
         minimum,
-        missing: false
+        missing: false,
       };
     });
 
@@ -57,10 +60,18 @@ test("dark Wiki reader uses low-glare surfaces with readable contrast", async ({
       if (!match) {
         return [0, 0, 0, 0];
       }
-      return [Number(match[1]), Number(match[2]), Number(match[3]), match[4] === undefined ? 1 : Number(match[4])];
+      return [
+        Number(match[1]),
+        Number(match[2]),
+        Number(match[3]),
+        match[4] === undefined ? 1 : Number(match[4]),
+      ];
     }
 
-    function contrastRatio(foreground: [number, number, number, number], background: [number, number, number, number]): number {
+    function contrastRatio(
+      foreground: [number, number, number, number],
+      background: [number, number, number, number],
+    ): number {
       const lighter = Math.max(luminance(foreground), luminance(background));
       const darker = Math.min(luminance(foreground), luminance(background));
       return (lighter + 0.05) / (darker + 0.05);
@@ -68,7 +79,9 @@ test("dark Wiki reader uses low-glare surfaces with readable contrast", async ({
 
     function luminance(color: [number, number, number, number]): number {
       const [r, g, b] = color.map((part) => part / 255);
-      const [rl, gl, bl] = [r, g, b].map((part) => (part <= 0.03928 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4));
+      const [rl, gl, bl] = [r, g, b].map((part) =>
+        part <= 0.03928 ? part / 12.92 : ((part + 0.055) / 1.055) ** 2.4,
+      );
       return 0.2126 * rl + 0.7152 * gl + 0.0722 * bl;
     }
   });
@@ -86,7 +99,9 @@ test("dark Wiki reader uses low-glare surfaces with readable contrast", async ({
       })
       .map((element) => {
         const style = getComputedStyle(element);
-        const match = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(style.backgroundColor);
+        const match = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(
+          style.backgroundColor,
+        );
         if (!match || match[4] === "0") {
           return null;
         }
@@ -95,11 +110,11 @@ test("dark Wiki reader uses low-glare surfaces with readable contrast", async ({
           ? {
               tag: element.tagName.toLowerCase(),
               className: String((element as HTMLElement).className),
-              color: style.backgroundColor
+              color: style.backgroundColor,
             }
           : null;
       })
-      .filter(Boolean)
+      .filter(Boolean),
   );
   expect(nearWhiteBackgrounds).toEqual([]);
 
@@ -129,7 +144,7 @@ test("dark Wiki reader keeps details and Mermaid diagrams on reader surfaces", a
       return {
         selector,
         missing: false,
-        nearWhite: background.slice(0, 3).every((part) => part >= 235)
+        nearWhite: background.slice(0, 3).every((part) => part >= 235),
       };
     });
 
@@ -150,7 +165,12 @@ test("dark Wiki reader keeps details and Mermaid diagrams on reader surfaces", a
       if (!match) {
         return [0, 0, 0, 0];
       }
-      return [Number(match[1]), Number(match[2]), Number(match[3]), match[4] === undefined ? 1 : Number(match[4])];
+      return [
+        Number(match[1]),
+        Number(match[2]),
+        Number(match[3]),
+        match[4] === undefined ? 1 : Number(match[4]),
+      ];
     }
   });
 
@@ -159,6 +179,8 @@ test("dark Wiki reader keeps details and Mermaid diagrams on reader surfaces", a
     expect(check.nearWhite, `${check.selector} should not use a near-white surface`).toBe(false);
   }
 
-  const pageOverflows = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1);
+  const pageOverflows = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+  );
   expect(pageOverflows).toBe(false);
 });

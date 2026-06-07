@@ -7,16 +7,18 @@ import { SpanStore } from "./spanStore";
 // Minimal fake matching the installed @opentelemetry/sdk-trace-base 2.7.x
 // ReadableSpan shape: spanContext() returns trace/span ids, parent lives on
 // parentSpanContext?.spanId, times are HrTime ([seconds, nanos]).
-function fakeSpan(overrides: Partial<{
-  name: string;
-  traceId: string;
-  spanId: string;
-  parentSpanId: string | null;
-  startTime: [number, number];
-  duration: [number, number];
-  statusCode: number;
-  attributes: Record<string, unknown>;
-}> = {}): ReadableSpan {
+function fakeSpan(
+  overrides: Partial<{
+    name: string;
+    traceId: string;
+    spanId: string;
+    parentSpanId: string | null;
+    startTime: [number, number];
+    duration: [number, number];
+    statusCode: number;
+    attributes: Record<string, unknown>;
+  }> = {},
+): ReadableSpan {
   const {
     name = "call_llm",
     traceId = "t1",
@@ -25,7 +27,7 @@ function fakeSpan(overrides: Partial<{
     startTime = [1_717, 500_000_000], // 1_717_000.5 ms
     duration = [0, 900_000_000], // 900 ms
     statusCode = 1,
-    attributes = {}
+    attributes = {},
   } = overrides;
   return {
     name,
@@ -34,7 +36,7 @@ function fakeSpan(overrides: Partial<{
     startTime,
     duration,
     status: { code: statusCode as never },
-    attributes: attributes as never
+    attributes: attributes as never,
   } as unknown as ReadableSpan;
 }
 
@@ -51,9 +53,9 @@ describe("DikwSpanProcessor.onEnd", () => {
           "gen_ai.request.model": "MiniMax-M3",
           "gen_ai.usage.input_tokens": 1_240,
           "gen_ai.usage.output_tokens": 58,
-          tags: ["a", "b"]
-        }
-      })
+          tags: ["a", "b"],
+        },
+      }),
     );
 
     const view = store.getSessionTraces("s1");
@@ -82,8 +84,8 @@ describe("DikwSpanProcessor.onEnd", () => {
         spanId: "root",
         parentSpanId: null,
         statusCode: 2,
-        attributes: { "gen_ai.conversation.id": "s9" }
-      })
+        attributes: { "gen_ai.conversation.id": "s9" },
+      }),
     );
 
     const view = store.getSessionTraces("s9");
@@ -105,9 +107,9 @@ describe("DikwSpanProcessor.onEnd", () => {
           "gcp.vertex.agent.tool_response": "raw page body",
           "gcp.vertex.agent.session_id": "s1",
           "gen_ai.request.model": "MiniMax-M3",
-          "gen_ai.usage.input_tokens": 1_240
-        }
-      })
+          "gen_ai.usage.input_tokens": 1_240,
+        },
+      }),
     );
 
     // sessionId was extracted from the (un-redacted) session_id attr: the
@@ -123,10 +125,10 @@ describe("DikwSpanProcessor.onEnd", () => {
     expect(span.tokensInput).toBe(1_240);
   });
 
-  it("maps an unset status code to \"unset\"", () => {
+  it('maps an unset status code to "unset"', () => {
     const store = new SpanStore();
     new DikwSpanProcessor(store).onEnd(
-      fakeSpan({ statusCode: 0, attributes: { "gcp.vertex.agent.session_id": "s1" } })
+      fakeSpan({ statusCode: 0, attributes: { "gcp.vertex.agent.session_id": "s1" } }),
     );
     expect(store.getSessionTraces("s1").invocations[0].spans[0].status).toBe("unset");
   });

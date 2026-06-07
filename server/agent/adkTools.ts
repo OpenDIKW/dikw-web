@@ -4,7 +4,7 @@ import {
   CoreToolClient,
   WebToolClient,
   WEB_FETCH_TEXT_BUDGET,
-  type DikwToolsOptions
+  type DikwToolsOptions,
 } from "./tools.js";
 
 /**
@@ -23,7 +23,7 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
   const web = new WebToolClient(options);
 
   const errorResponse = (error: unknown) => ({
-    error: error instanceof Error ? error.message : String(error)
+    error: error instanceof Error ? error.message : String(error),
   });
 
   return [
@@ -37,7 +37,7 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         } catch (error) {
           return errorResponse(error);
         }
-      }
+      },
     }),
     new FunctionTool({
       name: "retrieve_knowledge",
@@ -46,9 +46,9 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         type: Type.OBJECT,
         properties: {
           q: { type: Type.STRING, description: "Question or retrieval query" },
-          limit: { type: Type.NUMBER, minimum: 1, maximum: 50 }
+          limit: { type: Type.NUMBER, minimum: 1, maximum: 50 },
         },
-        required: ["q"]
+        required: ["q"],
       } satisfies Schema,
       execute: async (input) => {
         const params = input as { q: string; limit?: number };
@@ -57,7 +57,7 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         } catch (error) {
           return errorResponse(error);
         }
-      }
+      },
     }),
     new FunctionTool({
       name: "list_pages",
@@ -65,20 +65,20 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
       parameters: {
         type: Type.OBJECT,
         properties: {
-          layer: { type: Type.STRING, format: "enum", enum: ["knowledge", "source", "all"] }
-        }
+          layer: { type: Type.STRING, format: "enum", enum: ["knowledge", "source", "all"] },
+        },
       } satisfies Schema,
       execute: async (input) => {
         const params = input as { layer?: "knowledge" | "source" | "all" };
         try {
           return await client.getJson("/v1/base/pages", {
             active: true,
-            ...(params.layer && params.layer !== "all" ? { layer: params.layer } : {})
+            ...(params.layer && params.layer !== "all" ? { layer: params.layer } : {}),
           });
         } catch (error) {
           return errorResponse(error);
         }
-      }
+      },
     }),
     new FunctionTool({
       name: "read_page",
@@ -86,9 +86,12 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
       parameters: {
         type: Type.OBJECT,
         properties: {
-          path: { type: Type.STRING, description: "Base page path, for example knowledge/architecture.md" }
+          path: {
+            type: Type.STRING,
+            description: "Base page path, for example knowledge/architecture.md",
+          },
         },
-        required: ["path"]
+        required: ["path"],
       } satisfies Schema,
       execute: async (input) => {
         const params = input as { path: string };
@@ -97,7 +100,7 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         } catch (error) {
           return errorResponse(error);
         }
-      }
+      },
     }),
     new FunctionTool({
       name: "page_links",
@@ -107,21 +110,21 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         properties: {
           path: { type: Type.STRING },
           direction: { type: Type.STRING, format: "enum", enum: ["in", "out", "both"] },
-          limit: { type: Type.NUMBER, minimum: 1, maximum: 200 }
+          limit: { type: Type.NUMBER, minimum: 1, maximum: 200 },
         },
-        required: ["path"]
+        required: ["path"],
       } satisfies Schema,
       execute: async (input) => {
         const params = input as { path: string; direction?: string; limit?: number };
         try {
           return await client.getJson(`/v1/base/pages/${encodeURIComponent(params.path)}/links`, {
             direction: params.direction ?? "both",
-            limit: params.limit ?? 50
+            limit: params.limit ?? 50,
           });
         } catch (error) {
           return errorResponse(error);
         }
-      }
+      },
     }),
     new FunctionTool({
       name: "list_wisdom",
@@ -130,8 +133,8 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         type: Type.OBJECT,
         properties: {
           status: { type: Type.STRING },
-          kind: { type: Type.STRING }
-        }
+          kind: { type: Type.STRING },
+        },
       } satisfies Schema,
       execute: async (input) => {
         const params = input as { status?: string; kind?: string };
@@ -140,7 +143,7 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         } catch (error) {
           return errorResponse(error);
         }
-      }
+      },
     }),
     new FunctionTool({
       name: "web_search",
@@ -150,9 +153,9 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         type: Type.OBJECT,
         properties: {
           q: { type: Type.STRING, description: "Search query" },
-          count: { type: Type.NUMBER, minimum: 1, maximum: 10 }
+          count: { type: Type.NUMBER, minimum: 1, maximum: 10 },
         },
-        required: ["q"]
+        required: ["q"],
       } satisfies Schema,
       execute: async (input) => {
         const params = input as { q: string; count?: number };
@@ -161,7 +164,7 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         } catch (error) {
           return errorResponse(error);
         }
-      }
+      },
     }),
     new FunctionTool({
       name: "web_fetch",
@@ -171,9 +174,9 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         type: Type.OBJECT,
         properties: {
           url: { type: Type.STRING, description: "Full http(s) URL to fetch" },
-          format: { type: Type.STRING, format: "enum", enum: ["markdown", "text"] }
+          format: { type: Type.STRING, format: "enum", enum: ["markdown", "text"] },
         },
-        required: ["url"]
+        required: ["url"],
       } satisfies Schema,
       execute: async (input) => {
         const params = input as { url: string; format?: "markdown" | "text" };
@@ -183,35 +186,40 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         } catch (error) {
           return errorResponse(error);
         }
-      }
+      },
     }),
     new FunctionTool({
       name: "propose_maintenance_action",
-      description: "Propose a maintenance task. This never executes the task; the user must confirm in the UI.",
+      description:
+        "Propose a maintenance task. This never executes the task; the user must confirm in the UI.",
       parameters: {
         type: Type.OBJECT,
         properties: {
           action: { type: Type.STRING, format: "enum", enum: ["ingest", "synth", "lint_propose"] },
           description: { type: Type.STRING },
-          params: { type: Type.OBJECT }
+          params: { type: Type.OBJECT },
         },
-        required: ["action", "description"]
+        required: ["action", "description"],
       } satisfies Schema,
       execute: async (input) => {
-        const params = input as { action: string; description: string; params?: Record<string, unknown> };
+        const params = input as {
+          action: string;
+          description: string;
+          params?: Record<string, unknown>;
+        };
         try {
           return {
             proposal: {
               action: params.action,
               description: params.description,
-              params: params.params ?? {}
-            }
+              params: params.params ?? {},
+            },
           };
         } catch (error) {
           return errorResponse(error);
         }
-      }
-    })
+      },
+    }),
   ];
 }
 

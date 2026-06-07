@@ -68,7 +68,7 @@ const FRONTMATTER_PATTERN = /^---\n[\s\S]*?\n---\n?/;
 // Indented code: a sequence of one-or-more lines starting with 4 spaces,
 // preceded by a blank line (or BOS). Simplified to "at least 4 leading
 // spaces on a fresh paragraph line."
-const INDENTED_CODE_PATTERN = /(^|\n\n)((?:    [^\n]*(?:\n|$))+)/g;
+const INDENTED_CODE_PATTERN = /(^|\n\n)((?: {4}[^\n]*(?:\n|$))+)/g;
 const INLINE_CODE_PATTERN = /(`+)(?:.+?)\1/g;
 const DISPLAY_MATH_PATTERN = /\$\$[\s\S]*?\$\$/g;
 // Inline math: opening $ must not be preceded by '\' and not followed by '$';
@@ -76,7 +76,8 @@ const DISPLAY_MATH_PATTERN = /\$\$[\s\S]*?\$\$/g;
 const INLINE_MATH_PATTERN = /(?<!\\)\$(?!\$)((?:\\\$|[^\n$])+?)(?<!\\)\$/g;
 // Raw HTML block: a `<tag ...>...</tag>` span where tag is a known block tag.
 // Conservative whitelist matching the markdown reader's sanitizer scope.
-const RAW_HTML_BLOCK_PATTERN = /<(details|table|summary|div|section|article|aside|nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi;
+const RAW_HTML_BLOCK_PATTERN =
+  /<(details|table|summary|div|section|article|aside|nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi;
 // Existing wikilink (with optional image bang) — must NOT be wrapped again.
 const EXISTING_WIKILINK_PATTERN = /!?\[\[[^\]\n]+?\]\]/g;
 // Markdown inline link: [text](url). The URL allows one level of balanced
@@ -253,7 +254,7 @@ function sliceByRanges(body: string, ranges: ProtectedRange[]): Segment[] {
  */
 export function injectInlineRefs(
   body: string,
-  refs: ReadonlyArray<InlineRefMatch>
+  refs: ReadonlyArray<InlineRefMatch>,
 ): InjectInlineRefsResult {
   const matchedPaths = new Set<string>();
   // Normalize line endings before range collection — line-oriented recognizers

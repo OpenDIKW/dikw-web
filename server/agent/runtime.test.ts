@@ -6,12 +6,17 @@ describe("sourcesFromTool", () => {
   it("maps retrieve_knowledge page_refs to core sources", () => {
     const sources = sourcesFromTool("retrieve_knowledge", {
       page_refs: [
-        { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge", score: 0.42 },
-        { path: "" }
-      ]
+        {
+          path: "knowledge/architecture.md",
+          title: "Architecture",
+          layer: "knowledge",
+          score: 0.42,
+        },
+        { path: "" },
+      ],
     });
     expect(sources).toEqual([
-      { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge", score: 0.42 }
+      { path: "knowledge/architecture.md", title: "Architecture", layer: "knowledge", score: 0.42 },
     ]);
   });
 
@@ -21,12 +26,26 @@ describe("sourcesFromTool", () => {
       results: [
         { title: "A", url: "https://example.com/a", description: "desc a" },
         { title: "B", url: "https://example.com/b", description: "desc b" },
-        { title: "missing url", description: "no url" }
-      ]
+        { title: "missing url", description: "no url" },
+      ],
     });
     expect(sources).toEqual([
-      { path: "https://example.com/a", title: "A", excerpt: "desc a", layer: null, score: null, kind: "web" },
-      { path: "https://example.com/b", title: "B", excerpt: "desc b", layer: null, score: null, kind: "web" }
+      {
+        path: "https://example.com/a",
+        title: "A",
+        excerpt: "desc a",
+        layer: null,
+        score: null,
+        kind: "web",
+      },
+      {
+        path: "https://example.com/b",
+        title: "B",
+        excerpt: "desc b",
+        layer: null,
+        score: null,
+        kind: "web",
+      },
     ]);
   });
 
@@ -35,7 +54,7 @@ describe("sourcesFromTool", () => {
       url: "https://example.com/page",
       title: "Example",
       content: "hello",
-      truncated: false
+      truncated: false,
     });
     expect(sources).toEqual([
       {
@@ -44,14 +63,16 @@ describe("sourcesFromTool", () => {
         excerpt: null,
         layer: null,
         score: null,
-        kind: "web"
-      }
+        kind: "web",
+      },
     ]);
   });
 
   it("returns no sources for unrelated tools", () => {
     expect(sourcesFromTool("dikw_health", { ok: true })).toEqual([]);
-    expect(sourcesFromTool("propose_maintenance_action", { proposal: { action: "ingest" } })).toEqual([]);
+    expect(
+      sourcesFromTool("propose_maintenance_action", { proposal: { action: "ingest" } }),
+    ).toEqual([]);
   });
 
   it("drops web_search results whose url is private, loopback, javascript:, or has embedded credentials", () => {
@@ -64,8 +85,8 @@ describe("sourcesFromTool", () => {
         { title: "private", url: "http://10.0.0.1/", description: "x" },
         { title: "xss", url: "javascript:alert(1)", description: "x" },
         { title: "creds", url: "https://u:p@example.com/", description: "x" },
-        { title: "no url", description: "x" }
-      ]
+        { title: "no url", description: "x" },
+      ],
     });
     expect(sources.map((s) => s.path)).toEqual(["https://example.com/a"]);
   });
@@ -80,14 +101,20 @@ describe("sourcesFromTool", () => {
 describe("proposalFromTool", () => {
   it("builds a proposal for a supported maintenance action", () => {
     const proposal = proposalFromTool("propose_maintenance_action", {
-      proposal: { action: "lint_propose", description: "Lint the base" }
+      proposal: { action: "lint_propose", description: "Lint the base" },
     });
-    expect(proposal).toMatchObject({ action: "lint_propose", description: "Lint the base", status: "pending" });
+    expect(proposal).toMatchObject({
+      action: "lint_propose",
+      description: "Lint the base",
+      status: "pending",
+    });
   });
 
   it("ignores the removed distill action", () => {
     expect(
-      proposalFromTool("propose_maintenance_action", { proposal: { action: "distill", description: "x" } })
+      proposalFromTool("propose_maintenance_action", {
+        proposal: { action: "distill", description: "x" },
+      }),
     ).toBeNull();
   });
 

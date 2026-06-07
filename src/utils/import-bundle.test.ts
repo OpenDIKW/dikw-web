@@ -10,7 +10,7 @@ import {
   scanFiles,
   sha256Hex,
   sha256HexString,
-  splitUstarPath
+  splitUstarPath,
 } from "./import-bundle";
 
 function file(path: string, body: BodyInit, type = ""): File {
@@ -24,9 +24,7 @@ function file(path: string, body: BodyInit, type = ""): File {
 
 describe("computeProjectRelPath / archivePath", () => {
   it("strips the leading directory segment from webkitRelativePath", () => {
-    expect(computeProjectRelPath(file("MyVault/notes/foo.md", ""))).toBe(
-      "notes/foo.md"
-    );
+    expect(computeProjectRelPath(file("MyVault/notes/foo.md", ""))).toBe("notes/foo.md");
   });
 
   it("falls back to file.name when webkitRelativePath is empty", () => {
@@ -45,15 +43,13 @@ describe("scanFiles", () => {
     const files = [
       file("V/a.md", "# a"),
       file("V/img/b.png", new Uint8Array([0x89, 0x50])),
-      file("V/garbage.zip", new Uint8Array([0]))
+      file("V/garbage.zip", new Uint8Array([0])),
     ];
     const out = scanFiles(files);
     expect(out.mdPaths).toEqual(["a.md"]);
     expect(out.byProjectRel.has("img/b.png")).toBe(true);
     expect(out.byProjectRel.has("garbage.zip")).toBe(false);
-    expect(out.skipped).toEqual([
-      { path: "garbage.zip", reason: "unsupported_extension" }
-    ]);
+    expect(out.skipped).toEqual([{ path: "garbage.zip", reason: "unsupported_extension" }]);
   });
 
   it("flags duplicate project-rel paths as skipped instead of letting them slip through", () => {
@@ -61,14 +57,14 @@ describe("scanFiles", () => {
     // would reject with manifest_duplicate_md_path; we surface it locally.
     const files = [
       file("V1/note.md", "first body"),
-      file("V2/note.md", "second body, different content")
+      file("V2/note.md", "second body, different content"),
     ];
     const out = scanFiles(files);
     expect(out.mdPaths).toEqual(["note.md"]);
     expect(out.skipped).toHaveLength(1);
     expect(out.skipped[0]).toMatchObject({
       path: "note.md",
-      reason: "duplicate_path"
+      reason: "duplicate_path",
     });
   });
 });
@@ -77,7 +73,7 @@ describe("splitUstarPath", () => {
   it("returns just name for short paths", () => {
     expect(splitUstarPath("sources/a.md")).toEqual({
       name: "sources/a.md",
-      prefix: ""
+      prefix: "",
     });
   });
 
@@ -102,32 +98,27 @@ describe("splitUstarPath", () => {
 describe("inspectMarkdownFiles", () => {
   it("packages md with resolved assets", async () => {
     const files = [
-      file(
-        "V/notes/foo.md",
-        "---\ntitle: foo\n---\n\nBody ![[diagram.png]]\n"
-      ),
-      file("V/notes/diagram.png", new Uint8Array([1, 2, 3]))
+      file("V/notes/foo.md", "---\ntitle: foo\n---\n\nBody ![[diagram.png]]\n"),
+      file("V/notes/diagram.png", new Uint8Array([1, 2, 3])),
     ];
     const scan = scanFiles(files);
     const out = await inspectMarkdownFiles(scan);
     expect(out.packages).toEqual([
       {
         mdProjectRel: "notes/foo.md",
-        assetsProjectRel: ["notes/diagram.png"]
-      }
+        assetsProjectRel: ["notes/diagram.png"],
+      },
     ]);
     expect(out.skipped).toEqual([]);
   });
 
   it("rejects md that references a missing asset", async () => {
-    const files = [
-      file("V/notes/foo.md", "Body ![[missing.png]]\n")
-    ];
+    const files = [file("V/notes/foo.md", "Body ![[missing.png]]\n")];
     const scan = scanFiles(files);
     const out = await inspectMarkdownFiles(scan);
     expect(out.packages).toEqual([]);
     expect(out.skipped).toEqual([
-      { path: "notes/foo.md", reason: "asset_missing", detail: "missing.png" }
+      { path: "notes/foo.md", reason: "asset_missing", detail: "missing.png" },
     ]);
   });
 
@@ -141,28 +132,24 @@ describe("inspectMarkdownFiles", () => {
 
   it("drops remote URLs without flagging the md as missing", async () => {
     const files = [
-      file("V/x.md", "Has remote ![alt](https://example.com/x.png) and nothing else.\n")
+      file("V/x.md", "Has remote ![alt](https://example.com/x.png) and nothing else.\n"),
     ];
     const scan = scanFiles(files);
     const out = await inspectMarkdownFiles(scan);
-    expect(out.packages).toEqual([
-      { mdProjectRel: "x.md", assetsProjectRel: [] }
-    ]);
+    expect(out.packages).toEqual([{ mdProjectRel: "x.md", assetsProjectRel: [] }]);
   });
 
   it("reports unresolvable file: URI as a missing asset (matches core _is_remote)", async () => {
     // core's md_inspect._is_remote returns False for ``file:`` schemes, so the
     // ref must round-trip through resolveAssetRef and end up flagged missing
     // when no candidate exists. Earlier versions silently dropped it.
-    const files = [
-      file("V/x.md", "Bad ref ![alt](file:///tmp/missing.png) here.\n")
-    ];
+    const files = [file("V/x.md", "Bad ref ![alt](file:///tmp/missing.png) here.\n")];
     const scan = scanFiles(files);
     const out = await inspectMarkdownFiles(scan);
     expect(out.packages).toEqual([]);
     expect(out.skipped[0]).toMatchObject({
       path: "x.md",
-      reason: "asset_missing"
+      reason: "asset_missing",
     });
   });
 });
@@ -174,22 +161,22 @@ describe("computePackageSha256 (must agree with dikw-core)", () => {
 
   it("matches Python golden for md-only", async () => {
     expect(await computePackageSha256(A, [])).toBe(
-      "ffe054fe7ae0cb6dc65c3af9b61d5209f439851db43d0ba5997337df154668eb"
+      "ffe054fe7ae0cb6dc65c3af9b61d5209f439851db43d0ba5997337df154668eb",
     );
   });
 
   it("matches Python golden for md + 1 asset", async () => {
     expect(await computePackageSha256(A, [B])).toBe(
-      "5e9ae866add9a85d69c3481d059bb9f158a39e5670ba11f95112fc409630894e"
+      "5e9ae866add9a85d69c3481d059bb9f158a39e5670ba11f95112fc409630894e",
     );
   });
 
   it("sort order is independent of input order", async () => {
     expect(await computePackageSha256(C, [B, A])).toBe(
-      "3a9126ada7449a9ae43078e666cc5105bcd9700245277275a7a95ab954d338df"
+      "3a9126ada7449a9ae43078e666cc5105bcd9700245277275a7a95ab954d338df",
     );
     expect(await computePackageSha256(C, [A, B])).toBe(
-      "3a9126ada7449a9ae43078e666cc5105bcd9700245277275a7a95ab954d338df"
+      "3a9126ada7449a9ae43078e666cc5105bcd9700245277275a7a95ab954d338df",
     );
   });
 });
@@ -197,13 +184,13 @@ describe("computePackageSha256 (must agree with dikw-core)", () => {
 describe("sha256 helpers", () => {
   it("matches a known hex digest for ASCII bytes", async () => {
     expect(await sha256HexString("hello")).toBe(
-      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
     );
   });
 
   it("hashes Uint8Array consistently", async () => {
     expect(await sha256Hex(new TextEncoder().encode("hello"))).toBe(
-      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+      "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
     );
   });
 });
@@ -220,9 +207,7 @@ describe("buildTar (USTAR structure)", () => {
     expect(name).toBe("sources/a.md");
 
     // Size field at offset 124 (12 bytes, null-terminated octal)
-    const sizeField = new TextDecoder()
-      .decode(tar.slice(124, 124 + 11))
-      .trim();
+    const sizeField = new TextDecoder().decode(tar.slice(124, 124 + 11)).trim();
     expect(parseInt(sizeField, 8)).toBe(5);
 
     // Typeflag = '0' (regular file)
@@ -251,20 +236,16 @@ describe("buildTar (USTAR structure)", () => {
     const longPath = "sources/" + "a".repeat(50) + "/" + "b".repeat(50) + "/x.md";
     const tar = buildTar([{ archivePath: longPath, data: new Uint8Array(0) }]);
     // Name field carries the trailing component ('x.md')
-    expect(
-      new TextDecoder().decode(tar.slice(0, 5)).replace(/\0+$/, "")
-    ).toBe("x.md");
+    expect(new TextDecoder().decode(tar.slice(0, 5)).replace(/\0+$/, "")).toBe("x.md");
     // Prefix field at offset 345 carries the leading dirs
-    expect(
-      new TextDecoder().decode(tar.slice(345, 345 + 60)).replace(/\0+$/, "")
-    ).toContain("sources/");
+    expect(new TextDecoder().decode(tar.slice(345, 345 + 60)).replace(/\0+$/, "")).toContain(
+      "sources/",
+    );
   });
 
   it("rejects archive paths longer than the USTAR 256-byte budget", () => {
     expect(() =>
-      buildTar([
-        { archivePath: "sources/" + "x".repeat(300), data: new Uint8Array(0) }
-      ])
+      buildTar([{ archivePath: "sources/" + "x".repeat(300), data: new Uint8Array(0) }]),
     ).toThrow(/USTAR/);
   });
 });
@@ -281,26 +262,23 @@ describe("buildImportBundle (end to end)", () => {
   it("packages md + asset, produces a stable manifest, gzips the tar", async () => {
     const files = [
       file("V/notes/a.md", "Has ![[diagram.png]] embed.\n"),
-      file("V/notes/diagram.png", new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
+      file("V/notes/diagram.png", new Uint8Array([0x89, 0x50, 0x4e, 0x47])),
     ];
     const out = await buildImportBundle(files);
 
     expect(out.filesCount).toBe(2);
     expect(out.manifest.files.map((f) => f.path)).toEqual([
       "sources/notes/a.md",
-      "sources/notes/diagram.png"
+      "sources/notes/diagram.png",
     ]);
     expect(out.manifest.packages).toHaveLength(1);
     expect(out.manifest.packages[0].md_path).toBe("sources/notes/a.md");
-    expect(out.manifest.packages[0].asset_paths).toEqual([
-      "sources/notes/diagram.png"
-    ]);
+    expect(out.manifest.packages[0].asset_paths).toEqual(["sources/notes/diagram.png"]);
     // package_sha256 must equal the formula applied to the file shas the manifest reports
     const mdSha = out.manifest.files.find((f) => f.path.endsWith("a.md"))!.sha256;
-    const assetSha = out.manifest.files.find((f) => f.path.endsWith("diagram.png"))!
-      .sha256;
+    const assetSha = out.manifest.files.find((f) => f.path.endsWith("diagram.png"))!.sha256;
     expect(out.manifest.packages[0].package_sha256).toBe(
-      await computePackageSha256(mdSha, [assetSha])
+      await computePackageSha256(mdSha, [assetSha]),
     );
     // Total bytes = sum of file sizes
     expect(out.totalBytes).toBe(out.manifest.files.reduce((s, f) => s + f.size, 0));
@@ -314,13 +292,13 @@ describe("buildImportBundle (end to end)", () => {
     const files = [
       file("V/a.md", "Embed ![[shared.png]] here.\n"),
       file("V/b.md", "Also embeds ![[shared.png]] over here.\n"),
-      file("V/shared.png", png)
+      file("V/shared.png", png),
     ];
     const out = await buildImportBundle(files);
     expect(out.manifest.files.map((f) => f.path).sort()).toEqual([
       "sources/a.md",
       "sources/b.md",
-      "sources/shared.png"
+      "sources/shared.png",
     ]);
     expect(out.manifest.packages).toHaveLength(2);
     expect(out.manifest.packages[0].asset_paths).toEqual(["sources/shared.png"]);
@@ -330,7 +308,7 @@ describe("buildImportBundle (end to end)", () => {
   it("throws when no md remains importable", async () => {
     const files = [file("V/x.md", "Has ![[missing.png]] but nothing else.\n")];
     await expect(buildImportBundle(files)).rejects.toMatchObject({
-      code: "no_packages"
+      code: "no_packages",
     });
   });
 
@@ -342,19 +320,14 @@ describe("buildImportBundle (end to end)", () => {
       file("V/a.md", "Has ![[used.png]] only.\n"),
       file("V/used.png", new Uint8Array([1])),
       file("V/unused.png", new Uint8Array([2, 3])),
-      file("V/also-unused.jpg", new Uint8Array([4, 5, 6]))
+      file("V/also-unused.jpg", new Uint8Array([4, 5, 6])),
     ];
     const out = await buildImportBundle(files);
     expect(out.manifest.files.map((f) => f.path).sort()).toEqual([
       "sources/a.md",
-      "sources/used.png"
+      "sources/used.png",
     ]);
-    const unrefSkips = out.skipped.filter(
-      (s) => s.reason === "unreferenced_asset"
-    );
-    expect(unrefSkips.map((s) => s.path).sort()).toEqual([
-      "also-unused.jpg",
-      "unused.png"
-    ]);
+    const unrefSkips = out.skipped.filter((s) => s.reason === "unreferenced_asset");
+    expect(unrefSkips.map((s) => s.path).sort()).toEqual(["also-unused.jpg", "unused.png"]);
   });
 });

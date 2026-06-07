@@ -27,7 +27,7 @@ const baseList: ListRow[] = [
     mtime: 1746000000,
     layer: "wisdom",
     active: true,
-    status: "published"
+    status: "published",
   },
   {
     doc_id: "doc-release",
@@ -37,7 +37,7 @@ const baseList: ListRow[] = [
     mtime: 1746000100,
     layer: "wisdom",
     active: true,
-    status: "favorite"
+    status: "favorite",
   },
   {
     doc_id: "doc-onboarding",
@@ -47,28 +47,35 @@ const baseList: ListRow[] = [
     mtime: 1746000200,
     layer: "wisdom",
     active: true,
-    status: "draft"
-  }
+    status: "draft",
+  },
 ];
 
 const baseBodies: Record<string, string> = {
   "wisdom/principles/prefer-evidence.md": "When in doubt, run the experiment.",
   "wisdom/delivery/release-checklist.md": "Cut a release branch before the freeze.",
-  "wisdom/team/onboarding.md": "Pair new hires with a buddy for two weeks."
+  "wisdom/team/onboarding.md": "Pair new hires with a buddy for two weeks.",
 };
 
 const baseFrontmatter: Record<string, Record<string, unknown>> = {
   "wisdom/delivery/release-checklist.md": {
     title: "Release checklist",
     status: "favorite",
-    sources: ["sources/release/2026-04-release-notes.md"]
-  }
+    sources: ["sources/release/2026-04-release-notes.md"],
+  },
 };
 
-const baseLinks: Record<string, Array<{ src_path: string; src_doc_id: string; link_type: "wikilink" }>> = {
+const baseLinks: Record<
+  string,
+  Array<{ src_path: string; src_doc_id: string; link_type: "wikilink" }>
+> = {
   "wisdom/principles/prefer-evidence.md": [
-    { src_path: "wisdom/delivery/release-checklist.md", src_doc_id: "doc-release", link_type: "wikilink" }
-  ]
+    {
+      src_path: "wisdom/delivery/release-checklist.md",
+      src_doc_id: "doc-release",
+      link_type: "wikilink",
+    },
+  ],
 };
 
 const kCandidatesFixture = [
@@ -78,7 +85,7 @@ const kCandidatesFixture = [
     title: "DIKW layered model",
     mtime: 1745000000,
     layer: "knowledge" as const,
-    active: true
+    active: true,
   },
   {
     doc_id: "k-postmortem",
@@ -86,8 +93,8 @@ const kCandidatesFixture = [
     title: "Postmortem template",
     mtime: 1745000100,
     layer: "knowledge" as const,
-    active: true
-  }
+    active: true,
+  },
 ];
 
 const dCandidatesFixture = [
@@ -97,8 +104,8 @@ const dCandidatesFixture = [
     title: "2026-04 release notes",
     mtime: 1740000000,
     layer: "source" as const,
-    active: true
-  }
+    active: true,
+  },
 ];
 
 // ── helpers ───────────────────────────────────────────────────────────────
@@ -114,7 +121,9 @@ function setupClient(opts: SetupOptions = {}): MockDikwClient {
   // POST-induced changes.
   const listState: ListRow[] = baseList.map((row) => ({ ...row }));
   const bodies: Record<string, string> = { ...baseBodies };
-  const frontmatter: Record<string, Record<string, unknown>> = JSON.parse(JSON.stringify(baseFrontmatter));
+  const frontmatter: Record<string, Record<string, unknown>> = JSON.parse(
+    JSON.stringify(baseFrontmatter),
+  );
   const pendingResults = new Map<string, Record<string, unknown>>();
 
   client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
@@ -133,7 +142,7 @@ function setupClient(opts: SetupOptions = {}): MockDikwClient {
         return Promise.resolve({
           path: targetPath,
           outgoing: [],
-          incoming: baseLinks[targetPath] ?? []
+          incoming: baseLinks[targetPath] ?? [],
         });
       }
       if (sub === "provenance") {
@@ -147,63 +156,68 @@ function setupClient(opts: SetupOptions = {}): MockDikwClient {
         body: bodies[targetPath] ?? "",
         anchors: [],
         assets: [],
-        frontmatter: frontmatter[targetPath] ?? {}
+        frontmatter: frontmatter[targetPath] ?? {},
       });
     }
     return Promise.reject(new Error(`unmocked GET ${path}`));
   });
 
-  client.post.mockImplementation((path: string, body: {
-    slug: string;
-    title: string;
-    body: string;
-    author?: string;
-    status?: "draft" | "published" | "favorite" | "archived";
-    sources?: string[];
-  }) => {
-    if (path === "/v1/base/wisdom") {
-      const resolvedPath = body.author
-        ? `wisdom/${body.author}/${body.slug}.md`
-        : `wisdom/${body.slug}.md`;
-      // Apply the write so subsequent GETs reflect it.
-      const idx = listState.findIndex((row) => row.path === resolvedPath);
-      const updatedRow: ListRow = {
-        doc_id: idx >= 0 ? listState[idx].doc_id : `doc-${body.slug}`,
-        path: resolvedPath,
-        title: body.title,
-        hash: "deadbeef",
-        mtime: Math.floor(Date.now() / 1000),
-        layer: "wisdom",
-        active: true,
-        status: body.status ?? "published"
-      };
-      if (idx >= 0) listState[idx] = updatedRow;
-      else listState.push(updatedRow);
-      bodies[resolvedPath] = body.body;
-      frontmatter[resolvedPath] = {
-        title: body.title,
-        status: body.status ?? "published",
-        sources: body.sources ?? []
-      };
+  client.post.mockImplementation(
+    (
+      path: string,
+      body: {
+        slug: string;
+        title: string;
+        body: string;
+        author?: string;
+        status?: "draft" | "published" | "favorite" | "archived";
+        sources?: string[];
+      },
+    ) => {
+      if (path === "/v1/base/wisdom") {
+        const resolvedPath = body.author
+          ? `wisdom/${body.author}/${body.slug}.md`
+          : `wisdom/${body.slug}.md`;
+        // Apply the write so subsequent GETs reflect it.
+        const idx = listState.findIndex((row) => row.path === resolvedPath);
+        const updatedRow: ListRow = {
+          doc_id: idx >= 0 ? listState[idx].doc_id : `doc-${body.slug}`,
+          path: resolvedPath,
+          title: body.title,
+          hash: "deadbeef",
+          mtime: Math.floor(Date.now() / 1000),
+          layer: "wisdom",
+          active: true,
+          status: body.status ?? "published",
+        };
+        if (idx >= 0) listState[idx] = updatedRow;
+        else listState.push(updatedRow);
+        bodies[resolvedPath] = body.body;
+        frontmatter[resolvedPath] = {
+          title: body.title,
+          status: body.status ?? "published",
+          sources: body.sources ?? [],
+        };
 
-      const taskId = `task-${body.slug}-${listState.length}`;
-      pendingResults.set(taskId, {
-        path: resolvedPath,
-        created: idx < 0,
-        hash: "deadbeef",
-        chunks: 1,
-        embedded: body.body.length,
-        unresolved_wikilinks: 0
-      });
-      return Promise.resolve({
-        task_id: taskId,
-        op: "wisdom.write",
-        status: "running",
-        created_at: "2026-05-28T00:00:00.000Z"
-      });
-    }
-    return Promise.reject(new Error(`unmocked POST ${path}`));
-  });
+        const taskId = `task-${body.slug}-${listState.length}`;
+        pendingResults.set(taskId, {
+          path: resolvedPath,
+          created: idx < 0,
+          hash: "deadbeef",
+          chunks: 1,
+          embedded: body.body.length,
+          unresolved_wikilinks: 0,
+        });
+        return Promise.resolve({
+          task_id: taskId,
+          op: "wisdom.write",
+          status: "running",
+          created_at: "2026-05-28T00:00:00.000Z",
+        });
+      }
+      return Promise.reject(new Error(`unmocked POST ${path}`));
+    },
+  );
 
   client.streamTaskEvents.mockImplementation(async function* () {
     return;
@@ -224,7 +238,7 @@ function setupClient(opts: SetupOptions = {}): MockDikwClient {
       hash: "x",
       chunks: 0,
       embedded: 0,
-      unresolved_wikilinks: 0
+      unresolved_wikilinks: 0,
     });
   });
 
@@ -257,7 +271,7 @@ describe("WisdomPage backed by dikw-core API", () => {
     expect(within(reader).getByRole("tab", { name: "Read", selected: true })).toBeInTheDocument();
     expect(client.get).toHaveBeenCalledWith(
       "/v1/base/pages",
-      expect.objectContaining({ params: expect.objectContaining({ layer: "wisdom" }) })
+      expect.objectContaining({ params: expect.objectContaining({ layer: "wisdom" }) }),
     );
   });
 
@@ -274,7 +288,9 @@ describe("WisdomPage backed by dikw-core API", () => {
       expect(within(reader).getByText("wisdom/delivery/release-checklist.md")).toBeInTheDocument();
     });
     await waitFor(() => {
-      expect(within(reader).getByText("sources/release/2026-04-release-notes.md")).toBeInTheDocument();
+      expect(
+        within(reader).getByText("sources/release/2026-04-release-notes.md"),
+      ).toBeInTheDocument();
     });
   });
 
@@ -315,17 +331,22 @@ describe("WisdomPage backed by dikw-core API", () => {
     await waitFor(() => {
       expect(client.post).toHaveBeenCalledWith(
         "/v1/base/wisdom",
-        expect.objectContaining({ slug: "prefer-evidence", body: expect.stringContaining("Always.") }),
-        expect.any(Object)
+        expect.objectContaining({
+          slug: "prefer-evidence",
+          body: expect.stringContaining("Always."),
+        }),
+        expect.any(Object),
       );
     });
     // After the simulated task completes and the list reload, the reader
     // returns to Read mode showing the same page (path may be re-rendered).
     await waitFor(
       () => {
-        expect(within(reader).getByRole("tab", { name: "Read", selected: true })).toBeInTheDocument();
+        expect(
+          within(reader).getByRole("tab", { name: "Read", selected: true }),
+        ).toBeInTheDocument();
       },
-      { timeout: 4000 }
+      { timeout: 4000 },
     );
   });
 
@@ -365,7 +386,9 @@ describe("WisdomPage backed by dikw-core API", () => {
     await userEvent.click(within(popover).getByText("2026-04 release notes"));
 
     await waitFor(() => {
-      expect(within(reader).getByText("sources/release/2026-04-release-notes.md")).toBeInTheDocument();
+      expect(
+        within(reader).getByText("sources/release/2026-04-release-notes.md"),
+      ).toBeInTheDocument();
     });
   });
 
@@ -386,7 +409,7 @@ describe("WisdomPage backed by dikw-core API", () => {
       expect(client.post).toHaveBeenCalledWith(
         "/v1/base/wisdom",
         expect.objectContaining({ status: "favorite", no_embed: true }),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
   });
@@ -403,7 +426,9 @@ describe("WisdomPage backed by dikw-core API", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /Starred only/ }));
     await waitFor(() => {
-      expect(within(tree).queryByRole("button", { name: /Team onboarding/ })).not.toBeInTheDocument();
+      expect(
+        within(tree).queryByRole("button", { name: /Team onboarding/ }),
+      ).not.toBeInTheDocument();
     });
     // Release checklist (status=favorite) survives the filter.
     expect(within(tree).getByRole("button", { name: /Release checklist/ })).toBeInTheDocument();
@@ -482,8 +507,8 @@ describe("WisdomPage backed by dikw-core API", () => {
         targetPath: "wisdom/principles/prefer-evidence.md",
         slug: "prefer-evidence",
         scope: "edit",
-        coreUrl: ""
-      })
+        coreUrl: "",
+      }),
     );
 
     const client = setupClient();
@@ -493,7 +518,7 @@ describe("WisdomPage backed by dikw-core API", () => {
       hash: "h1",
       chunks: 1,
       embedded: 1,
-      unresolved_wikilinks: 0
+      unresolved_wikilinks: 0,
     });
 
     render(<WisdomPage client={client} />);
@@ -502,7 +527,7 @@ describe("WisdomPage backed by dikw-core API", () => {
       expect(client.streamTaskEvents).toHaveBeenCalledWith(
         "task-resume-1",
         0,
-        expect.any(AbortSignal)
+        expect.any(AbortSignal),
       );
     });
     await waitFor(() => {
@@ -514,20 +539,22 @@ describe("WisdomPage backed by dikw-core API", () => {
     const client = setupClient();
     let resolveDetail: ((value: unknown) => void) | null = null;
     // Override the body fetch for prefer-evidence to hang until we release it.
-    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
-      if (path === "/v1/base/pages" && options?.params?.layer === "wisdom") {
-        return Promise.resolve(baseList.map((row) => ({ ...row })));
-      }
-      if (path === "/v1/base/pages/wisdom/principles/prefer-evidence.md") {
-        return new Promise((resolve) => {
-          resolveDetail = resolve;
-        });
-      }
-      if (/\/v1\/base\/pages\/.+?\/links$/.test(path)) {
-        return Promise.resolve({ path: "x", outgoing: [], incoming: [] });
-      }
-      return Promise.resolve({});
-    });
+    client.get.mockImplementation(
+      (path: string, options?: { params?: Record<string, unknown> }) => {
+        if (path === "/v1/base/pages" && options?.params?.layer === "wisdom") {
+          return Promise.resolve(baseList.map((row) => ({ ...row })));
+        }
+        if (path === "/v1/base/pages/wisdom/principles/prefer-evidence.md") {
+          return new Promise((resolve) => {
+            resolveDetail = resolve;
+          });
+        }
+        if (/\/v1\/base\/pages\/.+?\/links$/.test(path)) {
+          return Promise.resolve({ path: "x", outgoing: [], incoming: [] });
+        }
+        return Promise.resolve({});
+      },
+    );
 
     render(<WisdomPage client={client} />);
     const reader = await screen.findByRole("main", { name: "Wisdom reader" });
@@ -551,11 +578,11 @@ describe("WisdomPage backed by dikw-core API", () => {
       body: "Real body",
       anchors: [],
       assets: [],
-      frontmatter: {}
+      frontmatter: {},
     });
     await waitFor(() => {
       expect(
-        (within(reader).queryByLabelText("Wisdom body") as HTMLTextAreaElement | null)?.value ?? ""
+        (within(reader).queryByLabelText("Wisdom body") as HTMLTextAreaElement | null)?.value ?? "",
       ).toBeFalsy(); // body loaded but Edit not yet entered
     });
     await userEvent.click(within(reader).getByRole("tab", { name: "Edit" }));
@@ -566,34 +593,44 @@ describe("WisdomPage backed by dikw-core API", () => {
 
   it("filters incoming links to wisdom-layer paths only", async () => {
     const client = setupClient();
-    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
-      if (path === "/v1/base/pages" && options?.params?.layer === "wisdom") {
-        return Promise.resolve(baseList.map((row) => ({ ...row })));
-      }
-      if (path === "/v1/base/pages/wisdom/principles/prefer-evidence.md") {
-        return Promise.resolve({
-          doc_id: "doc-prefer",
-          path: "wisdom/principles/prefer-evidence.md",
-          layer: "wisdom",
-          title: "Prefer evidence",
-          body: "Body.",
-          anchors: [],
-          assets: [],
-          frontmatter: {}
-        });
-      }
-      if (path === "/v1/base/pages/wisdom/principles/prefer-evidence.md/links") {
-        return Promise.resolve({
-          path: "wisdom/principles/prefer-evidence.md",
-          outgoing: [],
-          incoming: [
-            { src_path: "knowledge/concepts/postmortem.md", src_doc_id: "k-1", link_type: "wikilink" },
-            { src_path: "wisdom/delivery/release-checklist.md", src_doc_id: "doc-release", link_type: "wikilink" }
-          ]
-        });
-      }
-      return Promise.resolve({});
-    });
+    client.get.mockImplementation(
+      (path: string, options?: { params?: Record<string, unknown> }) => {
+        if (path === "/v1/base/pages" && options?.params?.layer === "wisdom") {
+          return Promise.resolve(baseList.map((row) => ({ ...row })));
+        }
+        if (path === "/v1/base/pages/wisdom/principles/prefer-evidence.md") {
+          return Promise.resolve({
+            doc_id: "doc-prefer",
+            path: "wisdom/principles/prefer-evidence.md",
+            layer: "wisdom",
+            title: "Prefer evidence",
+            body: "Body.",
+            anchors: [],
+            assets: [],
+            frontmatter: {},
+          });
+        }
+        if (path === "/v1/base/pages/wisdom/principles/prefer-evidence.md/links") {
+          return Promise.resolve({
+            path: "wisdom/principles/prefer-evidence.md",
+            outgoing: [],
+            incoming: [
+              {
+                src_path: "knowledge/concepts/postmortem.md",
+                src_doc_id: "k-1",
+                link_type: "wikilink",
+              },
+              {
+                src_path: "wisdom/delivery/release-checklist.md",
+                src_doc_id: "doc-release",
+                link_type: "wikilink",
+              },
+            ],
+          });
+        }
+        return Promise.resolve({});
+      },
+    );
 
     render(<WisdomPage client={client} />);
     const reader = await screen.findByRole("main", { name: "Wisdom reader" });
@@ -626,27 +663,33 @@ describe("WisdomPage backed by dikw-core API", () => {
   it("echoes custom frontmatter extras back via WisdomWriteSubmit.extras on Save", async () => {
     const client = setupClient();
     // Override the detail fetch to return a page with custom frontmatter keys.
-    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
-      if (path === "/v1/base/pages" && options?.params?.layer === "wisdom") {
-        return Promise.resolve(baseList.map((row) => ({ ...row })));
-      }
-      if (path === "/v1/base/pages/wisdom/principles/prefer-evidence.md") {
-        return Promise.resolve({
-          doc_id: "doc-prefer",
-          path: "wisdom/principles/prefer-evidence.md",
-          layer: "wisdom",
-          title: "Prefer evidence",
-          body: "Body.",
-          anchors: [],
-          assets: [],
-          frontmatter: { title: "Prefer evidence", aliases: ["evidence-first"], review_due: "2026-12" }
-        });
-      }
-      if (/\/v1\/base\/pages\/.+?\/links$/.test(path)) {
-        return Promise.resolve({ path: "x", outgoing: [], incoming: [] });
-      }
-      return Promise.resolve({});
-    });
+    client.get.mockImplementation(
+      (path: string, options?: { params?: Record<string, unknown> }) => {
+        if (path === "/v1/base/pages" && options?.params?.layer === "wisdom") {
+          return Promise.resolve(baseList.map((row) => ({ ...row })));
+        }
+        if (path === "/v1/base/pages/wisdom/principles/prefer-evidence.md") {
+          return Promise.resolve({
+            doc_id: "doc-prefer",
+            path: "wisdom/principles/prefer-evidence.md",
+            layer: "wisdom",
+            title: "Prefer evidence",
+            body: "Body.",
+            anchors: [],
+            assets: [],
+            frontmatter: {
+              title: "Prefer evidence",
+              aliases: ["evidence-first"],
+              review_due: "2026-12",
+            },
+          });
+        }
+        if (/\/v1\/base\/pages\/.+?\/links$/.test(path)) {
+          return Promise.resolve({ path: "x", outgoing: [], incoming: [] });
+        }
+        return Promise.resolve({});
+      },
+    );
 
     render(<WisdomPage client={client} />);
     const reader = await screen.findByRole("main", { name: "Wisdom reader" });
@@ -663,9 +706,9 @@ describe("WisdomPage backed by dikw-core API", () => {
       expect(client.post).toHaveBeenCalledWith(
         "/v1/base/wisdom",
         expect.objectContaining({
-          extras: expect.objectContaining({ aliases: ["evidence-first"], review_due: "2026-12" })
+          extras: expect.objectContaining({ aliases: ["evidence-first"], review_due: "2026-12" }),
         }),
-        expect.any(Object)
+        expect.any(Object),
       );
     });
   });
@@ -673,14 +716,16 @@ describe("WisdomPage backed by dikw-core API", () => {
   it("blocks New + Save while the wisdom list is still loading", async () => {
     const client = setupClient();
     let resolveList: ((value: unknown) => void) | null = null;
-    client.get.mockImplementation((path: string, options?: { params?: Record<string, unknown> }) => {
-      if (path === "/v1/base/pages" && options?.params?.layer === "wisdom") {
-        return new Promise((resolve) => {
-          resolveList = resolve;
-        });
-      }
-      return Promise.resolve({});
-    });
+    client.get.mockImplementation(
+      (path: string, options?: { params?: Record<string, unknown> }) => {
+        if (path === "/v1/base/pages" && options?.params?.layer === "wisdom") {
+          return new Promise((resolve) => {
+            resolveList = resolve;
+          });
+        }
+        return Promise.resolve({});
+      },
+    );
 
     render(<WisdomPage client={client} />);
     // Open New without the list loaded yet.
@@ -761,11 +806,13 @@ describe("WisdomPage backed by dikw-core API", () => {
     // The old selection's heading must no longer appear, and no detail fetch
     // against clientB should have been issued for the stale path.
     await waitFor(() => {
-      expect(within(reader).queryByText("wisdom/principles/prefer-evidence.md")).not.toBeInTheDocument();
+      expect(
+        within(reader).queryByText("wisdom/principles/prefer-evidence.md"),
+      ).not.toBeInTheDocument();
     });
     expect(clientB.get).not.toHaveBeenCalledWith(
       expect.stringContaining("/v1/base/pages/wisdom/principles/prefer-evidence.md"),
-      expect.anything()
+      expect.anything(),
     );
   });
 

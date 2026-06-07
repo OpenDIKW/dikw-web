@@ -27,12 +27,14 @@ the Vite proxy to avoid CORS; any other URL is requested directly.
 |---|---|
 | `npm.cmd run dev` | Vite dev server on `127.0.0.1:4321` (`--strictPort`) |
 | `npm.cmd run typecheck` | `tsc --noEmit` |
+| `npm.cmd run lint` | ESLint flat config, `--max-warnings 0` (hook deps, unused symbols, no browser `console`) |
+| `npm.cmd run format` / `format:check` | Prettier across code (`.ts/.tsx/.js/.mjs/.css/.json`; markdown excluded) |
 | `npm.cmd run test` | Vitest once (unit + component + server) |
 | `npm.cmd run test:watch` | Vitest watch mode |
 | `npm.cmd run test:coverage` | Vitest with coverage thresholds (60 / 45 / 55 / 60) |
 | `npm.cmd run test:e2e` | Playwright (Chromium); auto-starts dev server if needed |
 | `npm.cmd run build` | `tsc --noEmit` + `vite build` (browser to `dist/`) + `build:server` (esbuild to `dist-server/standalone.mjs`) |
-| `npm.cmd run verify` | Full gate: typecheck + coverage + build + e2e |
+| `npm.cmd run verify` | Full gate: lint + format:check + typecheck + coverage + build + e2e |
 
 Single-file iteration:
 

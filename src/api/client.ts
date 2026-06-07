@@ -9,7 +9,7 @@ import type {
   TaskHandle,
   TaskListPage,
   TaskRow,
-  TaskStatus
+  TaskStatus,
 } from "../types";
 
 export interface DikwClientConfig {
@@ -71,24 +71,21 @@ export class DikwClient {
     return this._coreId;
   }
 
-  get<T>(
-    path: string,
-    options: Omit<JsonRequestOptions, "method" | "body"> = {}
-  ): Promise<T> {
+  get<T>(path: string, options: Omit<JsonRequestOptions, "method" | "body"> = {}): Promise<T> {
     return this.requestJson<T>(path, { ...options, method: "GET" });
   }
 
   post<T>(
     path: string,
     body?: unknown,
-    options: Omit<JsonRequestOptions, "method" | "body"> = {}
+    options: Omit<JsonRequestOptions, "method" | "body"> = {},
   ): Promise<T> {
     return this.requestJson<T>(path, { ...options, method: "POST", body });
   }
 
   listTasks(
     params: { status?: TaskStatus; op?: string; limit?: number; cursor?: string } = {},
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<TaskListPage> {
     return this.requestJson<TaskListPage>("/v1/tasks", {
       method: "GET",
@@ -96,22 +93,22 @@ export class DikwClient {
         status: params.status,
         op: params.op,
         limit: params.limit,
-        cursor: params.cursor
+        cursor: params.cursor,
       },
-      signal
+      signal,
     });
   }
 
   getTask(taskId: string, signal?: AbortSignal): Promise<TaskRow> {
     return this.requestJson<TaskRow>(`/v1/tasks/${encodeURIComponent(taskId)}`, {
       method: "GET",
-      signal
+      signal,
     });
   }
 
   async getTaskResult<T = Record<string, unknown>>(
     taskId: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<T> {
     // ``GET /v1/tasks/{id}/result`` returns a ``TaskResultBody`` envelope
     // ``{ task_id, status, started_at, finished_at, result, error }``. Every
@@ -126,7 +123,7 @@ export class DikwClient {
       error: Record<string, unknown> | null;
     }>(`/v1/tasks/${encodeURIComponent(taskId)}/result`, {
       method: "GET",
-      signal
+      signal,
     });
     if (envelope.status !== "succeeded") {
       // Use a distinct ``code`` for cancelled vs failed so callers (notably
@@ -134,19 +131,16 @@ export class DikwClient {
       // the cancelled UI branch instead of treating it as a generic failure.
       throw new DikwClientError({
         status: 200,
-        code:
-          envelope.status === "cancelled"
-            ? "task_cancelled"
-            : "task_not_succeeded",
+        code: envelope.status === "cancelled" ? "task_cancelled" : "task_not_succeeded",
         message: `task ${taskId} terminated as ${envelope.status}; cannot return result`,
-        detail: envelope.error ?? undefined
+        detail: envelope.error ?? undefined,
       });
     }
     if (envelope.result === null) {
       throw new DikwClientError({
         status: 200,
         code: "task_result_empty",
-        message: `task ${taskId} succeeded but recorded no result`
+        message: `task ${taskId} succeeded but recorded no result`,
       });
     }
     return envelope.result;
@@ -167,7 +161,7 @@ export class DikwClient {
    */
   async getTaskFinalEvent(
     taskId: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<Extract<TaskEvent, { type: "final" }> | null> {
     const row = await this.getTask(taskId, signal);
     if (!isTerminalStatus(row.status)) {
@@ -179,22 +173,18 @@ export class DikwClient {
       ts: row.finished_at ?? row.created_at,
       status: row.status,
       result: row.result,
-      error: row.error
+      error: row.error,
     };
   }
 
   cancelTask(taskId: string, signal?: AbortSignal): Promise<unknown> {
-    return this.requestJson<unknown>(
-      `/v1/tasks/${encodeURIComponent(taskId)}/cancel`,
-      { method: "POST", signal }
-    );
+    return this.requestJson<unknown>(`/v1/tasks/${encodeURIComponent(taskId)}/cancel`, {
+      method: "POST",
+      signal,
+    });
   }
 
-  importBundle(
-    payload: Blob,
-    manifestJson: string,
-    signal?: AbortSignal
-  ): Promise<ImportResponse> {
+  importBundle(payload: Blob, manifestJson: string, signal?: AbortSignal): Promise<ImportResponse> {
     const form = new FormData();
     // Field names match dikw-core's routes_import.py multipart contract.
     form.append("payload", payload, "import.tar.gz");
@@ -202,40 +192,33 @@ export class DikwClient {
     return this.postMultipart<ImportResponse>("/v1/import", form, signal);
   }
 
-  startIngest(
-    opts: { noEmbed?: boolean } = {},
-    signal?: AbortSignal
-  ): Promise<TaskHandle> {
-    return this.post<TaskHandle>(
-      "/v1/ingest",
-      { no_embed: opts.noEmbed ?? false },
-      { signal }
-    );
+  startIngest(opts: { noEmbed?: boolean } = {}, signal?: AbortSignal): Promise<TaskHandle> {
+    return this.post<TaskHandle>("/v1/ingest", { no_embed: opts.noEmbed ?? false }, { signal });
   }
 
   startSynth(
     opts: { forceAll?: boolean; noEmbed?: boolean } = {},
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<TaskHandle> {
     return this.post<TaskHandle>(
       "/v1/synth",
       { force_all: opts.forceAll ?? false, no_embed: opts.noEmbed ?? false },
-      { signal }
+      { signal },
     );
   }
 
   startLintPropose(
     opts: { rule?: LintKind | null; limit?: number; enableLlm?: boolean } = {},
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<TaskHandle> {
     return this.post<TaskHandle>(
       "/v1/lint/propose",
       {
         rule: opts.rule ?? null,
         limit: opts.limit ?? 10,
-        enable_llm: opts.enableLlm ?? false
+        enable_llm: opts.enableLlm ?? false,
       },
-      { signal }
+      { signal },
     );
   }
 
@@ -245,27 +228,23 @@ export class DikwClient {
       pick?: number[] | null;
       skip?: number[] | null;
     },
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<TaskHandle> {
     return this.post<TaskHandle>(
       "/v1/lint/apply",
       {
         proposal_task_id: opts.proposalTaskId,
         pick: opts.pick ?? null,
-        skip: opts.skip ?? null
+        skip: opts.skip ?? null,
       },
-      { signal }
+      { signal },
     );
   }
 
-  async postMultipart<T>(
-    path: string,
-    form: FormData,
-    signal?: AbortSignal
-  ): Promise<T> {
+  async postMultipart<T>(path: string, form: FormData, signal?: AbortSignal): Promise<T> {
     // FormData sets its own Content-Type with boundary — never inject one.
     const headers: Record<string, string> = {
-      Accept: "application/json"
+      Accept: "application/json",
     };
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`;
@@ -274,7 +253,7 @@ export class DikwClient {
       method: "POST",
       headers,
       body: form,
-      signal
+      signal,
     });
     if (!response.ok) {
       throw await errorFromResponse(response);
@@ -290,7 +269,7 @@ export class DikwClient {
       method: options.method ?? "GET",
       headers: this.headers(options.body !== undefined),
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: options.signal
+      signal: options.signal,
     });
 
     if (!response.ok) {
@@ -306,19 +285,19 @@ export class DikwClient {
 
   streamRetrieve(
     body: { q: string; limit: number },
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): AsyncGenerator<RetrieveStreamEvent> {
     return this.streamNdjson<RetrieveStreamEvent>("/v1/retrieve", {
       method: "POST",
       body,
-      signal
+      signal,
     });
   }
 
   async *streamTaskEvents(
     taskId: string,
     fromSeq?: number,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): AsyncGenerator<TaskEvent> {
     const path = `/v1/tasks/${encodeURIComponent(taskId)}/events`;
     let cursor = fromSeq;
@@ -330,7 +309,7 @@ export class DikwClient {
         page = await this.requestJson<EventsPage>(path, {
           method: "GET",
           params: { from_seq: cursor, wait: 30 },
-          signal
+          signal,
         });
         failures = 0;
       } catch (error) {
@@ -367,7 +346,7 @@ export class DikwClient {
       method: options.method ?? "GET",
       headers: this.headers(options.body !== undefined),
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: options.signal
+      signal: options.signal,
     });
 
     if (!response.ok) {
@@ -378,7 +357,7 @@ export class DikwClient {
       throw new DikwClientError({
         status: response.status,
         code: "empty_stream",
-        message: "Server returned an empty stream body"
+        message: "Server returned an empty stream body",
       });
     }
 
@@ -387,7 +366,7 @@ export class DikwClient {
         throw new DikwClientError({
           status: response.status,
           code: "invalid_ndjson",
-          message: "NDJSON event is not a JSON object"
+          message: "NDJSON event is not a JSON object",
         });
       }
       if (event.type === "heartbeat") {
@@ -399,7 +378,7 @@ export class DikwClient {
 
   private headers(hasJsonBody: boolean): HeadersInit {
     const headers: Record<string, string> = {
-      Accept: "application/json, application/x-ndjson"
+      Accept: "application/json, application/x-ndjson",
     };
     if (hasJsonBody) {
       headers["Content-Type"] = "application/json";
@@ -414,15 +393,11 @@ export class DikwClient {
 export function buildRequestUrl(
   baseUrl: string,
   path: string,
-  params?: Record<string, string | number | boolean | null | undefined>
+  params?: Record<string, string | number | boolean | null | undefined>,
 ): string {
   const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  const origin =
-    typeof window === "undefined" ? "http://localhost" : window.location.origin;
-  const url =
-    baseUrl === ""
-      ? new URL(normalizedPath, origin)
-      : new URL(normalizedPath, baseUrl);
+  const origin = typeof window === "undefined" ? "http://localhost" : window.location.origin;
+  const url = baseUrl === "" ? new URL(normalizedPath, origin) : new URL(normalizedPath, baseUrl);
 
   if (params) {
     for (const [key, value] of Object.entries(params)) {
@@ -451,13 +426,13 @@ async function errorFromResponse(response: Response): Promise<DikwClientError> {
       status: response.status,
       code: envelope.error.code,
       message: envelope.error.message,
-      detail: envelope.error.detail
+      detail: envelope.error.detail,
     });
   }
   return new DikwClientError({
     status: response.status,
     code: `http_${response.status}`,
-    message: text.slice(0, 240) || response.statusText
+    message: text.slice(0, 240) || response.statusText,
   });
 }
 
@@ -475,8 +450,8 @@ function parseErrorEnvelope(text: string): ApiErrorEnvelope | null {
       error: {
         code,
         message,
-        detail: isRecord(detail) ? detail : undefined
-      }
+        detail: isRecord(detail) ? detail : undefined,
+      },
     };
   } catch {
     return null;
@@ -487,9 +462,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isTerminalStatus(
-  status: TaskStatus
-): status is "succeeded" | "failed" | "cancelled" {
+function isTerminalStatus(status: TaskStatus): status is "succeeded" | "failed" | "cancelled" {
   return status === "succeeded" || status === "failed" || status === "cancelled";
 }
 

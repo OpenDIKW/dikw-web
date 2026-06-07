@@ -43,7 +43,7 @@ function readOctal(view: Uint8Array, offset: number, length: number): number {
   if (!Number.isFinite(n) || n < 0) {
     throw new TarReaderError(
       "unsupported_format",
-      `non-octal numeric tar field at offset ${offset}: ${JSON.stringify(s)}`
+      `non-octal numeric tar field at offset ${offset}: ${JSON.stringify(s)}`,
     );
   }
   return n;
@@ -94,23 +94,20 @@ export function readTar(input: Uint8Array): TarEntry[] {
       return entries;
     }
     if (!verifyChecksum(input, pos)) {
-      throw new TarReaderError(
-        "bad_checksum",
-        `tar header checksum mismatch at offset ${pos}`
-      );
+      throw new TarReaderError("bad_checksum", `tar header checksum mismatch at offset ${pos}`);
     }
     const magic = readCstr(input, pos + 257, 6);
     if (magic !== "ustar") {
       throw new TarReaderError(
         "unsupported_format",
-        `unexpected tar magic ${JSON.stringify(magic)} at offset ${pos}`
+        `unexpected tar magic ${JSON.stringify(magic)} at offset ${pos}`,
       );
     }
     const typeflag = input[pos + 156];
     if (typeflag !== 0 && typeflag !== 0x30) {
       throw new TarReaderError(
         "unsupported_format",
-        `unsupported tar typeflag 0x${typeflag.toString(16)} at offset ${pos}`
+        `unsupported tar typeflag 0x${typeflag.toString(16)} at offset ${pos}`,
       );
     }
     const name = readCstr(input, pos, 100);
@@ -119,17 +116,14 @@ export function readTar(input: Uint8Array): TarEntry[] {
     if (isUnsafePath(archivePath)) {
       throw new TarReaderError(
         "unsafe_path",
-        `unsafe tar entry path: ${JSON.stringify(archivePath)}`
+        `unsafe tar entry path: ${JSON.stringify(archivePath)}`,
       );
     }
     const size = readOctal(input, pos + 124, 12);
     const dataStart = pos + TAR_BLOCK;
     const dataEnd = dataStart + size;
     if (dataEnd > input.length) {
-      throw new TarReaderError(
-        "truncated",
-        `tar entry ${archivePath} data truncated`
-      );
+      throw new TarReaderError("truncated", `tar entry ${archivePath} data truncated`);
     }
     entries.push({ archivePath, data: input.slice(dataStart, dataEnd) });
     pos = dataStart + Math.ceil(size / TAR_BLOCK) * TAR_BLOCK;
