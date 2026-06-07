@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./harness";
 import { mockDikwApi } from "./mockApi";
 
 const englishRoutes = [

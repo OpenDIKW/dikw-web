@@ -10,6 +10,8 @@ test-results/
 vite*.log
 *.local
 .agent-sessions/
-.claude/
+.claude/*
+# Track shared project skills, but keep local settings/locks out.
+!.claude/skills/
 # Runtime branding override (per-deployment; copy from public/config.example.json)
 /public/config.json

@@ -54,7 +54,7 @@ Working when: fewer unnecessary diffs, fewer rewrites from over-engineering, cla
 
 ## Delivery Loop
 
-End-to-end loop from request to landed PR. Run autonomously for behavior changes — don't wait for the user to prompt each step. Steps run in order; skip only with an explicit reason.
+End-to-end loop from request to landed PR. Run autonomously for behavior changes — don't wait for the user to prompt each step. Steps run in order; skip only with an explicit reason. The `dikw-web-delivery-workflow` skill (`.claude/skills/`) is the executable form of this loop — invoke it to run the steps below as one orchestration instead of re-deriving them from prose.
 
 1. **Clarify the request.** Restate it, surface assumptions, and ask before assuming. For non-trivial scope, build a plan with the `drill-me-with-docs` or `superpowers` planning skill before touching code.
 2. **Write the plan in the user's language.** Plan body follows the user's writing language (Chinese / English); code, identifiers, file paths, and commands stay English. Plans default to TDD: failing test first, smallest change to green, refactor (see `docs/tdd.md`).
@@ -62,7 +62,7 @@ End-to-end loop from request to landed PR. Run autonomously for behavior changes
    - 3.1 Run `/codex:review --background` for an independent review pass.
    - 3.2 Evaluate the findings, decide which are valid, and fix.
 4. **Final pass.** Run `/code-review` and resolve every finding before continuing.
-5. **Verify in the browser.** Use Chrome MCP to navigate the changed pages, exercise the affected interactions, and confirm the change actually rendered as intended — not just that unit tests pass.
+5. **Verify in the browser.** For UI changes, invoke the `dikw-web-verify-frontend` skill: navigate the changed routes via Chrome MCP, confirm a clean runtime console on real data, exercise the affected interactions, and run the `docs/ui-checklist.md` rubric in light + dark — confirm the change actually rendered as intended, not just that unit tests pass.
 6. **Update markdown docs.** Walk `CLAUDE.md`, `README.md`, and the relevant `docs/*.md` against the diff; any contract, behavior, command, or doc index that drifted must be updated in the same change. Don't leave docs to "catch up later".
 7. **Create the PR.** Branch with a descriptive name, commit with `<type>(<scope>): <subject>` matching the project's existing convention (see recent `git log`), push, then `gh pr create`. CI auto-runs typecheck + coverage + build + e2e + Trivy. Bump `package.json.version` manually (standard 3-digit SemVer) when the change warrants it, and add an entry to `CHANGELOG.md` under the matching version heading.
 8. **Monitor CI and PR comments; resolve as they surface, then merge.** After pushing, actively watch both signals — don't passively wait, and don't batch resolution to merge time.
@@ -161,7 +161,7 @@ Source 层 read tab 在渲染前会跑 `injectInlineRefs`(`src/utils/source-inli
 
 ## Testing approach
 
-TDD for behavior changes: failing test first, smallest change to green, then refactor. Page/component tests for visible behavior; API-boundary tests for client/sidecar contracts. Playwright covers route compatibility, i18n chrome, dark contrast, markdown rendering, chat layout, and graph interactions. `src/test/setup.ts` is the Vitest setup file; `jsdom` is the test environment.
+TDD for behavior changes: failing test first, smallest change to green, then refactor. Page/component tests for visible behavior; API-boundary tests for client/sidecar contracts. Playwright covers route compatibility, i18n chrome, dark contrast, markdown rendering, chat layout, and graph interactions. Every e2e spec imports `test`/`expect` from `tests/e2e/harness.ts` (not `@playwright/test` directly), which adds a **console gate** — any `console.error` or uncaught `pageerror` fails the test (resource-load 404s and `AbortError` are allowlisted; a test that deliberately drives an error path opts out with `test.use({ consoleGuard: false })`). `src/test/setup.ts` is the Vitest setup file; `jsdom` is the test environment. Qualitative UI rules (single-language chrome, dark reader contrast, small radii, no UI framework, graph filters) that aren't fully gated live as a pass/fail rubric in `docs/ui-checklist.md`, run by the `dikw-web-verify-frontend` skill.
 
 ## Patch intake
 
