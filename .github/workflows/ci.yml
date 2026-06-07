@@ -54,6 +54,9 @@ jobs:
       - name: Run verify gate
         run: npm run verify
 
+      - name: Bundle budget
+        run: npm run check:bundle
+
       - name: Upload coverage report
         if: always()
         uses: actions/upload-artifact@v7
