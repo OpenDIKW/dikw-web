@@ -199,6 +199,7 @@ Locale and theme regressions should be caught at the browser boundary:
 - `npm test`: one-shot Vitest suite.
 - `npm run test:coverage`: unit, component, hook, and page coverage with thresholds.
 - `npm run test:e2e`: Playwright browser tests with mocked `/v1` API responses.
+- `npm run smoke:core`: contract smoke against a LIVE `dikw-core` (not in CI; needs a reachable core).
 - `npm run verify`: typecheck, coverage, build, and E2E gate.
 
 ## Test Boundaries
@@ -215,3 +216,5 @@ Initial thresholds are intentionally modest: statements/lines 60%, functions 55%
 ## Real Core Smoke Testing
 
 Mocked E2E is the default gate. Manual smoke against a real local `dikw-core` remains useful before demos, but it should not block normal TDD work because local data and providers vary.
+
+`npm run smoke:core` (`scripts/smoke-core.mjs`, driven by the `dikw-web-smoke-core` skill) automates that smoke: it asserts the consumed `/v1` contract (the `wiki → knowledge` layer value, the `/v1/tasks` envelope, `PageReadResult.frontmatter`, the graph/health/status shapes — see `docs/core-contract.md`) against a reachable core and exits non-zero on drift. Because mocked e2e can never see real contract drift, run it after a `dikw-core` version bump or before a demo. It is intentionally outside CI (needs a live core) and uses Node `fetch` (proxy-immune for localhost).

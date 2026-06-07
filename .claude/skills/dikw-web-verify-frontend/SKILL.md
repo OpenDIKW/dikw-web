@@ -87,7 +87,14 @@ no-UI-framework, dark reader contrast, graph filters/legend/no-bloom, the
 markdown HTML allow-list, and the surface contracts. Items it marks "e2e: …" are
 already gated — for those, re-run that spec instead of eyeballing.
 
-## Step 3 — Close the loop
+## Step 3 — (if the change touches core data shape) smoke the live contract
+
+If the change reads a different `/v1` field/shape, the mocked e2e suite can't
+catch real drift. When a dikw-core is reachable, invoke **`dikw-web-smoke-core`**
+(`npm.cmd run smoke:core`) to assert the consumed contract against the real core.
+Skip when the change is purely presentational.
+
+## Step 4 — Close the loop
 
 Any ❌ → fix the source, re-run the affected gate, re-verify the route. Only
 report the UI change done once behavior + rubric pass clean in both themes. This

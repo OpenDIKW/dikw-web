@@ -3,6 +3,11 @@
 `dikw-web` is a read-only console over the `dikw-core` `/v1` HTTP API.
 This document records the web-facing subset that current tests lock.
 
+`scripts/smoke-core.mjs` (`npm run smoke:core`, the `dikw-web-smoke-core` skill)
+asserts the core invariants documented here against a **live** core — the e2e
+suite mocks `/v1`, so this script is what actually catches contract drift. Keep
+its assertions in lockstep with this doc.
+
 `/v1/query` is no longer part of the consumed core contract. Natural
 language answers are composed by the web-side Pi Agent sidecar, which
 uses core retrieval/page/wisdom endpoints as tools.
