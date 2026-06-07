@@ -11,6 +11,14 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **Live-core contract smoke** (`npm run smoke:core` → `scripts/smoke-core.mjs`,
+  driven by the new `dikw-web-smoke-core` skill). The e2e suite mocks `/v1`
+  entirely, so it can't see real contract drift; this script asserts the consumed
+  subset of `docs/core-contract.md` (the `wiki → knowledge` layer value, the
+  `/v1/tasks` envelope, `PageReadResult.frontmatter`, and the health/status/graph
+  shapes) against a reachable core and exits non-zero on drift. Intentionally
+  outside CI (needs a live core); Node `fetch` is proxy-immune for localhost.
+  Validated green against a live dikw-core 0.5.1. No new dependencies.
 - **E2E console gate.** Every Playwright spec now imports `test`/`expect` from a
   new `tests/e2e/harness.ts` instead of `@playwright/test`; the harness fails any
   test that emits a `console.error` or an uncaught `pageerror`, turning "the
