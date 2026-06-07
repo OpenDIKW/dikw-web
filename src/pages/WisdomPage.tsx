@@ -8,7 +8,7 @@ import {
   Plus,
   Search,
   Star,
-  X
+  X,
 } from "lucide-react";
 import { DikwClient, DikwClientError } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
@@ -20,7 +20,7 @@ import { injectInlineRefs } from "../utils/source-inline-refs";
 import {
   clearWisdomWriteState,
   loadWisdomWriteState,
-  saveWisdomWriteState
+  saveWisdomWriteState,
 } from "../state/wisdom-write";
 
 interface WisdomPageProps {
@@ -177,9 +177,9 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
     (signal: AbortSignal) =>
       client.get<DocumentRecord[]>("/v1/base/pages", {
         signal,
-        params: { layer: "wisdom", active: true }
+        params: { layer: "wisdom", active: true },
       }),
-    [client]
+    [client],
   );
   const wisdomList = useAsyncResource<DocumentRecord[]>(loadWisdomList, []);
 
@@ -233,7 +233,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
           // from the new list row.
           next.push({
             ...existing,
-            updatedTs: base.updatedTs
+            updatedTs: base.updatedTs,
           });
         } else {
           next.push(base);
@@ -268,7 +268,9 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
     const generation = detailGenerationRef.current;
     const controller = new AbortController();
     client
-      .get<PageReadResult>(`/v1/base/pages/${encodePath(selectedPath)}`, { signal: controller.signal })
+      .get<PageReadResult>(`/v1/base/pages/${encodePath(selectedPath)}`, {
+        signal: controller.signal,
+      })
       .then((result) => {
         if (controller.signal.aborted || detailGenerationRef.current !== generation) return;
         setPages((prev) =>
@@ -282,10 +284,10 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
                   tags: extractTagsFromFrontmatter(result.frontmatter) ?? p.tags,
                   title: result.title ?? p.title,
                   status: extractStatusFromFrontmatter(result.frontmatter) ?? p.status,
-                  extras: extractExtrasFromFrontmatter(result.frontmatter)
+                  extras: extractExtrasFromFrontmatter(result.frontmatter),
                 }
-              : p
-          )
+              : p,
+          ),
         );
       })
       .catch((err: unknown) => {
@@ -311,7 +313,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
     client
       .get<PageLinksResult>(`/v1/base/pages/${encodePath(selectedPath)}/links`, {
         signal: controller.signal,
-        params: { direction: "in" }
+        params: { direction: "in" },
       })
       .then((result) => {
         if (controller.signal.aborted || backlinksGenRef.current !== generation) return;
@@ -328,7 +330,10 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
           if (!link.src_path.startsWith("wisdom/")) continue;
           if (seen.has(link.src_path)) continue;
           seen.add(link.src_path);
-          refs.push({ path: link.src_path, title: titleByPath.get(link.src_path) ?? basename(link.src_path) });
+          refs.push({
+            path: link.src_path,
+            title: titleByPath.get(link.src_path) ?? basename(link.src_path),
+          });
         }
         setBacklinks(refs);
       })
@@ -354,7 +359,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
     client
       .get<DocumentRecord[]>("/v1/base/pages", {
         signal: controller.signal,
-        params: { layer: need, active: true }
+        params: { layer: need, active: true },
       })
       .then((rows) => {
         if (controller.signal.aborted) return;
@@ -363,7 +368,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
           path: row.path,
           title: row.title ?? basename(row.path),
           layer,
-          excerpt: ""
+          excerpt: "",
         }));
         if (need === "knowledge") setKCandidates(mapped);
         else setDCandidates(mapped);
@@ -433,7 +438,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
       },
       onError: (err) => {
         handleWriteFailure(err);
-      }
+      },
     });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -444,7 +449,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
   const displayedPages = useMemo<WisdomPage[]>(() => {
     if (!optimisticStatus.size) return pages;
     return pages.map((p) =>
-      optimisticStatus.has(p.path) ? { ...p, status: optimisticStatus.get(p.path)! } : p
+      optimisticStatus.has(p.path) ? { ...p, status: optimisticStatus.get(p.path)! } : p,
     );
   }, [pages, optimisticStatus]);
 
@@ -471,7 +476,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
 
   const selected = useMemo(
     () => displayedPages.find((p) => p.path === selectedPath) ?? null,
-    [displayedPages, selectedPath]
+    [displayedPages, selectedPath],
   );
 
   // Run the same inline-ref injection as the Source layer reader: backlink
@@ -487,7 +492,8 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
     return backlinks.filter((b) => !enhancedReadBody.matchedPaths.has(b.path));
   }, [selected, backlinks, enhancedReadBody.matchedPaths]);
 
-  const isDirty = mode === "edit" && draft !== null && selected !== null && pageIsDirty(selected, draft);
+  const isDirty =
+    mode === "edit" && draft !== null && selected !== null && pageIsDirty(selected, draft);
 
   const wisdomCandidatesForPopover = useMemo<WisdomCandidate[]>(
     () =>
@@ -497,9 +503,9 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
           path: p.path,
           title: p.title,
           layer: "w",
-          excerpt: firstBodyLine(p.body)
+          excerpt: firstBodyLine(p.body),
         })),
-    [displayedPages, selectedPath]
+    [displayedPages, selectedPath],
   );
 
   // ── navigation guards ──────────────────────────────────────────────────
@@ -657,7 +663,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
       // Preserve any custom frontmatter keys the page already had —
       // otherwise core's full-file rewrite would drop them. Empty for
       // pending drafts and for pages with no extras.
-      ...(Object.keys(selected.extras).length ? { extras: selected.extras } : {})
+      ...(Object.keys(selected.extras).length ? { extras: selected.extras } : {}),
     };
     setSaving(true);
     setSavingMessage(copy.savingMessage);
@@ -671,14 +677,14 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
       .then((handle) => {
         saveWisdomWriteState(
           { taskId: handle.task_id, targetPath: prevPath, slug: selected.slug, scope },
-          client.coreId
+          client.coreId,
         );
         return pollWriteTask({
           client,
           taskId: handle.task_id,
           signal: controller.signal,
           onTerminal: (report) => finalizeWrite(report, prevPath),
-          onError: (err) => handleWriteFailure(err)
+          onError: (err) => handleWriteFailure(err),
         });
       })
       .catch((err: unknown) => handleWriteFailure(err));
@@ -716,7 +722,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
     // "favorite", leaving the row stuck).
     const previousPreStarValue = preStarStatusRef.current.get(path);
     const nextStatus: WisdomStatus = wasFavorite
-      ? previousPreStarValue ?? "published"
+      ? (previousPreStarValue ?? "published")
       : "favorite";
     if (!wasFavorite) {
       preStarStatusRef.current.set(path, target.status);
@@ -760,7 +766,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
       // the (slow + costly) embedding step. The downside: the page falls
       // out of vector retrieval until the next ingest re-embeds it. See
       // CHANGELOG 0.0.12 for the deferred mitigation.
-      no_embed: true
+      no_embed: true,
     };
     setSaving(true);
     setSavingMessage(copy.savingStatusMessage);
@@ -771,7 +777,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
       .then((handle) => {
         saveWisdomWriteState(
           { taskId: handle.task_id, targetPath: path, slug: target.slug, scope: "favorite" },
-          client.coreId
+          client.coreId,
         );
         return pollWriteTask({
           client,
@@ -781,7 +787,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
           onError: (err) => {
             rollback();
             handleWriteFailure(err);
-          }
+          },
         });
       })
       .catch((err: unknown) => {
@@ -855,7 +861,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
       // A pending draft is a client-local create — there is no server body
       // to hydrate, so editing is immediately safe.
       bodyLoaded: true,
-      extras: {}
+      extras: {},
     };
     if (mode === "edit" && isDirty) {
       setUnsavedTarget({ kind: "create", page: created });
@@ -869,7 +875,10 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
     const el = textareaRef.current;
     const inserted = `[[${title}]]`;
     if (!el) {
-      setDraft({ ...draft, body: `${draft.body}${draft.body && !draft.body.endsWith("\n") ? "\n" : ""}${inserted}` });
+      setDraft({
+        ...draft,
+        body: `${draft.body}${draft.body && !draft.body.endsWith("\n") ? "\n" : ""}${inserted}`,
+      });
       setRefPopover(null);
       return;
     }
@@ -1022,7 +1031,9 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
           {selected ? (
             <>
               <div className="reader-header reader-header--stacked">
-                <div className="reader-header__path">{selected.isPending ? copy.pendingPathHint : selected.path}</div>
+                <div className="reader-header__path">
+                  {selected.isPending ? copy.pendingPathHint : selected.path}
+                </div>
                 <div className="reader-header__meta reader-header__meta--inline">
                   <span className="soft-label">{formatUnixSeconds(selected.updatedTs)}</span>
                   <button
@@ -1065,7 +1076,11 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
               </div>
 
               {mode === "read" ? (
-                <section className="wiki-reader-tab-panel" role="tabpanel" aria-label={copy.readTab}>
+                <section
+                  className="wiki-reader-tab-panel"
+                  role="tabpanel"
+                  aria-label={copy.readTab}
+                >
                   <MarkdownView
                     body={enhancedReadBody.body || selected.body}
                     fallbackTitle={selected.title}
@@ -1111,7 +1126,9 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
           dCandidates={dCandidates ?? []}
           candidatesLoading={refPopover.mode === "wikilink" ? !kCandidates : !dCandidates}
           onQueryChange={(query) => setRefPopover({ ...refPopover, query })}
-          onPick={(value) => (refPopover.mode === "wikilink" ? insertWikilink(value) : addSource(value))}
+          onPick={(value) =>
+            refPopover.mode === "wikilink" ? insertWikilink(value) : addSource(value)
+          }
           onClose={() => setRefPopover(null)}
           copy={copy}
         />
@@ -1154,7 +1171,7 @@ function recordToPage(row: DocumentRecord): WisdomPage {
     updatedTs: Math.floor(row.mtime),
     isPending: false,
     bodyLoaded: false,
-    extras: {}
+    extras: {},
   };
 }
 
@@ -1192,7 +1209,9 @@ function extractTagsFromFrontmatter(fm: Record<string, unknown> | undefined): st
   return out;
 }
 
-function extractStatusFromFrontmatter(fm: Record<string, unknown> | undefined): WisdomStatus | null {
+function extractStatusFromFrontmatter(
+  fm: Record<string, unknown> | undefined,
+): WisdomStatus | null {
   if (!fm) return null;
   const raw = fm.status;
   if (raw === "draft" || raw === "published" || raw === "favorite" || raw === "archived") {
@@ -1215,9 +1234,11 @@ const RESERVED_FRONTMATTER_KEYS = new Set([
   "sources",
   "author",
   "content",
-  "handler"
+  "handler",
 ]);
-function extractExtrasFromFrontmatter(fm: Record<string, unknown> | undefined): Record<string, unknown> {
+function extractExtrasFromFrontmatter(
+  fm: Record<string, unknown> | undefined,
+): Record<string, unknown> {
   if (!fm) return {};
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(fm)) {
@@ -1242,7 +1263,6 @@ async function pollWriteTask(args: {
     // informational — we just need to know when the task settles so we can
     // fetch the result envelope. ``streamTaskEvents`` exits on terminal
     // status (succeeded/failed/cancelled).
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for await (const _event of client.streamTaskEvents(taskId, 0, signal)) {
       if (signal.aborted) return;
     }
@@ -1263,7 +1283,7 @@ function WisdomTree({
   selectedPath,
   expandedIds,
   onToggle,
-  onSelect
+  onSelect,
 }: {
   nodes: WisdomTreeNode[];
   selectedPath: string | null;
@@ -1294,7 +1314,7 @@ function WisdomTreeNodeView({
   selectedPath,
   expandedIds,
   onToggle,
-  onSelect
+  onSelect,
 }: {
   node: WisdomTreeNode;
   depth: number;
@@ -1333,7 +1353,11 @@ function WisdomTreeNodeView({
         style={{ paddingLeft: `${10 + depth * 16}px` }}
         onClick={() => onToggle(node.id)}
       >
-        {expanded ? <ChevronDown size={15} aria-hidden="true" /> : <ChevronRight size={15} aria-hidden="true" />}
+        {expanded ? (
+          <ChevronDown size={15} aria-hidden="true" />
+        ) : (
+          <ChevronRight size={15} aria-hidden="true" />
+        )}
         <FolderIcon size={15} aria-hidden="true" />
         <strong>{node.name}</strong>
       </button>
@@ -1360,7 +1384,7 @@ function WisdomReadAside({
   backlinks,
   sources,
   onOpen,
-  copy
+  copy,
 }: {
   backlinks: Array<{ path: string; title: string }>;
   sources: string[];
@@ -1412,7 +1436,7 @@ function WisdomEditor({
   onOpenRefPopover,
   onOpenSourcesPopover,
   onSave,
-  copy
+  copy,
 }: {
   draft: { body: string; sources: string[] };
   saving: boolean;
@@ -1426,7 +1450,11 @@ function WisdomEditor({
   copy: WisdomCopy;
 }) {
   return (
-    <section className="wiki-reader-tab-panel wisdom-edit-panel" role="tabpanel" aria-label={copy.editTab}>
+    <section
+      className="wiki-reader-tab-panel wisdom-edit-panel"
+      role="tabpanel"
+      aria-label={copy.editTab}
+    >
       <div className="wisdom-editor">
         <div className="wisdom-editor__body-header wisdom-editor__section-header">
           <h3 className="wiki-backlinks__title">{copy.body}</h3>
@@ -1516,7 +1544,7 @@ function ReferencePopover({
   onQueryChange,
   onPick,
   onClose,
-  copy
+  copy,
 }: {
   mode: RefMode;
   query: string;
@@ -1593,7 +1621,9 @@ function ReferencePopover({
                   onClick={() => onPick(mode === "wikilink" ? c.title : c.path)}
                 >
                   <span className="wisdom-popover__item-row">
-                    <span className={`wisdom-popover__item-layer wisdom-popover__item-layer--${c.layer}`}>
+                    <span
+                      className={`wisdom-popover__item-layer wisdom-popover__item-layer--${c.layer}`}
+                    >
                       {copy.layerLabel[c.layer]}
                     </span>
                     <strong>{c.title}</strong>
@@ -1617,7 +1647,7 @@ function NewWisdomDialog({
   onChange,
   onCancel,
   onConfirm,
-  copy
+  copy,
 }: {
   state: NewDialogState;
   onChange: (next: NewDialogState) => void;
@@ -1676,10 +1706,14 @@ function NewWisdomDialog({
               "{path}",
               state.author.trim()
                 ? `wisdom/${state.author.trim()}/${state.slug.trim() || "<slug>"}.md`
-                : `wisdom/${state.slug.trim() || "<slug>"}.md`
+                : `wisdom/${state.slug.trim() || "<slug>"}.md`,
             )}
           </p>
-          {state.error ? <p className="wisdom-dialog__error" role="alert">{state.error}</p> : null}
+          {state.error ? (
+            <p className="wisdom-dialog__error" role="alert">
+              {state.error}
+            </p>
+          ) : null}
           <div className="wisdom-dialog__actions">
             <button type="button" className="secondary-button" onClick={onCancel}>
               {copy.cancel}
@@ -1697,7 +1731,7 @@ function NewWisdomDialog({
 function UnsavedDialog({
   onDiscard,
   onCancel,
-  copy
+  copy,
 }: {
   onDiscard: () => void;
   onCancel: () => void;
@@ -1783,7 +1817,7 @@ function buildWisdomTree(pages: WisdomPage[]): WisdomTreeNode[] {
           id,
           name: isFile ? p.title || basename(p.path) : part,
           children: [],
-          page: isFile ? p : null
+          page: isFile ? p : null,
         };
         current.children.push(child);
       } else if (isFile) {

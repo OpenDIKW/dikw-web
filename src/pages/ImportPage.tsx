@@ -3,11 +3,7 @@ import { Pause, Upload } from "lucide-react";
 import { DikwClient, DikwClientError } from "../api/client";
 import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
-import {
-  buildImportBundle,
-  lowerExt,
-  type ImportBundleResult
-} from "../utils/import-bundle";
+import { buildImportBundle, lowerExt, type ImportBundleResult } from "../utils/import-bundle";
 import {
   activeTaskId,
   clearPipelineState,
@@ -15,7 +11,7 @@ import {
   loadPipelineState,
   savePipelineState,
   type ConversionFileState,
-  type PipelineState
+  type PipelineState,
 } from "../state/import-pipeline";
 import {
   convertedToFiles,
@@ -24,14 +20,10 @@ import {
   MINERU_EXTENSIONS,
   tryOpenDefaultCache,
   type ConvertCache,
-  type ConvertedSource
+  type ConvertedSource,
 } from "../utils/mineru-convert";
 import { shortenFileName } from "../utils/shorten-filename";
-import type {
-  ApplyReport,
-  FixProposalReport,
-  TaskEvent
-} from "../types";
+import type { ApplyReport, FixProposalReport, TaskEvent } from "../types";
 import { IdlePicker } from "./import/IdlePicker";
 import { PipelineSteps } from "./import/PipelineSteps";
 import { LintReview } from "./import/LintReview";
@@ -56,21 +48,15 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   // persisted task id. If we initialized with ``initialState()`` then saved on
   // the next effect tick, the save would clear storage before the resume
   // effect could read it.
-  const [pipeline, setPipeline] = useState<PipelineState>(() =>
-    loadPipelineState(coreId)
-  );
+  const [pipeline, setPipeline] = useState<PipelineState>(() => loadPipelineState(coreId));
   // Track whether the current pipeline was resumed from storage rather than
   // started in this session — drives the resume banner over the stepper.
-  const [wasResumed, setWasResumed] = useState<boolean>(
-    () => pipeline.stage !== "idle"
-  );
+  const [wasResumed, setWasResumed] = useState<boolean>(() => pipeline.stage !== "idle");
   const [bundle, setBundle] = useState<ImportBundleResult | null>(null);
   const [bundleError, setBundleError] = useState<unknown>(null);
   const [bundleBuilding, setBundleBuilding] = useState(false);
   const [activeEvent, setActiveEvent] = useState<TaskEvent | null>(null);
-  const [pipelineStartedAt, setPipelineStartedAt] = useState<number | null>(
-    null
-  );
+  const [pipelineStartedAt, setPipelineStartedAt] = useState<number | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
   // Generation counter so a slow ``buildImportBundle`` from an earlier
   // selection can't overwrite a fresher one that finished first.
@@ -124,7 +110,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       controllerRef.current?.abort();
       convertCtrlRef.current?.abort();
     },
-    []
+    [],
   );
 
   // Probe /web/mineru/health once on mount. Failure (sidecar not running,
@@ -195,29 +181,26 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
 
       void runMineruBatch(mineru, gen, ctrl);
     },
-    [mineruEnabled]
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- buildAndSet/runMineruBatch are forward-referenced sibling callbacks; listing them would recreate this one each render
+    [mineruEnabled],
   );
 
   /** Run buildImportBundle and update bundle state for the given generation. */
-  const buildAndSet = useCallback(
-    async (files: File[], gen: number) => {
-      try {
-        if (files.length === 0) {
-          throw new Error("no files left after conversion");
-        }
-        const result = await buildImportBundle(files);
-        if (bundleGenRef.current !== gen) return; // superseded
-        setBundle(result);
-        setBundleBuilding(false);
-      } catch (err) {
-        if (bundleGenRef.current !== gen) return;
-        setBundleError(err);
-        setBundleBuilding(false);
+  const buildAndSet = useCallback(async (files: File[], gen: number) => {
+    try {
+      if (files.length === 0) {
+        throw new Error("no files left after conversion");
       }
-    },
-    []
-  );
+      const result = await buildImportBundle(files);
+      if (bundleGenRef.current !== gen) return; // superseded
+      setBundle(result);
+      setBundleBuilding(false);
+    } catch (err) {
+      if (bundleGenRef.current !== gen) return;
+      setBundleError(err);
+      setBundleBuilding(false);
+    }
+  }, []);
 
   /** Update one ConversionFileState entry. Identified by inputSha (the key
    *  in conversion.files). When inputSha is the original placeholder
@@ -226,7 +209,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     (
       mineru: File[],
       index: number,
-      update: Partial<ConversionFileState> & { inputSha?: string }
+      update: Partial<ConversionFileState> & { inputSha?: string },
     ) => {
       setPipeline((p) => {
         if (!p.conversion) return p;
@@ -248,7 +231,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         return { ...p, conversion: { files, inputOrder: p.conversion.inputOrder } };
       });
     },
-    []
+    [],
   );
 
   const runMineruBatch = useCallback(
@@ -269,7 +252,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
               ? file
               : new File([file], shortName, {
                   type: file.type,
-                  lastModified: file.lastModified
+                  lastModified: file.lastModified,
                 });
           try {
             const result = await convertSource(fileForConvert, {
@@ -287,7 +270,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
                   // start here to drive the elapsed timer in ConversionProgress.
                   updateConversionFile(mineru, i, {
                     substage: "hashing",
-                    startedAt: Date.now()
+                    startedAt: Date.now(),
                   });
                   return;
                 }
@@ -303,14 +286,14 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
                 if (e.phase === "downloading") {
                   updateConversionFile(mineru, i, { substage: "downloading" });
                 }
-              }
+              },
             });
             // After fetch resolves we have the real inputSha — re-key the
             // ConversionFileState entry to it so onSkipFailed addresses the
             // right row even after refresh-resume work lands.
             updateConversionFile(mineru, i, {
               inputSha: result.inputSha,
-              substage: "done"
+              substage: "done",
             });
             conversionResultsRef.current.set(result.inputSha, result);
           } catch (err) {
@@ -318,19 +301,18 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
               err instanceof MineruConvertError
                 ? err.code
                 : err instanceof Error
-                ? "mineru_api"
-                : "mineru_api";
+                  ? "mineru_api"
+                  : "mineru_api";
             const message = err instanceof Error ? err.message : String(err);
             updateConversionFile(mineru, i, {
               substage: "failed",
-              error: { code, message }
+              error: { code, message },
             });
           }
         }
       };
-      const workers = Array.from(
-        { length: Math.min(MINERU_CONCURRENCY, mineru.length) },
-        () => worker()
+      const workers = Array.from({ length: Math.min(MINERU_CONCURRENCY, mineru.length) }, () =>
+        worker(),
       );
       await Promise.all(workers);
       if (bundleGenRef.current !== gen) return;
@@ -350,8 +332,8 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       }
       await finalizeConversion(gen);
     },
-    [updateConversionFile]
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- finalizeConversion is a forward-referenced sibling callback
+    [updateConversionFile],
   );
 
   /** Combine native + successful conversions into a single File[], build
@@ -367,7 +349,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       setPipeline((p) => ({ ...p, stage: "idle", conversion: undefined }));
       await buildAndSet(all, gen);
     },
-    [buildAndSet]
+    [buildAndSet],
   );
 
   const onSkipFailed = useCallback(
@@ -384,12 +366,9 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         const inputOrder = p.conversion.inputOrder.filter((k) => k !== inputSha);
         delete files[inputSha];
         const remaining = Object.values(files);
-        const anyPending = remaining.some(
-          (f) => f.substage !== "done" && f.substage !== "failed"
-        );
+        const anyPending = remaining.some((f) => f.substage !== "done" && f.substage !== "failed");
         nextSucceededAny =
-          remaining.some((f) => f.substage === "done") ||
-          conversionResultsRef.current.size > 0;
+          remaining.some((f) => f.substage === "done") || conversionResultsRef.current.size > 0;
         shouldFinalize = !anyPending && nextSucceededAny;
         return { ...p, conversion: { files, inputOrder } };
       });
@@ -401,7 +380,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         });
       }
     },
-    [finalizeConversion]
+    [finalizeConversion],
   );
 
   const resetPicker = useCallback(() => {
@@ -442,7 +421,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       }
       return final;
     },
-    [client]
+    [client],
   );
 
   const startPipeline = useCallback(async () => {
@@ -460,7 +439,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       const importResult = await client.importBundle(
         bundle.payload,
         bundle.manifestJson,
-        controller.signal
+        controller.signal,
       );
 
       const ingestHandle = await client.startIngest({}, controller.signal);
@@ -468,18 +447,15 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         ...p,
         stage: "ingest",
         importResult,
-        ingestTaskId: ingestHandle.task_id
+        ingestTaskId: ingestHandle.task_id,
       }));
-      const ingestFinal = await consumeTask(
-        ingestHandle.task_id,
-        controller.signal
-      );
+      const ingestFinal = await consumeTask(ingestHandle.task_id, controller.signal);
       if (ingestFinal?.status !== "succeeded") {
         throw new PipelineFailure(
           "ingest",
           ingestFinal?.status === "cancelled"
             ? "ingest cancelled"
-            : taskErrorMessage(ingestFinal, "ingest failed")
+            : taskErrorMessage(ingestFinal, "ingest failed"),
         );
       }
 
@@ -487,18 +463,15 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       setPipeline((p) => ({
         ...p,
         stage: "synth",
-        synthTaskId: synthHandle.task_id
+        synthTaskId: synthHandle.task_id,
       }));
-      const synthFinal = await consumeTask(
-        synthHandle.task_id,
-        controller.signal
-      );
+      const synthFinal = await consumeTask(synthHandle.task_id, controller.signal);
       if (synthFinal?.status !== "succeeded") {
         throw new PipelineFailure(
           "synth",
           synthFinal?.status === "cancelled"
             ? "synth cancelled"
-            : taskErrorMessage(synthFinal, "synth failed")
+            : taskErrorMessage(synthFinal, "synth failed"),
         );
       }
 
@@ -506,23 +479,20 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       setPipeline((p) => ({
         ...p,
         stage: "lint-propose",
-        lintProposeTaskId: proposeHandle.task_id
+        lintProposeTaskId: proposeHandle.task_id,
       }));
-      const proposeFinal = await consumeTask(
-        proposeHandle.task_id,
-        controller.signal
-      );
+      const proposeFinal = await consumeTask(proposeHandle.task_id, controller.signal);
       if (proposeFinal?.status !== "succeeded") {
         throw new PipelineFailure(
           "lint-propose",
           proposeFinal?.status === "cancelled"
             ? "lint propose cancelled"
-            : taskErrorMessage(proposeFinal, "lint propose failed")
+            : taskErrorMessage(proposeFinal, "lint propose failed"),
         );
       }
       const proposeResult = await client.getTaskResult<FixProposalReport>(
         proposeHandle.task_id,
-        controller.signal
+        controller.signal,
       );
       const proposals = proposeResult.proposals ?? [];
       if (proposals.length === 0) {
@@ -530,7 +500,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           ...p,
           stage: "done",
           proposals: [],
-          picked: []
+          picked: [],
         }));
         return;
       }
@@ -538,7 +508,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         ...p,
         stage: "lint-review",
         proposals,
-        picked: proposals.map((_, i) => i)
+        picked: proposals.map((_, i) => i),
       }));
     } catch (err) {
       handlePipelineError(err, controller);
@@ -555,43 +525,37 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       try {
         const proposeId = pipeline.lintProposeTaskId;
         if (!proposeId) {
-          throw new PipelineFailure(
-            "lint-apply",
-            "missing propose task id; cannot apply"
-          );
+          throw new PipelineFailure("lint-apply", "missing propose task id; cannot apply");
         }
         const applyHandle = await client.startLintApply(
           { proposalTaskId: proposeId, pick: picked },
-          controller.signal
+          controller.signal,
         );
         setPipeline((p) => ({
           ...p,
           stage: "lint-apply",
-          lintApplyTaskId: applyHandle.task_id
+          lintApplyTaskId: applyHandle.task_id,
         }));
-        const applyFinal = await consumeTask(
-          applyHandle.task_id,
-          controller.signal
-        );
+        const applyFinal = await consumeTask(applyHandle.task_id, controller.signal);
         if (applyFinal?.status === "cancelled") {
           throw new PipelineFailure("lint-apply", "lint apply cancelled");
         }
         if (applyFinal?.status !== "succeeded") {
           throw new PipelineFailure(
             "lint-apply",
-            taskErrorMessage(applyFinal, "lint apply failed")
+            taskErrorMessage(applyFinal, "lint apply failed"),
           );
         }
         const applyReport = await client.getTaskResult<ApplyReport>(
           applyHandle.task_id,
-          controller.signal
+          controller.signal,
         );
         setPipeline((p) => ({ ...p, stage: "done", applyReport }));
       } catch (err) {
         handlePipelineError(err, controller);
       }
     },
-    [client, consumeTask, pipeline.lintProposeTaskId]
+    [client, consumeTask, pipeline.lintProposeTaskId],
   );
 
   const skipAllLint = useCallback(() => {
@@ -608,7 +572,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           setPipeline((p) => ({
             ...p,
             stage: "cancelled",
-            error: { stage: p.stage, message: `${p.stage} cancelled` }
+            error: { stage: p.stage, message: `${p.stage} cancelled` },
           }));
           return;
         }
@@ -618,8 +582,8 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
             stage: "failed",
             error: {
               stage: p.stage,
-              message: taskErrorMessage(final, `${p.stage} failed`)
-            }
+              message: taskErrorMessage(final, `${p.stage} failed`),
+            },
           }));
           return;
         }
@@ -628,30 +592,21 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           setPipeline((p) => ({
             ...p,
             stage: "synth",
-            synthTaskId: synthHandle.task_id
+            synthTaskId: synthHandle.task_id,
           }));
-          const synthFinal = await consumeTask(
-            synthHandle.task_id,
-            controller.signal
-          );
+          const synthFinal = await consumeTask(synthHandle.task_id, controller.signal);
           if (synthFinal?.status !== "succeeded") {
-            throw new PipelineFailure(
-              "synth",
-              taskErrorMessage(synthFinal, "synth failed")
-            );
+            throw new PipelineFailure("synth", taskErrorMessage(synthFinal, "synth failed"));
           }
           await continueFromSynth(controller);
         } else if (persisted.stage === "synth") {
           await continueFromSynth(controller);
         } else if (persisted.stage === "lint-propose") {
-          await finalizeProposeAndGate(
-            persisted.lintProposeTaskId!,
-            controller
-          );
+          await finalizeProposeAndGate(persisted.lintProposeTaskId!, controller);
         } else if (persisted.stage === "lint-apply") {
           const applyReport = await client.getTaskResult<ApplyReport>(
             persisted.lintApplyTaskId!,
-            controller.signal
+            controller.signal,
           );
           setPipeline((p) => ({ ...p, stage: "done", applyReport }));
         }
@@ -659,7 +614,8 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         handlePipelineError(err, controller);
       }
     },
-    [client, consumeTask]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- continueFromSynth/finalizeProposeAndGate are forward-referenced sibling callbacks
+    [client, consumeTask],
   );
 
   async function continueFromSynth(controller: AbortController) {
@@ -667,28 +623,22 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     setPipeline((p) => ({
       ...p,
       stage: "lint-propose",
-      lintProposeTaskId: proposeHandle.task_id
+      lintProposeTaskId: proposeHandle.task_id,
     }));
-    const proposeFinal = await consumeTask(
-      proposeHandle.task_id,
-      controller.signal
-    );
+    const proposeFinal = await consumeTask(proposeHandle.task_id, controller.signal);
     if (proposeFinal?.status !== "succeeded") {
       throw new PipelineFailure(
         "lint-propose",
-        taskErrorMessage(proposeFinal, "lint propose failed")
+        taskErrorMessage(proposeFinal, "lint propose failed"),
       );
     }
     await finalizeProposeAndGate(proposeHandle.task_id, controller);
   }
 
-  async function finalizeProposeAndGate(
-    proposeTaskId: string,
-    controller: AbortController
-  ) {
+  async function finalizeProposeAndGate(proposeTaskId: string, controller: AbortController) {
     const proposeResult = await client.getTaskResult<FixProposalReport>(
       proposeTaskId,
-      controller.signal
+      controller.signal,
     );
     const proposals = proposeResult.proposals ?? [];
     if (proposals.length === 0) {
@@ -699,7 +649,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       ...p,
       stage: "lint-review",
       proposals,
-      picked: proposals.map((_, i) => i)
+      picked: proposals.map((_, i) => i),
     }));
   }
 
@@ -712,8 +662,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     if (owner !== controllerRef.current || owner.signal.aborted) {
       return;
     }
-    const cancelled =
-      err instanceof DikwClientError && err.code === "task_cancelled";
+    const cancelled = err instanceof DikwClientError && err.code === "task_cancelled";
     setPipeline((p) => ({
       ...p,
       stage: cancelled ? "cancelled" : "failed",
@@ -723,10 +672,10 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           err instanceof DikwClientError
             ? err.message
             : err instanceof Error
-            ? err.message
-            : String(err),
-        code: err instanceof DikwClientError ? err.code : undefined
-      }
+              ? err.message
+              : String(err),
+        code: err instanceof DikwClientError ? err.code : undefined,
+      },
     }));
   }
 
@@ -753,7 +702,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     setPipeline((p) => ({
       ...p,
       stage: "cancelled",
-      error: { stage: p.stage, message: `${p.stage} cancelled by user` }
+      error: { stage: p.stage, message: `${p.stage} cancelled by user` },
     }));
   }, [client, pipeline]);
 
@@ -866,15 +815,9 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
             {copy.errorStageLabel}: {pipeline.error.stage}
           </div>
           <div>{pipeline.error.message}</div>
-          {pipeline.error.code ? (
-            <div className="notice__code">{pipeline.error.code}</div>
-          ) : null}
+          {pipeline.error.code ? <div className="notice__code">{pipeline.error.code}</div> : null}
           <div className="import-error-actions">
-            <button
-              type="button"
-              className="primary-button"
-              onClick={startOver}
-            >
+            <button type="button" className="primary-button" onClick={startOver}>
               <Upload size={16} />
               {copy.restart}
             </button>
@@ -891,7 +834,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
  *  doesn't accept them) and PDFs always stay native. */
 function partitionForMineru(
   files: File[],
-  mineruEnabled: boolean
+  mineruEnabled: boolean,
 ): { native: File[]; mineru: File[] } {
   const native: File[] = [];
   const mineru: File[] = [];
@@ -900,7 +843,14 @@ function partitionForMineru(
       const ext = lowerExt(f.name);
       // Office formats are unrecognized by the rest of the pipeline; drop
       // them silently. .pdf survives as a passive asset (existing behavior).
-      if (ext === ".doc" || ext === ".docx" || ext === ".ppt" || ext === ".pptx" || ext === ".xls" || ext === ".xlsx") {
+      if (
+        ext === ".doc" ||
+        ext === ".docx" ||
+        ext === ".ppt" ||
+        ext === ".pptx" ||
+        ext === ".xls" ||
+        ext === ".xlsx"
+      ) {
         continue;
       }
       native.push(f);
@@ -945,7 +895,7 @@ function collectMdReferences(files: File[]): Set<string> {
     // PDF as a source. This errs on the side of "convert everything" which
     // is the safer default — passive-asset PDFs are rare in practice.
     refs.add(""); // placeholder so the set is non-empty if md exists, but
-                  // we don't actually peek into the body.
+    // we don't actually peek into the body.
   }
   // Returning an empty set means "no md references known": all PDFs go to
   // mineru. The previous "placeholder" is misleading — clear it.
@@ -970,7 +920,7 @@ function makeInitialConversionState(mineru: File[]): {
       fileName: file.name,
       sizeBytes: file.size,
       ext: lowerExt(file.name),
-      substage: "queued"
+      substage: "queued",
     };
     inputOrder.push(key);
   }

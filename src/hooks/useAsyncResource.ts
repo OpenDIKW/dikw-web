@@ -9,7 +9,7 @@ export interface AsyncResource<T> {
 
 export function useAsyncResource<T>(
   load: (signal: AbortSignal) => Promise<T>,
-  deps: readonly unknown[]
+  deps: readonly unknown[],
 ): AsyncResource<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -45,6 +45,7 @@ export function useAsyncResource<T>(
     return () => {
       controller.abort();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deps is a caller-provided spread; the hook intentionally re-runs when any of them change
   }, [load, reloadId, ...deps]);
 
   return { data, error, loading, reload };

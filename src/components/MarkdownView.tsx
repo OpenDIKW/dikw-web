@@ -11,7 +11,7 @@ import {
   rawDetailsPattern,
   slugifyHeading,
   uniqueHeadingSlug,
-  type FrontmatterMeta
+  type FrontmatterMeta,
 } from "../utils/markdown";
 import type { PageAsset } from "../types";
 import {
@@ -19,7 +19,7 @@ import {
   isChartSpec,
   isChartType,
   parseChartFromDetails,
-  type ChartType
+  type ChartType,
 } from "../utils/chart-spec";
 import { buildRequestUrl } from "../api/client";
 import { basename } from "../utils/format";
@@ -44,7 +44,7 @@ interface MarkdownContext {
 const markdown = new MarkdownIt({
   html: false,
   linkify: true,
-  typographer: true
+  typographer: true,
 });
 
 installWikiLinks(markdown);
@@ -60,19 +60,23 @@ export function MarkdownView({
   showFrontmatter = true,
   assets,
   assetBaseUrl,
-  assetToken
+  assetToken,
 }: MarkdownViewProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const ctx = useMemo<MarkdownContext>(
-    () => ({ assets: assets ?? [], assetBaseUrl: assetBaseUrl ?? "", assetToken: assetToken ?? "" }),
-    [assets, assetBaseUrl, assetToken]
+    () => ({
+      assets: assets ?? [],
+      assetBaseUrl: assetBaseUrl ?? "",
+      assetToken: assetToken ?? "",
+    }),
+    [assets, assetBaseUrl, assetToken],
   );
   const { html, meta, needsFallbackTitle } = useMemo(() => {
     const parsed = parseMarkdownDocument(body, { stripDuplicateTitle: false });
     return {
       html: renderMarkdown(parsed.body, ctx),
       meta: parsed.meta,
-      needsFallbackTitle: Boolean(fallbackTitle && !hasTopHeading(parsed.body))
+      needsFallbackTitle: Boolean(fallbackTitle && !hasTopHeading(parsed.body)),
     };
   }, [body, ctx, fallbackTitle]);
 
@@ -138,7 +142,7 @@ function FrontmatterSummary({ meta }: { meta: FrontmatterMeta }) {
     ["id", meta.id],
     ["type", meta.type ?? meta.kind],
     ["updated", meta.updated],
-    ["status", meta.status]
+    ["status", meta.status],
   ].filter((row): row is [string, string] => typeof row[1] === "string" && row[1].length > 0);
 
   if (!rows.length && !tags.length && !sources.length) {
@@ -197,7 +201,7 @@ function installWikiLinks(md: MarkdownIt) {
     const token = tokens[index];
     const target = token.attrGet("data-target") ?? token.content;
     return `<button type="button" class="inline-wikilink" data-wiki-link="${escapeAttribute(
-      target
+      target,
     )}">${escapeHtml(token.content)}</button>`;
   };
 }
@@ -243,11 +247,11 @@ function installObsidianImages(md: MarkdownIt) {
     const altText = alt || basename(path);
     if (ctx?.assetToken) {
       return `<img class="markdown-image" data-asset-src="${escapeAttribute(
-        resolved
+        resolved,
       )}" alt="${escapeAttribute(altText)}" loading="lazy" />`;
     }
     return `<img class="markdown-image" src="${escapeAttribute(resolved)}" alt="${escapeAttribute(
-      altText
+      altText,
     )}" loading="lazy" />`;
   };
 }
@@ -281,7 +285,7 @@ function installStandardImages(md: MarkdownIt) {
       // so the CSS in src/styles.css applies uniformly; the auth-hydration
       // selector requires ``data-asset-src`` (absent here), so it stays inert.
       return `<img class="markdown-image" src="${escapeAttribute(
-        src
+        src,
       )}" alt="${escapeAttribute(alt)}"${titleAttr} loading="lazy" />`;
     }
 
@@ -295,22 +299,21 @@ function installStandardImages(md: MarkdownIt) {
     // cross-syntax leniency).
     const decoded = decodePathForDisplay(src);
     const resolved =
-      resolveAssetUrl(src, ctx) ??
-      (decoded !== src ? resolveAssetUrl(decoded, ctx) : null);
+      resolveAssetUrl(src, ctx) ?? (decoded !== src ? resolveAssetUrl(decoded, ctx) : null);
     if (!resolved) {
       // Echo the decoded form so the user sees what they wrote, not
       // ``%E5%B0%81…``.
       return `<span class="md-broken-image" title="asset not found">⚠ ${escapeHtml(
-        decoded
+        decoded,
       )}</span>`;
     }
     if (ctx?.assetToken) {
       return `<img class="markdown-image" data-asset-src="${escapeAttribute(
-        resolved
+        resolved,
       )}" alt="${escapeAttribute(alt)}"${titleAttr} loading="lazy" />`;
     }
     return `<img class="markdown-image" src="${escapeAttribute(
-      resolved
+      resolved,
     )}" alt="${escapeAttribute(alt)}"${titleAttr} loading="lazy" />`;
   };
 }
@@ -386,7 +389,7 @@ function installMath(md: MarkdownIt) {
       }
 
       const firstLine = state.src.slice(start + 2, max);
-      let content = "";
+      let content: string;
       let nextLine = startLine;
       const sameLineClose = firstLine.lastIndexOf("$$");
       if (sameLineClose >= 0 && firstLine.slice(0, sameLineClose).trim().length > 0) {
@@ -422,7 +425,7 @@ function installMath(md: MarkdownIt) {
       state.line = nextLine;
       return true;
     },
-    { alt: ["paragraph", "reference", "blockquote", "list"] }
+    { alt: ["paragraph", "reference", "blockquote", "list"] },
   );
 
   md.renderer.rules.math_inline = (tokens, index) => renderMath(tokens[index].content, false);
@@ -489,42 +492,57 @@ interface SafeRawBlock {
 }
 
 const rawTablePattern = /<table\b[\s\S]*?<\/table>/gi;
-const allowedTableTags = new Set(["table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col", "br"]);
+const allowedTableTags = new Set([
+  "table",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
+  "th",
+  "td",
+  "caption",
+  "colgroup",
+  "col",
+  "br",
+]);
 const allowedTableAttributes = new Set(["align", "colspan", "rowspan", "scope"]);
 
 function extractSafeDetails(
   body: string,
-  ctx: MarkdownContext
+  ctx: MarkdownContext,
 ): { markdownBody: string; details: SafeRawBlock[] } {
   const details: SafeRawBlock[] = [];
-  const markdownBody = body.replace(rawDetailsPattern, (raw, attributes: string, summary: string, content: string) => {
-    const open = parseDetailsOpenAttribute(attributes);
-    if (open === null) {
-      return raw;
-    }
-
-    const summaryText = summary.trim();
-    const summaryLower = summaryText.toLowerCase();
-    const trimmedContent = content.trim();
-    const placeholder = `DIKW_RAW_DETAILS_${details.length}`;
-
-    if (isChartType(summaryLower)) {
-      const chartHtml = tryRenderChartPlaceholder(summaryLower as ChartType, trimmedContent);
-      if (chartHtml) {
-        details.push({ placeholder, html: chartHtml });
-        return `\n\n${placeholder}\n\n`;
+  const markdownBody = body.replace(
+    rawDetailsPattern,
+    (raw, attributes: string, summary: string, content: string) => {
+      const open = parseDetailsOpenAttribute(attributes);
+      if (open === null) {
+        return raw;
       }
-    }
 
-    const renderedContent = renderMarkdown(trimmedContent, ctx);
-    details.push({
-      placeholder,
-      html: `<details class="markdown-details"${open ? " open" : ""}><summary>${escapeHtml(
-        summaryText
-      )}</summary><div class="markdown-details__body">${renderedContent}</div></details>`
-    });
-    return `\n\n${placeholder}\n\n`;
-  });
+      const summaryText = summary.trim();
+      const summaryLower = summaryText.toLowerCase();
+      const trimmedContent = content.trim();
+      const placeholder = `DIKW_RAW_DETAILS_${details.length}`;
+
+      if (isChartType(summaryLower)) {
+        const chartHtml = tryRenderChartPlaceholder(summaryLower as ChartType, trimmedContent);
+        if (chartHtml) {
+          details.push({ placeholder, html: chartHtml });
+          return `\n\n${placeholder}\n\n`;
+        }
+      }
+
+      const renderedContent = renderMarkdown(trimmedContent, ctx);
+      details.push({
+        placeholder,
+        html: `<details class="markdown-details"${open ? " open" : ""}><summary>${escapeHtml(
+          summaryText,
+        )}</summary><div class="markdown-details__body">${renderedContent}</div></details>`,
+      });
+      return `\n\n${placeholder}\n\n`;
+    },
+  );
 
   return { markdownBody, details };
 }
@@ -539,7 +557,7 @@ function tryRenderChartPlaceholder(type: ChartType, content: string): string | n
     ? `<div class="markdown-chart__caption">${spec.freeText.map(escapeHtml).join("<br/>")}</div>`
     : "";
   return `<div class="markdown-chart" data-chart-type="${escapeAttribute(type)}" data-chart-spec="${escapeAttribute(
-    encoded
+    encoded,
   )}" role="img" aria-label="${escapeAttribute(type)} chart"><div class="markdown-chart__canvas"></div>${caption}</div>`;
 }
 
@@ -629,7 +647,7 @@ function renderMath(content: string, displayMode: boolean): string {
       output: "htmlAndMathml",
       strict: false,
       throwOnError: false,
-      trust: false
+      trust: false,
     });
   } catch {
     const delimiter = displayMode ? "$$" : "$";
@@ -639,16 +657,18 @@ function renderMath(content: string, displayMode: boolean): string {
 
 function renderMermaidShell(source: string): string {
   return `<div class="mermaid-diagram" data-state="pending" data-mermaid-source="${escapeAttribute(
-    encodeURIComponent(source)
+    encodeURIComponent(source),
   )}"><div class="mermaid-diagram__loading">Rendering diagram...</div><pre class="mermaid-fallback" hidden><code>${escapeHtml(
-    source
+    source,
   )}</code></pre></div>`;
 }
 
 let mermaidRenderSequence = 0;
 
 async function renderMermaidDiagrams(root: HTMLElement, isCancelled: () => boolean): Promise<void> {
-  const diagrams = Array.from(root.querySelectorAll<HTMLElement>(".mermaid-diagram[data-state='pending']"));
+  const diagrams = Array.from(
+    root.querySelectorAll<HTMLElement>(".mermaid-diagram[data-state='pending']"),
+  );
   if (!diagrams.length) {
     return;
   }
@@ -661,7 +681,7 @@ async function renderMermaidDiagrams(root: HTMLElement, isCancelled: () => boole
       securityLevel: "strict",
       suppressErrorRendering: true,
       theme: root.ownerDocument.documentElement.dataset.theme === "dark" ? "dark" : "default",
-      flowchart: { htmlLabels: false }
+      flowchart: { htmlLabels: false },
     });
   } catch {
     diagrams.forEach((diagram) => renderMermaidFallback(diagram));
@@ -687,7 +707,9 @@ async function renderMermaidDiagrams(root: HTMLElement, isCancelled: () => boole
 }
 
 function renderMarkdownCharts(root: HTMLElement): () => void {
-  const placeholders = Array.from(root.querySelectorAll<HTMLElement>(".markdown-chart[data-chart-spec]"));
+  const placeholders = Array.from(
+    root.querySelectorAll<HTMLElement>(".markdown-chart[data-chart-spec]"),
+  );
   if (!placeholders.length) {
     return () => {};
   }
@@ -702,7 +724,7 @@ function renderMarkdownCharts(root: HTMLElement): () => void {
         import("echarts/core"),
         import("echarts/charts"),
         import("echarts/components"),
-        import("echarts/renderers")
+        import("echarts/renderers"),
       ]);
       echarts = core;
       echarts.use([
@@ -714,7 +736,7 @@ function renderMarkdownCharts(root: HTMLElement): () => void {
         components.TooltipComponent,
         components.TitleComponent,
         components.VisualMapComponent,
-        renderers.CanvasRenderer
+        renderers.CanvasRenderer,
       ]);
     } catch {
       for (const el of placeholders) {
@@ -782,16 +804,17 @@ function renderChartFallback(el: HTMLElement): void {
   }
 }
 
-function renderChartFallbackHtml(type: string, spec: { headers: string[]; rows: string[][] }): string {
-  const head = spec.headers
-    .map((cell) => `<th>${escapeHtml(cell)}</th>`)
-    .join("");
+function renderChartFallbackHtml(
+  type: string,
+  spec: { headers: string[]; rows: string[][] },
+): string {
+  const head = spec.headers.map((cell) => `<th>${escapeHtml(cell)}</th>`).join("");
   const body = spec.rows
     .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join("")}</tr>`)
     .join("");
   const table = `<div class="markdown-table-wrap"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
   return `<details class="markdown-details" open><summary>${escapeHtml(
-    type
+    type,
   )}</summary><div class="markdown-details__body">${table}</div></details>`;
 }
 
@@ -799,7 +822,9 @@ function hydrateAuthenticatedImages(root: HTMLElement, token: string): () => voi
   if (!token) {
     return () => {};
   }
-  const images = Array.from(root.querySelectorAll<HTMLImageElement>("img.markdown-image[data-asset-src]"));
+  const images = Array.from(
+    root.querySelectorAll<HTMLImageElement>("img.markdown-image[data-asset-src]"),
+  );
   if (!images.length) {
     return () => {};
   }
@@ -818,7 +843,7 @@ function hydrateAuthenticatedImages(root: HTMLElement, token: string): () => voi
       try {
         const response = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` },
-          signal: controller.signal
+          signal: controller.signal,
         });
         if (!response.ok) {
           throw new Error(`asset ${response.status}`);
@@ -847,7 +872,7 @@ function hydrateAuthenticatedImages(root: HTMLElement, token: string): () => voi
 function renderMermaidFallback(diagram: HTMLElement, source = readMermaidSource(diagram)): void {
   diagram.dataset.state = "error";
   diagram.innerHTML = `<div class="mermaid-diagram__error">Mermaid diagram could not be rendered.</div><pre class="code-block mermaid-fallback"><code>${escapeHtml(
-    source
+    source,
   )}</code></pre>`;
 }
 
@@ -898,7 +923,9 @@ function findDocumentAnchor(root: HTMLElement, rawTarget: string): HTMLElement |
     return slugMatch;
   }
 
-  const headings = Array.from(root.querySelectorAll<HTMLElement>("h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]"));
+  const headings = Array.from(
+    root.querySelectorAll<HTMLElement>("h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]"),
+  );
   return headings.find((heading) => heading.id.startsWith(slug || target)) ?? null;
 }
 
@@ -909,4 +936,3 @@ function decodeAnchorTarget(value: string): string {
     return value;
   }
 }
-

@@ -1,0 +1,16 @@
+# Generated / local — never reformat (mirrors the build & runtime artifacts in .gitignore)
+dist
+dist-server
+coverage
+playwright-report
+test-results
+.agent-sessions
+.tmp
+
+# Lockfile is tool-owned
+package-lock.json
+
+# Markdown is human-maintained prose (CLAUDE.md, docs, CHANGELOG, ADRs, skills).
+# Prettier's markdown pass is pure cosmetic churn (e.g. rewriting *italic* to
+# _italic_) with no correctness value, so this gate stays scoped to code.
+*.md

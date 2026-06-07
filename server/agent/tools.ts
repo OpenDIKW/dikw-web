@@ -1,7 +1,10 @@
 import { ProxyAgent } from "undici";
 
 const webProxyUrl =
-  process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy;
+  process.env.HTTPS_PROXY ||
+  process.env.https_proxy ||
+  process.env.HTTP_PROXY ||
+  process.env.http_proxy;
 const webProxyDispatcher = webProxyUrl ? new ProxyAgent(webProxyUrl) : undefined;
 
 export interface DikwToolsOptions {
@@ -64,8 +67,12 @@ function isPrivateOrLoopbackHost(hostname: string): boolean {
   }
   const ipv4 = lower.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (ipv4) {
-    const [a, b, , ] = [Number(ipv4[1]), Number(ipv4[2]), Number(ipv4[3]), Number(ipv4[4])];
-    if ([Number(ipv4[1]), Number(ipv4[2]), Number(ipv4[3]), Number(ipv4[4])].some((part) => part < 0 || part > 255)) {
+    const [a, b, ,] = [Number(ipv4[1]), Number(ipv4[2]), Number(ipv4[3]), Number(ipv4[4])];
+    if (
+      [Number(ipv4[1]), Number(ipv4[2]), Number(ipv4[3]), Number(ipv4[4])].some(
+        (part) => part < 0 || part > 255,
+      )
+    ) {
       return true;
     }
     if (a === 127 || a === 10 || a === 0) return true;
@@ -98,7 +105,7 @@ export class CoreToolClient {
     const response = await this.fetchImpl(this.url("/v1/retrieve"), {
       method: "POST",
       headers: this.headers(true),
-      body: JSON.stringify({ q, limit })
+      body: JSON.stringify({ q, limit }),
     });
     if (!response.ok) {
       throw new Error(await response.text());
@@ -109,7 +116,12 @@ export class CoreToolClient {
       if (!line.trim()) {
         continue;
       }
-      const event = JSON.parse(line) as { type?: string; status?: string; result?: unknown; error?: { message?: string } };
+      const event = JSON.parse(line) as {
+        type?: string;
+        status?: string;
+        result?: unknown;
+        error?: { message?: string };
+      };
       if (event.type === "final") {
         if (event.status === "succeeded") {
           finalResult = event.result;
@@ -150,13 +162,6 @@ async function readJsonResponse(response: Response): Promise<unknown> {
     throw new Error(await response.text());
   }
   return response.json();
-}
-
-interface BraveResult {
-  title?: unknown;
-  url?: unknown;
-  description?: unknown;
-  age?: unknown;
 }
 
 export interface WebSearchResult {
@@ -210,8 +215,8 @@ export class WebToolClient {
       headers: {
         Accept: "application/json",
         "Accept-Encoding": "gzip",
-        "X-Subscription-Token": this.braveApiKey
-      }
+        "X-Subscription-Token": this.braveApiKey,
+      },
     });
     const body = (await response.json().catch(() => ({}))) as { web?: { results?: unknown } };
     const rawResults = Array.isArray(body?.web?.results) ? body.web.results : [];
@@ -233,8 +238,8 @@ export class WebToolClient {
               description.length > WEB_SEARCH_DESC_MAX
                 ? description.slice(0, WEB_SEARCH_DESC_MAX - 1) + "…"
                 : description,
-            ...(typeof item.age === "string" ? { age: item.age } : {})
-          }
+            ...(typeof item.age === "string" ? { age: item.age } : {}),
+          },
         ];
       })
       .slice(0, safeCount);
@@ -249,7 +254,7 @@ export class WebToolClient {
     const response = await this.request(TAVILY_SEARCH_ENDPOINT, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ api_key: this.tavilyApiKey, query: q, max_results: safeCount })
+      body: JSON.stringify({ api_key: this.tavilyApiKey, query: q, max_results: safeCount }),
     });
     const body = (await response.json().catch(() => ({}))) as { results?: unknown };
     const rawResults = Array.isArray(body?.results) ? body.results : [];
@@ -270,8 +275,8 @@ export class WebToolClient {
             description:
               content.length > WEB_SEARCH_DESC_MAX
                 ? content.slice(0, WEB_SEARCH_DESC_MAX - 1) + "…"
-                : content
-          }
+                : content,
+          },
         ];
       })
       .slice(0, safeCount);
@@ -288,8 +293,8 @@ export class WebToolClient {
       headers: {
         Accept: "text/plain",
         Authorization: `Bearer ${this.jinaApiKey}`,
-        "X-Return-Format": format
-      }
+        "X-Return-Format": format,
+      },
     });
     const text = await response.text();
     const truncated = text.length > WEB_FETCH_MAX_CHARS;
@@ -299,7 +304,7 @@ export class WebToolClient {
 
   private async request(
     url: string,
-    init: { method?: string; headers: Record<string, string>; body?: BodyInit | null }
+    init: { method?: string; headers: Record<string, string>; body?: BodyInit | null },
   ): Promise<Response> {
     const signals: AbortSignal[] = [AbortSignal.timeout(WEB_TOOL_TIMEOUT_MS)];
     if (this.userSignal) {
@@ -309,7 +314,7 @@ export class WebToolClient {
       method: init.method,
       headers: init.headers,
       body: init.body,
-      signal: signals.length > 1 ? AbortSignal.any(signals) : signals[0]
+      signal: signals.length > 1 ? AbortSignal.any(signals) : signals[0],
     };
     if (webProxyDispatcher && this.fetchImpl === fetch) {
       fetchInit.dispatcher = webProxyDispatcher;

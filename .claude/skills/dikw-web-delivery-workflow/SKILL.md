@@ -28,9 +28,10 @@ a fresh agent that didn't write the code).
 3. **Simplify.** Run `/simplify` on the diff (reuse, simplification, altitude).
    Quality only — it does not hunt bugs.
 
-4. **Verify behavior deterministically.** `npm.cmd run typecheck`, then the
-   smallest useful `npx vitest run <file>` while iterating. Do not lower the
-   coverage thresholds in `vite.config.ts` to pass.
+4. **Verify behavior deterministically.** `npm.cmd run lint` + `npm.cmd run
+   typecheck`, then the smallest useful `npx vitest run <file>` while iterating.
+   Do not lower the coverage thresholds in `vite.config.ts` to pass. `npm.cmd run
+   format` keeps Prettier happy (both `lint` + `format:check` are in `verify`).
 
 5. **Verify in the browser.** If the change touched UI (`src/pages`,
    `src/components`, `src/styles.css`, chrome), invoke **`dikw-web-verify-frontend`**
@@ -50,7 +51,7 @@ a fresh agent that didn't write the code).
    the diff. Any contract/behavior/command/doc-index that drifted is updated in
    the **same** change — not "later". (Disk `.md` is English-only in this repo.)
 
-8. **Final gate + PR.** `npm.cmd run verify` (typecheck + coverage + build + e2e)
+8. **Final gate + PR.** `npm.cmd run verify` (lint + format:check + typecheck + coverage + build + e2e)
    green, then `npm.cmd run check:bundle` (gzip budget; also runs in CI). Bump
    `package.json` version (3-digit SemVer) and add a `CHANGELOG.md` entry when
    warranted. Branch with a descriptive name, commit `<type>(<scope>): <subject>`,
