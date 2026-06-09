@@ -16,9 +16,13 @@ file format introduced in `[0.0.1.0]` was dropped.
   `POST /web/translate/submit` (`{ blocks, targetLang }`, the document's markdown split
   into text blocks) → `202 { jobId }`, then poll `GET /web/translate/jobs/{id}` and fetch
   block-aligned `{ blocks: [{ i, tr }] }` from `…/result` (`…/cancel` aborts). One
-  non-streaming `@anthropic-ai/sdk` call over MiniMax translates the whole document at
-  once for cross-block coherence (deliberately **not** the ADK `MiniMaxLlm` adapter, which
-  is streaming-bound). Wikilink targets are server-side **re-pinned** by order
+  **streaming** `@anthropic-ai/sdk` call over MiniMax
+  (`messages.stream(...).finalMessage()`) translates the whole document at once for
+  cross-block coherence (deliberately **not** the ADK `MiniMaxLlm` adapter, which is bound
+  to ADK's `BaseLlm` interface); streaming keeps the connection alive for large outputs and
+  sidesteps the SDK's non-streaming ">10-min" guard, and retryable transport faults (429 /
+  timeout / 5xx / connection) are retried with exponential backoff + jitter. Wikilink
+  targets are server-side **re-pinned** by order
   (`repinWikilinks`) so a translated `[[target|label]]` keeps its destination even if the
   model rewrites it. Submit enforces a 4 MB / 2000-block cap. Reuses the chat agent's
   MiniMax credentials (`DIKW_AGENT_API_KEY` / `_BASE_URL` / `_MODEL`, no dedicated key);
