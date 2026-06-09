@@ -179,7 +179,12 @@ export function uniqueHeadingSlug(env: Record<string, unknown>, value: string): 
   env.headingSlugCounts = counts;
   const count = counts.get(slug) ?? 0;
   counts.set(slug, count + 1);
-  return count === 0 ? slug : `${slug}-${count + 1}`;
+  const unique = count === 0 ? slug : `${slug}-${count + 1}`;
+  // The bilingual reader renders the translated column through a prefixed env so
+  // its heading ids can't collide with the source column's in the same DOM
+  // (e.g. a term identical in both languages). Default (no prefix) is unchanged.
+  const prefix = typeof env.headingSlugPrefix === "string" ? env.headingSlugPrefix : "";
+  return prefix ? `${prefix}${unique}` : unique;
 }
 
 // Shared with MarkdownView. Both files use these to identify the same set of
