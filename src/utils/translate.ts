@@ -8,7 +8,10 @@
 import { sha256HexString } from "./import-bundle";
 import { CACHE_TTL_MS, isCacheEntryExpired } from "./mineru-convert";
 
-const TRANSLATE_VERSION = 1;
+// Bump when the translation logic changes in a way that makes previously-cached
+// results wrong (the key embeds this, so old entries miss and re-translate).
+// v2: server-side repair of untranslated / oversized / bilingual-echo blocks.
+const TRANSLATE_VERSION = 2;
 const DB_NAME = "dikw-translate-cache";
 const DB_STORE = "entries";
 const DB_VERSION = 1;
@@ -21,11 +24,20 @@ function pollRetryDelayMs(attempt: number, baseMs: number): number {
   return Math.min(baseMs * 2 ** (attempt - 1), POLL_RETRY_CAP_MS);
 }
 
+/** A block translated so far, mirroring the server's `{ i, tr }` wire shape. */
+export interface TranslatedBlock {
+  i: number;
+  tr: string;
+}
+
 export type TranslateProgress =
   | { phase: "hashing" }
   | { phase: "submitting" }
   | { phase: "polling" }
-  | { phase: "cache_hit" };
+  | { phase: "cache_hit" }
+  /** Emitted while the job runs as more batches land, carrying every block
+   *  translated so far so the caller can reveal them progressively. */
+  | { phase: "partial"; blocks: TranslatedBlock[] };
 
 export interface TranslateCache {
   get(key: string): Promise<string[] | null>;
@@ -90,7 +102,7 @@ export async function translateBlocks(
   opts.onProgress?.({ phase: "submitting" });
   const jobId = await submitJob(blocks, targetLang, signal, fetchFn);
   opts.onProgress?.({ phase: "polling" });
-  await pollUntilTerminal(jobId, signal, fetchFn, pollIntervalMs);
+  await pollUntilTerminal(jobId, signal, fetchFn, pollIntervalMs, opts.onProgress);
   const response = await fetchResult(jobId, signal, fetchFn, pollIntervalMs);
   if (response.status >= 400) {
     const body = await safeJson(response);
@@ -196,8 +208,10 @@ async function pollUntilTerminal(
   signal: AbortSignal | undefined,
   fetchFn: typeof fetch,
   pollIntervalMs: number,
+  onProgress?: (e: TranslateProgress) => void,
 ): Promise<void> {
   let failures = 0;
+  let lastPartialCount = 0;
   try {
     while (true) {
       throwIfAborted(signal);
@@ -237,6 +251,14 @@ async function pollUntilTerminal(
       }
       failures = 0;
       const body = await safeJson(response);
+      const partial = partialBlocksOf(body);
+      // The server republishes the same growing array on every poll; only surface
+      // a partial when new blocks have actually landed, so the dual column isn't
+      // re-rendered (every block, both columns) on each poll interval.
+      if (partial.length > lastPartialCount) {
+        lastPartialCount = partial.length;
+        onProgress?.({ phase: "partial", blocks: partial });
+      }
       const status = jobStatusOf(body);
       if (status === "succeeded") return;
       if (status === "failed") {
@@ -304,6 +326,24 @@ function jobStatusOf(body: unknown): string {
     if (typeof s === "string") return s;
   }
   return "";
+}
+
+/** Extract `progress.blocks` (the blocks translated so far) from a poll body,
+ *  validating each `{ i, tr }` so a malformed payload never reaches the caller. */
+function partialBlocksOf(body: unknown): TranslatedBlock[] {
+  const raw = (body as { progress?: { blocks?: unknown } } | null)?.progress?.blocks;
+  if (!Array.isArray(raw)) return [];
+  const out: TranslatedBlock[] = [];
+  for (const item of raw) {
+    if (item && typeof item === "object" && "i" in item && "tr" in item) {
+      const i = (item as { i: unknown }).i;
+      const tr = (item as { tr: unknown }).tr;
+      if (typeof i === "number" && Number.isInteger(i) && i >= 0 && typeof tr === "string") {
+        out.push({ i, tr });
+      }
+    }
+  }
+  return out;
 }
 
 function serverErrorMessage(body: unknown): string | undefined {

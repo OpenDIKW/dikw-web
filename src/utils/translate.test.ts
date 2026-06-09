@@ -75,6 +75,98 @@ describe("translateBlocks", () => {
     expect(urls.some((u) => u === "GET /web/translate/jobs/job-1/result")).toBe(true);
   });
 
+  it("emits partial blocks from the poll progress before the job succeeds", async () => {
+    const events: string[] = [];
+    let partialSeen: Array<{ i: number; tr: string }> = [];
+    let pollIdx = 0;
+    const fetchFn = (async (url: string) => {
+      if (url === "/web/translate/submit") return jsonResponse({ jobId: "job-1" }, 202);
+      if (url === "/web/translate/jobs/job-1") {
+        pollIdx += 1;
+        if (pollIdx === 1) {
+          return jsonResponse({
+            status: "running",
+            progress: { done: 1, total: 2, blocks: [{ i: 0, tr: "你好" }] },
+          });
+        }
+        return jsonResponse({ status: "succeeded" });
+      }
+      if (url === "/web/translate/jobs/job-1/result") {
+        return jsonResponse({
+          blocks: [
+            { i: 0, tr: "你好" },
+            { i: 1, tr: "世界" },
+          ],
+        });
+      }
+      return jsonResponse({ error: { code: "not_found" } }, 404);
+    }) as unknown as typeof fetch;
+
+    const out = await translateBlocks(["Hello", "World"], {
+      fetch: fetchFn,
+      pollIntervalMs: 1,
+      onProgress: (e) => {
+        events.push(e.phase);
+        if (e.phase === "partial") partialSeen = e.blocks;
+      },
+    });
+    expect(out).toEqual(["你好", "世界"]);
+    expect(events).toContain("partial");
+    expect(partialSeen).toEqual([{ i: 0, tr: "你好" }]);
+  });
+
+  it("emits a partial only when new blocks land, not on every poll", async () => {
+    const partials: number[] = [];
+    let pollIdx = 0;
+    const fetchFn = (async (url: string) => {
+      if (url === "/web/translate/submit") return jsonResponse({ jobId: "job-1" }, 202);
+      if (url === "/web/translate/jobs/job-1") {
+        pollIdx += 1;
+        // Polls 1–2 carry the SAME single block (no new batch landed); poll 3
+        // grows to two; poll 4 succeeds.
+        if (pollIdx <= 2) {
+          return jsonResponse({
+            status: "running",
+            progress: { done: 1, total: 2, blocks: [{ i: 0, tr: "你好" }] },
+          });
+        }
+        if (pollIdx === 3) {
+          return jsonResponse({
+            status: "running",
+            progress: {
+              done: 2,
+              total: 2,
+              blocks: [
+                { i: 0, tr: "你好" },
+                { i: 1, tr: "世界" },
+              ],
+            },
+          });
+        }
+        return jsonResponse({ status: "succeeded" });
+      }
+      if (url === "/web/translate/jobs/job-1/result") {
+        return jsonResponse({
+          blocks: [
+            { i: 0, tr: "你好" },
+            { i: 1, tr: "世界" },
+          ],
+        });
+      }
+      return jsonResponse({ error: { code: "not_found" } }, 404);
+    }) as unknown as typeof fetch;
+
+    await translateBlocks(["Hello", "World"], {
+      fetch: fetchFn,
+      pollIntervalMs: 1,
+      onProgress: (e) => {
+        if (e.phase === "partial") partials.push(e.blocks.length);
+      },
+    });
+    // One emit for the first block, one for the second — NOT one per poll.
+    expect(partials).toEqual([1, 2]);
+  });
+
   it("returns early on a cache hit without any network call", async () => {
     const { fetchFn, urls } = makeScriptedFetch([{ i: 0, tr: "你好" }]);
     const cache = new MemoryTranslateCache();
@@ -240,7 +332,7 @@ describe("IDBTranslateCache", () => {
   const NOW = 1_700_000_000_000;
   const rec = (
     over: Partial<{ translateVersion: number; translations: string[]; cachedAt: number }> = {},
-  ) => ({ translateVersion: 1, translations: ["你好"], cachedAt: NOW, ...over });
+  ) => ({ translateVersion: 2, translations: ["你好"], cachedAt: NOW, ...over });
 
   it("get returns the translations for a fresh, matching-version entry", async () => {
     const { db } = makeFakeIdb([["k", rec({ cachedAt: Date.now() })]]);

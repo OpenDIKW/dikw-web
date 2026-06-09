@@ -6,7 +6,7 @@ import type { MarkdownContext } from "./markdown-runtime";
 
 const ctx: MarkdownContext = { assets: [], assetBaseUrl: "", assetToken: "" };
 
-const headProps = { sourceColHead: "原文 · EN", trColHead: "中文 · AI 翻译" };
+const headProps = { sourceColHead: "原文", trColHead: "译文" };
 
 function renderView(
   blocks: BilingualBlock[],
@@ -48,14 +48,31 @@ describe("BilingualView", () => {
 
   it("renders column headers from the supplied labels", () => {
     renderView([{ kind: "text", source: "x", translation: "y" }]);
-    expect(screen.getByText("原文 · EN")).toBeInTheDocument();
-    expect(screen.getByText("中文 · AI 翻译")).toBeInTheDocument();
+    expect(screen.getByText("原文")).toBeInTheDocument();
+    expect(screen.getByText("译文")).toBeInTheDocument();
   });
 
   it("shows skeletons on text pairs while translating", () => {
     renderView([{ kind: "text", source: "Hello.", translation: undefined }], { translating: true });
     expect(document.querySelector(".bi-pair.is-loading")).not.toBeNull();
     expect(document.querySelector(".bi-skeleton")).not.toBeNull();
+  });
+
+  it("reveals each text pair independently as its translation arrives", () => {
+    // Mid-flight: block 0 is translated, block 1 is not. Only the pending pair
+    // should carry the loading skeleton — not the whole document.
+    renderView(
+      [
+        { kind: "text", source: "Done.", translation: "完成。" },
+        { kind: "text", source: "Pending.", translation: undefined },
+      ],
+      { translating: true },
+    );
+    const pairs = document.querySelectorAll(".bi-pair:not(.bi-pair--special)");
+    expect(pairs).toHaveLength(2);
+    expect(pairs[0].classList.contains("is-loading")).toBe(false);
+    expect(pairs[1].classList.contains("is-loading")).toBe(true);
+    expect(pairs[0].querySelector(".bi-tr-text")?.textContent).toContain("完成。");
   });
 
   it("drops the loading state and shows translated text once translations arrive", () => {

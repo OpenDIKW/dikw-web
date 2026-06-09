@@ -405,6 +405,9 @@ function handleJobStatus(res: ServerResponse, store: JobStore, jobId: string): v
   const payload: Record<string, unknown> = { jobId: job.id, status: job.status };
   // `phase` is a coarse hint; the browser drives its substage off `status`.
   if (job.phase) payload.phase = job.phase;
+  // `progress` (translate jobs) carries the blocks translated so far so the
+  // browser can reveal them progressively while the job is still running.
+  if (job.progress !== undefined) payload.progress = job.progress;
   if (job.error) payload.error = job.error;
   return json(res, payload);
 }

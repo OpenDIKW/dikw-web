@@ -67,6 +67,11 @@ a representative few. Route ↔ page (`src/App.tsx`):
 - **#base / #wisdom** — pick a page; body renders without shift; Info/Outline/
   Source tabs work; outline headings scroll; images load (or `.md-broken-image`);
   Source tab inlines K-page wikilinks. Dark = reader tokens, no near-white block.
+  On an **English** page with the translator enabled, toggle **AI 翻译** and run
+  the "Bilingual reader" block in `docs/ui-checklist.md`: figures appear once
+  centered (not duplicated per column), no paragraph stays English in the right
+  column (watch the dev log for `[translate] … returned untranslated`), reveal is
+  progressive, and a re-toggle is an instant **已缓存** hit.
 - **#chat** — send a message; response streams; right rail accumulates
   session-level sources/tools (does **not** filter per reply); panels bottom-stick.
 - **#graph** — (see gotcha) legend visible; search + hide-orphans only; click

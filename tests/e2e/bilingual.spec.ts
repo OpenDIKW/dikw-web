@@ -39,8 +39,9 @@ test("toggles AI translation into a dual-column view on an English page", async 
 
   const cols = page.locator(".bilingual-cols");
   await expect(cols).toBeVisible();
-  await expect(reader.getByText("Source · EN")).toBeVisible();
-  await expect(reader.getByText("Chinese · AI")).toBeVisible();
+  const colhead = reader.locator(".bi-colhead");
+  await expect(colhead.getByText("Source", { exact: true })).toBeVisible();
+  await expect(colhead.getByText("Translation", { exact: true })).toBeVisible();
   // Translation resolves and the right column shows the Chinese text.
   await expect(
     reader

@@ -18,7 +18,8 @@ interface UseBilingualReaderOptions {
 export interface BilingualReader {
   /** Toggle is ON (the dual-column view should render). */
   active: boolean;
-  /** The single whole-document translation request is in flight. */
+  /** A chunked translation is in flight; batches stream in and fill `blocks`
+   *  progressively until the final result lands. */
   translating: boolean;
   /** The translation came back from cache (drives the "cached" chip). */
   cached: boolean;
@@ -32,8 +33,10 @@ export interface BilingualReader {
 
 /**
  * Drives the Base reader's bilingual mode for one page: splits the body into
- * blocks, sends the text blocks to /web/translate as a single request, and maps
- * the result back 1:1. Resets when the body changes; aborts in-flight work on
+ * blocks, sends the text blocks to /web/translate, and maps the result back
+ * 1:1. The translation is chunked server-side, so partial batches arrive via
+ * `onProgress` and fill the columns progressively; the final result then
+ * overwrites them. Resets when the body changes; aborts in-flight work on
  * cancel / page switch.
  */
 export function useBilingualReader({
@@ -48,6 +51,10 @@ export function useBilingualReader({
   const [cached, setCached] = useState(false);
   const [error, setError] = useState<TranslateError | null>(null);
   const [translations, setTranslations] = useState<string[] | null>(null);
+  // Progressive reveal buffer: filled as batches arrive (sparse — `undefined`
+  // slots still show a skeleton). The complete `translations` takes precedence
+  // once the job finishes; this is cleared on reset/cancel.
+  const [partial, setPartial] = useState<(string | undefined)[] | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const runIdRef = useRef(0);
 
@@ -65,13 +72,25 @@ export function useBilingualReader({
     setTranslating(true);
     setError(null);
     setCached(false);
+    setPartial(null);
     void translate(textBlocks, {
       targetLang,
       signal: controller.signal,
       cache,
       onProgress: (e) => {
-        if (e.phase === "cache_hit" && runIdRef.current === runId) {
+        if (runIdRef.current !== runId) return;
+        if (e.phase === "cache_hit") {
           setCached(true);
+        } else if (e.phase === "partial") {
+          setPartial((prev) => {
+            const next = prev
+              ? prev.slice()
+              : new Array<string | undefined>(textBlocks.length).fill(undefined);
+            for (const { i, tr } of e.blocks) {
+              if (i >= 0 && i < next.length) next[i] = tr;
+            }
+            return next;
+          });
         }
       },
     })
@@ -107,6 +126,7 @@ export function useBilingualReader({
     setCached(false);
     setError(null);
     setTranslations(null);
+    setPartial(null);
   }, [body]);
 
   // Stop any in-flight request if the component unmounts.
@@ -137,19 +157,23 @@ export function useBilingualReader({
     runIdRef.current += 1;
     setActive(false);
     setTranslating(false);
+    setPartial(null);
   }, []);
 
   const biBlocks = useMemo<BilingualBlock[]>(() => {
+    // The complete result wins; until it lands, fall back to the progressive
+    // partial buffer so already-translated paragraphs show while the rest load.
+    const source = translations ?? partial;
     let textIndex = 0;
     return blocks.map((block) => {
       if (block.kind === "special") {
         return { kind: "special", source: block.md };
       }
-      const translation = translations ? translations[textIndex] : undefined;
+      const translation = source ? source[textIndex] : undefined;
       textIndex += 1;
       return { kind: "text", source: block.md, translation };
     });
-  }, [blocks, translations]);
+  }, [blocks, translations, partial]);
 
   return { active, translating, cached, error, blocks: biBlocks, toggle, retranslate, cancel };
 }

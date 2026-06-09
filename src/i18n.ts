@@ -142,8 +142,8 @@ export const translations = {
         bilingual: {
           toggle: "AI translate",
           toggleAria: "Show an AI Chinese translation alongside the source",
-          sourceColHead: "Source · EN",
-          trColHead: "Chinese · AI",
+          sourceColHead: "Source",
+          trColHead: "Translation",
           translating: "Translating to Chinese…",
           cached: "Cached",
           retranslate: "Re-translate",
@@ -565,8 +565,8 @@ export const translations = {
         bilingual: {
           toggle: "AI 翻译",
           toggleAria: "在原文旁显示 AI 中文翻译",
-          sourceColHead: "原文 · EN",
-          trColHead: "中文 · AI 翻译",
+          sourceColHead: "原文",
+          trColHead: "译文",
           translating: "正在翻译为中文…",
           cached: "已缓存",
           retranslate: "重新翻译",

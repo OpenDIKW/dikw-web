@@ -22,7 +22,8 @@ export interface BilingualBlock {
 interface BilingualViewProps {
   blocks: BilingualBlock[];
   ctx: MarkdownContext;
-  /** True while the (single, whole-document) translation request is in flight. */
+  /** True while the chunked translation is in flight; pairs whose translation
+   *  has not arrived yet show a skeleton, the rest show their text. */
   translating: boolean;
   onWikiLink?: (target: string, side: BilingualSide) => void;
   /** Column header labels, resolved to the active locale by the caller. */
@@ -109,8 +110,11 @@ function buildStackHtml(
         block.translation !== undefined
           ? renderMarkdownBlockHtml(block.translation, ctx, trEnv)
           : "";
+      // Per-block loading: a pair shows its skeleton only until ITS translation
+      // arrives, so batches reveal independently instead of all at the end.
+      const loading = block.translation === undefined && translating;
       return (
-        `<div class="bi-pair${translating ? " is-loading" : ""}">` +
+        `<div class="bi-pair${loading ? " is-loading" : ""}">` +
         `<div class="bi-block bi-block--src">${srcHtml}</div>` +
         `<div class="bi-block bi-block--tr">` +
         `<div class="bi-skeleton" aria-hidden="true"><span></span><span></span><span></span></div>` +

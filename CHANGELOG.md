@@ -15,13 +15,31 @@ file format introduced in `[0.0.1.0]` was dropped.
   of Base-reader bilingual reading. A **job + poll** API (mirroring mineru, issue #60):
   `POST /web/translate/submit` (`{ blocks, targetLang }`, the document's markdown split
   into text blocks) → `202 { jobId }`, then poll `GET /web/translate/jobs/{id}` and fetch
-  block-aligned `{ blocks: [{ i, tr }] }` from `…/result` (`…/cancel` aborts). One
-  **streaming** `@anthropic-ai/sdk` call over MiniMax
-  (`messages.stream(...).finalMessage()`) translates the whole document at once for
-  cross-block coherence (deliberately **not** the ADK `MiniMaxLlm` adapter, which is bound
-  to ADK's `BaseLlm` interface); streaming keeps the connection alive for large outputs and
-  sidesteps the SDK's non-streaming ">10-min" guard, and retryable transport faults (429 /
-  timeout / 5xx / connection) are retried with exponential backoff + jitter. Wikilink
+  block-aligned `{ blocks: [{ i, tr }] }` from `…/result` (`…/cancel` aborts). The text
+  blocks are translated in **ordered batches** (`splitIntoBatches`), one **streaming**
+  `@anthropic-ai/sdk` call per batch over MiniMax (`messages.stream(...).finalMessage()`;
+  deliberately **not** the ADK `MiniMaxLlm` adapter, which is bound to ADK's `BaseLlm`
+  interface). After each batch the runner publishes `progress: { done, total, blocks }` to
+  the poll status, so the browser reveals paragraphs **progressively** instead of waiting
+  for the whole document; per-batch timing is logged. The model wire protocol is a
+  **delimiter** — blocks joined by a distinctive sentinel line, reply split back on it —
+  **not** a JSON array: arbitrary scientific Markdown (LaTeX backslash commands like
+  `\circ`, unescaped quotes around code identifiers like `"scikit-learn"`, brackets)
+  round-trips verbatim instead of corrupting a JSON array (both modes were live-observed
+  failing the JSON protocol on a real paper). A **wrong block count** from the model is
+  reconciled by splitting the batch and re-translating the halves down to singletons (not a
+  re-ask — the miscount is often deterministic); two model failure modes a matching count
+  hides are self-healed by `repairBlocks` (Chinese target, one re-ask per block): a block **echoed
+  back untranslated** (≥ 6 English words, no CJK), or one whose translation **contains its source
+  verbatim** (bilingual echo) or is **> 2× the source length** above a 60-char floor (EN→中
+  compresses, so this flags hallucinated/continued content — live-observed on test2.md). The
+  flagged block is re-asked alone and the re-ask **re-validated**: a result still oversized/echoed
+  is rejected for the **source text** rather than injecting bloat. The system prompt also forbids
+  adding/continuing/summarizing/inventing content. The SDK's own `maxRetries` is 0 so retry
+  policy is single-sourced in `TranslatorClient.translate`, which retries retryable
+  transport faults (429 / timeout / 5xx / connection) and an **empty reply** with
+  exponential backoff + jitter; a truncated (`max_tokens`) reply and aborts are not
+  retried. Wikilink
   targets are server-side **re-pinned** by order
   (`repinWikilinks`) so a translated `[[target|label]]` keeps its destination even if the
   model rewrites it. Submit enforces a 4 MB / 2000-block cap. Reuses the chat agent's
@@ -30,15 +48,20 @@ file format introduced in `[0.0.1.0]` was dropped.
   missing key → `503 translate_disabled` and `GET /web/translate/health` →
   `{ enabled: false }` (the reader hides its AI 翻译 entry). Browser client
   `src/utils/translate.ts` adds an IndexedDB cache (`dikw-translate-cache`, 7-day TTL
-  sweep). The reader UI lands in a follow-up. No new dependencies.
+  sweep) keyed by a `TRANSLATE_VERSION` that is bumped when translation logic changes so
+  stale pre-fix translations are dropped. The reader UI lands in a follow-up. No new dependencies.
 - **Base reader bilingual reading** (`#base`) — the reader half of the feature above.
   English pages (detected after fetch via CJK ratio) gain an **AI translate** toggle
   fused onto the Read tab (`aria-pressed`, hairline seam) when the sidecar translator is
   configured; Chinese pages and a disabled translator show no toggle. Toggling on splits
-  the body into blocks, sends the text blocks to `/web/translate` as one request, and
-  renders a paragraph-aligned **dual-column** view (`BilingualView`): source markdown left,
-  Chinese right, with special blocks (code / tables / charts / `$$` math / rules) rendered
-  once and centered, never translated. A status bar exposes translating / cached /
+  the body into blocks, sends the text blocks to `/web/translate`, and renders a
+  paragraph-aligned **dual-column** view (`BilingualView`): source markdown left,
+  Chinese right, with special blocks (code / tables / charts / `$$` math / rules / standalone
+  image lines) rendered once and centered, never translated — a figure is no longer duplicated
+  and alt-translated across both columns, even when a hard line break joins it to its caption
+  (the MinerU figure shape). Translated paragraphs **stream in progressively** as
+  the sidecar's batches land (each pair shows a skeleton only until its own translation
+  arrives), rather than appearing all at once. A status bar exposes translating / cached /
   re-translate / cancel; narrow screens stack the columns. The shared markdown renderer was
   extracted from `MarkdownView` into `markdown-runtime` (mono and dual-column render through
   the exact same markdown-it instance, sanitizer, and chart / mermaid / image hydration);
