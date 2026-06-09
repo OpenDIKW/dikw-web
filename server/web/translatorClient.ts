@@ -55,6 +55,25 @@ export interface AnthropicLike {
 // and a reply that still hits the cap is caught via stop_reason in translate().
 const DEFAULT_MAX_TOKENS = 64000;
 
+/**
+ * Client timeout (ms) for the single non-streaming translation call.
+ *
+ * The `@anthropic-ai/sdk` refuses a non-streaming `messages.create` whose
+ * `max_tokens` could take longer than 10 minutes — UNLESS the client was built
+ * with an explicit `timeout` (the guard in `calculateNonstreamingTimeout` only
+ * runs when `_options.timeout == null`). Our 64K default cap estimates ~30 min,
+ * so without this the call throws before any request leaves the process and
+ * every translation fails. We keep the deliberate single non-streaming call and
+ * set a timeout scaled to `max_tokens` (the SDK's own per-token estimate),
+ * floored at 10 minutes so a large document neither trips the guard nor gets cut
+ * off. The job runs detached behind the job+poll API, so a long timeout is safe.
+ */
+export function nonstreamingTimeoutMs(maxTokens: number): number {
+  const tenMinutes = 10 * 60 * 1000;
+  const estimate = Math.ceil((60 * 60 * 1000 * maxTokens) / 128000);
+  return Math.max(tenMinutes, estimate);
+}
+
 const TARGET_LANG_NAMES: Record<string, string> = {
   zh: "Simplified Chinese",
   "zh-CN": "Simplified Chinese",
@@ -85,9 +104,15 @@ export class TranslatorClient {
     this.maxTokens = opts.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.apiKey = opts.apiKey;
     // Auth: `x-api-key` (SDK default) is the live-verified method for MiniMax.
+    // The explicit `timeout` is required — see nonstreamingTimeoutMs: without it
+    // the SDK throws "Streaming is required…" for our large max_tokens.
     this.client =
       opts.client ??
-      (new Anthropic({ baseURL: opts.baseUrl, apiKey: opts.apiKey }) as unknown as AnthropicLike);
+      (new Anthropic({
+        baseURL: opts.baseUrl,
+        apiKey: opts.apiKey,
+        timeout: nonstreamingTimeoutMs(this.maxTokens),
+      }) as unknown as AnthropicLike);
   }
 
   /** Translate `blocks` (each a markdown source block) into `targetLang`.
