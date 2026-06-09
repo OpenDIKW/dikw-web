@@ -1549,6 +1549,304 @@ textarea:focus {
   min-width: 0;
 }
 
+/* Fused Read + AI-translate control (the Read tab and a bonded bilingual
+   mode-toggle joined by a hairline seam). Scoped under .wiki-reader-tabs so
+   these win over the base `.wiki-reader-tabs button` rule above. */
+.wiki-reader-tabs {
+  align-items: center;
+}
+.wiki-reader-tabs .wrt-fused {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 6px;
+  background: transparent;
+}
+.wiki-reader-tabs .wrt-fused.is-active {
+  background: var(--reader-bg);
+  box-shadow: inset 0 0 0 1px var(--reader-border);
+}
+.wiki-reader-tabs .wrt-read,
+.wiki-reader-tabs .wrt-bi {
+  border: 0;
+  background: transparent;
+  color: var(--reader-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.wiki-reader-tabs .wrt-read {
+  padding: 7px 9px 7px 10px;
+  border-radius: 6px 0 0 6px;
+}
+.wiki-reader-tabs .wrt-read:only-child {
+  padding: 7px 10px;
+  border-radius: 6px;
+}
+.wiki-reader-tabs .wrt-fused.is-active .wrt-read {
+  color: var(--reader-link);
+}
+.wiki-reader-tabs .wrt-bi {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 11px;
+  border-radius: 0 6px 6px 0;
+  border-left: 1px solid var(--reader-border);
+}
+.wiki-reader-tabs .wrt-read:hover,
+.wiki-reader-tabs .wrt-bi:hover:not([aria-pressed="true"]) {
+  color: var(--reader-text);
+}
+.wiki-reader-tabs .wrt-bi[aria-pressed="true"] {
+  color: var(--reader-link);
+  background: color-mix(in srgb, var(--accent-soft) 70%, var(--reader-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, var(--reader-border));
+}
+.wiki-reader-tabs .wrt-fused.is-active .wrt-bi[aria-pressed="true"] {
+  border-left-color: color-mix(in srgb, var(--accent) 32%, var(--reader-border));
+}
+.wiki-reader-tabs .wrt-read:focus-visible,
+.wiki-reader-tabs .wrt-bi:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+/* Bilingual reading status bar (translating / cached / re-translate / cancel). */
+.bi-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 auto 14px;
+  max-width: 760px;
+  padding: 8px 12px;
+  border: 1px solid var(--reader-border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent-soft) 60%, var(--reader-bg));
+  font-size: 12.5px;
+  color: var(--reader-text);
+}
+.bi-statusbar--error {
+  background: color-mix(in srgb, var(--red) 12%, var(--reader-bg));
+  border-color: color-mix(in srgb, var(--red) 35%, var(--reader-border));
+}
+.bi-statusbar__left {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.bi-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 600;
+}
+.bi-statusbar__action {
+  border: 0;
+  background: transparent;
+  color: var(--reader-link);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bi-statusbar__action:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+.bi-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: bi-spin 0.7s linear infinite;
+}
+@keyframes bi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Paragraph-aligned dual columns. */
+.bilingual-cols {
+  position: relative;
+}
+.bilingual-cols::before {
+  content: "";
+  position: absolute;
+  top: 30px;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-0.5px);
+  background: var(--reader-border);
+}
+.bi-colhead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 40px;
+  margin-bottom: 8px;
+}
+.bi-colhead span {
+  padding: 0 4px 6px;
+  color: var(--reader-muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+.bilingual-stack {
+  display: grid;
+  row-gap: 6px;
+  line-height: 1.76;
+  color: var(--reader-text);
+}
+.bi-pair {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 40px;
+  align-items: start;
+  padding: 6px 4px 6px 12px;
+  border-radius: 6px;
+  transition: background 0.12s ease;
+}
+.bi-pair::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+.bi-pair:hover {
+  background: var(--accent-soft);
+}
+.bi-pair:hover::before {
+  background: var(--accent);
+}
+.bi-block {
+  min-width: 0;
+}
+.bi-block > :first-child {
+  margin-top: 0;
+}
+.bi-block > :last-child {
+  margin-bottom: 0;
+}
+.bi-skeleton {
+  display: none;
+}
+.bi-pair.is-loading .bi-skeleton {
+  display: block;
+  padding-top: 2px;
+}
+.bi-pair.is-loading .bi-tr-text {
+  display: none;
+}
+.bi-skeleton span {
+  display: block;
+  height: 0.78em;
+  margin: 0.55em 0;
+  border-radius: 5px;
+  background: linear-gradient(
+    90deg,
+    var(--reader-table-bg) 0%,
+    color-mix(in srgb, var(--reader-table-bg) 55%, var(--reader-bg)) 50%,
+    var(--reader-table-bg) 100%
+  );
+  background-size: 200% 100%;
+  animation: bi-shimmer 1.25s ease-in-out infinite;
+}
+.bi-skeleton span:nth-child(2) {
+  width: 92%;
+}
+.bi-skeleton span:nth-child(3) {
+  width: 64%;
+}
+.bi-tr-text {
+  animation: bi-fade 0.45s ease;
+}
+@keyframes bi-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+@keyframes bi-fade {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Special blocks (code/table/chart/math/rule): a single CENTERED shared
+   instance — not spanning both columns, masking the center hairline. */
+.bi-pair--special {
+  position: relative;
+  z-index: 1;
+  margin: 2px 0;
+  padding: 4px 0;
+  background: var(--reader-bg);
+}
+.bi-special {
+  max-width: 600px;
+  margin: 0 auto;
+}
+.bi-special .code-block,
+.bi-special .markdown-chart,
+.bi-special .markdown-table-wrap {
+  margin: 0 auto;
+}
+
+/* Narrow screens: collapse the two columns into a stacked single column. */
+@media (max-width: 1100px) {
+  .bilingual-cols::before {
+    display: none;
+  }
+  .bi-colhead {
+    display: none;
+  }
+  .bi-pair {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 2px;
+  }
+  .bi-block.bi-block--tr {
+    margin-top: 4px;
+    padding: 4px 10px;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--reader-bg));
+    border-radius: 0 6px 6px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bi-skeleton span,
+  .bi-tr-text,
+  .bi-spinner {
+    animation: none;
+  }
+  .bi-pair,
+  .bi-pair::before {
+    transition: none;
+  }
+}
+
 .wiki-info-panel,
 .wiki-outline-panel {
   display: grid;
