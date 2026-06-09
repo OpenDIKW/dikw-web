@@ -114,17 +114,18 @@ export function useBilingualReader({
 
   const toggle = useCallback(() => {
     if (!enabled) return;
-    setActive((wasActive) => {
-      if (wasActive) {
-        abortRef.current?.abort();
-        runIdRef.current += 1;
-        setTranslating(false);
-        return false;
-      }
-      if (!translations) run();
-      return true;
-    });
-  }, [enabled, translations, run]);
+    // Decide outside the setState updater — updaters must stay pure (React
+    // StrictMode invokes them twice, which would fire two translate requests).
+    if (active) {
+      abortRef.current?.abort();
+      runIdRef.current += 1;
+      setActive(false);
+      setTranslating(false);
+      return;
+    }
+    setActive(true);
+    if (!translations) run();
+  }, [enabled, active, translations, run]);
 
   const retranslate = useCallback(() => {
     if (!enabled) return;
