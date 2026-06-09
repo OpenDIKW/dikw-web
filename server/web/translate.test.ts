@@ -5,7 +5,8 @@ import { createWebHandler } from "./http";
 import { JobStore } from "./jobStore";
 import {
   type AnthropicLike,
-  nonstreamingTimeoutMs,
+  backoffDelayMs,
+  translationTimeoutMs,
   TranslatorClient,
   TranslatorClientError,
 } from "./translatorClient";
@@ -78,19 +79,25 @@ async function waitTerminal(store: JobStore, jobId: string): Promise<{ status: s
   throw new Error("job did not reach a terminal state");
 }
 
-/** Fake Anthropic transport. `reply` maps the input block array to either the
- *  translated string array (auto-JSON-encoded) or a raw text reply / thrown error. */
+/** Fake Anthropic streaming transport. `reply` maps the input block array to
+ *  either the translated string array (auto-JSON-encoded), a raw text reply, or
+ *  a thrown error. The throw happens in `finalMessage()` to mirror the real
+ *  stream, where transport faults surface when the stream is awaited. */
 function fakeAnthropic(
   reply: (blocks: string[]) => string[] | { text: string } | { throw: unknown },
 ): AnthropicLike {
   return {
     messages: {
-      async create(params) {
-        const blocks = JSON.parse(params.messages[0].content) as string[];
-        const out = reply(blocks);
-        if ("throw" in out) throw out.throw;
-        const text = "text" in out ? out.text : JSON.stringify(out);
-        return { content: [{ type: "text", text }] };
+      stream(params) {
+        return {
+          async finalMessage() {
+            const blocks = JSON.parse(params.messages[0].content) as string[];
+            const out = reply(blocks);
+            if ("throw" in out) throw out.throw;
+            const text = "text" in out ? out.text : JSON.stringify(out);
+            return { content: [{ type: "text", text }] };
+          },
+        };
       },
     },
   };
@@ -133,6 +140,7 @@ describe("TranslatorClient", () => {
         apiKey: "k",
         baseUrl: "x",
         model: "m",
+        maxRetries: 0, // this test only checks classification, not retry behavior
         client: fakeAnthropic(() => ({ throw: Object.assign(new Error("boom"), { status }) })),
       });
     await expect(mk(401).translate(["a"], "zh")).rejects.toMatchObject({ code: "translator_auth" });
@@ -163,9 +171,13 @@ describe("TranslatorClient", () => {
       model: "m",
       client: {
         messages: {
-          async create() {
-            // Valid JSON would have parsed; the truncation signal must win first.
-            return { content: [{ type: "text", text: '["你好"]' }], stop_reason: "max_tokens" };
+          stream() {
+            return {
+              async finalMessage() {
+                // Valid JSON would have parsed; the truncation signal wins first.
+                return { content: [{ type: "text", text: '["你好"]' }], stop_reason: "max_tokens" };
+              },
+            };
           },
         },
       },
@@ -183,6 +195,7 @@ describe("TranslatorClient", () => {
       apiKey: "k",
       baseUrl: "x",
       model: "m",
+      maxRetries: 0,
       client: fakeAnthropic(() => ({ throw: err })),
     });
     await expect(client.translate(["a"], "zh")).rejects.toMatchObject({
@@ -197,6 +210,7 @@ describe("TranslatorClient", () => {
       apiKey: KEY,
       baseUrl: "x",
       model: "m",
+      maxRetries: 0,
       client: fakeAnthropic(() => ({ throw: new Error(`auth failed using key ${KEY}`) })),
     });
     let caught: unknown;
@@ -210,24 +224,121 @@ describe("TranslatorClient", () => {
     expect((caught as Error).message).toContain("…3456");
   });
 
-  it("builds the real Anthropic client with an explicit timeout so a large max_tokens clears the SDK's non-streaming guard", () => {
-    // Regression: a non-streaming messages.create whose max_tokens could take
-    // >10min throws "Streaming is required…" UNLESS the client was constructed
-    // with an explicit timeout. The 64K default estimates ~30min, so the real
-    // client's timeout must be set and exceed the SDK's 10-minute default.
+  it("builds the real Anthropic client with an explicit timeout and SDK retries disabled", () => {
+    // The streaming call uses messages.stream(...).finalMessage(); the explicit
+    // timeout (scaled to max_tokens, > the SDK's 10-min default) keeps a long
+    // generation from being severed mid-stream, and maxRetries: 0 hands retry
+    // policy entirely to our own backoff wrapper.
     const tc = new TranslatorClient({
       apiKey: "k",
       baseUrl: "https://api.minimaxi.com/anthropic",
       model: "MiniMax-M3",
     });
-    const real = (tc as unknown as { client: { timeout?: unknown } }).client;
+    const real = (tc as unknown as { client: { timeout?: unknown; maxRetries?: unknown } }).client;
     expect(typeof real.timeout).toBe("number");
     expect(real.timeout as number).toBeGreaterThan(10 * 60 * 1000);
+    expect(real.maxRetries).toBe(0);
   });
 
-  it("scales the non-streaming timeout to max_tokens with a 10-minute floor", () => {
-    expect(nonstreamingTimeoutMs(64000)).toBe(1_800_000); // ~30 min at the default cap
-    expect(nonstreamingTimeoutMs(1000)).toBe(10 * 60 * 1000); // small docs floored at 10 min
+  it("scales the request timeout to max_tokens with a 10-minute floor", () => {
+    expect(translationTimeoutMs(64000)).toBe(1_800_000); // ~30 min at the default cap
+    expect(translationTimeoutMs(1000)).toBe(10 * 60 * 1000); // small docs floored at 10 min
+  });
+
+  it("retries a retryable transport fault with backoff, then succeeds", async () => {
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      retryBaseMs: 0, // retry without real timers
+      client: fakeAnthropic(() => {
+        calls += 1;
+        if (calls < 3) return { throw: Object.assign(new Error("flaky"), { status: 503 }) };
+        return ["你好"];
+      }),
+    });
+    expect(await client.translate(["Hello"], "zh")).toEqual(["你好"]);
+    expect(calls).toBe(3); // 1 initial + 2 retries (default maxRetries)
+  });
+
+  it("does not retry a non-retryable error (auth)", async () => {
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      retryBaseMs: 0,
+      client: fakeAnthropic(() => {
+        calls += 1;
+        return { throw: Object.assign(new Error("nope"), { status: 401 }) };
+      }),
+    });
+    await expect(client.translate(["a"], "zh")).rejects.toMatchObject({ code: "translator_auth" });
+    expect(calls).toBe(1);
+  });
+
+  it("gives up after maxRetries and surfaces the last classified error", async () => {
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 1,
+      retryBaseMs: 0,
+      client: fakeAnthropic(() => {
+        calls += 1;
+        return { throw: Object.assign(new Error("down"), { status: 500 }) };
+      }),
+    });
+    await expect(client.translate(["a"], "zh")).rejects.toMatchObject({ code: "translator_api" });
+    expect(calls).toBe(2); // 1 initial + 1 retry
+  });
+
+  it("does not retry a malformed reply (parsing is outside the retry loop)", async () => {
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      retryBaseMs: 0,
+      client: fakeAnthropic(() => {
+        calls += 1;
+        return { text: "not json at all" };
+      }),
+    });
+    await expect(client.translate(["a"], "zh")).rejects.toMatchObject({
+      code: "translator_invalid_response",
+    });
+    expect(calls).toBe(1);
+  });
+
+  it("stops retrying once the abort signal fires", async () => {
+    const controller = new AbortController();
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      retryBaseMs: 0,
+      signal: controller.signal,
+      client: fakeAnthropic(() => {
+        calls += 1;
+        controller.abort(); // abort mid-flight after the first failed attempt
+        return { throw: Object.assign(new Error("boom"), { status: 503 }) };
+      }),
+    });
+    await expect(client.translate(["a"], "zh")).rejects.toBeInstanceOf(TranslatorClientError);
+    expect(calls).toBe(1); // the abort blocks any retry
+  });
+
+  it("computes exponential backoff with jitter, capped", () => {
+    // retry 1 → base, retry 3 → base*4, all within +25% jitter; large retries cap.
+    expect(backoffDelayMs(1, 1000, 100_000)).toBeGreaterThanOrEqual(1000);
+    expect(backoffDelayMs(1, 1000, 100_000)).toBeLessThanOrEqual(1250);
+    expect(backoffDelayMs(3, 1000, 100_000)).toBeGreaterThanOrEqual(4000);
+    expect(backoffDelayMs(3, 1000, 100_000)).toBeLessThanOrEqual(5000);
+    expect(backoffDelayMs(20, 1000, 5000)).toBeLessThanOrEqual(6250); // capped at 5000 + 25%
   });
 });
 

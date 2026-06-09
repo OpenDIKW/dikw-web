@@ -80,8 +80,14 @@ map with abort, cancel, re-translate, and reset-on-page-change.
   (new chart types, sanitizer changes) apply to both for free; the cost is that
   `markdown-runtime` is now a shared dependency that must stay behavior-preserving
   for `MarkdownView` (gated by `MarkdownView.test.tsx`).
-- Translation quality and cost depend on the configured MiniMax model; the
-  feature degrades cleanly to single-column when the translator key is absent.
+- Translation quality and cost depend on the configured MiniMax model. The
+  translator reuses the chat agent's `DIKW_AGENT_*` credentials (no dedicated
+  key), so the feature degrades cleanly to single-column when `DIKW_AGENT_API_KEY`
+  is absent.
+- The sidecar makes the call streaming (`messages.stream(...).finalMessage()`)
+  and retries retryable transport faults with backoff. This is a backend
+  reliability detail invisible to the reader — the result is still buffered and
+  delivered whole via job+poll, so the dual column reveal is unchanged.
 - The translated-column wikilink preview is currently the source page (the
   `side` is plumbed through but not yet used to translate the preview); this is a
   deliberate follow-up, not a regression.

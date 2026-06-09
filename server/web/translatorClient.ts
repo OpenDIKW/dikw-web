@@ -1,9 +1,18 @@
 // Sidecar-only LLM client for /web/translate. Translates a document's markdown
-// blocks to a target language in ONE non-streaming call (full-document context
-// for coherence) and returns a block-aligned array.
+// blocks to a target language in ONE call (full-document context for coherence)
+// and returns a block-aligned array.
+//
+// The call is STREAMING (`messages.stream(...).finalMessage()`): a whole-document
+// translation can emit tens of thousands of tokens over several minutes, and a
+// non-streaming request holds the connection idle until the entire body is
+// generated — vulnerable to gateway idle-timeouts and the SDK's own
+// "Streaming is required for operations that may take longer than 10 minutes"
+// guard. Streaming keeps bytes flowing, so it is the more reliable transport for
+// large outputs; the sidecar buffers the full stream server-side, so the
+// browser-facing job+poll contract (whole result at once) is unchanged.
 //
 // Deliberately does NOT reuse server/agent/minimaxLlm.ts — that adapter is bound
-// to Google ADK's streaming `BaseLlm` interface. We talk to the same MiniMax
+// to Google ADK's `BaseLlm` interface. We talk to the same MiniMax
 // (Anthropic-compatible) endpoint directly via @anthropic-ai/sdk, with an
 // injectable `client` seam so tests never hit the network.
 
@@ -18,10 +27,15 @@ export type TranslatorErrorCode =
 
 export class TranslatorClientError extends Error {
   readonly code: TranslatorErrorCode;
-  constructor(code: TranslatorErrorCode, message: string) {
+  /** Whether re-issuing the same call could plausibly succeed. Transport faults
+   *  (rate limit, timeout, 5xx, connection errors) are retryable; auth failures,
+   *  permanent 4xx, aborts, and a malformed model reply are not. */
+  readonly retryable: boolean;
+  constructor(code: TranslatorErrorCode, message: string, retryable = false) {
     super(message);
     this.name = "TranslatorClientError";
     this.code = code;
+    this.retryable = retryable;
   }
 }
 
@@ -34,17 +48,22 @@ interface AnthropicCreateResult {
   /** Why generation stopped. "max_tokens" means the reply was truncated. */
   stop_reason?: string | null;
 }
+interface AnthropicMessageParams {
+  model: string;
+  max_tokens: number;
+  system?: string;
+  messages: Array<{ role: "user" | "assistant"; content: string }>;
+}
+/** Minimal view of `Anthropic.Messages.MessageStream` we depend on. */
+export interface AnthropicMessageStream {
+  finalMessage(): Promise<AnthropicCreateResult>;
+}
 export interface AnthropicLike {
   messages: {
-    create(
-      params: {
-        model: string;
-        max_tokens: number;
-        system?: string;
-        messages: Array<{ role: "user" | "assistant"; content: string }>;
-      },
+    stream(
+      params: AnthropicMessageParams,
       options?: { signal?: AbortSignal },
-    ): Promise<AnthropicCreateResult>;
+    ): AnthropicMessageStream;
   };
 }
 
@@ -55,23 +74,38 @@ export interface AnthropicLike {
 // and a reply that still hits the cap is caught via stop_reason in translate().
 const DEFAULT_MAX_TOKENS = 64000;
 
+/** Transport-level retries our wrapper performs (in addition to the first try)
+ *  on a retryable failure. The real SDK client is built with `maxRetries: 0` so
+ *  retry policy is single-sourced here, where it is observable and testable. */
+const DEFAULT_MAX_RETRIES = 2;
+/** Base backoff delay (ms) for the first retry; doubles each subsequent retry. */
+const DEFAULT_RETRY_BASE_MS = 500;
+const RETRY_CAP_MS = 8000;
+
 /**
- * Client timeout (ms) for the single non-streaming translation call.
- *
- * The `@anthropic-ai/sdk` refuses a non-streaming `messages.create` whose
- * `max_tokens` could take longer than 10 minutes — UNLESS the client was built
- * with an explicit `timeout` (the guard in `calculateNonstreamingTimeout` only
- * runs when `_options.timeout == null`). Our 64K default cap estimates ~30 min,
- * so without this the call throws before any request leaves the process and
- * every translation fails. We keep the deliberate single non-streaming call and
- * set a timeout scaled to `max_tokens` (the SDK's own per-token estimate),
- * floored at 10 minutes so a large document neither trips the guard nor gets cut
- * off. The job runs detached behind the job+poll API, so a long timeout is safe.
+ * Overall request timeout (ms) for the streaming translation call, scaled to
+ * `max_tokens`. With streaming the SDK's non-streaming guard never fires, but
+ * the SDK's default request timeout is only 10 minutes — a long document whose
+ * stream legitimately runs longer would be cut off. We size the timeout to the
+ * SDK's own per-token generation estimate (`60min × maxTokens / 128000`),
+ * floored at 10 minutes, so neither a small nor a very large document is severed
+ * mid-stream. The job runs detached behind job+poll, so a long timeout is safe.
  */
-export function nonstreamingTimeoutMs(maxTokens: number): number {
+export function translationTimeoutMs(maxTokens: number): number {
   const tenMinutes = 10 * 60 * 1000;
   const estimate = Math.ceil((60 * 60 * 1000 * maxTokens) / 128000);
   return Math.max(tenMinutes, estimate);
+}
+
+/** Exponential backoff with full +25% jitter, capped. `retry` is 1-based. */
+export function backoffDelayMs(
+  retry: number,
+  baseMs: number = DEFAULT_RETRY_BASE_MS,
+  capMs: number = RETRY_CAP_MS,
+): number {
+  const exp = Math.min(capMs, baseMs * 2 ** (retry - 1));
+  const jitter = Math.random() * exp * 0.25;
+  return Math.round(exp + jitter);
 }
 
 const TARGET_LANG_NAMES: Record<string, string> = {
@@ -87,6 +121,10 @@ export interface TranslatorClientOptions {
   /** Job-scoped abort signal; a cancel breaks the in-flight LLM call promptly. */
   signal?: AbortSignal;
   maxTokens?: number;
+  /** Transport retries on a retryable failure (default 2). */
+  maxRetries?: number;
+  /** Base backoff delay (ms); tests pass 0 to retry without real timers. */
+  retryBaseMs?: number;
   /** Test seam: inject a fake transport. Defaults to a real `Anthropic` client. */
   client?: AnthropicLike;
 }
@@ -97,21 +135,28 @@ export class TranslatorClient {
   private readonly signal?: AbortSignal;
   private readonly maxTokens: number;
   private readonly apiKey: string;
+  private readonly maxRetries: number;
+  private readonly retryBaseMs: number;
 
   constructor(opts: TranslatorClientOptions) {
     this.model = opts.model;
     this.signal = opts.signal;
     this.maxTokens = opts.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.apiKey = opts.apiKey;
+    this.maxRetries = opts.maxRetries ?? DEFAULT_MAX_RETRIES;
+    this.retryBaseMs = opts.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
     // Auth: `x-api-key` (SDK default) is the live-verified method for MiniMax.
-    // The explicit `timeout` is required — see nonstreamingTimeoutMs: without it
-    // the SDK throws "Streaming is required…" for our large max_tokens.
+    // `timeout` (see translationTimeoutMs) keeps a long stream from being cut at
+    // the SDK's 10-minute default. `maxRetries: 0` disables the SDK's own retry
+    // so backoff is single-sourced in callWithRetry (which also covers
+    // mid-stream failures the SDK would not retry).
     this.client =
       opts.client ??
       (new Anthropic({
         baseURL: opts.baseUrl,
         apiKey: opts.apiKey,
-        timeout: nonstreamingTimeoutMs(this.maxTokens),
+        timeout: translationTimeoutMs(this.maxTokens),
+        maxRetries: 0,
       }) as unknown as AnthropicLike);
   }
 
@@ -121,20 +166,12 @@ export class TranslatorClient {
   async translate(blocks: string[], targetLang: string): Promise<string[]> {
     if (blocks.length === 0) return [];
     const langName = TARGET_LANG_NAMES[targetLang] ?? targetLang;
-    let result: AnthropicCreateResult;
-    try {
-      result = await this.client.messages.create(
-        {
-          model: this.model,
-          max_tokens: this.maxTokens,
-          system: buildSystemPrompt(langName),
-          messages: [{ role: "user", content: JSON.stringify(blocks) }],
-        },
-        this.signal ? { signal: this.signal } : undefined,
-      );
-    } catch (err) {
-      throw classifyError(err, this.apiKey);
-    }
+    const result = await this.callWithRetry({
+      model: this.model,
+      max_tokens: this.maxTokens,
+      system: buildSystemPrompt(langName),
+      messages: [{ role: "user", content: JSON.stringify(blocks) }],
+    });
     if (result.stop_reason === "max_tokens") {
       throw new TranslatorClientError(
         "translator_invalid_response",
@@ -142,6 +179,30 @@ export class TranslatorClient {
       );
     }
     return parseTranslations(extractText(result), blocks.length);
+  }
+
+  /** Issue the streaming call, retrying retryable transport faults with
+   *  exponential backoff. Parsing happens once in `translate`, OUTSIDE this loop,
+   *  so a malformed reply never triggers a retry. */
+  private async callWithRetry(params: AnthropicMessageParams): Promise<AnthropicCreateResult> {
+    for (let attempt = 0; ; attempt += 1) {
+      if (this.signal?.aborted) {
+        throw new TranslatorClientError("translator_api", "translation aborted", false);
+      }
+      try {
+        const stream = this.client.messages.stream(
+          params,
+          this.signal ? { signal: this.signal } : undefined,
+        );
+        return await stream.finalMessage();
+      } catch (err) {
+        const classified = classifyError(err, this.apiKey);
+        if (!classified.retryable || attempt >= this.maxRetries || this.signal?.aborted) {
+          throw classified;
+        }
+        await sleep(backoffDelayMs(attempt + 1, this.retryBaseMs), this.signal);
+      }
+    }
   }
 }
 
@@ -201,6 +262,23 @@ function stripCodeFence(text: string): string {
   return fence ? fence[1].trim() : text;
 }
 
+/** Resolve after `ms`, or early if `signal` aborts (the caller re-checks
+ *  `signal.aborted` and bails). Never rejects, so it can't mask the real error. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0 || signal?.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const onAbort = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 function classifyError(err: unknown, apiKey: string): TranslatorClientError {
   if (err instanceof TranslatorClientError) return err;
   const status = readStatus(err);
@@ -209,19 +287,26 @@ function classifyError(err: unknown, apiKey: string): TranslatorClientError {
   // record / browser — mirrors MineruClient, defending the "key never leaks"
   // invariant even though the SDK doesn't normally echo the x-api-key header.
   const message = scrub(err instanceof Error ? err.message : String(err), apiKey);
+  // A user/job abort must never be retried — surface it immediately.
+  if (name === "APIUserAbortError" || name === "AbortError") {
+    return new TranslatorClientError("translator_api", message, false);
+  }
   if (status === 401 || status === 403) {
-    return new TranslatorClientError("translator_auth", message);
+    return new TranslatorClientError("translator_auth", message, false);
   }
   if (status === 429) {
-    return new TranslatorClientError("translator_rate_limit", message);
+    return new TranslatorClientError("translator_rate_limit", message, true);
   }
   // 408/504 only appear when the upstream returns those HTTP codes; a genuine
   // client-side request timeout is the SDK's APIConnectionTimeoutError, which
   // carries no numeric status — match it by name so it maps to timeout, not api.
   if (status === 408 || status === 504 || name === "APIConnectionTimeoutError") {
-    return new TranslatorClientError("translator_timeout", message);
+    return new TranslatorClientError("translator_timeout", message, true);
   }
-  return new TranslatorClientError("translator_api", message);
+  // Retry transport faults: 5xx, 409 conflict, and connection errors that carry
+  // no HTTP status. Other 4xx (400/422/...) are permanent → not retryable.
+  const retryable = status === undefined || status === 409 || (status >= 500 && status <= 599);
+  return new TranslatorClientError("translator_api", message, retryable);
 }
 
 function redact(token: string): string {

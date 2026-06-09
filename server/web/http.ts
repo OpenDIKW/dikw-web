@@ -119,7 +119,7 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
               res,
               503,
               "translate_disabled",
-              "DIKW_WEB_TRANSLATOR_API_KEY is not configured on this sidecar",
+              "DIKW_AGENT_API_KEY is not configured on this sidecar",
             );
           }
           return handleTranslateSubmit(req, res, config, jobStore, options.anthropic);
