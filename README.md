@@ -145,9 +145,10 @@ stable across the runtime. The sidecar:
   keys or browser session-storage values.
 
 Local credentials (LLM keys, optional web tool keys, `DIKW_WEB_MINERU_API_KEY`
-for Import PDF / Office conversion, `DIKW_WEB_TRANSLATOR_API_KEY` for Base-reader
-translation) live in `.env.local` (gitignored via `*.local`). Use `.env.example`
-as the template.
+for Import PDF / Office conversion) live in `.env.local` (gitignored via
+`*.local`). The Base-reader translation feature reuses the chat agent's LLM
+credentials (`DIKW_AGENT_API_KEY` / `_BASE_URL` / `_MODEL`); no separate key.
+Use `.env.example` as the template.
 
 ## Settings & state
 

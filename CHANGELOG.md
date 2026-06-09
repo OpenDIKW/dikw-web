@@ -20,8 +20,9 @@ file format introduced in `[0.0.1.0]` was dropped.
   once for cross-block coherence (deliberately **not** the ADK `MiniMaxLlm` adapter, which
   is streaming-bound). Wikilink targets are server-side **re-pinned** by order
   (`repinWikilinks`) so a translated `[[target|label]]` keeps its destination even if the
-  model rewrites it. Submit enforces a 4 MB / 2000-block cap. Gated by a dedicated
-  `DIKW_WEB_TRANSLATOR_API_KEY` (optional `_BASE_URL` / `_MODEL` default to MiniMax);
+  model rewrites it. Submit enforces a 4 MB / 2000-block cap. Reuses the chat agent's
+  MiniMax credentials (`DIKW_AGENT_API_KEY` / `_BASE_URL` / `_MODEL`, no dedicated key);
+  only the per-call output cap `DIKW_WEB_TRANSLATOR_MAX_TOKENS` stays translator-specific;
   missing key → `503 translate_disabled` and `GET /web/translate/health` →
   `{ enabled: false }` (the reader hides its AI 翻译 entry). Browser client
   `src/utils/translate.ts` adds an IndexedDB cache (`dikw-translate-cache`, 7-day TTL
