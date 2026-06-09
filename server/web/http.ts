@@ -11,8 +11,15 @@ import { createHash } from "node:crypto";
 import { buildTar } from "../../src/utils/tar.js";
 import { MineruClient, MineruClientError } from "./mineruClient.js";
 import { extractResultZip, MineruConvertError } from "./mineruConvert.js";
-import { loadWebConfig, type WebConfig } from "./config.js";
+import {
+  DEFAULT_TRANSLATOR_BASE_URL,
+  DEFAULT_TRANSLATOR_MODEL,
+  loadWebConfig,
+  type WebConfig,
+} from "./config.js";
 import { JobLimitError, JobStore, type Job } from "./jobStore.js";
+import { type AnthropicLike, TranslatorClient } from "./translatorClient.js";
+import { runTranslation } from "./translateRun.js";
 
 const gzipAsync = promisify(gzip);
 
@@ -20,6 +27,17 @@ const gzipAsync = promisify(gzip);
 // an upload round-trip on something MinerU would reject anyway. Streamed at
 // chunk granularity in `bufferRequest` to avoid OOMing on an oversized POST.
 const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+
+// Translation request bodies are JSON block arrays of a single document's prose;
+// 4 MB is generous (a very large page) while bounding a pathological POST.
+const MAX_TRANSLATE_BYTES = 4 * 1024 * 1024;
+// Bound the per-request block count so a malformed/abusive payload can't fan a
+// single LLM call into an enormous prompt.
+const MAX_TRANSLATE_BLOCKS = 2000;
+// targetLang is interpolated into the translator's system prompt, so it must be
+// a bare BCP-47-ish tag — reject anything else (length-capped too) so it can't
+// be used to smuggle instructions into the highest-trust prompt position.
+const LANG_TAG = /^[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{2,8})*$/;
 
 class RequestTooLargeError extends Error {
   readonly limitBytes: number;
@@ -38,6 +56,9 @@ export interface WebHandlerOptions {
   /** Override for tests so a test can drive the detached conversion job to
    *  completion and inspect it. Defaults to a fresh in-memory store. */
   jobStore?: JobStore;
+  /** Test seam: inject a fake Anthropic transport for /web/translate so tests
+   *  never hit the network. Defaults to a real client built per submit. */
+  anthropic?: AnthropicLike;
 }
 
 export async function createDefaultWebHandler(cwd = process.cwd()): Promise<WebHandler> {
@@ -63,36 +84,61 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
     try {
       const url = new URL(req.url ?? "/", "http://localhost");
       const parts = url.pathname.split("/").filter(Boolean);
-      if (parts[0] !== "mineru") {
+      const family = parts[0];
+      if (family !== "mineru" && family !== "translate") {
         return notFound(res);
       }
-      if (req.method === "GET" && parts[1] === "health") {
-        return json(res, {
-          enabled: Boolean(config.mineruApiKey),
-          hasKey: Boolean(config.mineruApiKey),
-        });
-      }
-      if (req.method === "POST" && parts[1] === "convert") {
-        if (!config.mineruApiKey) {
-          return errorJson(
-            res,
-            503,
-            "mineru_disabled",
-            "DIKW_WEB_MINERU_API_KEY is not configured on this sidecar",
-          );
+
+      if (family === "mineru") {
+        if (req.method === "GET" && parts[1] === "health") {
+          return json(res, {
+            enabled: Boolean(config.mineruApiKey),
+            hasKey: Boolean(config.mineruApiKey),
+          });
         }
-        return handleConvert(req, res, url, config.mineruApiKey, fetchFn, jobStore);
+        if (req.method === "POST" && parts[1] === "convert") {
+          if (!config.mineruApiKey) {
+            return errorJson(
+              res,
+              503,
+              "mineru_disabled",
+              "DIKW_WEB_MINERU_API_KEY is not configured on this sidecar",
+            );
+          }
+          return handleConvert(req, res, url, config.mineruApiKey, fetchFn, jobStore);
+        }
       }
-      // Job status / result / cancel for a detached conversion (issue #60).
-      // These don't gate on the API key — a job created while the key was
-      // present must stay queryable regardless.
+
+      if (family === "translate") {
+        if (req.method === "GET" && parts[1] === "health") {
+          return json(res, { enabled: Boolean(config.translatorApiKey) });
+        }
+        if (req.method === "POST" && parts[1] === "submit") {
+          if (!config.translatorApiKey) {
+            return errorJson(
+              res,
+              503,
+              "translate_disabled",
+              "DIKW_WEB_TRANSLATOR_API_KEY is not configured on this sidecar",
+            );
+          }
+          return handleTranslateSubmit(req, res, config, jobStore, options.anthropic);
+        }
+      }
+
+      // Job status / result / cancel for a detached job (issue #60). These don't
+      // gate on the API key — a job created while the key was present must stay
+      // queryable regardless. `result` is dispatched per family (translate →
+      // JSON, mineru → tar.gz); status / cancel are content-type agnostic.
       if (parts[1] === "jobs" && parts[2]) {
         const jobId = parts[2];
         if (req.method === "GET" && parts.length === 3) {
           return handleJobStatus(res, jobStore, jobId);
         }
         if (req.method === "GET" && parts.length === 4 && parts[3] === "result") {
-          return handleJobResult(res, jobStore, jobId);
+          return family === "translate"
+            ? handleTranslateResult(res, jobStore, jobId)
+            : handleJobResult(res, jobStore, jobId);
         }
         if (req.method === "POST" && parts.length === 4 && parts[3] === "cancel") {
           return handleJobCancel(res, jobStore, jobId);
@@ -255,6 +301,102 @@ async function runConversion(store: JobStore, jobId: string, args: ConversionArg
     const { code, message } = mapConvertError(err);
     store.setFailed(jobId, { code, message });
   }
+}
+
+async function handleTranslateSubmit(
+  req: IncomingMessage,
+  res: ServerResponse,
+  config: WebConfig,
+  jobStore: JobStore,
+  anthropic: AnthropicLike | undefined,
+): Promise<void> {
+  let raw: Uint8Array;
+  try {
+    raw = await bufferRequest(req, MAX_TRANSLATE_BYTES);
+  } catch (err) {
+    if (err instanceof RequestTooLargeError) {
+      return errorJson(
+        res,
+        413,
+        "translator_input",
+        `request body exceeds ${err.limitBytes} byte cap`,
+      );
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    return errorJson(res, 400, "invalid_request", message);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder("utf-8").decode(raw));
+  } catch {
+    return errorJson(res, 400, "invalid_request", "request body must be JSON");
+  }
+  const blocks = (parsed as { blocks?: unknown }).blocks;
+  const targetLang = (parsed as { targetLang?: unknown }).targetLang;
+  if (!Array.isArray(blocks) || blocks.some((b) => typeof b !== "string")) {
+    return errorJson(res, 400, "invalid_request", "blocks must be a string array");
+  }
+  if (blocks.length === 0) {
+    return errorJson(res, 400, "invalid_request", "blocks must not be empty");
+  }
+  if (blocks.length > MAX_TRANSLATE_BLOCKS) {
+    return errorJson(res, 413, "translator_input", `too many blocks (max ${MAX_TRANSLATE_BLOCKS})`);
+  }
+  const rawLang = typeof targetLang === "string" ? targetLang.trim() : "";
+  if (rawLang && (rawLang.length > 35 || !LANG_TAG.test(rawLang))) {
+    return errorJson(
+      res,
+      400,
+      "invalid_request",
+      "targetLang must be a short language tag (e.g. zh, zh-CN)",
+    );
+  }
+  const lang = rawLang || "zh";
+
+  // Run the translation DETACHED from this request (issue #60): a slow LLM call
+  // no longer bounds the request's time-to-first-byte. Return 202; the browser
+  // polls GET /web/translate/jobs/<id> and fetches the JSON result on completion.
+  const controller = new AbortController();
+  let job: Job;
+  try {
+    job = jobStore.create(controller);
+  } catch (err) {
+    if (err instanceof JobLimitError) {
+      return errorJson(res, 503, "too_many_jobs", err.message);
+    }
+    throw err;
+  }
+  const client = new TranslatorClient({
+    apiKey: config.translatorApiKey!,
+    baseUrl: config.translatorBaseUrl ?? DEFAULT_TRANSLATOR_BASE_URL,
+    model: config.translatorModel ?? DEFAULT_TRANSLATOR_MODEL,
+    maxTokens: config.translatorMaxTokens,
+    signal: controller.signal,
+    client: anthropic,
+  });
+  void runTranslation(jobStore, job.id, {
+    client,
+    blocks: blocks as string[],
+    targetLang: lang,
+  });
+  return json(res, { jobId: job.id, status: "pending" }, 202);
+}
+
+/** Translate job result: block-aligned JSON `{ blocks: [{ i, tr }] }`. Mirrors
+ *  handleJobResult but serves application/json (the generic handler serves the
+ *  mineru tar.gz). Idempotent within the TTL window, same as mineru's. */
+function handleTranslateResult(res: ServerResponse, store: JobStore, jobId: string): void {
+  const job = store.get(jobId);
+  if (!job) return notFound(res);
+  if (job.status !== "succeeded") {
+    return errorJson(res, 409, "not_ready", `translation job is ${job.status}`);
+  }
+  const bytes = store.peekResult(jobId);
+  if (!bytes) return notFound(res);
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader("Content-Length", String(bytes.byteLength));
+  res.end(bytes);
 }
 
 function handleJobStatus(res: ServerResponse, store: JobStore, jobId: string): void {

@@ -3,8 +3,9 @@
 A read-only React/Vite knowledge workbench over [`dikw-core`](../dikw-core).
 The browser app consumes `dikw-core`'s `/v1` HTTP API; a small Node
 sidecar runs alongside the dev server and exposes same-origin `/agent/*`
-routes for chat plus `/web/*` routes for browser-side helpers (currently
-mineru-backed PDF / Office conversion for Import).
+routes for chat plus `/web/*` routes for browser-side helpers (mineru-backed
+PDF / Office conversion for Import, and on-demand LLM markdown translation
+for the Base reader).
 
 ## Quick start
 
@@ -67,6 +68,9 @@ browser (React 19, hand-rolled CSS tokens)
                                       └─── /mineru/convert (PDF/Office → job id; detached convert via mineru.net)
                                       └─── /mineru/jobs/<id>[/result|/cancel] (poll / fetch result / cancel)
                                       └─── /mineru/health  (drives Import UI degradation)
+                                      └─── /translate/submit (markdown blocks → job id; detached MiniMax translate)
+                                      └─── /translate/jobs/<id>[/result|/cancel] (poll / block-aligned JSON / cancel)
+                                      └─── /translate/health  (gates the Base reader AI 翻译 entry)
 ```
 
 Two source trees share a single sidecar process (mounted into the Vite
@@ -141,8 +145,9 @@ stable across the runtime. The sidecar:
   keys or browser session-storage values.
 
 Local credentials (LLM keys, optional web tool keys, `DIKW_WEB_MINERU_API_KEY`
-for Import PDF / Office conversion) live in `.env.local` (gitignored
-via `*.local`). Use `.env.example` as the template.
+for Import PDF / Office conversion, `DIKW_WEB_TRANSLATOR_API_KEY` for Base-reader
+translation) live in `.env.local` (gitignored via `*.local`). Use `.env.example`
+as the template.
 
 ## Settings & state
 

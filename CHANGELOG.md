@@ -11,6 +11,21 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **Sidecar translation endpoint** (`/web/translate`, `server/web/`) — the backend half
+  of Base-reader bilingual reading. A **job + poll** API (mirroring mineru, issue #60):
+  `POST /web/translate/submit` (`{ blocks, targetLang }`, the document's markdown split
+  into text blocks) → `202 { jobId }`, then poll `GET /web/translate/jobs/{id}` and fetch
+  block-aligned `{ blocks: [{ i, tr }] }` from `…/result` (`…/cancel` aborts). One
+  non-streaming `@anthropic-ai/sdk` call over MiniMax translates the whole document at
+  once for cross-block coherence (deliberately **not** the ADK `MiniMaxLlm` adapter, which
+  is streaming-bound). Wikilink targets are server-side **re-pinned** by order
+  (`repinWikilinks`) so a translated `[[target|label]]` keeps its destination even if the
+  model rewrites it. Submit enforces a 4 MB / 2000-block cap. Gated by a dedicated
+  `DIKW_WEB_TRANSLATOR_API_KEY` (optional `_BASE_URL` / `_MODEL` default to MiniMax);
+  missing key → `503 translate_disabled` and `GET /web/translate/health` →
+  `{ enabled: false }` (the reader hides its AI 翻译 entry). Browser client
+  `src/utils/translate.ts` adds an IndexedDB cache (`dikw-translate-cache`, 7-day TTL
+  sweep). The reader UI lands in a follow-up. No new dependencies.
 - **ESLint gate** (`npm run lint` → `eslint.config.js`, flat config, `--max-warnings 0`,
   in `verify` + CI). Covers the lint layer `tsc --strict` misses: React hook
   dependency/order rules, unused symbols (tsconfig has no `noUnusedLocals`), and no raw
