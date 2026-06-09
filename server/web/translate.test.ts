@@ -186,7 +186,8 @@ describe("TranslatorClient", () => {
   });
 
   it("scrubs the api key out of an upstream error message", async () => {
-    const KEY = "sk-secret-abcdef123456";
+    // Fake fixture token — never valid; gitleaks-allowlisted by path in .gitleaks.toml.
+    const KEY = "sk-fixture-translate-3456";
     const client = new TranslatorClient({
       apiKey: KEY,
       baseUrl: "x",
