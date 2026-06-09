@@ -71,4 +71,40 @@ describe("web config", () => {
       await rm(cwd, { recursive: true, force: true });
     }
   });
+
+  it("reads the translator key + optional base url / model, with defaults", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "dikw-web-config-"));
+    try {
+      const config = await loadWebConfig({
+        cwd,
+        env: { DIKW_WEB_TRANSLATOR_API_KEY: "  translate-secret  " },
+      });
+
+      expect(config.translatorApiKey).toBe("translate-secret");
+      // Defaults applied when base url / model are unset.
+      expect(config.translatorBaseUrl).toBe("https://api.minimaxi.com/anthropic");
+      expect(config.translatorModel).toBe("MiniMax-M3");
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("overrides translator base url / model when set, and leaves the key undefined when absent", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "dikw-web-config-"));
+    try {
+      const config = await loadWebConfig({
+        cwd,
+        env: {
+          DIKW_WEB_TRANSLATOR_BASE_URL: "https://example.test/anthropic",
+          DIKW_WEB_TRANSLATOR_MODEL: "Custom-Model",
+        },
+      });
+
+      expect(config.translatorApiKey).toBeUndefined();
+      expect(config.translatorBaseUrl).toBe("https://example.test/anthropic");
+      expect(config.translatorModel).toBe("Custom-Model");
+    } finally {
+      await rm(cwd, { recursive: true, force: true });
+    }
+  });
 });
