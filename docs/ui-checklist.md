@@ -87,6 +87,37 @@ no e2e are the ones the manual pass exists for.
 - [ ] **Images** resolve via `assets[]` (both `![alt](path)` and `![[path]]`);
   unresolved local refs show `.md-broken-image`, empty `![]()` collapses.
 
+## Bilingual reader (`#base` EN→中)
+
+> On an English Base page with the translator enabled, toggle **AI 翻译** and
+> watch the dual column fill. These guard the two regressions found in review.
+
+- [ ] **Figures render once, centered.** A standalone image / figure (`![[…]]`
+  or `![](…)` on its own line) appears **once**, centered across both columns —
+  never duplicated in the left and right column. (Captions, being prose, are a
+  separate block and DO translate.) _Unit: `markdown-blocks.test.ts` classifies
+  an image-only block as `special`._
+- [ ] **No English left in the translated column.** Every text paragraph in the
+  right column is in Chinese — scan for any block that is still verbatim English
+  (the model occasionally echoes a long paragraph). The sidecar self-heals these
+  (`[translate] block N returned untranslated; re-translated …` in the dev log);
+  if one survives, capture the block and the server log. _Unit:
+  `translate.test.ts` "re-translates a block the model echoes back as English"._
+- [ ] **No fabricated content in the translated column.** The right column must
+  not contain anything absent from the left (source) — watch for an invented
+  section, outline, or unrelated paragraph appended after a block (esp. near the
+  references / end). The sidecar flags grossly-oversized translations and re-asks
+  or falls back to source (`[translate] block N translation … oversized …` in the
+  dev log). _Unit: `translate.test.ts` "re-translates a grossly oversized
+  translation"._
+- [ ] **Progressive reveal + cache.** Paragraphs fill top-to-bottom as batches
+  land (not all at the end). Re-toggling the same unchanged page is instant and
+  shows the **已缓存** chip (IndexedDB `dikw-translate-cache`, 7-day TTL). A page
+  refresh mid-translation drops to mono view by design (in-memory job, like
+  mineru) — a *completed* translation still restores instantly from cache.
+- [ ] **Special blocks not translated.** Tables, code, `$$` math, and charts in
+  the dual view render once centered and are never sent for translation.
+
 ## Surface-specific contracts
 
 - [ ] **Base = source + knowledge only**; wisdom lives on `#wisdom`. _e2e: filtering._

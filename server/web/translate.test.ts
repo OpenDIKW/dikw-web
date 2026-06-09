@@ -10,7 +10,12 @@ import {
   TranslatorClient,
   TranslatorClientError,
 } from "./translatorClient";
-import { repinWikilinks } from "./translateRun";
+import {
+  MAX_BLOCKS_PER_BATCH,
+  repinWikilinks,
+  runTranslation,
+  splitIntoBatches,
+} from "./translateRun";
 
 // ---- request / response doubles -------------------------------------------
 
@@ -79,10 +84,17 @@ async function waitTerminal(store: JobStore, jobId: string): Promise<{ status: s
   throw new Error("job did not reach a terminal state");
 }
 
-/** Fake Anthropic streaming transport. `reply` maps the input block array to
- *  either the translated string array (auto-JSON-encoded), a raw text reply, or
- *  a thrown error. The throw happens in `finalMessage()` to mirror the real
- *  stream, where transport faults surface when the stream is awaited. */
+// The delimiter the client joins blocks with / splits replies on (see
+// translatorClient BLOCK_SEP). Mirrored here so the fake transport speaks the
+// same wire protocol — a plain delimiter, no JSON.
+const SEP = "<<<<<DIKW_BLOCK_BREAK>>>>>";
+const SEP_RE = /\s*<{3,}\s*DIKW_BLOCK_BREAK\s*>{3,}\s*/;
+
+/** Fake Anthropic streaming transport. `reply` maps the input blocks (recovered
+ *  by splitting the request on the separator) to either the translated string
+ *  array (auto-joined with the separator, as the real model would), a raw text
+ *  reply, or a thrown error. The throw happens in `finalMessage()` to mirror the
+ *  real stream, where transport faults surface when the stream is awaited. */
 function fakeAnthropic(
   reply: (blocks: string[]) => string[] | { text: string } | { throw: unknown },
 ): AnthropicLike {
@@ -91,10 +103,13 @@ function fakeAnthropic(
       stream(params) {
         return {
           async finalMessage() {
-            const blocks = JSON.parse(params.messages[0].content) as string[];
+            const blocks = params.messages[0].content
+              .split(SEP_RE)
+              .map((s) => s.trim())
+              .filter((s) => s.length > 0);
             const out = reply(blocks);
             if ("throw" in out) throw out.throw;
-            const text = "text" in out ? out.text : JSON.stringify(out);
+            const text = "text" in out ? out.text : out.join(`\n\n${SEP}\n\n`);
             return { content: [{ type: "text", text }] };
           },
         };
@@ -112,26 +127,289 @@ const CONFIG = {
 // ---- TranslatorClient ------------------------------------------------------
 
 describe("TranslatorClient", () => {
-  it("translates blocks 1:1 and tolerates a ```json fence wrapper", async () => {
+  it("translates blocks 1:1, splitting the reply on the block separator", async () => {
     const client = new TranslatorClient({
       apiKey: "k",
       baseUrl: "x",
       model: "m",
-      client: fakeAnthropic(() => ({ text: '```json\n["你好", "世界"]\n```' })),
+      client: fakeAnthropic((blocks) => blocks.map((b) => `tr-${b}`)),
     });
-    expect(await client.translate(["Hello", "World"], "zh")).toEqual(["你好", "世界"]);
+    expect(await client.translate(["Hello", "World"], "zh")).toEqual(["tr-Hello", "tr-World"]);
   });
 
-  it("rejects a length mismatch as translator_invalid_response", async () => {
+  it("splits on the separator tolerating whitespace and drops boundary-artifact empties", async () => {
+    // The model wraps the body in leading/trailing separators and adds spaces
+    // inside one — the tolerant split must trim, drop the empty edges, and yield
+    // exactly the two real translations.
     const client = new TranslatorClient({
       apiKey: "k",
       baseUrl: "x",
       model: "m",
-      client: fakeAnthropic(() => ["only-one"]),
+      maxRetries: 0,
+      client: fakeAnthropic(() => ({
+        text: "\n<<<<<DIKW_BLOCK_BREAK>>>>>\n甲 \n  <<<<< DIKW_BLOCK_BREAK >>>>>  \n乙\n<<<<<DIKW_BLOCK_BREAK>>>>>\n",
+      })),
     });
-    await expect(client.translate(["a", "b"], "zh")).rejects.toMatchObject({
-      code: "translator_invalid_response",
+    expect(await client.translate(["a", "b"], "zh")).toEqual(["甲", "乙"]);
+  });
+
+  it("splits the batch and re-translates the halves when the model returns the wrong count", async () => {
+    // The model merges two blocks when given >2 at once (returns one fewer), but
+    // gets the count right for ≤2. A deterministic miscount must not fail the
+    // job — it must split until each sub-batch aligns.
+    const sizes: number[] = [];
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0, // prove the split happens without leaning on transport retries
+      client: fakeAnthropic((blocks) => {
+        sizes.push(blocks.length);
+        if (blocks.length > 2) return blocks.slice(0, blocks.length - 1).map((b) => `tr-${b}`);
+        return blocks.map((b) => `tr-${b}`);
+      }),
     });
+    expect(await client.translate(["a", "b", "c", "d"], "zh")).toEqual([
+      "tr-a",
+      "tr-b",
+      "tr-c",
+      "tr-d",
+    ]);
+    // 4 (mismatch → split) → 2 + 2 (each aligns). No re-ask of the identical call.
+    expect(sizes).toEqual([4, 2, 2]);
+  });
+
+  it("recurses to singletons and joins a single block returned as multiple pieces", async () => {
+    // Pathological model: every multi-block batch drops one, and a singleton is
+    // returned as two pieces. Splitting reaches singletons, and the two pieces of
+    // each are joined into that block's one translation — the job never fails.
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic((blocks) =>
+        blocks.length === 1
+          ? [`${blocks[0]}-1`, `${blocks[0]}-2`]
+          : blocks.slice(0, -1).map((b) => `tr-${b}`),
+      ),
+    });
+    expect(await client.translate(["a", "b"], "zh")).toEqual(["a-1\n\na-2", "b-1\n\nb-2"]);
+  });
+
+  it("returns content with quotes, backslashes, and brackets verbatim (no escaping)", async () => {
+    // The exact shapes that broke the old JSON protocol on cho-cqa: unescaped
+    // quotes around code identifiers, LaTeX backslash commands, and brackets.
+    // The delimiter protocol carries them through byte-for-byte.
+    const tricky =
+      '使用"scikit-learn"的 mean\\_squared\\_error；温度 $37 ^ { \\circ } \\mathrm { C }$ 见 [12]';
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic((blocks) => blocks.map(() => tricky)),
+    });
+    expect(await client.translate(["x"], "zh")).toEqual([tricky]);
+  });
+
+  it("re-translates a block the model echoes back as English even when the count matches", async () => {
+    // The live failure on cho-cqa: a long body paragraph comes back verbatim
+    // English (no CJK) inside an otherwise-correct batch. The count matched, so
+    // the split path never fires — the verification must catch it and re-ask the
+    // block alone (full attention), which then translates.
+    const prose =
+      "In this study a hybrid machine learning framework optimizes the cell culture media.";
+    let singletonCalls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic((blocks) => {
+        if (blocks.length === 1 && blocks[0] === prose) {
+          singletonCalls += 1;
+          return ["本研究中混合机器学习框架优化了细胞培养基。"];
+        }
+        // Initial batch: heading translates, the prose paragraph is echoed.
+        return blocks.map((b) => (b === prose ? b : "材料与方法"));
+      }),
+    });
+    expect(await client.translate(["Material and methods", prose], "zh")).toEqual([
+      "材料与方法",
+      "本研究中混合机器学习框架优化了细胞培养基。",
+    ]);
+    expect(singletonCalls).toBe(1); // exactly one dedicated re-ask
+  });
+
+  it("does not re-translate a short non-prose block (citation / reference) left in English", async () => {
+    // `[12]`, a bare reference, has too little prose to be a translation failure —
+    // forcing it would loop on un-translatable text. Verify the batch is the only
+    // call (no singleton re-ask) and the content passes through untouched.
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic((blocks) => {
+        calls += 1;
+        return blocks.slice(); // echo everything verbatim
+      }),
+    });
+    expect(await client.translate(["see [12].", "Merck, 2021."], "zh")).toEqual([
+      "see [12].",
+      "Merck, 2021.",
+    ]);
+    expect(calls).toBe(1);
+  });
+
+  it("accepts a still-untranslated block after a single re-ask (no infinite loop)", async () => {
+    // A block the model refuses to translate even alone: the verification must
+    // re-ask exactly once and then accept the English, never loop the job.
+    const stubborn = "This is a long English sentence the model will not translate no matter what.";
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic((blocks) => {
+        calls += 1;
+        return blocks.slice(); // always echo
+      }),
+    });
+    expect(await client.translate([stubborn], "zh")).toEqual([stubborn]);
+    expect(calls).toBe(2); // initial + one bounded re-ask
+  });
+
+  it("skips the untranslated-block check for a non-Chinese target", async () => {
+    // The CJK-presence heuristic only applies when translating INTO Chinese.
+    const prose = "This is a long English paragraph that stays in English on purpose.";
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic((blocks) => {
+        calls += 1;
+        return blocks.slice();
+      }),
+    });
+    expect(await client.translate([prose], "en")).toEqual([prose]);
+    expect(calls).toBe(1);
+  });
+
+  it("re-translates a grossly oversized translation (likely hallucinated continuation)", async () => {
+    // The live failure on test2.md: the model translated a reference, then
+    // appended an invented section + unrelated paragraph, all inside one block.
+    // EN→中 normally COMPRESSES, so a translation several× the source is a strong
+    // hallucination signal. A focused re-ask of the block alone returns clean output.
+    const ref =
+      "Grzesik P, Warth SC (2021) One-time optimization of advanced T cell culture media using a machine learning pipeline.";
+    const bloated = "译".repeat(400); // ~3.4× the source — clearly oversized
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic(() => {
+        calls += 1;
+        return calls === 1 ? [bloated] : ["Grzesik P 等(2021）一次性优化先进 T 细胞培养基。"];
+      }),
+    });
+    expect(await client.translate([ref], "zh")).toEqual([
+      "Grzesik P 等(2021）一次性优化先进 T 细胞培养基。",
+    ]);
+    expect(calls).toBe(2); // initial + one focused re-ask
+  });
+
+  it("falls back to the source when an oversized translation stays oversized after re-ask", async () => {
+    // Never inject fabricated content: if the block keeps coming back bloated,
+    // show the (untranslated) source rather than the hallucination.
+    const ref =
+      "Zou H and Hastie T (2005) Regularization and variable selection via the elastic net. J Roy Stat Soc.";
+    const bloated = "译".repeat(400);
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic(() => {
+        calls += 1;
+        return [bloated]; // always oversized
+      }),
+    });
+    expect(await client.translate([ref], "zh")).toEqual([ref]);
+    expect(calls).toBe(2); // initial + one re-ask, then give up to the source
+  });
+
+  it("falls back to source when a re-ask echoes the source verbatim then adds a translation", async () => {
+    // The live block-118 case on test2.md: a reference first came back English
+    // (untranslated) → the self-heal re-asked → the re-ask ECHOED the English and
+    // appended a Chinese translation + a link. That echo must not be accepted; the
+    // block falls back to the (English) source rather than show a bloated bilingual
+    // duplicate in the translated column.
+    const ref =
+      "Lundberg SM, Erion G, Chen H (2020) From local explanations to global understanding with explainable AI.";
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic(() => {
+        calls += 1;
+        // 1st (batch): echoed English (untranslated). 2nd (re-ask): English echo
+        // + Chinese + an invented link — contains the source verbatim.
+        return calls === 1
+          ? [ref]
+          : [`${ref}\n\nLundberg 等（2020）从局部解释到全局理解。\n\n[链接](http://x)`];
+      }),
+    });
+    expect(await client.translate([ref], "zh")).toEqual([ref]);
+    expect(calls).toBe(2);
+  });
+
+  it("does not flag a normal-length translation as oversized", async () => {
+    const ref =
+      "Zhou T, Reji R (2023) A review of algorithmic approaches for cell culture media optimization.";
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic(() => {
+        calls += 1;
+        return ["周 T、Reji R（2023）细胞培养基优化的算法方法综述。"]; // compact, faithful
+      }),
+    });
+    const out = await client.translate([ref], "zh");
+    expect(out).toEqual(["周 T、Reji R（2023）细胞培养基优化的算法方法综述。"]);
+    expect(calls).toBe(1); // no re-ask
+  });
+
+  it("does not flag a short block whose translation legitimately expands", async () => {
+    // Short source (< the length floor): an expanded translation is fine, not a
+    // hallucination — the ratio guard must not fire on tiny inputs.
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 0,
+      client: fakeAnthropic(() => {
+        calls += 1;
+        return ["平均下降准确率（MDA）这一特征重要性指标"]; // longer than "MDA (the metric)"
+      }),
+    });
+    const out = await client.translate(["MDA (the metric)"], "zh");
+    expect(out).toEqual(["平均下降准确率（MDA）这一特征重要性指标"]);
+    expect(calls).toBe(1); // short source → ratio guard skipped
   });
 
   it("maps transport status codes to error codes", async () => {
@@ -154,12 +432,14 @@ describe("TranslatorClient", () => {
     expect(new TranslatorClientError("translator_api", "x")).toBeInstanceOf(Error);
   });
 
-  it("strips a single-line json fence with no inner newlines", async () => {
+  it("strips a wrapping code fence before splitting", async () => {
     const client = new TranslatorClient({
       apiKey: "k",
       baseUrl: "x",
       model: "m",
-      client: fakeAnthropic(() => ({ text: '```json["你好","世界"]```' })),
+      client: fakeAnthropic(() => ({
+        text: "```\n你好\n<<<<<DIKW_BLOCK_BREAK>>>>>\n世界\n```",
+      })),
     });
     expect(await client.translate(["Hello", "World"], "zh")).toEqual(["你好", "世界"]);
   });
@@ -174,8 +454,8 @@ describe("TranslatorClient", () => {
           stream() {
             return {
               async finalMessage() {
-                // Valid JSON would have parsed; the truncation signal wins first.
-                return { content: [{ type: "text", text: '["你好"]' }], stop_reason: "max_tokens" };
+                // The truncation signal wins before any content parsing.
+                return { content: [{ type: "text", text: "你好" }], stop_reason: "max_tokens" };
               },
             };
           },
@@ -295,7 +575,26 @@ describe("TranslatorClient", () => {
     expect(calls).toBe(2); // 1 initial + 1 retry
   });
 
-  it("does not retry a malformed reply (parsing is outside the retry loop)", async () => {
+  it("retries an empty reply, surfacing the error after exhausting retries", async () => {
+    let calls = 0;
+    const client = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "x",
+      model: "m",
+      maxRetries: 1,
+      retryBaseMs: 0,
+      client: fakeAnthropic(() => {
+        calls += 1;
+        return { text: "   " }; // whitespace only → no usable blocks
+      }),
+    });
+    await expect(client.translate(["a"], "zh")).rejects.toMatchObject({
+      code: "translator_invalid_response",
+    });
+    expect(calls).toBe(2); // 1 initial + 1 retry, both empty
+  });
+
+  it("recovers when an empty reply is followed by a clean re-ask", async () => {
     let calls = 0;
     const client = new TranslatorClient({
       apiKey: "k",
@@ -304,13 +603,11 @@ describe("TranslatorClient", () => {
       retryBaseMs: 0,
       client: fakeAnthropic(() => {
         calls += 1;
-        return { text: "not json at all" };
+        return calls === 1 ? { text: "" } : ["你好"];
       }),
     });
-    await expect(client.translate(["a"], "zh")).rejects.toMatchObject({
-      code: "translator_invalid_response",
-    });
-    expect(calls).toBe(1);
+    expect(await client.translate(["Hello"], "zh")).toEqual(["你好"]);
+    expect(calls).toBe(2);
   });
 
   it("stops retrying once the abort signal fires", async () => {
@@ -362,6 +659,105 @@ describe("repinWikilinks", () => {
     expect(repinWikilinks("[[a|x]] [[b|y]]", "[[Z|译]]")).toBe("[[a|译]]");
     // More links in the translation: the extra link is left untouched.
     expect(repinWikilinks("[[a|x]]", "[[Z1|t1]] [[Z2|t2]]")).toBe("[[a|t1]] [[Z2|t2]]");
+  });
+});
+
+// ---- splitIntoBatches ------------------------------------------------------
+
+describe("splitIntoBatches", () => {
+  it("packs blocks up to the count cap, tracking the global start index", () => {
+    const blocks = Array.from({ length: 5 }, (_, i) => `b${i}`);
+    const batches = splitIntoBatches(blocks, 2, 1000);
+    expect(batches.map((x) => x.start)).toEqual([0, 2, 4]);
+    expect(batches.map((x) => x.blocks.length)).toEqual([2, 2, 1]);
+    expect(batches.flatMap((x) => x.blocks)).toEqual(blocks);
+  });
+
+  it("cuts a batch when the char cap would be exceeded", () => {
+    // 3-char blocks, cap 7 → "aaa"+"bbb" = 6 ok, +"ccc" = 9 > 7 → new batch.
+    const batches = splitIntoBatches(["aaa", "bbb", "ccc"], 100, 7);
+    expect(batches.map((x) => x.blocks)).toEqual([["aaa", "bbb"], ["ccc"]]);
+  });
+
+  it("keeps a single over-cap block in its own batch rather than splitting it", () => {
+    const big = "x".repeat(50);
+    const batches = splitIntoBatches([big, "small"], 100, 10);
+    expect(batches.map((x) => x.blocks)).toEqual([[big], ["small"]]);
+  });
+
+  it("returns [] for no blocks", () => {
+    expect(splitIntoBatches([])).toEqual([]);
+  });
+});
+
+// ---- runTranslation (chunked + progressive) --------------------------------
+
+describe("runTranslation", () => {
+  it("translates batch by batch, publishing growing progress, and accumulates the full 1:1 result", async () => {
+    const store = new JobStore();
+    const job = store.create(new AbortController());
+    const n = MAX_BLOCKS_PER_BATCH * 2 + 1; // forces 3 batches at the default cap
+    const blocks = Array.from({ length: n }, (_, i) => `b${i}`);
+    const seenDone: number[] = [];
+    let calls = 0;
+    const client = {
+      async translate(bs: string[]): Promise<string[]> {
+        calls += 1;
+        // Progress visible at the START of this batch reflects prior batches.
+        const p = store.get(job.id)?.progress as { done: number } | undefined;
+        seenDone.push(p?.done ?? 0);
+        return bs.map((b) => `tr-${b}`);
+      },
+    } as unknown as TranslatorClient;
+
+    await runTranslation(store, job.id, { client, blocks, targetLang: "zh" });
+
+    expect(calls).toBe(3); // batched, not one whole-document call
+    expect(seenDone[0]).toBe(0);
+    for (let i = 1; i < seenDone.length; i += 1) {
+      expect(seenDone[i]).toBeGreaterThan(seenDone[i - 1]); // monotonically increasing
+    }
+    const done = store.get(job.id)!;
+    expect(done.status).toBe("succeeded");
+    const payload = JSON.parse(new TextDecoder().decode(done.result!)) as {
+      blocks: Array<{ i: number; tr: string }>;
+    };
+    expect(payload.blocks).toHaveLength(n);
+    expect(payload.blocks[0]).toEqual({ i: 0, tr: "tr-b0" });
+    expect(payload.blocks[n - 1]).toEqual({ i: n - 1, tr: `tr-b${n - 1}` });
+  });
+
+  it("re-pins wikilink targets per block across batches", async () => {
+    const store = new JobStore();
+    const job = store.create(new AbortController());
+    const blocks = ["see [[a/b|src]]", "plain"];
+    const client = {
+      async translate(bs: string[]): Promise<string[]> {
+        return bs.map((b) => (b.includes("[[") ? "见[[WRONG|译]]" : "纯文本"));
+      },
+    } as unknown as TranslatorClient;
+    await runTranslation(store, job.id, { client, blocks, targetLang: "zh" });
+    const payload = JSON.parse(new TextDecoder().decode(store.get(job.id)!.result!)) as {
+      blocks: Array<{ i: number; tr: string }>;
+    };
+    expect(payload.blocks[0].tr).toBe("见[[a/b|译]]");
+  });
+
+  it("fails the whole job when any batch errors", async () => {
+    const store = new JobStore();
+    const job = store.create(new AbortController());
+    const blocks = Array.from({ length: MAX_BLOCKS_PER_BATCH + 5 }, (_, i) => `b${i}`);
+    let calls = 0;
+    const client = {
+      async translate(bs: string[]): Promise<string[]> {
+        calls += 1;
+        if (calls === 2) throw new TranslatorClientError("translator_api", "boom", false);
+        return bs.map((b) => `tr-${b}`);
+      },
+    } as unknown as TranslatorClient;
+    await runTranslation(store, job.id, { client, blocks, targetLang: "zh" });
+    expect(store.get(job.id)!.status).toBe("failed");
+    expect(store.get(job.id)!.error?.code).toBe("translator_api");
   });
 });
 
@@ -450,6 +846,26 @@ describe("/web/translate", () => {
     expect(payload.blocks).toHaveLength(2);
     expect(payload.blocks[0]).toEqual({ i: 0, tr: "详见[[knowledge/source-notes|来源笔记]]" });
     expect(payload.blocks[1].i).toBe(1);
+  });
+
+  it("status surfaces translate progress (partial blocks) while a job runs", async () => {
+    const jobStore = new JobStore();
+    const job = jobStore.create(new AbortController());
+    jobStore.setRunning(job.id);
+    jobStore.setProgress(job.id, { done: 1, total: 2, blocks: [{ i: 0, tr: "你好" }] });
+    const handler = createWebHandler({ config: CONFIG, jobStore });
+    const status = await call(
+      handler,
+      makeReq({ method: "GET", url: `/translate/jobs/${job.id}` }),
+    );
+    const body = jsonBody(status) as {
+      status: string;
+      progress?: { done: number; total: number; blocks: Array<{ i: number; tr: string }> };
+    };
+    expect(body.status).toBe("running");
+    expect(body.progress?.done).toBe(1);
+    expect(body.progress?.total).toBe(2);
+    expect(body.progress?.blocks[0]).toEqual({ i: 0, tr: "你好" });
   });
 
   it("cancel aborts the job", async () => {

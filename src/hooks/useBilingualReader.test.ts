@@ -32,6 +32,36 @@ describe("useBilingualReader", () => {
     expect(blocks[3].translation).toBe("tr2");
   });
 
+  it("reveals partial batches progressively before the full result resolves", async () => {
+    let resolveFn!: (v: string[]) => void;
+    const translate = vi.fn((blocks: string[], opts?: TranslateOptions) => {
+      // First batch lands immediately; the rest stays pending until we resolve.
+      opts?.onProgress?.({ phase: "partial", blocks: [{ i: 0, tr: "第一段" }] });
+      return new Promise<string[]>((res) => {
+        resolveFn = res;
+      });
+    });
+    const { result } = renderHook(() =>
+      useBilingualReader({ body: BODY, enabled: true, translate }),
+    );
+
+    act(() => result.current.toggle());
+
+    // The first paragraph shows while the translation is still running.
+    await waitFor(() => expect(result.current.blocks[0].translation).toBe("第一段"));
+    expect(result.current.translating).toBe(true);
+    expect(result.current.blocks[1].translation).toBeUndefined();
+
+    // The full result lands and overwrites the progressive buffer 1:1.
+    await act(async () => {
+      resolveFn(["A", "B", "C"]);
+    });
+    await waitFor(() => expect(result.current.translating).toBe(false));
+    expect(result.current.blocks[0].translation).toBe("A");
+    expect(result.current.blocks[1].translation).toBe("B");
+    expect(result.current.blocks[3].translation).toBe("C");
+  });
+
   it("does not translate when the translator is disabled", () => {
     const translate = echo();
     const { result } = renderHook(() =>

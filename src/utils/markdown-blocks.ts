@@ -24,6 +24,10 @@ const DISPLAY_MATH_PATTERN = /\$\$[\s\S]*?\$\$/g;
 const RAW_TABLE_PATTERN = /<table\b[^>]*>[\s\S]*?<\/table>/gi;
 // 3+ of the same marker (-, *, _), optionally space-separated, alone on a line.
 const THEMATIC_BREAK = /^ {0,3}([-*_])(?: *\1){2,} *$/;
+// Image embeds the reader renders: Obsidian `![[path]]` and CommonMark
+// `![alt](url "title")`. Used to detect blocks that are *only* image(s).
+const OBSIDIAN_IMAGE = /!\[\[[^\]]*\]\]/g;
+const COMMONMARK_IMAGE = /!\[[^\]]*\]\([^)]*\)/g;
 
 /** Split `body` into ordered text / special blocks (see module header). */
 export function splitMarkdownBlocks(body: string): MarkdownBlock[] {
@@ -35,6 +39,7 @@ export function splitMarkdownBlocks(body: string): MarkdownBlock[] {
     ...collectRegexRanges(text, DISPLAY_MATH_PATTERN),
     ...collectPipeTableRanges(text),
     ...collectThematicBreakRanges(text),
+    ...collectImageLineRanges(text),
   ]);
 
   const blocks: MarkdownBlock[] = [];
@@ -55,6 +60,42 @@ function pushTextBlocks(blocks: MarkdownBlock[], chunk: string): void {
     const md = part.trim();
     if (md) blocks.push({ kind: "text", md });
   }
+}
+
+/** Standalone-image LINES are special: a figure on its own line renders once
+ *  (centered) instead of being duplicated — and alt-translated — across both
+ *  bilingual columns. Detecting at the *line* level (not the whole blank-line
+ *  block) also splits a figure off a caption joined to it by a hard line break,
+ *  which is how MinerU emits captioned figures (the Fig. 2 case on cho-cqa). A
+ *  line inside a fenced code block / table / details is absorbed by that larger
+ *  range during `mergeRanges`, so code samples showing image syntax are safe. */
+function collectImageLineRanges(body: string): ProtectedRange[] {
+  const { lines, starts } = lineIndex(body);
+  const ranges: ProtectedRange[] = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    if (isImageOnlyLine(lines[i].trim())) {
+      ranges.push(rangeForLines(body, starts, lines, i, i));
+    }
+  }
+  return ranges;
+}
+
+/** True when `line` is non-empty and contains only image embed(s) plus
+ *  link/whitespace punctuation — a standalone figure (incl. a linked image
+ *  `[![alt](img)](href)`), not prose with an inline image. */
+function isImageOnlyLine(line: string): boolean {
+  if (line.length === 0) return false;
+  // A list-item / blockquote line that holds only an image is still part of that
+  // structure; pulling it out as a standalone figure would break the surrounding
+  // list/quote, so leave it as translatable text. (Ordered-list markers like
+  // `1.` carry a digit and are already excluded by the alphanumeric check below.)
+  if (/^[-*+>]\s/.test(line)) return false;
+  let rest = line.replace(OBSIDIAN_IMAGE, "").replace(COMMONMARK_IMAGE, "");
+  if (rest === line) return false; // no image embed present
+  // A linked image `[![alt](img)](href)` leaves an empty-label link `[](href)`
+  // once the image is removed — strip that shell so the URL doesn't read as prose.
+  rest = rest.replace(/\[\s*\]\([^)]*\)/g, "");
+  return !/[\p{L}\p{N}]/u.test(rest); // only brackets / punctuation / space left
 }
 
 function collectRegexRanges(body: string, pattern: RegExp): ProtectedRange[] {

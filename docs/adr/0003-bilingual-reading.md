@@ -33,15 +33,30 @@ covers the reader half. The visual/interaction contract is the committed mockup
 **Block contract.** The browser splits the document body into ordered blocks
 (`splitMarkdownBlocks`). Text blocks (paragraphs, headings, lists, quotes) are
 translated; special blocks (fenced code incl. mermaid, pipe / raw-HTML tables,
-`<details>` charts, `$$` display math, thematic breaks) are excluded. All text
-blocks are sent in **one** request so the model has whole-document context for
-coherent terminology; the response is aligned 1:1 by index (`{ blocks: [{ i, tr }] }`).
+`<details>` charts, `$$` display math, thematic breaks, and **standalone image
+lines** — a figure alone on a line, `![[…]]` or `![](…)`) are excluded. Detection
+is at the *line* level, not the blank-line block, so a figure is split off even
+when a **hard line break** (not a blank line) joins it to its caption — the shape
+MinerU emits for captioned figures (the Fig. 2 case on cho-cqa, where the image
+otherwise rode along inside the caption's text block and rendered in both
+columns). A line mixing prose and an inline image stays translatable text — as does a
+bare-image **list-item / blockquote** line (`- ![](…)`, `> ![](…)`), since
+pulling it out would break the surrounding list/quote; only a standalone
+image-only line is special. The text
+blocks are sent in **one** submit, but the sidecar translates them in **ordered
+batches** (`splitIntoBatches`, capped by block count / character budget — one
+streaming LLM call per batch) so the first paragraphs return in seconds instead
+of after the whole document. Per-batch results accumulate into the 1:1-by-index
+result (`{ blocks: [{ i, tr }] }`), and each poll's status carries the blocks
+translated so far (`progress: { done, total, blocks }`) so the reader fills the
+column progressively as batches land.
 
 **Layout.** A paragraph-aligned dual column (`BilingualView`): source markdown
 left, translation right, each text block rendered once per column. Special
 blocks render **once, centered**, spanning neither column and never translated
-— duplicating a chart or table per column would waste width and double-init
-ECharts. Hovering a pair highlights it. Narrow screens (< 1100px) stack the two
+— duplicating a chart, table, or **figure** per column would waste width,
+double-init ECharts, and (for images) translate only the alt text into a
+meaningless second copy. Hovering a pair highlights it. Narrow screens (< 1100px) stack the two
 columns instead of scrolling a cramped grid.
 
 **Entry.** Language is detected *after* render via CJK ratio (`isEnglishBody`,
@@ -73,9 +88,11 @@ map with abort, cancel, re-translate, and reset-on-page-change.
 
 ## Consequences
 
-- One request per document (not per block) keeps the model's whole-document
-  context but means the dual column reveals translations all at once rather than
-  streaming block by block.
+- Batched translation (several paragraphs per LLM call) reveals the dual column
+  progressively — the reader fills paragraphs as each batch lands instead of
+  waiting for the whole document, and the sidecar logs per-batch timing. The
+  tradeoff is some loss of cross-batch terminology consistency, bounded by the
+  batch size (`MAX_BLOCKS_PER_BATCH` / `MAX_CHARS_PER_BATCH`).
 - The mono and dual-column views share one renderer, so future markdown features
   (new chart types, sanitizer changes) apply to both for free; the cost is that
   `markdown-runtime` is now a shared dependency that must stay behavior-preserving
@@ -84,10 +101,46 @@ map with abort, cancel, re-translate, and reset-on-page-change.
   translator reuses the chat agent's `DIKW_AGENT_*` credentials (no dedicated
   key), so the feature degrades cleanly to single-column when `DIKW_AGENT_API_KEY`
   is absent.
-- The sidecar makes the call streaming (`messages.stream(...).finalMessage()`)
-  and retries retryable transport faults with backoff. This is a backend
-  reliability detail invisible to the reader — the result is still buffered and
-  delivered whole via job+poll, so the dual column reveal is unchanged.
+- Each batch is a streaming call (`messages.stream(...).finalMessage()`) using a
+  **delimiter** wire protocol — the blocks are joined by a distinctive sentinel
+  line and the reply is split back on it — **not** a JSON array. A JSON array
+  corrupts on real scientific Markdown: LaTeX backslash commands (`\circ`,
+  `\mathrm`) are invalid JSON escapes, and unescaped quotes around code
+  identifiers (`"scikit-learn"`) break string boundaries — both were
+  live-observed failing every batch that contained them, on the cho-cqa paper.
+  A delimiter needs no escaping, so any character round-trips verbatim.
+- A **wrong block count** from the model is reconciled by splitting the batch and
+  re-translating the halves down to singletons (a singleton's pieces are joined),
+  **not** by re-asking the identical call — the miscount is often deterministic
+  (the model keeps merging the same adjacent pair). This matters under batching:
+  any one batch could otherwise fail the whole job. The sidecar retries transport
+  faults and an empty reply with exponential backoff, and logs per-batch timing
+  (`[translate] job … batch k/N … ok in …ms`) plus any split, so a slow or
+  failing run is visible.
+- A block whose translation carries content it shouldn't is treated as a likely
+  **hallucination / echo** and repaired. Two signals (above a 60-char floor, so
+  short blocks that legitimately expand are exempt): the translation **contains
+  the whole source block verbatim** (the model echoed the English and appended a
+  translation), or it is **more than ~2× the source length** (EN→中 compresses, so
+  that is implausible — live-observed on test2.md: a reference translated, then an
+  unrelated paragraph + a fabricated section outline tacked on; and a reference
+  echoed bilingually with an invented link). The block is re-asked alone once, and
+  — crucially — the re-ask result is **re-validated**: a result that is still
+  oversized/echoed is rejected in favour of the **source text** rather than
+  injecting bloat. (This catches the case where the *untranslated* repair's re-ask
+  comes back as a bilingual echo.) The system prompt also explicitly forbids
+  adding, continuing, summarizing, or inventing content. `repairBlocks` handles
+  the untranslated and oversized/echo cases together, bounded to one re-ask per
+  block. Because the translation logic changed, the browser cache version was
+  bumped so stale pre-fix translations are re-fetched.
+- A block the model **echoes back untranslated** (returns its English source even
+  though the batch count matched, so the split path never sees it) is caught by a
+  post-batch check: for a Chinese target, a source with ≥ 6 English words whose
+  translation contains no CJK is re-asked **alone** once (focused context usually
+  translates it) and the result accepted regardless — bounded to one re-ask so a
+  genuinely un-translatable block can't loop the job. Short non-prose (citations,
+  acronyms, identifiers, captions) is below the word threshold and left as-is.
+  This was live-observed on cho-cqa (a long Methods paragraph came back English).
 - The translated-column wikilink preview is currently the source page (the
   `side` is plumbed through but not yet used to translate the preview); this is a
   deliberate follow-up, not a regression.

@@ -44,6 +44,26 @@ describe("JobStore lifecycle", () => {
     expect(Array.from(done?.result ?? [])).toEqual([1, 2, 3]);
   });
 
+  it("publishes an opaque progress payload while running and ignores it once terminal", () => {
+    const store = new JobStore();
+    const job = store.create(new AbortController());
+    store.setRunning(job.id);
+    store.setProgress(job.id, { done: 1, total: 3, blocks: [{ i: 0, tr: "你好" }] });
+    expect(store.get(job.id)?.progress).toEqual({
+      done: 1,
+      total: 3,
+      blocks: [{ i: 0, tr: "你好" }],
+    });
+    // A late batch callback after the job already finished must not mutate it.
+    store.setSucceeded(job.id, new Uint8Array([1]));
+    store.setProgress(job.id, { done: 3, total: 3, blocks: [] });
+    expect(store.get(job.id)?.progress).toEqual({
+      done: 1,
+      total: 3,
+      blocks: [{ i: 0, tr: "你好" }],
+    });
+  });
+
   it("records a failure with error code/message", () => {
     const store = new JobStore();
     const job = store.create(new AbortController());

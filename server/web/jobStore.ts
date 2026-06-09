@@ -30,6 +30,11 @@ export interface Job {
   /** Coarse progress hint for the status endpoint; the browser drives its own
    *  substage off `status`, not this. Present only while running. */
   phase?: JobPhase;
+  /** Opaque progress payload echoed verbatim by the status endpoint while the
+   *  job runs. The store does not interpret it — the translate runner uses it to
+   *  publish `{ done, total, blocks }` so the browser can reveal partial blocks
+   *  progressively instead of waiting for the whole document. */
+  progress?: unknown;
   /** Set when status is "failed"; carries the same wire code the browser's
    *  pickErrorCode understands (mineru_auth / mineru_quota / …). */
   error?: JobError;
@@ -121,6 +126,14 @@ export class JobStore {
     const job = this.jobs.get(id);
     if (!job || isTerminal(job.status)) return;
     job.phase = phase;
+  }
+
+  /** Publish an opaque progress payload for the status endpoint. No-op once the
+   *  job is terminal (a late batch callback must not resurrect a cancelled job). */
+  setProgress(id: string, progress: unknown): void {
+    const job = this.jobs.get(id);
+    if (!job || isTerminal(job.status)) return;
+    job.progress = progress;
   }
 
   setSucceeded(id: string, result: Uint8Array): void {
