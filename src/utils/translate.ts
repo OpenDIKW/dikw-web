@@ -338,7 +338,9 @@ function partialBlocksOf(body: unknown): TranslatedBlock[] {
     if (item && typeof item === "object" && "i" in item && "tr" in item) {
       const i = (item as { i: unknown }).i;
       const tr = (item as { tr: unknown }).tr;
-      if (typeof i === "number" && i >= 0 && typeof tr === "string") out.push({ i, tr });
+      if (typeof i === "number" && Number.isInteger(i) && i >= 0 && typeof tr === "string") {
+        out.push({ i, tr });
+      }
     }
   }
   return out;

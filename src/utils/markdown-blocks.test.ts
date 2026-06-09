@@ -101,6 +101,9 @@ describe("splitMarkdownBlocks", () => {
     // figure would carve up the surrounding list/quote. Such lines stay text.
     expect(kinds("- ![](a.png)\n- text item")).toEqual(["text"]);
     expect(kinds("> ![[quote.png]]")).toEqual(["text"]);
+    // Nested / spaceless blockquote markers stay part of the quote too.
+    expect(kinds(">> ![[quote.png]]")).toEqual(["text"]);
+    expect(kinds(">![[quote.png]]")).toEqual(["text"]);
   });
 
   it("keeps a paragraph that mixes prose and an image as a translatable text block", () => {

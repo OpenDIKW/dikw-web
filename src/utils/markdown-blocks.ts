@@ -87,9 +87,10 @@ function isImageOnlyLine(line: string): boolean {
   if (line.length === 0) return false;
   // A list-item / blockquote line that holds only an image is still part of that
   // structure; pulling it out as a standalone figure would break the surrounding
-  // list/quote, so leave it as translatable text. (Ordered-list markers like
-  // `1.` carry a digit and are already excluded by the alphanumeric check below.)
-  if (/^[-*+>]\s/.test(line)) return false;
+  // list/quote, so leave it as translatable text. Covers nested / spaceless
+  // blockquote markers (`>>`, `>![[…]]`) too. (Ordered-list markers like `1.`
+  // carry a digit and are already excluded by the alphanumeric check below.)
+  if (/^(?:[-*+]\s|(?:>\s*)+)/.test(line)) return false;
   let rest = line.replace(OBSIDIAN_IMAGE, "").replace(COMMONMARK_IMAGE, "");
   if (rest === line) return false; // no image embed present
   // A linked image `[![alt](img)](href)` leaves an empty-label link `[](href)`
