@@ -93,7 +93,7 @@ Hash-based. Settings owns connection state.
   conversation + an OpenTelemetry span waterfall from
   `/agent/sessions/{id}/traces`. Spans are in-memory and ephemeral.
 - `#base` — Base reader (sidebar label "Base", page heading "Base" in en / "知识库" in zh-CN). Shows the `source` + `knowledge` layers; wisdom lives on `#wisdom`. Tree from `/v1/base/pages?active=true`;
-  body from `/v1/base/pages/{path}`. Tabs: Read / Info / Outline / Source. The legacy `#wiki` hash no longer resolves (falls back to `#overview`).
+  body from `/v1/base/pages/{path}`. Tabs: Read / Info / Outline / Source. English pages gain a fused **AI translate** toggle on the Read tab (when `/web/translate` is configured) that renders a paragraph-aligned Chinese dual column. The legacy `#wiki` hash no longer resolves (falls back to `#overview`).
 - `#graph` — read-only knowledge map; consumes
   `/v1/base/graph?active=true`. Pixi.js + d3-force.
 - `#overview`, `#wisdom`, `#tasks`, `#retrieve`, `#settings` — see
