@@ -10,6 +10,10 @@ test-results
 # Lockfile is tool-owned
 package-lock.json
 
+# Hand-crafted alignment mockups — standalone reference artifacts (copied tokens
+# + inline demo JS), not app code; prettier reflow would only obscure the diff.
+mockups
+
 # Markdown is human-maintained prose (CLAUDE.md, docs, CHANGELOG, ADRs, skills).
 # Prettier's markdown pass is pure cosmetic churn (e.g. rewriting *italic* to
 # _italic_) with no correctness value, so this gate stays scoped to code.
