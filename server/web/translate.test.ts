@@ -3,7 +3,12 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { describe, expect, it } from "vitest";
 import { createWebHandler } from "./http";
 import { JobStore } from "./jobStore";
-import { type AnthropicLike, TranslatorClient, TranslatorClientError } from "./translatorClient";
+import {
+  type AnthropicLike,
+  nonstreamingTimeoutMs,
+  TranslatorClient,
+  TranslatorClientError,
+} from "./translatorClient";
 import { repinWikilinks } from "./translateRun";
 
 // ---- request / response doubles -------------------------------------------
@@ -203,6 +208,26 @@ describe("TranslatorClient", () => {
     expect(caught).toBeInstanceOf(TranslatorClientError);
     expect((caught as Error).message).not.toContain(KEY);
     expect((caught as Error).message).toContain("…3456");
+  });
+
+  it("builds the real Anthropic client with an explicit timeout so a large max_tokens clears the SDK's non-streaming guard", () => {
+    // Regression: a non-streaming messages.create whose max_tokens could take
+    // >10min throws "Streaming is required…" UNLESS the client was constructed
+    // with an explicit timeout. The 64K default estimates ~30min, so the real
+    // client's timeout must be set and exceed the SDK's 10-minute default.
+    const tc = new TranslatorClient({
+      apiKey: "k",
+      baseUrl: "https://api.minimaxi.com/anthropic",
+      model: "MiniMax-M3",
+    });
+    const real = (tc as unknown as { client: { timeout?: unknown } }).client;
+    expect(typeof real.timeout).toBe("number");
+    expect(real.timeout as number).toBeGreaterThan(10 * 60 * 1000);
+  });
+
+  it("scales the non-streaming timeout to max_tokens with a 10-minute floor", () => {
+    expect(nonstreamingTimeoutMs(64000)).toBe(1_800_000); // ~30 min at the default cap
+    expect(nonstreamingTimeoutMs(1000)).toBe(10 * 60 * 1000); // small docs floored at 10 min
   });
 });
 
