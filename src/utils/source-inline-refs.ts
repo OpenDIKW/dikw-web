@@ -95,7 +95,7 @@ const REFERENCE_LINK_PATTERN = /\[(?:\\\]|[^\]\n])+?\]\[(?:\\\]|[^\]\n])*\]/g;
 // Multi-line title definitions are not protected (rare in source notes).
 const LINK_DEFINITION_PATTERN = /^ {0,3}\[(?:\\\]|[^\]\n])+?\]:[ \t]*\S[^\n]*$/gm;
 
-interface ProtectedRange {
+export interface ProtectedRange {
   start: number;
   end: number;
 }
@@ -110,7 +110,7 @@ interface ProtectedRange {
  * Implemented as a line scanner because nested-fence semantics and length
  * comparison (≥ opener) don't fit cleanly into a single regex.
  */
-function collectFencedCodeRanges(body: string): ProtectedRange[] {
+export function collectFencedCodeRanges(body: string): ProtectedRange[] {
   const ranges: ProtectedRange[] = [];
   const lines = body.split("\n");
   const lineStarts: number[] = [];
@@ -209,7 +209,7 @@ function collectProtectedRanges(body: string): ProtectedRange[] {
   return mergeRanges(ranges);
 }
 
-function mergeRanges(ranges: ProtectedRange[]): ProtectedRange[] {
+export function mergeRanges(ranges: ProtectedRange[]): ProtectedRange[] {
   if (ranges.length <= 1) return ranges.slice().sort((a, b) => a.start - b.start);
   const sorted = ranges.slice().sort((a, b) => a.start - b.start);
   const merged: ProtectedRange[] = [sorted[0]];

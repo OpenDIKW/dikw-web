@@ -14,8 +14,16 @@ import {
 import { DikwClient, DikwClientError } from "../api/client";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
+import { BilingualView, type BilingualSide } from "../components/BilingualView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
+import { useBilingualReader, type BilingualReader } from "../hooks/useBilingualReader";
+import { isEnglishBody } from "../utils/lang";
+import {
+  fetchTranslateEnabled,
+  tryOpenDefaultTranslateCache,
+  type TranslateCache,
+} from "../utils/translate";
 import { translations, type Locale } from "../i18n";
 import type {
   DocumentRecord,
@@ -84,6 +92,27 @@ export function WikiPage({
   const [derived, setDerived] = useState<PageProvenanceResult | null>(null);
   const previewRequestIdRef = useRef(0);
   const didAutoSelectRef = useRef(false);
+  const [translatorEnabled, setTranslatorEnabled] = useState(false);
+  const [translateCache, setTranslateCache] = useState<TranslateCache | null>(null);
+
+  // Probe the sidecar translator once on mount; gates the Base reader's AI
+  // translate toggle. Open the IndexedDB cache lazily (and only once enabled)
+  // so repeat translations of the same page are instant.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchTranslateEnabled().then((enabled) => {
+      if (cancelled) return;
+      setTranslatorEnabled(enabled);
+      if (enabled) {
+        void tryOpenDefaultTranslateCache().then((cache) => {
+          if (!cancelled) setTranslateCache(cache);
+        });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadPages = useCallback(
     (signal: AbortSignal) =>
@@ -334,7 +363,10 @@ export function WikiPage({
     previewByPath(doc.path, target, doc);
   }
 
-  function openWikiLink(target: string) {
+  // `side` is the column the link was clicked in (bilingual mode). The preview
+  // currently always shows the original page; a future change can render the
+  // target's Chinese translation when the translated column's link is clicked.
+  function openWikiLink(target: string, _side?: BilingualSide) {
     const match = findPageForTarget(target, basePages);
     if (!match) {
       setPreview({ kind: "not-found", target });
@@ -493,6 +525,8 @@ export function WikiPage({
           assetBaseUrl={assetBaseUrl}
           assetToken={assetToken}
           enhancedBody={page?.layer === "source" ? enhancedSourceBody.body : undefined}
+          translatorEnabled={translatorEnabled}
+          translateCache={translateCache}
         />
 
         {preview.kind !== "idle" ? (
@@ -627,18 +661,22 @@ function WikiReader({
   assetBaseUrl,
   assetToken,
   enhancedBody,
+  translatorEnabled,
+  translateCache,
 }: {
   page: PageReadResult | null;
   doc: DocumentRecord | null;
   loading: boolean;
   error: unknown;
-  onWikiLink: (target: string) => void;
+  onWikiLink: (target: string, side?: BilingualSide) => void;
   references: SourceReference[];
   onOpenBacklink: (path: string) => void;
   copy: WikiCopy;
   assetBaseUrl: string;
   assetToken: string;
   enhancedBody?: string;
+  translatorEnabled: boolean;
+  translateCache: TranslateCache | null;
 }) {
   const [activeTab, setActiveTab] = useState<WikiReaderTab>("read");
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -648,6 +686,29 @@ function WikiReader({
   );
   const headings = useMemo(() => (parsed ? extractHeadingsWithSlugs(parsed.body) : []), [parsed]);
   const wikilinks = useMemo(() => (parsed ? extractWikiLinkTargets(parsed.body) : []), [parsed]);
+
+  // Bilingual reading runs over the same content the mono view renders
+  // (enhanced source body when present), frontmatter-stripped to match. The
+  // EN→中 toggle only appears for English pages when the sidecar translator
+  // is configured; language is detected after fetch via CJK ratio.
+  const readBody = enhancedBody ?? page?.body ?? "";
+  const readerBody = useMemo(
+    () => parseMarkdownDocument(readBody, { stripDuplicateTitle: false }).body,
+    [readBody],
+  );
+  const isEnglish = useMemo(() => isEnglishBody(readerBody), [readerBody]);
+  const bilingual = useBilingualReader({
+    body: readerBody,
+    enabled: translatorEnabled,
+    cache: translateCache,
+  });
+  const showBilingualToggle = translatorEnabled && isEnglish;
+  const showBilingual = showBilingualToggle && bilingual.active;
+  const bilingualToggle = bilingual.toggle;
+  const handleToggleBilingual = useCallback(() => {
+    setActiveTab("read");
+    bilingualToggle();
+  }, [bilingualToggle]);
 
   useEffect(() => {
     setActiveTab("read");
@@ -704,18 +765,39 @@ function WikiReader({
               </span>
             </div>
           </div>
-          <WikiReaderTabs activeTab={activeTab} onSelect={setActiveTab} copy={copy} />
+          <WikiReaderTabs
+            activeTab={activeTab}
+            onSelect={setActiveTab}
+            copy={copy}
+            showBilingualToggle={showBilingualToggle}
+            bilingualActive={bilingual.active}
+            onToggleBilingual={handleToggleBilingual}
+          />
           {activeTab === "read" ? (
             <section className="wiki-reader-tab-panel" role="tabpanel" aria-label={copy.readTab}>
-              <MarkdownView
-                body={enhancedBody ?? page.body}
-                fallbackTitle={page.title || getMarkdownTitle(page.body) || basename(page.path)}
-                onWikiLink={onWikiLink}
-                showFrontmatter={false}
-                assets={page.assets}
-                assetBaseUrl={assetBaseUrl}
-                assetToken={assetToken}
-              />
+              {showBilingual ? (
+                <>
+                  <BilingualStatusBar reader={bilingual} copy={copy} />
+                  <BilingualView
+                    blocks={bilingual.blocks}
+                    ctx={{ assets: page.assets, assetBaseUrl, assetToken }}
+                    translating={bilingual.translating}
+                    onWikiLink={onWikiLink}
+                    sourceColHead={copy.bilingual.sourceColHead}
+                    trColHead={copy.bilingual.trColHead}
+                  />
+                </>
+              ) : (
+                <MarkdownView
+                  body={enhancedBody ?? page.body}
+                  fallbackTitle={page.title || getMarkdownTitle(page.body) || basename(page.path)}
+                  onWikiLink={onWikiLink}
+                  showFrontmatter={false}
+                  assets={page.assets}
+                  assetBaseUrl={assetBaseUrl}
+                  assetToken={assetToken}
+                />
+              )}
               {references.length > 0 ? (
                 <WikiBacklinksSection
                   references={references}
@@ -764,20 +846,50 @@ function WikiReaderTabs({
   activeTab,
   onSelect,
   copy,
+  showBilingualToggle,
+  bilingualActive,
+  onToggleBilingual,
 }: {
   activeTab: WikiReaderTab;
   onSelect: (tab: WikiReaderTab) => void;
   copy: WikiCopy;
+  showBilingualToggle: boolean;
+  bilingualActive: boolean;
+  onToggleBilingual: () => void;
 }) {
-  const tabs: Array<{ id: WikiReaderTab; label: string }> = [
-    { id: "read", label: copy.readTab },
+  // The Read tab is fused with the AI-translate toggle (one pill, two bonded
+  // halves). Info / Outline / Source stay plain sibling tabs.
+  const siblingTabs: Array<{ id: WikiReaderTab; label: string }> = [
     { id: "info", label: copy.infoTab },
     { id: "outline", label: copy.outlineTab },
     { id: "source", label: copy.sourceTab },
   ];
   return (
     <div className="wiki-reader-tabs" role="tablist" aria-label={copy.tabList}>
-      {tabs.map((tab) => (
+      <span className={`wrt-fused ${activeTab === "read" ? "is-active" : ""}`}>
+        <button
+          type="button"
+          role="tab"
+          className="wrt-read"
+          aria-selected={activeTab === "read"}
+          onClick={() => onSelect("read")}
+        >
+          {copy.readTab}
+        </button>
+        {showBilingualToggle ? (
+          <button
+            type="button"
+            className="wrt-bi"
+            aria-pressed={bilingualActive}
+            aria-label={copy.bilingual.toggleAria}
+            title={copy.bilingual.toggleAria}
+            onClick={onToggleBilingual}
+          >
+            {copy.bilingual.toggle}
+          </button>
+        ) : null}
+      </span>
+      {siblingTabs.map((tab) => (
         <button
           className={activeTab === tab.id ? "is-active" : ""}
           key={tab.id}
@@ -789,6 +901,44 @@ function WikiReaderTabs({
           {tab.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+function BilingualStatusBar({ reader, copy }: { reader: BilingualReader; copy: WikiCopy }) {
+  const bi = copy.bilingual;
+  if (reader.error) {
+    return (
+      <div className="bi-statusbar bi-statusbar--error" role="status" aria-live="polite">
+        <span className="bi-statusbar__left">{bi.errorTitle}</span>
+        <button type="button" className="bi-statusbar__action" onClick={reader.retranslate}>
+          {bi.retranslate}
+        </button>
+      </div>
+    );
+  }
+  if (reader.translating) {
+    return (
+      <div className="bi-statusbar" role="status" aria-live="polite">
+        <span className="bi-statusbar__left">
+          <span className="bi-spinner" aria-hidden="true" />
+          {bi.translating}
+        </span>
+        <button type="button" className="bi-statusbar__action" onClick={reader.cancel}>
+          {bi.cancel}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="bi-statusbar" role="status" aria-live="polite">
+      <span className="bi-statusbar__left">
+        {bi.toggle}
+        {reader.cached ? <span className="bi-chip">{bi.cached}</span> : null}
+      </span>
+      <button type="button" className="bi-statusbar__action" onClick={reader.retranslate}>
+        {bi.retranslate}
+      </button>
     </div>
   );
 }

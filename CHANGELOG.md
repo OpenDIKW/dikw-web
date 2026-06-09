@@ -26,6 +26,19 @@ file format introduced in `[0.0.1.0]` was dropped.
   `{ enabled: false }` (the reader hides its AI 翻译 entry). Browser client
   `src/utils/translate.ts` adds an IndexedDB cache (`dikw-translate-cache`, 7-day TTL
   sweep). The reader UI lands in a follow-up. No new dependencies.
+- **Base reader bilingual reading** (`#base`) — the reader half of the feature above.
+  English pages (detected after fetch via CJK ratio) gain an **AI translate** toggle
+  fused onto the Read tab (`aria-pressed`, hairline seam) when the sidecar translator is
+  configured; Chinese pages and a disabled translator show no toggle. Toggling on splits
+  the body into blocks, sends the text blocks to `/web/translate` as one request, and
+  renders a paragraph-aligned **dual-column** view (`BilingualView`): source markdown left,
+  Chinese right, with special blocks (code / tables / charts / `$$` math / rules) rendered
+  once and centered, never translated. A status bar exposes translating / cached /
+  re-translate / cancel; narrow screens stack the columns. The shared markdown renderer was
+  extracted from `MarkdownView` into `markdown-runtime` (mono and dual-column render through
+  the exact same markdown-it instance, sanitizer, and chart / mermaid / image hydration);
+  the translated column renders through a prefixed heading-slug env so its ids can't collide
+  with the source column's. No new dependencies; see `docs/adr/0003-bilingual-reading.md`.
 - **ESLint gate** (`npm run lint` → `eslint.config.js`, flat config, `--max-warnings 0`,
   in `verify` + CI). Covers the lint layer `tsc --strict` misses: React hook
   dependency/order rules, unused symbols (tsconfig has no `noUnusedLocals`), and no raw
