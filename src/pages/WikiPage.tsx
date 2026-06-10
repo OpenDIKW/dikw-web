@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type {
+  CSSProperties,
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactNode,
+} from "react";
 import {
   ArrowUp,
   ChevronDown,
@@ -18,6 +23,7 @@ import { BilingualView, type BilingualSide } from "../components/BilingualView";
 import { Notice } from "../components/Notice";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { useBilingualReader, type BilingualReader } from "../hooks/useBilingualReader";
+import { usePreviewTranslation } from "../hooks/usePreviewTranslation";
 import { isEnglishBody } from "../utils/lang";
 import {
   fetchTranslateEnabled,
@@ -64,13 +70,36 @@ interface WikiTreeNode {
 
 type PreviewState =
   | { kind: "idle" }
-  | { kind: "loading"; target: string; doc: DocumentRecord }
-  | { kind: "ready"; target: string; doc: DocumentRecord; page: PageReadResult }
+  | { kind: "loading"; target: string; doc: DocumentRecord; side?: BilingualSide }
+  | {
+      kind: "ready";
+      target: string;
+      doc: DocumentRecord;
+      page: PageReadResult;
+      side?: BilingualSide;
+    }
   | { kind: "not-found"; target: string }
   | { kind: "error"; target: string; error: unknown };
 
 type WikiReaderTab = "read" | "info" | "outline" | "source";
 type WikiCopy = (typeof translations)["en"]["pages"]["wiki"];
+
+// Directory column is user-resizable (drag the gap splitter or arrow-key the
+// focused separator) so long filenames fit; the width persists across sessions.
+const WIKI_SIDEBAR_WIDTH_KEY = "dikw-web.wikiSidebarWidth";
+const WIKI_SIDEBAR_MIN_WIDTH = 240;
+const WIKI_SIDEBAR_MAX_WIDTH = 640;
+const WIKI_SIDEBAR_DEFAULT_WIDTH = 300;
+const WIKI_SIDEBAR_STEP = 16;
+
+function clampSidebarWidth(width: number): number {
+  return Math.min(WIKI_SIDEBAR_MAX_WIDTH, Math.max(WIKI_SIDEBAR_MIN_WIDTH, Math.round(width)));
+}
+
+function readWikiSidebarWidth(): number {
+  const raw = Number(localStorage.getItem(WIKI_SIDEBAR_WIDTH_KEY));
+  return Number.isFinite(raw) && raw > 0 ? clampSidebarWidth(raw) : WIKI_SIDEBAR_DEFAULT_WIDTH;
+}
 
 export function WikiPage({
   client,
@@ -94,6 +123,21 @@ export function WikiPage({
   const didAutoSelectRef = useRef(false);
   const [translatorEnabled, setTranslatorEnabled] = useState(false);
   const [translateCache, setTranslateCache] = useState<TranslateCache | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(() => readWikiSidebarWidth());
+  const [resizingSidebar, setResizingSidebar] = useState(false);
+  const sidebarDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem(WIKI_SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+  }, [sidebarWidth]);
+
+  // Keep the col-resize cursor and suppress text selection document-wide while
+  // a drag is in flight, then clean up when it ends.
+  useEffect(() => {
+    if (!resizingSidebar) return undefined;
+    document.body.classList.add("is-col-resizing");
+    return () => document.body.classList.remove("is-col-resizing");
+  }, [resizingSidebar]);
 
   // Probe the sidecar translator once on mount; gates the Base reader's AI
   // translate toggle. Open the IndexedDB cache lazily (and only once enabled)
@@ -341,15 +385,15 @@ export function WikiPage({
     setSelectedPath(path);
   }
 
-  function previewByPath(path: string, target: string, doc: DocumentRecord) {
+  function previewByPath(path: string, target: string, doc: DocumentRecord, side?: BilingualSide) {
     const requestId = previewRequestIdRef.current + 1;
     previewRequestIdRef.current = requestId;
-    setPreview({ kind: "loading", target, doc });
+    setPreview({ kind: "loading", target, doc, side });
     client
       .get<PageReadResult>(`/v1/base/pages/${encodePath(path)}`)
       .then((nextPage) => {
         if (previewRequestIdRef.current === requestId) {
-          setPreview({ kind: "ready", target, doc, page: nextPage });
+          setPreview({ kind: "ready", target, doc, page: nextPage, side });
         }
       })
       .catch((nextError: unknown) => {
@@ -359,20 +403,25 @@ export function WikiPage({
       });
   }
 
-  function previewDoc(doc: DocumentRecord, target: string = doc.title || doc.path) {
-    previewByPath(doc.path, target, doc);
+  function previewDoc(
+    doc: DocumentRecord,
+    target: string = doc.title || doc.path,
+    side?: BilingualSide,
+  ) {
+    previewByPath(doc.path, target, doc, side);
   }
 
-  // `side` is the column the link was clicked in (bilingual mode). The preview
-  // currently always shows the original page; a future change can render the
-  // target's Chinese translation when the translated column's link is clicked.
-  function openWikiLink(target: string, _side?: BilingualSide) {
+  // `side` is the column the link was clicked in (bilingual mode). A click in
+  // the translated column carries side="tr", which makes the preview card show
+  // the target's Chinese title + summary (AI badge); everything else previews
+  // the original page.
+  function openWikiLink(target: string, side?: BilingualSide) {
     const match = findPageForTarget(target, basePages);
     if (!match) {
       setPreview({ kind: "not-found", target });
       return;
     }
-    previewDoc(match, target);
+    previewDoc(match, target, side);
   }
 
   function openBacklink(path: string) {
@@ -405,6 +454,47 @@ export function WikiPage({
 
   function filterByPreviewTarget(target: string) {
     setFilter(target);
+  }
+
+  // Directory-column resize: a pointer drag on the gap splitter (with pointer
+  // capture so it tracks past the handle) updates the width live; arrow keys
+  // step it for keyboard users. Width is clamped and persisted via the effect.
+  function startSidebarResize(event: ReactPointerEvent<HTMLDivElement>) {
+    event.preventDefault();
+    sidebarDragRef.current = { startX: event.clientX, startWidth: sidebarWidth };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setResizingSidebar(true);
+  }
+
+  function moveSidebarResize(event: ReactPointerEvent<HTMLDivElement>) {
+    const drag = sidebarDragRef.current;
+    if (!drag) return;
+    setSidebarWidth(clampSidebarWidth(drag.startWidth + (event.clientX - drag.startX)));
+  }
+
+  function endSidebarResize(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!sidebarDragRef.current) return;
+    sidebarDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setResizingSidebar(false);
+  }
+
+  function handleSidebarResizeKey(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setSidebarWidth((width) => clampSidebarWidth(width - WIKI_SIDEBAR_STEP));
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setSidebarWidth((width) => clampSidebarWidth(width + WIKI_SIDEBAR_STEP));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setSidebarWidth(WIKI_SIDEBAR_MIN_WIDTH);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      setSidebarWidth(WIKI_SIDEBAR_MAX_WIDTH);
+    }
   }
 
   function clearReader() {
@@ -476,6 +566,7 @@ export function WikiPage({
 
       <section
         className={`wiki-layout ${preview.kind !== "idle" ? "wiki-layout--preview-open" : ""}`}
+        style={{ "--wiki-sidebar-w": `${sidebarWidth}px` } as CSSProperties}
       >
         <aside className="wiki-sidebar">
           <div className="wiki-explorer__header">
@@ -513,6 +604,23 @@ export function WikiPage({
           {!visiblePages.length ? <EmptyState title={copy.noMatches} /> : null}
         </aside>
 
+        <div
+          className="wiki-resizer"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label={copy.resizeDirectory}
+          aria-valuenow={sidebarWidth}
+          aria-valuemin={WIKI_SIDEBAR_MIN_WIDTH}
+          aria-valuemax={WIKI_SIDEBAR_MAX_WIDTH}
+          data-dragging={resizingSidebar ? "true" : "false"}
+          tabIndex={0}
+          onPointerDown={startSidebarResize}
+          onPointerMove={moveSidebarResize}
+          onPointerUp={endSidebarResize}
+          onPointerCancel={endSidebarResize}
+          onKeyDown={handleSidebarResizeKey}
+        />
+
         <WikiReader
           page={page}
           doc={selectedDoc}
@@ -536,6 +644,7 @@ export function WikiPage({
             onOpen={selectPage}
             onFilter={filterByPreviewTarget}
             copy={copy}
+            translateCache={translateCache}
           />
         ) : null}
       </section>
@@ -879,13 +988,17 @@ function WikiReaderTabs({
         {showBilingualToggle ? (
           <button
             type="button"
+            role="switch"
             className="wrt-bi"
-            aria-pressed={bilingualActive}
+            aria-checked={bilingualActive}
             aria-label={copy.bilingual.toggleAria}
             title={copy.bilingual.toggleAria}
             onClick={onToggleBilingual}
           >
-            {copy.bilingual.toggle}
+            <span className="wrt-bi__label">{copy.bilingual.toggle}</span>
+            <span className="wrt-switch" aria-hidden="true">
+              <span className="wrt-switch__thumb" />
+            </span>
           </button>
         ) : null}
       </span>
@@ -1143,12 +1256,14 @@ function WikiLinkPreview({
   onOpen,
   onFilter,
   copy,
+  translateCache,
 }: {
   preview: PreviewState;
   onClose: () => void;
   onOpen: (path: string) => void;
   onFilter: (target: string) => void;
   copy: WikiCopy;
+  translateCache: TranslateCache | null;
 }) {
   return (
     <aside
@@ -1163,31 +1278,14 @@ function WikiLinkPreview({
       ) : null}
       {preview.kind === "ready" ? (
         <PreviewFrame title={copy.previewTitle} onClose={onClose} closeLabel={copy.previewClose}>
-          <article className="wiki-preview-card">
-            <div className="reader-header__path">{preview.page.path}</div>
-            <h2>
-              {preview.page.title ||
-                getMarkdownTitle(preview.page.body) ||
-                basename(preview.page.path)}
-            </h2>
-            <div className="wiki-preview-card__meta">
-              <span className="soft-label">{preview.page.layer}</span>
-              <span className="soft-label">{formatAnchorCount(preview.page.anchors.length)}</span>
-            </div>
-            <p>{summarizeMarkdown(preview.page.body)}</p>
-            {/* Hide "Open as main document" for cache-lag stub docs (doc_id === "") —
-                the selection effect would round-trip the unknown path back to the
-                default page since visiblePages doesn't contain it yet. */}
-            {preview.doc.doc_id ? (
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => onOpen(preview.page.path)}
-              >
-                {copy.previewOpen}
-              </button>
-            ) : null}
-          </article>
+          <WikiPreviewCard
+            page={preview.page}
+            doc={preview.doc}
+            side={preview.side}
+            translateCache={translateCache}
+            copy={copy}
+            onOpen={onOpen}
+          />
         </PreviewFrame>
       ) : null}
       {preview.kind === "not-found" ? (
@@ -1211,6 +1309,57 @@ function WikiLinkPreview({
         </PreviewFrame>
       ) : null}
     </aside>
+  );
+}
+
+function WikiPreviewCard({
+  page,
+  doc,
+  side,
+  translateCache,
+  copy,
+  onOpen,
+}: {
+  page: PageReadResult;
+  doc: DocumentRecord;
+  side?: BilingualSide;
+  translateCache: TranslateCache | null;
+  copy: WikiCopy;
+  onOpen: (path: string) => void;
+}) {
+  const title = page.title || getMarkdownTitle(page.body) || basename(page.path);
+  const summary = summarizeMarkdown(page.body);
+  // Translate the card only for a translated-column click on an English target —
+  // a src-side / mono click, or an already-Chinese page, renders as-is. The
+  // original text shows until the translation lands (the shared IndexedDB cache
+  // makes a revisited card instant).
+  const tr = usePreviewTranslation({
+    enabled: side === "tr" && isEnglishBody(`${title}\n${summary}`),
+    title,
+    summary,
+    cache: translateCache,
+  });
+  return (
+    <article className="wiki-preview-card">
+      <div className="reader-header__path">{page.path}</div>
+      <h2>{tr.title || title}</h2>
+      <div className="wiki-preview-card__meta">
+        <span className="soft-label">{page.layer}</span>
+        <span className="soft-label">{formatAnchorCount(page.anchors.length)}</span>
+        {tr.translated ? (
+          <span className="soft-label wiki-preview-card__ai">{copy.bilingual.aiBadge}</span>
+        ) : null}
+      </div>
+      <p>{tr.summary || summary}</p>
+      {/* Hide "Open as main document" for cache-lag stub docs (doc_id === "") —
+          the selection effect would round-trip the unknown path back to the
+          default page since visiblePages doesn't contain it yet. */}
+      {doc.doc_id ? (
+        <button className="secondary-button" type="button" onClick={() => onOpen(page.path)}>
+          {copy.previewOpen}
+        </button>
+      ) : null}
+    </article>
   );
 }
 

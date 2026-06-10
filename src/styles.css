@@ -332,15 +332,6 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.task-actions__live {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-}
-
 .content {
   min-width: 0;
   padding: 24px;
@@ -1082,13 +1073,67 @@ textarea:focus {
 
 .wiki-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  grid-template-columns: var(--wiki-sidebar-w, minmax(280px, 340px)) minmax(0, 1fr);
   gap: 14px;
   align-items: start;
+  position: relative;
 }
 
 .wiki-layout--preview-open {
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr) minmax(280px, 340px);
+  grid-template-columns: var(--wiki-sidebar-w, minmax(280px, 340px)) minmax(0, 1fr) minmax(
+      280px,
+      340px
+    );
+}
+
+/* Draggable splitter that resizes the directory column so long filenames fit.
+   It floats in the 14px gap (absolute, not its own grid track) so the grid
+   stays a clean two/three-column layout; the column width is driven by the
+   --wiki-sidebar-w custom property the page sets inline on .wiki-layout. The
+   centered hairline is invisible at rest (the col-resize cursor over the gap is
+   the affordance) and turns petrol on hover / focus / drag. */
+.wiki-resizer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--wiki-sidebar-w, 300px);
+  width: 14px;
+  z-index: 2;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.wiki-resizer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  border-radius: 1px;
+  background: transparent;
+  transition: background-color 120ms ease;
+}
+
+.wiki-resizer:hover::before,
+.wiki-resizer:focus-visible::before,
+.wiki-resizer[data-dragging="true"]::before {
+  background: var(--accent);
+}
+
+.wiki-resizer:focus-visible {
+  outline: none;
+}
+
+/* While dragging, keep the col-resize cursor and suppress text selection
+   document-wide so a fast drag past the handle doesn't select reader text. */
+body.is-col-resizing {
+  cursor: col-resize;
+  user-select: none;
 }
 
 .wiki-sidebar,
@@ -1589,21 +1634,57 @@ textarea:focus {
 .wiki-reader-tabs .wrt-bi {
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   padding: 7px 11px;
   border-radius: 0 6px 6px 0;
   border-left: 1px solid var(--reader-border);
 }
 .wiki-reader-tabs .wrt-read:hover,
-.wiki-reader-tabs .wrt-bi:hover:not([aria-pressed="true"]) {
+.wiki-reader-tabs .wrt-bi:hover:not([aria-checked="true"]) {
   color: var(--reader-text);
 }
-.wiki-reader-tabs .wrt-bi[aria-pressed="true"] {
+.wiki-reader-tabs .wrt-bi[aria-checked="true"] {
   color: var(--reader-link);
-  background: color-mix(in srgb, var(--accent-soft) 70%, var(--reader-bg));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, var(--reader-border));
 }
-.wiki-reader-tabs .wrt-fused.is-active .wrt-bi[aria-pressed="true"] {
-  border-left-color: color-mix(in srgb, var(--accent) 32%, var(--reader-border));
+
+/* AI-translate on/off switch. The control's state lives in the slider, so the
+   bonded half itself stays flat — only the label tints and the knob slides. */
+.wiki-reader-tabs .wrt-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 26px;
+  height: 15px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--reader-muted) 42%, transparent);
+  transition: background-color 140ms ease;
+}
+.wiki-reader-tabs .wrt-switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: transform 140ms ease;
+}
+/* The dark reader forbids near-white blocks (gated by theme.spec.ts), so the knob
+   drops to the warm reader text tone — still bright against the muted/accent track. */
+html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
+  background: var(--reader-text);
+}
+.wiki-reader-tabs .wrt-bi[aria-checked="true"] .wrt-switch {
+  background: var(--accent);
+}
+.wiki-reader-tabs .wrt-bi[aria-checked="true"] .wrt-switch__thumb {
+  transform: translateX(11px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .wiki-reader-tabs .wrt-switch,
+  .wiki-reader-tabs .wrt-switch__thumb {
+    transition: none;
+  }
 }
 .wiki-reader-tabs .wrt-read:focus-visible,
 .wiki-reader-tabs .wrt-bi:focus-visible {
@@ -1978,14 +2059,21 @@ textarea:focus {
   overflow: auto;
   max-height: calc(100vh - 260px);
   margin: 0;
-  padding: 14px;
+  padding: 14px 16px;
   border: 1px solid var(--reader-border);
   border-radius: var(--radius);
-  background: var(--reader-code-bg);
-  color: #eef8f5;
+  /* Soft reader-surface panel instead of a stark terminal-black block; reader
+     tokens keep it dark-mode-safe (no near-white slab). */
+  background: color-mix(in srgb, var(--reader-bg) 90%, var(--surface-2));
+  color: var(--reader-text);
   font-family: var(--font-mono);
   font-size: 13px;
-  line-height: 1.65;
+  line-height: 1.7;
+  /* Wrap long lines instead of scrolling horizontally; break overly long
+     unbreakable tokens (urls / paths) so nothing overflows the panel. */
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  tab-size: 2;
 }
 
 .markdown-table-wrap {
@@ -2220,6 +2308,14 @@ textarea:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+}
+
+/* AI badge on a translated preview card (translated-column wikilink click). */
+.wiki-preview-card__ai {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 700;
 }
 
 .wiki-preview-card--empty {
@@ -4171,6 +4267,11 @@ html[data-theme="dark"] .markdown-body blockquote {
     max-height: none;
   }
 
+  /* Single-column stack on narrow screens — the gap splitter has no meaning. */
+  .wiki-resizer {
+    display: none;
+  }
+
   .wiki-preview {
     position: static;
     min-height: auto;
@@ -4468,6 +4569,101 @@ html[data-theme="dark"] .markdown-body blockquote {
 .nav-item.is-active::before {
   top: 6px;
   bottom: 6px;
+}
+
+/* ============================================================
+   Collapsible sidebar — icon-only rail
+   ─ a bottom toggle shrinks the sidebar to a narrow rail of centered
+     icons; the brand wordmark and nav labels hide, but each label
+     stays in the accessibility tree (visually hidden) and gains a
+     native tooltip. Desktop-only: under the 900px breakpoint the
+     sidebar is already a horizontal row, so the rail is disabled and
+     the toggle hidden.
+   ============================================================ */
+.sidebar__foot {
+  margin-top: auto;
+  display: grid;
+  gap: 6px;
+}
+
+/* the toggle reuses .nav-item layout but reads as muted chrome, not a
+   navigation destination (hover still lights up via the .nav-item rules) */
+.sidebar__collapse {
+  color: var(--muted);
+}
+.sidebar__collapse svg {
+  color: var(--muted);
+}
+.sidebar__collapse .nav-item__label strong {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+@media (min-width: 901px) {
+  .app-shell {
+    transition: grid-template-columns 160ms ease;
+  }
+  .app-shell[data-sidebar="collapsed"] {
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+
+  .sidebar[data-collapsed="true"] {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .sidebar[data-collapsed="true"] .brand {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .sidebar[data-collapsed="true"] .brand__text {
+    display: none;
+  }
+  .sidebar[data-collapsed="true"] .nav-item {
+    justify-content: center;
+    gap: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  /* keep the label in the a11y tree, just visually hidden */
+  .sidebar[data-collapsed="true"] .nav-item__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+@media (max-width: 900px) {
+  /* the row layout owns the bottom cluster: drop the auto margin, keep
+     Settings on the same baseline, and hide the rail toggle entirely */
+  .sidebar__foot {
+    margin-top: 0;
+    margin-left: 8px;
+    padding-left: 10px;
+    border-left: 1px solid var(--line);
+    grid-auto-flow: column;
+    align-items: center;
+  }
+  .sidebar__foot .nav-footer {
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .sidebar__collapse {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell {
+    transition: none;
+  }
 }
 
 /* ---- Topbar v2 ---- */

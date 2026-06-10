@@ -209,6 +209,44 @@ describe("App shell", () => {
     ).toBeInTheDocument();
   });
 
+  it("collapses the sidebar to an icon rail and persists the choice", async () => {
+    stubApi();
+    window.location.hash = "#overview";
+
+    const { container } = render(<App />);
+
+    const aside = container.querySelector(".sidebar");
+    expect(aside).toHaveAttribute("data-collapsed", "false");
+
+    await userEvent.click(screen.getByRole("button", { name: "Collapse" }));
+
+    await waitFor(() => {
+      expect(aside).toHaveAttribute("data-collapsed", "true");
+      expect(localStorage.getItem("dikw-web.sidebarCollapsed")).toBe("true");
+    });
+    // The control flips to the expand affordance, and nav buttons keep their
+    // accessible names even though the labels are visually hidden in the rail.
+    expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Overview" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Expand sidebar" }));
+    await waitFor(() => {
+      expect(aside).toHaveAttribute("data-collapsed", "false");
+      expect(localStorage.getItem("dikw-web.sidebarCollapsed")).toBe("false");
+    });
+  });
+
+  it("restores the collapsed sidebar from local storage on load", async () => {
+    stubApi();
+    localStorage.setItem("dikw-web.sidebarCollapsed", "true");
+    window.location.hash = "#overview";
+
+    const { container } = render(<App />);
+
+    expect(container.querySelector(".sidebar")).toHaveAttribute("data-collapsed", "true");
+    expect(screen.getByRole("button", { name: "Expand sidebar" })).toBeInTheDocument();
+  });
+
   it("renders the configured brand name, logo alt, tab title, and Workbench breadcrumb", async () => {
     stubApi();
     window.location.hash = "#overview";

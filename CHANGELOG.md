@@ -66,7 +66,12 @@ file format introduced in `[0.0.1.0]` was dropped.
   extracted from `MarkdownView` into `markdown-runtime` (mono and dual-column render through
   the exact same markdown-it instance, sanitizer, and chart / mermaid / image hydration);
   the translated column renders through a prefixed heading-slug env so its ids can't collide
-  with the source column's. No new dependencies; see `docs/adr/0003-bilingual-reading.md`.
+  with the source column's. Clicking a wikilink in the **translated column** previews the
+  target page with its title + summary translated to Chinese (`usePreviewTranslation` — two
+  tiny blocks through the same `/web/translate` + IndexedDB cache — with an `AI` badge on the
+  card and a silent fallback to the original on failure); a source-column or mono-view click
+  previews the original, and an already-Chinese target is never re-translated. No new
+  dependencies; see `docs/adr/0003-bilingual-reading.md`.
 - **ESLint gate** (`npm run lint` → `eslint.config.js`, flat config, `--max-warnings 0`,
   in `verify` + CI). Covers the lint layer `tsc --strict` misses: React hook
   dependency/order rules, unused symbols (tsconfig has no `noUnusedLocals`), and no raw
@@ -127,6 +132,18 @@ file format introduced in `[0.0.1.0]` was dropped.
   graph filters/legend/no-bloom, the markdown HTML allow-list), run by the
   `dikw-web-verify-frontend` skill. Test/tooling/docs only — no runtime, wire, or
   contract change, so no version bump.
+- **App sidebar collapses to an icon rail** (`src/App.tsx`). A footer toggle
+  (`PanelLeftClose` / `PanelLeftOpen`) shrinks the left sidebar to an icon-only
+  rail; nav labels are visually hidden but kept for assistive tech (native
+  tooltips restore the name on hover), and the choice persists in `localStorage`
+  (`dikw-web.sidebarCollapsed`). The rail is desktop-only (gated above the 900px
+  breakpoint); on narrow screens the sidebar keeps its existing behavior.
+- **Base directory panel is resizable** (`#base`). The directory-tree column can
+  be dragged wider/narrower via a splitter in the layout gap (pointer-capture, so
+  the drag tracks past the handle) or stepped with the arrow keys on a focusable
+  `role="separator"` (Home/End jump to the bounds), clamped 240–640px and
+  persisted (`dikw-web.wikiSidebarWidth`), so long filenames fit. Hidden on narrow
+  screens.
 
 ### Changed
 
@@ -136,6 +153,25 @@ file format introduced in `[0.0.1.0]` was dropped.
   each carrying a byte-equivalent private copy. Behavior-neutral internal
   refactor — no env var, wire format, or `loadAgentConfig` / `loadWebConfig`
   contract changed, so no version bump.
+- **Base reader "AI translate" control is now an on/off switch** (`role="switch"`
+  + `aria-checked` with a sliding knob) rather than a plain `aria-pressed` button —
+  a clearer affordance for the EN→中 dual-column toggle. Behavior unchanged.
+- **Base reader tab rename: "Info" → "Frontmatter"** (zh-CN 信息 → 元信息), matching
+  what the tab shows (`PageReadResult.frontmatter`). The en source-tab label stays
+  "Source"; only the zh-CN label changed (原 "源码" → "原文").
+- **Base reader raw-source panel restyled.** The source tab dropped the harsh
+  black-on-white block for the reader token surface (`--reader-*`, dark-mode safe)
+  and now word-wraps (`white-space: pre-wrap; overflow-wrap: break-word`), so long
+  lines no longer force a horizontal scrollbar.
+
+### Removed
+
+- **Tasks toolbar "Task running" status pill.** The green-dot live indicator next
+  to the maintenance buttons (Ingest / Synth / Lint Propose / Lint Apply) was
+  visually abrupt and redundant — the buttons already disable while any task is
+  running/pending, which is the real safety gate and is unchanged. Only the pill
+  (and its now-orphaned `actions.running` copy + `.task-actions__live` style) was
+  removed; the shared `.live-dot` class stays (RetrievePage still uses it).
 
 ## [0.3.0] - 2026-06-03
 

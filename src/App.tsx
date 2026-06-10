@@ -6,6 +6,8 @@ import {
   ListChecks,
   MessageSquareText,
   Network,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   Settings,
   Upload,
@@ -49,6 +51,7 @@ type NavLabelKey = keyof (typeof translations)["en"]["nav"];
 
 const serverKey = "dikw-web.serverUrl";
 const tokenKey = "dikw-web.token";
+const sidebarCollapsedKey = "dikw-web.sidebarCollapsed";
 const defaultServerUrl = "http://127.0.0.1:8765";
 
 type NavItem = { id: ViewId; labelKey: NavLabelKey; icon: typeof LayoutDashboard };
@@ -104,6 +107,7 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
     resolveTheme(readThemePreference()),
   );
   const [wikiInitialPath, setWikiInitialPath] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => readSidebarCollapsed());
   const clientBaseUrl = normalizeBaseUrl(serverUrl) === defaultServerUrl ? "" : serverUrl;
   // Pass the user-visible serverUrl as coreId so same-origin proxy mode
   // (baseUrl='') still has a distinct identity across distinct upstream cores —
@@ -139,6 +143,10 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
   useEffect(() => {
     localStorage.setItem(localeStorageKey, locale);
   }, [locale]);
+
+  useEffect(() => {
+    localStorage.setItem(sidebarCollapsedKey, String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   useEffect(() => {
     document.title = brandName;
@@ -198,13 +206,13 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
   const activeLabel = copy.nav[activeView as NavLabelKey] ?? copy.nav.overview;
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
+    <div className="app-shell" data-sidebar={sidebarCollapsed ? "collapsed" : "expanded"}>
+      <aside className="sidebar" data-collapsed={sidebarCollapsed ? "true" : "false"}>
         <div className="brand">
           <div className="brand__mark">
             <img className="brand__logo" src="/opendikw-avatar.png" alt={brandName} />
           </div>
-          <div>
+          <div className="brand__text">
             <strong>{brandName}</strong>
             <span>{copy.brandSubtitle}</span>
           </div>
@@ -215,6 +223,7 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
             {group.items.map((item) => (
               <NavButton
                 active={activeView === item.id}
+                collapsed={sidebarCollapsed}
                 icon={item.icon}
                 key={item.id}
                 label={copy.nav[item.labelKey]}
@@ -224,14 +233,36 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
           </nav>
         ))}
 
-        <nav className="nav-list nav-footer" aria-label={copy.navGroups.system}>
-          <NavButton
-            active={activeView === "settings"}
-            icon={settingsNavItem.icon}
-            label={copy.nav.settings}
-            onClick={() => openView("settings")}
-          />
-        </nav>
+        <div className="sidebar__foot">
+          <nav className="nav-list nav-footer" aria-label={copy.navGroups.system}>
+            <NavButton
+              active={activeView === "settings"}
+              collapsed={sidebarCollapsed}
+              icon={settingsNavItem.icon}
+              label={copy.nav.settings}
+              onClick={() => openView("settings")}
+            />
+          </nav>
+          <button
+            className="nav-item sidebar__collapse"
+            type="button"
+            // An action button (not a settings toggle): the accessible name flips
+            // to name the next action, so no aria-pressed — pairing it with a
+            // flipping name would double-encode the state and read contradictorily.
+            aria-label={sidebarCollapsed ? copy.sidebar.expand : copy.sidebar.collapse}
+            title={sidebarCollapsed ? copy.sidebar.expand : copy.sidebar.collapse}
+            onClick={() => setSidebarCollapsed((value) => !value)}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen size={17} aria-hidden="true" />
+            ) : (
+              <PanelLeftClose size={17} aria-hidden="true" />
+            )}
+            <span className="nav-item__label">
+              <strong>{copy.sidebar.collapse}</strong>
+            </span>
+          </button>
+        </div>
       </aside>
 
       <div className="workspace">
@@ -298,17 +329,26 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
 
 function NavButton({
   active,
+  collapsed = false,
   icon: Icon,
   label,
   onClick,
 }: {
   active: boolean;
+  collapsed?: boolean;
   icon: typeof LayoutDashboard;
   label: string;
   onClick: () => void;
 }) {
   return (
-    <button className={`nav-item ${active ? "is-active" : ""}`} type="button" onClick={onClick}>
+    <button
+      className={`nav-item ${active ? "is-active" : ""}`}
+      type="button"
+      // In the icon rail the label is visually hidden (kept for a11y), so a
+      // native tooltip restores the name on hover.
+      title={collapsed ? label : undefined}
+      onClick={onClick}
+    >
       <Icon size={17} aria-hidden="true" />
       <span className="nav-item__label">
         <strong>{label}</strong>
@@ -320,6 +360,10 @@ function NavButton({
 function readLocale(): Locale {
   const value = localStorage.getItem(localeStorageKey);
   return isLocale(value) ? value : "en";
+}
+
+function readSidebarCollapsed(): boolean {
+  return localStorage.getItem(sidebarCollapsedKey) === "true";
 }
 
 function readThemePreference(): ThemePreference {

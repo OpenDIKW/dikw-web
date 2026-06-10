@@ -89,9 +89,6 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const busyPollControllerRef = useRef<AbortController | null>(null);
   const busyPollGenRef = useRef(0);
   const busy = actionPending || busyTaskId !== null || !busyProbed;
-  // The "Task running" indicator reflects a real reason (a detected task or an
-  // in-flight submit) — not the brief initial probe window.
-  const showBusyIndicator = actionPending || busyTaskId !== null;
 
   const loadFirstPage = useCallback(
     async (signal?: AbortSignal) => {
@@ -484,12 +481,6 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
           >
             {copy.actions.lintApply}
           </button>
-          {showBusyIndicator ? (
-            <span className="task-actions__live" aria-live="polite">
-              <span className="live-dot" aria-hidden="true" />
-              {copy.actions.running}
-            </span>
-          ) : null}
         </div>
       </section>
 
