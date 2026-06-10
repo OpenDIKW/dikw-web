@@ -117,6 +117,12 @@ no e2e are the ones the manual pass exists for.
   mineru) — a *completed* translation still restores instantly from cache.
 - [ ] **Special blocks not translated.** Tables, code, `$$` math, and charts in
   the dual view render once centered and are never sent for translation.
+- [ ] **Translated-column wikilink card is Chinese.** Clicking a wikilink in the
+  **right** (translated) column shows the preview card with its title + summary
+  in Chinese and an `AI` badge; the same link clicked in the **left** column (or
+  mono view) shows the original card, badge-free. An already-Chinese target page
+  is shown as-is (no badge, no extra translate call). _e2e: `bilingual.spec.ts`
+  "translates the preview card…"; unit: `WikiBilingual.test.tsx`._
 
 ## Surface-specific contracts
 

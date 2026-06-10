@@ -27,8 +27,8 @@ test("reads a wiki page and follows a wikilink", async ({ page }) => {
   await expect(page).toHaveURL(/#base$/);
   await expect(reader.getByRole("heading", { name: "Architecture" })).toBeVisible();
 
-  await page.getByRole("tab", { name: "Info" }).click();
-  const infoPanel = page.getByRole("tabpanel", { name: "Info" });
+  await page.getByRole("tab", { name: "Frontmatter" }).click();
+  const infoPanel = page.getByRole("tabpanel", { name: "Frontmatter" });
   await expect(infoPanel.getByText("knowledge/concepts/architecture.md")).toBeVisible();
   await expect(infoPanel.getByText("draft")).toBeVisible();
   await expect(infoPanel.getByText("#DIKW")).toBeVisible();

@@ -136,6 +136,64 @@ describe("read console pages", () => {
     expect(await screen.findByText("Synthesis Body.")).toBeInTheDocument();
   });
 
+  it("resizes the directory panel with the keyboard and persists the width", async () => {
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve(wikiPagesFixture);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+    await screen.findByText("Layered DIKW notes.");
+
+    const handle = screen.getByRole("separator", { name: "Resize directory panel" });
+    expect(handle).toHaveAttribute("aria-valuenow", "300");
+    expect(handle).toHaveAttribute("aria-orientation", "vertical");
+
+    handle.focus();
+    await userEvent.keyboard("{ArrowRight}{ArrowRight}");
+    await waitFor(() => {
+      expect(handle).toHaveAttribute("aria-valuenow", "332"); // 300 + 2 × 16
+      expect(localStorage.getItem("dikw-web.wikiSidebarWidth")).toBe("332");
+    });
+
+    await userEvent.keyboard("{ArrowLeft}");
+    await waitFor(() => expect(handle).toHaveAttribute("aria-valuenow", "316"));
+
+    // The width clamps at its maximum no matter how far the user drags out.
+    await userEvent.keyboard("{ArrowRight>30/}");
+    await waitFor(() => expect(handle).toHaveAttribute("aria-valuenow", "640"));
+  });
+
+  it("restores the directory width from local storage", async () => {
+    localStorage.setItem("dikw-web.wikiSidebarWidth", "420");
+    const client = createMockClient();
+    client.get.mockImplementation((path: string) => {
+      if (path === "/v1/base/pages") {
+        return Promise.resolve(wikiPagesFixture);
+      }
+      if (path.startsWith("/v1/base/pages/")) {
+        const selectedPath = decodeURIComponent(path.replace("/v1/base/pages/", ""));
+        return Promise.resolve(wikiPageBodiesFixture[selectedPath]);
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<WikiPage client={client} />);
+    await screen.findByText("Layered DIKW notes.");
+
+    expect(screen.getByRole("separator", { name: "Resize directory panel" })).toHaveAttribute(
+      "aria-valuenow",
+      "420",
+    );
+  });
+
   it("inlines source-page backlinks into the body and opens preview on click", async () => {
     const client = createMockClient();
     const linksCalls: string[] = [];
@@ -1236,7 +1294,7 @@ describe("read console pages", () => {
     ).not.toBeInTheDocument();
     expect(within(reader).queryByLabelText("Document metadata")).not.toBeInTheDocument();
 
-    await userEvent.click(within(reader).getByRole("tab", { name: "Info" }));
+    await userEvent.click(within(reader).getByRole("tab", { name: "Frontmatter" }));
 
     expect(within(reader).getAllByText("knowledge/architecture.md").length).toBeGreaterThan(0);
     expect(within(reader).getByText("draft")).toBeInTheDocument();
@@ -3420,22 +3478,15 @@ describe("read console pages", () => {
 
   it("keeps fire buttons disabled until the first busy probe resolves", async () => {
     const client = createMockClient();
-    const running = toTaskSummary({
-      ...manyTaskRowsFixture[0],
-      task_id: "pre-running",
-      op: "ingest",
-      status: "running",
-      finished_at: null,
-    });
     const deferred: { resolve: (() => void) | null } = { resolve: null };
     client.listTasks.mockImplementation((params: { status?: string; limit?: number }) => {
       if (params.limit === 1 && params.status === "running") {
         return new Promise((res) => {
-          deferred.resolve = () => res(toTaskListPage([running]));
+          deferred.resolve = () => res(toTaskListPage([]));
         });
       }
       if (params.limit === 1) return Promise.resolve(toTaskListPage([]));
-      return Promise.resolve(toTaskListPage([running]));
+      return Promise.resolve(toTaskListPage([]));
     });
     client.streamTaskEvents.mockImplementation(() => createPendingEvents([]));
 
@@ -3444,9 +3495,9 @@ describe("read console pages", () => {
     const ingest = await screen.findByRole("button", { name: "Ingest" });
     expect(ingest).toBeDisabled();
 
+    // Once the probe resolves and finds core idle, the gate opens.
     deferred.resolve?.();
-    await waitFor(() => expect(screen.getByText("Task running")).toBeInTheDocument());
-    expect(ingest).toBeDisabled();
+    await waitFor(() => expect(ingest).toBeEnabled());
   });
 
   it("fires ingest and follows the newly created task", async () => {
@@ -3550,8 +3601,6 @@ describe("read console pages", () => {
 
     await waitFor(() => expect(synth).toBeDisabled());
     expect(screen.getByRole("button", { name: "Ingest" })).toBeDisabled();
-    // The running indicator explains the disabled window even before a task id exists.
-    expect(screen.getByText("Task running")).toBeInTheDocument();
 
     await userEvent.click(synth); // disabled → no-op
     expect(client.startSynth).toHaveBeenCalledTimes(1);
@@ -3559,7 +3608,7 @@ describe("read console pages", () => {
     deferred.resolve?.();
   });
 
-  it("disables fire buttons and shows a running indicator while a task runs", async () => {
+  it("disables fire buttons while a task runs", async () => {
     const client = createMockClient();
     const runningSummary = toTaskSummary({
       ...manyTaskRowsFixture[0],
@@ -3578,10 +3627,11 @@ describe("read console pages", () => {
 
     render(<TasksPage client={client} />);
 
-    expect(await screen.findByText("Task running")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Ingest" })).toBeDisabled());
     expect(screen.getByRole("button", { name: "Synth" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Lint Propose" })).toBeDisabled();
+    // The disabled buttons carry the busy state on their own — no extra status pill.
+    expect(screen.queryByText("Task running")).not.toBeInTheDocument();
   });
 
   it("cancels the running task from the detail-panel Stop button and re-enables", async () => {
@@ -3658,8 +3708,7 @@ describe("read console pages", () => {
     expect(client.cancelTask).toHaveBeenCalledWith("task-r");
 
     // task-p is still pending → the busy gate must NOT re-open.
-    await waitFor(() => expect(screen.getByText("Task running")).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: "Ingest" })).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ingest" })).toBeDisabled());
   });
 
   it("disables the detail-panel Stop button for a terminal task", async () => {

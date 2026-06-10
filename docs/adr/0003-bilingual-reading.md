@@ -63,9 +63,9 @@ columns instead of scrolling a cramped grid.
 < 15% CJK letters → English). The EN→中 toggle appears only for English pages
 **and** only when the sidecar translator is configured
 (`GET /web/translate/health` → `{ enabled }`, probed once on mount). It is fused
-onto the Read tab (a bonded `aria-pressed` half joined by a hairline seam), not a
-separate header control. Chinese pages and a disabled translator show nothing
-extra. No model name is shown anywhere.
+onto the Read tab (a bonded on/off **switch** — `role="switch"` with a sliding
+knob — joined by a hairline seam), not a separate header control. Chinese pages
+and a disabled translator show nothing extra. No model name is shown anywhere.
 
 **Shared renderer.** The markdown-it instance, sanitizer, and hydration were
 extracted from `MarkdownView` into `markdown-runtime` so the mono and dual-column
@@ -78,8 +78,14 @@ source column's in the same DOM.
 **Wikilinks.** A translated `[[target|label]]` keeps its `target`; only the label
 is translated, and the server re-pins targets by order (`repinWikilinks`) so a
 model rewrite can never break a link destination. Click delegation reports the
-clicked side (source vs translated column) so a future change can show the
-target's Chinese preview when the translated-column link is clicked.
+clicked side (source vs translated column): a translated-column click previews
+the target page with its **title + summary translated to Chinese** (an `AI`
+badge marks the machine-translated card; `usePreviewTranslation`, two tiny
+blocks through the same `/web/translate` + IndexedDB cache), while a
+source-column or mono-view click previews the original. The original text shows
+until the translation lands, and any failure falls back to it silently — the
+card is an enhancement, not a load-bearing surface. An already-Chinese target
+(`isEnglishBody` false) is never re-translated.
 
 **Caching / lifecycle.** Translations are cached in IndexedDB
 (`dikw-translate-cache`, keyed by `sha256(targetLang + blocks)`, 7-day TTL) so a
@@ -141,6 +147,8 @@ map with abort, cancel, re-translate, and reset-on-page-change.
   genuinely un-translatable block can't loop the job. Short non-prose (citations,
   acronyms, identifiers, captions) is below the word threshold and left as-is.
   This was live-observed on cho-cqa (a long Methods paragraph came back English).
-- The translated-column wikilink preview is currently the source page (the
-  `side` is plumbed through but not yet used to translate the preview); this is a
-  deliberate follow-up, not a regression.
+- The translated-column wikilink preview translates only the card's title +
+  summary, not the whole target page — opening the target as the main document
+  still lands on the original, where the reader's own AI-translate toggle takes
+  over. This keeps the preview call tiny (two blocks) and the card instant on
+  revisit via the shared cache.
