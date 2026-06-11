@@ -12,6 +12,7 @@
 // invalidation when the rewrite logic changes.
 
 import { sha256Hex } from "./import-bundle";
+import { kebabStem } from "./kebab-source-name";
 import { readTar, TarReaderError } from "./tar-reader";
 
 export const MINERU_EXTENSIONS: ReadonlySet<string> = new Set([
@@ -209,18 +210,16 @@ export async function convertSource(
 }
 
 export function convertedToFiles(c: ConvertedSource): File[] {
-  // Suffix the synthetic root with a short content-hash prefix so two
-  // converted inputs that happen to share a `stem` (e.g. `report.pdf`
-  // from different vault folders) don't collapse onto the same archive
-  // path and get dropped by buildImportBundle.scanFiles as
-  // `duplicate_path`. The hash prefix is content-derived, so identical
-  // bytes still produce the same synthetic root — idempotency holds.
-  const root = `${c.stem}-${c.inputSha.slice(0, 12)}`;
+  // The synthetic root is the kebab stem (ADR 0004). No inputSha suffix: a
+  // distinct same-named file is de-duplicated by core's package_sha256 plus
+  // normalizeForImport's batch numbering, not by the path. ``kebabStem`` is
+  // idempotent on an already-kebab stem (the upload name is kebab'd upstream).
+  const root = kebabStem(c.stem);
   const files: File[] = [];
   files.push(
     syntheticFile(
-      `${c.stem}.md`,
-      `_mineru/${root}/${c.stem}.md`,
+      `${root}.md`,
+      `_mineru/${root}/${root}.md`,
       new TextEncoder().encode(c.markdown),
       "text/markdown",
     ),

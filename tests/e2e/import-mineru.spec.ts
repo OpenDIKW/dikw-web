@@ -184,22 +184,22 @@ test("dropping a .docx routes through the /web/mineru job flow and shows bundle 
   expect(convertCalls[0]).toContain("originalFilename=");
 });
 
-test("shortens a long office filename for MinerU while forwarding the true original", async ({
+test("uploads a long office file under the kebab name for MinerU while forwarding the true original", async ({
   page,
 }) => {
   await page.route("**/web/mineru/health", async (route) => {
     await route.fulfill({ json: { enabled: true, hasKey: true } });
   });
-  // 26 code points → shortenFileName caps the stem at 25.
-  const longStem = "这是一个非常长的中文文件名超过二十五个字符的演示文档";
-  const longName = `${longStem}.docx`;
-  const shortStem = Array.from(longStem).slice(0, 25).join("");
-  // Respond with the markdown named after the SHORTENED stem — the browser
-  // looks up `${stem}.md` from the upload name, so the preview only appears if
-  // ImportPage actually uploaded under the shortened name.
+  // ADR 0004: ImportPage uploads under the kebab stem (capped at 28 code
+  // points) plus the original extension, and forwards the true name separately.
+  const longName = "Hybrid Deep Modeling of a CHO-K1 Fed-Batch Process.docx";
+  const kebab = "hybrid-deep-modeling-of-a-ch"; // kebabStem(longName)
+  // Respond with the markdown named after the kebab stem — the browser looks up
+  // `${stem}.md` from the upload name, so the preview only appears if ImportPage
+  // actually uploaded under the kebab name.
   const { convertCalls } = await installMineruJobRoutes(page, {
     kind: "success",
-    stem: shortStem,
+    stem: kebab,
     markdown: "# Demo\n\nBody from mineru.\n",
   });
 
@@ -214,7 +214,7 @@ test("shortens a long office filename for MinerU while forwarding the true origi
     },
   ]);
 
-  // Preview appears only when the browser requested the shortened `${stem}.md`.
+  // Preview appears only when the browser requested the kebab `${stem}.md`.
   await expect(page.getByTestId("import-preview")).toBeVisible({ timeout: 5000 });
   expect(convertCalls.length).toBe(1);
   // The true (long) original is forwarded so frontmatter provenance stays intact.

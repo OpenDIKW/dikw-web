@@ -3,6 +3,8 @@
 // formula. Divergence shows up as ``manifest_package_sha256_mismatch`` from
 // the server, so this file must stay aligned with the Python source of truth.
 
+import { mergeFrontmatter } from "./frontmatter-merge";
+import { kebabSourceName, kebabStem } from "./kebab-source-name";
 import { extractAssetRefs, isRemoteRef, resolveAssetRef, stripFrontmatter } from "./md-asset-refs";
 import { buildTar, splitUstarPath } from "./tar";
 
@@ -143,6 +145,56 @@ export function scanFiles(files: File[]): ScanResult {
   return { byProjectRel, mdPaths, skipped };
 }
 
+/** Append a ``-N`` disambiguation suffix to a kebab stem, capping the result at
+ *  28 code points so ``<stem>.md`` stays under 32. */
+function appendSuffix(stem: string, n: number): string {
+  const suffix = `-${n}`;
+  const max = 28 - suffix.length;
+  const capped = Array.from(stem).slice(0, max).join("").replace(/-+$/g, "");
+  return `${capped}${suffix}`;
+}
+
+/** Normalize a scanned import: rename each markdown to a Unicode-kebab basename,
+ *  number distinct names that collapse to the same kebab, and merge a flat
+ *  ``original_filename`` into its frontmatter (a no-op when it is already there,
+ *  e.g. a MinerU-converted file). Assets are carried through unchanged — a plain
+ *  ``.md`` is renamed by basename only (its dir, and therefore its relative asset
+ *  refs, are untouched), and a MinerU unit's kebab path is idempotent. Runs after
+ *  ``scanFiles`` so same-raw-path duplicates are already resolved. See
+ *  docs/adr/0004-source-import-normalization.md. */
+export async function normalizeForImport(scan: ScanResult): Promise<ScanResult> {
+  const byProjectRel = new Map<string, File>();
+  const mdPaths: string[] = [];
+  const taken = new Set<string>();
+  const oldMd = new Set(scan.mdPaths);
+
+  for (const mdPath of scan.mdPaths) {
+    const slash = mdPath.lastIndexOf("/");
+    const dir = slash < 0 ? "" : mdPath.slice(0, slash + 1); // keeps the trailing '/'
+    const base = slash < 0 ? mdPath : mdPath.slice(slash + 1);
+    const file = scan.byProjectRel.get(mdPath)!;
+
+    let newPath = `${dir}${kebabSourceName(base)}`;
+    for (let n = 2; taken.has(newPath); n++) {
+      newPath = `${dir}${appendSuffix(kebabStem(base), n)}.md`;
+    }
+    taken.add(newPath);
+
+    const merged = mergeFrontmatter(await file.text(), { original_filename: base });
+    const newName = newPath.slice(newPath.lastIndexOf("/") + 1);
+    byProjectRel.set(newPath, new File([merged], newName, { type: "text/markdown" }));
+    mdPaths.push(newPath);
+  }
+
+  // Carry every non-markdown file (assets) through verbatim.
+  for (const [path, file] of scan.byProjectRel) {
+    if (oldMd.has(path)) continue;
+    byProjectRel.set(path, file);
+  }
+
+  return { byProjectRel, mdPaths, skipped: [...scan.skipped] };
+}
+
 export async function sha256Hex(bytes: ArrayBuffer | Uint8Array): Promise<string> {
   // ``crypto.subtle.digest`` accepts BufferSource (ArrayBuffer | ArrayBufferView)
   // but the new ``Uint8Array<ArrayBufferLike>`` typing in TS 5.7+ doesn't satisfy
@@ -264,7 +316,7 @@ export async function buildImportBundle(
   opts: BuildBundleOptions = {},
 ): Promise<ImportBundleResult> {
   const max = opts.maxTotalBytes ?? DEFAULT_MAX_TOTAL_BYTES;
-  const scan = scanFiles(files);
+  const scan = await normalizeForImport(scanFiles(files));
   const { packages, skipped } = await inspectMarkdownFiles(scan);
 
   if (packages.length === 0) {

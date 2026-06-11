@@ -163,6 +163,22 @@ file format introduced in `[0.0.1.0]` was dropped.
   black-on-white block for the reader token surface (`--reader-*`, dark-mode safe)
   and now word-wraps (`white-space: pre-wrap; overflow-wrap: break-word`), so long
   lines no longer force a horizontal scrollbar.
+- **Source import now normalizes filenames and frontmatter** (`docs/adr/0004`).
+  At import, every source page filename is rewritten to a Unicode-kebab name (Han
+  preserved, whole name incl `.md` < 32 code points; `src/utils/kebab-source-name.ts`)
+  and a flat provenance frontmatter is injected/merged — `original_filename` (the
+  true name, always) plus `converter: mineru` for converted files. `title` is **not**
+  injected (a body H1 stays the document title via core's resolution); no
+  `original_sha256` or timestamps reach the frontmatter, so the bytes stay
+  deterministic for core's `package_sha256` dedup (`normalizeForImport` +
+  `src/utils/frontmatter-merge.ts`, which never clobbers author keys). The MinerU
+  sidecar frontmatter changed from the nested `source: { converter, original_filename,
+  original_sha256 }` block (which the reader rendered as raw JSON) to flat keys, and
+  the `<stem>-<sha12>/` converted-page directory is now `<kebab-stem>/<kebab-stem>.md`.
+  MinerU uploads under the kebab stem + the original extension (kept for format
+  detection); two inputs whose stems kebab to the same root surface a visible
+  `duplicate_path` skip, and distinct plain names that collapse to the same kebab get
+  a `-2`/`-3` suffix. Removed the now-unused `src/utils/shorten-filename.ts`.
 
 ### Removed
 

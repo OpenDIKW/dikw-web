@@ -7,6 +7,7 @@ import {
   computeProjectRelPath,
   gzip,
   inspectMarkdownFiles,
+  normalizeForImport,
   scanFiles,
   sha256Hex,
   sha256HexString,
@@ -66,6 +67,64 @@ describe("scanFiles", () => {
       path: "note.md",
       reason: "duplicate_path",
     });
+  });
+});
+
+describe("normalizeForImport", () => {
+  it("kebab-cases a plain .md and injects a flat original_filename", async () => {
+    const scan = scanFiles([file("X/My Note.md", "# Body\n")]);
+    const norm = await normalizeForImport(scan);
+    expect(norm.mdPaths).toEqual(["my-note.md"]);
+    const md = await norm.byProjectRel.get("my-note.md")!.text();
+    expect(md).toBe('---\noriginal_filename: "My Note.md"\n---\n# Body\n');
+    expect(md).not.toContain("converter");
+    expect(md).not.toContain("title:");
+  });
+
+  it("preserves an author title and merges without injecting a title", async () => {
+    const scan = scanFiles([file("X/My Note.md", "---\ntitle: Custom\n---\n# Body\n")]);
+    const norm = await normalizeForImport(scan);
+    const md = await norm.byProjectRel.get("my-note.md")!.text();
+    expect(md).toBe('---\ntitle: Custom\noriginal_filename: "My Note.md"\n---\n# Body\n');
+  });
+
+  it("numbers distinct plain names that collapse to the same kebab", async () => {
+    const scan = scanFiles([file("X/Report A.md", "# A\n"), file("Y/report-a.md", "# B\n")]);
+    const norm = await normalizeForImport(scan);
+    expect(norm.mdPaths).toEqual(["report-a.md", "report-a-2.md"]);
+    expect(await norm.byProjectRel.get("report-a.md")!.text()).toContain(
+      'original_filename: "Report A.md"',
+    );
+    expect(await norm.byProjectRel.get("report-a-2.md")!.text()).toContain(
+      'original_filename: "report-a.md"',
+    );
+  });
+
+  it("leaves an already-normalized mineru unit and its assets untouched", async () => {
+    const fm =
+      '---\noriginal_filename: "Report.pdf"\nconverter: "mineru"\n---\n# B ![[assets/f.png]]\n';
+    const scan = scanFiles([
+      file("_mineru/report/report.md", fm),
+      file("_mineru/report/assets/f.png", new Uint8Array([1])),
+    ]);
+    const norm = await normalizeForImport(scan);
+    expect(norm.mdPaths).toEqual(["report/report.md"]);
+    // Server already injected the flat block → merge is a no-op (byte-identical).
+    expect(await norm.byProjectRel.get("report/report.md")!.text()).toBe(fm);
+    expect(norm.byProjectRel.has("report/assets/f.png")).toBe(true);
+  });
+
+  it("carries a plain .md's asset through unchanged", async () => {
+    const scan = scanFiles([
+      file("X/My Note.md", "# Body ![[diagram.png]]\n"),
+      file("X/diagram.png", new Uint8Array([7, 8])),
+    ]);
+    const norm = await normalizeForImport(scan);
+    expect(norm.mdPaths).toEqual(["my-note.md"]);
+    expect(norm.byProjectRel.has("diagram.png")).toBe(true);
+    expect(
+      Array.from(new Uint8Array(await norm.byProjectRel.get("diagram.png")!.arrayBuffer())),
+    ).toEqual([7, 8]);
   });
 });
 
