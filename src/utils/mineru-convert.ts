@@ -213,10 +213,13 @@ export async function convertSource(
 }
 
 export function convertedToFiles(c: ConvertedSource): File[] {
-  // The synthetic root is the kebab stem (ADR 0004). No inputSha suffix: a
-  // distinct same-named file is de-duplicated by core's package_sha256 plus
-  // normalizeForImport's batch numbering, not by the path. ``kebabStem`` is
-  // idempotent on an already-kebab stem (the upload name is kebab'd upstream).
+  // The synthetic root is the kebab stem (ADR 0004) — no inputSha suffix.
+  // ``kebabStem`` is idempotent on an already-kebab stem (the upload name is
+  // kebab'd upstream). Two converted inputs whose stems kebab to the same root
+  // therefore share this raw path; ``scanFiles`` drops the second as a visible
+  // ``duplicate_path`` skip (the accepted trade for dropping ``-sha12`` —
+  // ADR 0004 §3). ``normalizeForImport``'s ``-2``/``-3`` numbering only applies
+  // to distinct *plain* names that collapse to the same kebab.
   const root = kebabStem(c.stem);
   const files: File[] = [];
   files.push(

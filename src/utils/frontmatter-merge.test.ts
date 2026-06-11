@@ -77,4 +77,18 @@ describe("mergeFrontmatter", () => {
     const out = mergeFrontmatter("---\r\n---\r\n# T\r\n", { original_filename: "x.md" });
     expect(out).toBe('---\r\noriginal_filename: "x.md"\r\n---\r\n# T\r\n');
   });
+
+  it("treats a leading thematic break as body and prepends a real block", () => {
+    // The body opens with a CommonMark horizontal rule, not frontmatter — we
+    // must not inject a key into the prose between the two `---` lines.
+    const body = "---\n\nSection A\n\n---\n\nSection B\n";
+    expect(mergeFrontmatter(body, { original_filename: "doc.md" })).toBe(
+      '---\noriginal_filename: "doc.md"\n---\n' + body,
+    );
+  });
+
+  it("treats a no-space key:value line as present (no duplicate key injected)", () => {
+    const text = "---\noriginal_filename:already.md\n---\nbody\n";
+    expect(mergeFrontmatter(text, { original_filename: "new.md" })).toBe(text);
+  });
 });

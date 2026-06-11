@@ -109,8 +109,13 @@ original_filename: CortX_Agent_Prompt_V1.md
 
 **Merge semantics:** never clobber a key the author already wrote. The client
 only ever adds `original_filename`; an existing `original_filename` (e.g. on a
-MinerU file the sidecar already stamped) is left untouched, so re-running the
-merge is a byte-identical no-op.
+MinerU file the sidecar already stamped) is left untouched — even one written
+without a space after the colon (`key:value`) counts as present, so we never
+append a duplicate that would make the block unparseable. A leading `---` that
+is a CommonMark thematic break (its first non-blank line has no `key:`), not
+frontmatter, is detected and a real block is prepended ahead of it rather than
+injecting a key into the document body; an unterminated `---` block is left
+byte-identical.
 
 ### 3. Collision handling and the dropped `-sha12` suffix
 

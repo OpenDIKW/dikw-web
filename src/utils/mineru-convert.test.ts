@@ -416,8 +416,8 @@ describe("convertedToFiles", () => {
     const b = { ...a, inputSha: "bbbbbbbbbbbbbbbbbbbbbbbb", markdown: "# B\n" };
     const aPath = computeProjectRelPath(convertedToFiles(a)[0]);
     const bPath = computeProjectRelPath(convertedToFiles(b)[0]);
-    // De-duplication of distinct same-named files is now core's responsibility
-    // (package_sha256) plus normalizeForImport batch numbering, not the path.
+    // Both share this raw path, so scanFiles drops the second as a visible
+    // duplicate_path skip (ADR 0004 §3) — the path no longer disambiguates them.
     expect(aPath).toBe("report/report.md");
     expect(bPath).toBe("report/report.md");
   });

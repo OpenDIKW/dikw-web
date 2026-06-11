@@ -17,18 +17,30 @@ function yamlSafe(value: string): string {
 }
 
 /** Top-level keys (``^key:``) of a frontmatter block body. Indented (nested)
- *  lines and longer key names are deliberately excluded. */
+ *  lines and longer key names are deliberately excluded. The colon may be
+ *  followed by anything: a key the author wrote without a space (``key:value``)
+ *  still counts as present, so we never append a duplicate that would make the
+ *  whole block unparseable. */
 function topLevelKeys(inner: string): Set<string> {
   const keys = new Set<string>();
   for (const line of inner.split(/\r?\n/)) {
-    // A valid YAML mapping key requires whitespace or EOL after the colon, which
-    // also avoids a false positive on a bare ``http://…`` value line. A malformed
-    // ``key:value`` (no space) line is therefore treated as absent — acceptable,
-    // since it is not a valid mapping entry in the first place.
-    const m = line.match(/^([A-Za-z0-9_]+):(?:\s|$)/);
+    const m = line.match(/^([A-Za-z0-9_]+):/);
     if (m) keys.add(m[1]);
   }
   return keys;
+}
+
+/** Does a ``---`` … ``---`` block body look like YAML frontmatter rather than a
+ *  CommonMark thematic break wrapping prose? True if it is empty/all-blank or its
+ *  first non-blank line is a mapping key (has a ``key:``) or a YAML comment. A
+ *  leading ``---`` followed by prose with no colon (a horizontal rule) is not
+ *  frontmatter, so we won't inject a key into the document body. */
+function looksLikeFrontmatter(inner: string): boolean {
+  for (const line of inner.split(/\r?\n/)) {
+    if (line.trim().length === 0) continue;
+    return /^[ \t]*#/.test(line) || /^[ \t]*[A-Za-z0-9_][^:\r\n]*:/.test(line);
+  }
+  return true;
 }
 
 function wantedLines(fields: FrontmatterFields): Array<[string, string]> {
@@ -43,13 +55,14 @@ const FRONTMATTER = /^---(\r?\n)([\s\S]*?)(\r?\n)---(\r?\n?)/;
 
 export function mergeFrontmatter(text: string, fields: FrontmatterFields): string {
   const wanted = wantedLines(fields);
-
-  if (!text.startsWith("---")) {
-    // No frontmatter — prepend a fresh block in the file's dominant EOL.
+  // Prepend a fresh frontmatter block in the file's dominant EOL.
+  const prepend = (): string => {
     const eol = text.includes("\r\n") ? "\r\n" : "\n";
     const body = wanted.map(([k, v]) => `${k}: ${yamlSafe(v)}`).join(eol);
     return `---${eol}${body}${eol}---${eol}${text}`;
-  }
+  };
+
+  if (!text.startsWith("---")) return prepend();
 
   // An empty block (``---`` immediately followed by the closing ``---``) is a
   // valid empty mapping but the FRONTMATTER regex can't match it (it needs a
@@ -65,6 +78,11 @@ export function mergeFrontmatter(text: string, fields: FrontmatterFields): strin
   if (!m) {
     // Unterminated block — leave byte-identical (mirrors stripFrontmatter).
     return text;
+  }
+  if (!looksLikeFrontmatter(m[2])) {
+    // The leading ``---`` is a CommonMark thematic break, not frontmatter —
+    // prepend a real block so we never inject a key into the document body.
+    return prepend();
   }
 
   const openEol = m[1];
