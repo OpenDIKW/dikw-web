@@ -194,9 +194,8 @@ async function handleConvert(
 
   // Reverify the SHA-256 against the bytes we actually received — the
   // claimed value in the URL is only a hint. The verified hash is what we
-  // use everywhere downstream (mineru's `data_id`, frontmatter, response
-  // tar) so a malicious or buggy caller can't poison the cache key or
-  // forge the `original_sha256` provenance in the markdown.
+  // use for mineru's `data_id` (the cache key), so a malicious or buggy
+  // caller can't poison it.
   const inputSha = sha256Hex(fileBytes);
   if (inputSha !== claimedInputSha.toLowerCase()) {
     return errorJson(
@@ -211,10 +210,10 @@ async function handleConvert(
   const modelVersion = ext === ".pdf" ? "vlm" : null;
   const stem = stemOf(fileName);
   const dataId = inputSha.slice(0, 32);
-  // The browser shortens long filenames before uploading (MinerU errors on
-  // them) but passes the true original here so frontmatter stays honest.
-  // Strip CR/LF so a pathological name can't break the YAML block. Falls back
-  // to the (possibly shortened) multipart filename when absent.
+  // The browser kebab-cases the filename before uploading (ADR 0004) but passes
+  // the true original here so frontmatter stays honest. Strip CR/LF so a
+  // pathological name can't break the YAML block. Falls back to the (kebab)
+  // multipart filename when absent.
   const originalFilename =
     url.searchParams.get("originalFilename")?.replace(/[\r\n]+/g, " ") || fileName;
 

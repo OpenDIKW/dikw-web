@@ -67,4 +67,14 @@ describe("mergeFrontmatter", () => {
     const out = mergeFrontmatter("# H\n", { original_filename: 'a"b\\c.md' });
     expect(out).toBe('---\noriginal_filename: "a\\"b\\\\c.md"\n---\n# H\n');
   });
+
+  it("injects into an empty frontmatter block (--- immediately followed by ---)", () => {
+    const out = mergeFrontmatter("---\n---\n# Title\n", { original_filename: "x.md" });
+    expect(out).toBe('---\noriginal_filename: "x.md"\n---\n# Title\n');
+  });
+
+  it("injects into an empty CRLF frontmatter block", () => {
+    const out = mergeFrontmatter("---\r\n---\r\n# T\r\n", { original_filename: "x.md" });
+    expect(out).toBe('---\r\noriginal_filename: "x.md"\r\n---\r\n# T\r\n');
+  });
 });

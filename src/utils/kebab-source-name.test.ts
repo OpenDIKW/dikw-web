@@ -69,4 +69,10 @@ describe("kebabStem", () => {
   it("returns untitled for an all-separator stem", () => {
     expect(kebabStem("___.md")).toBe("untitled");
   });
+
+  it("keeps a non-composing combining mark attached to its base letter", () => {
+    // b + U+0301 (combining acute) has no precomposed form, so it survives NFC.
+    // It must stay with its base, not split the word with a hyphen.
+    expect(kebabStem("b́c.md")).toBe("b́c");
+  });
 });

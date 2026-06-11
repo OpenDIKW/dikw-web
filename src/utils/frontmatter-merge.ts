@@ -21,6 +21,10 @@ function yamlSafe(value: string): string {
 function topLevelKeys(inner: string): Set<string> {
   const keys = new Set<string>();
   for (const line of inner.split(/\r?\n/)) {
+    // A valid YAML mapping key requires whitespace or EOL after the colon, which
+    // also avoids a false positive on a bare ``http://…`` value line. A malformed
+    // ``key:value`` (no space) line is therefore treated as absent — acceptable,
+    // since it is not a valid mapping entry in the first place.
     const m = line.match(/^([A-Za-z0-9_]+):(?:\s|$)/);
     if (m) keys.add(m[1]);
   }
@@ -45,6 +49,16 @@ export function mergeFrontmatter(text: string, fields: FrontmatterFields): strin
     const eol = text.includes("\r\n") ? "\r\n" : "\n";
     const body = wanted.map(([k, v]) => `${k}: ${yamlSafe(v)}`).join(eol);
     return `---${eol}${body}${eol}---${eol}${text}`;
+  }
+
+  // An empty block (``---`` immediately followed by the closing ``---``) is a
+  // valid empty mapping but the FRONTMATTER regex can't match it (it needs a
+  // body line before the closing fence). Insert our keys between the fences.
+  const empty = text.match(/^---(\r?\n)---(\r?\n?)/);
+  if (empty) {
+    const eol = empty[1];
+    const body = wanted.map(([k, v]) => `${k}: ${yamlSafe(v)}`).join(eol);
+    return `---${eol}${body}${eol}---${empty[2]}${text.slice(empty[0].length)}`;
   }
 
   const m = text.match(FRONTMATTER);

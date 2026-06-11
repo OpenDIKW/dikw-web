@@ -25,7 +25,10 @@ export const MINERU_EXTENSIONS: ReadonlySet<string> = new Set([
   ".xlsx",
 ]);
 
-const MINERU_VERSION = 1;
+// Bumped to 2 when the sidecar frontmatter changed from a nested ``source: {…}``
+// block to flat keys (ADR 0004): cache entries hold the converted markdown
+// *including* that frontmatter, so stale entries must be invalidated.
+const MINERU_VERSION = 2;
 const DB_NAME = "dikw-mineru-cache";
 const DB_STORE = "entries";
 const DB_VERSION = 1;
@@ -78,7 +81,7 @@ export interface ConvertOptions {
   cache?: ConvertCache | null;
   /** When set, forwarded to the sidecar so it records the true original
    *  filename in frontmatter even though the uploaded File was renamed
-   *  (shortened) for MinerU. Defaults to the uploaded File's name. */
+   *  (kebab-cased per ADR 0004) for MinerU. Defaults to the uploaded File's name. */
   originalFilename?: string;
   /** Override for tests. */
   fetch?: typeof fetch;

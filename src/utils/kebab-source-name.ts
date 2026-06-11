@@ -17,8 +17,10 @@ export function kebabStem(name: string, maxStem = MAX_STEM): string {
     .normalize("NFC")
     .toLowerCase()
     // A maximal run of non-letter/non-number chars becomes one hyphen, so no
-    // ``--`` can survive; letters (incl. Han) and digits are kept verbatim.
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
+    // ``--`` can survive; letters (incl. Han), digits, and combining marks
+    // (``\p{M}`` — kept so a base+mark sequence with no precomposed form isn't
+    // fractured by a hyphen) are kept verbatim.
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, "-")
     .replace(/^-+|-+$/g, "");
   // Cap by code point (``Array.from`` never splits a surrogate pair), then
   // re-trim any trailing hyphen the cut exposed.
