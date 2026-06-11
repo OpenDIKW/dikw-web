@@ -22,7 +22,7 @@ import {
   type ConvertCache,
   type ConvertedSource,
 } from "../utils/mineru-convert";
-import { shortenFileName } from "../utils/shorten-filename";
+import { kebabStem } from "../utils/kebab-source-name";
 import type { ApplyReport, FixProposalReport, TaskEvent } from "../types";
 import { IdlePicker } from "./import/IdlePicker";
 import { PipelineSteps } from "./import/PipelineSteps";
@@ -243,14 +243,17 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           const i = next++;
           if (i >= mineru.length) return;
           const file = mineru[i];
-          // MinerU errors on very long filenames. Send a shortened name (the
-          // bytes are unchanged, so inputSha / dedup are unaffected) but pass
-          // the true original through so the sidecar keeps it in frontmatter.
-          const shortName = shortenFileName(file.name);
+          // Upload under the kebab name (ADR 0004) — this is also what the
+          // converted page lands under. Keep the original extension so MinerU's
+          // format detection still works; the bytes are unchanged, so inputSha /
+          // dedup are unaffected. The true original is forwarded below so the
+          // sidecar keeps it in frontmatter.
+          const dot = file.name.lastIndexOf(".");
+          const uploadName = `${kebabStem(file.name)}${dot < 0 ? "" : file.name.slice(dot)}`;
           const fileForConvert =
-            shortName === file.name
+            uploadName === file.name
               ? file
-              : new File([file], shortName, {
+              : new File([file], uploadName, {
                   type: file.type,
                   lastModified: file.lastModified,
                 });

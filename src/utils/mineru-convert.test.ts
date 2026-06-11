@@ -373,7 +373,7 @@ describe("convertSource", () => {
 });
 
 describe("convertedToFiles", () => {
-  it("produces File[] whose webkitRelativePath survives scanFiles strip-prefix", () => {
+  it("lays markdown and assets under a kebab synthetic root with no sha suffix", () => {
     const c = {
       input: new File([new Uint8Array(0)], "test.pdf"),
       inputSha: "deadbeefcafe1234",
@@ -382,10 +382,8 @@ describe("convertedToFiles", () => {
       assets: new Map([["assets/images/fig.png", new Uint8Array([1, 2])]]),
     };
     const files = convertedToFiles(c);
-    // Synthetic root now suffixes the stem with the first 12 chars of
-    // inputSha to keep two same-stem inputs from colliding into a
-    // duplicate_path skip. Same bytes → same suffix → idempotency holds.
-    const root = "test-deadbeefcafe";
+    // Root is just the kebab stem — the inputSha suffix is gone (ADR 0004).
+    const root = "test";
     expect(files.map((f) => computeProjectRelPath(f)).sort()).toEqual([
       `${root}/assets/images/fig.png`,
       `${root}/test.md`,
@@ -395,7 +393,19 @@ describe("convertedToFiles", () => {
     expect(scan.skipped).toEqual([]);
   });
 
-  it("uses a different synthetic root for same-stem inputs with different content", () => {
+  it("kebab-cases a non-kebab stem into the synthetic root and md name", () => {
+    const c = {
+      input: new File([new Uint8Array(0)], "01_Biotechnology Progress.pdf"),
+      inputSha: "71bb3eeaab76",
+      stem: "01_Biotechnology Progress",
+      markdown: "# Body\n",
+      assets: new Map<string, Uint8Array>(),
+    };
+    const paths = convertedToFiles(c).map((f) => computeProjectRelPath(f));
+    expect(paths).toEqual(["01-biotechnology-progress/01-biotechnology-progress.md"]);
+  });
+
+  it("uses the same synthetic root for same-stem inputs regardless of content", () => {
     const a = {
       input: new File([new Uint8Array(0)], "report.pdf"),
       inputSha: "aaaaaaaaaaaaaaaaaaaaaaaa",
@@ -403,14 +413,13 @@ describe("convertedToFiles", () => {
       markdown: "# A\n",
       assets: new Map<string, Uint8Array>(),
     };
-    const b = { ...a, inputSha: "bbbbbbbbbbbbbbbbbbbbbbbb" };
-    const aFiles = convertedToFiles(a);
-    const bFiles = convertedToFiles(b);
-    const aPath = computeProjectRelPath(aFiles[0]);
-    const bPath = computeProjectRelPath(bFiles[0]);
-    expect(aPath).not.toBe(bPath);
-    expect(aPath.startsWith("report-aaa")).toBe(true);
-    expect(bPath.startsWith("report-bbb")).toBe(true);
+    const b = { ...a, inputSha: "bbbbbbbbbbbbbbbbbbbbbbbb", markdown: "# B\n" };
+    const aPath = computeProjectRelPath(convertedToFiles(a)[0]);
+    const bPath = computeProjectRelPath(convertedToFiles(b)[0]);
+    // Both share this raw path, so scanFiles drops the second as a visible
+    // duplicate_path skip (ADR 0004 §3) — the path no longer disambiguates them.
+    expect(aPath).toBe("report/report.md");
+    expect(bPath).toBe("report/report.md");
   });
 
   it("sorts assets so iteration order doesn't perturb downstream bundle sha", () => {

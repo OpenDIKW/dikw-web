@@ -430,10 +430,12 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     const names = entries.map((e) => e.archivePath).sort();
     expect(names).toEqual(["assets/images/fig.png", "test.md"]);
     const md = new TextDecoder().decode(entries.find((e) => e.archivePath === "test.md")!.data);
-    // Frontmatter present and deterministic (no timestamps).
-    expect(md).toContain("converter: mineru");
-    expect(md).toContain(`original_sha256: ${inputSha}`);
-    expect(md).toContain('original_filename: "test.pdf"');
+    // Flat, deterministic frontmatter (ADR 0004): no nested object, no sha, no
+    // timestamps — the Base reader renders nested values as JSON.
+    expect(md).toContain('\noriginal_filename: "test.pdf"\n');
+    expect(md).toContain('\nconverter: "mineru"\n');
+    expect(md).not.toContain("source:");
+    expect(md).not.toContain("original_sha256");
     // Image ref rewritten to wikilink form.
     expect(md).toContain("![[assets/images/fig.png]]");
   });

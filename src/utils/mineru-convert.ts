@@ -12,6 +12,7 @@
 // invalidation when the rewrite logic changes.
 
 import { sha256Hex } from "./import-bundle";
+import { kebabStem } from "./kebab-source-name";
 import { readTar, TarReaderError } from "./tar-reader";
 
 export const MINERU_EXTENSIONS: ReadonlySet<string> = new Set([
@@ -24,7 +25,10 @@ export const MINERU_EXTENSIONS: ReadonlySet<string> = new Set([
   ".xlsx",
 ]);
 
-const MINERU_VERSION = 1;
+// Bumped to 2 when the sidecar frontmatter changed from a nested ``source: {…}``
+// block to flat keys (ADR 0004): cache entries hold the converted markdown
+// *including* that frontmatter, so stale entries must be invalidated.
+const MINERU_VERSION = 2;
 const DB_NAME = "dikw-mineru-cache";
 const DB_STORE = "entries";
 const DB_VERSION = 1;
@@ -77,7 +81,7 @@ export interface ConvertOptions {
   cache?: ConvertCache | null;
   /** When set, forwarded to the sidecar so it records the true original
    *  filename in frontmatter even though the uploaded File was renamed
-   *  (shortened) for MinerU. Defaults to the uploaded File's name. */
+   *  (kebab-cased per ADR 0004) for MinerU. Defaults to the uploaded File's name. */
   originalFilename?: string;
   /** Override for tests. */
   fetch?: typeof fetch;
@@ -209,18 +213,19 @@ export async function convertSource(
 }
 
 export function convertedToFiles(c: ConvertedSource): File[] {
-  // Suffix the synthetic root with a short content-hash prefix so two
-  // converted inputs that happen to share a `stem` (e.g. `report.pdf`
-  // from different vault folders) don't collapse onto the same archive
-  // path and get dropped by buildImportBundle.scanFiles as
-  // `duplicate_path`. The hash prefix is content-derived, so identical
-  // bytes still produce the same synthetic root — idempotency holds.
-  const root = `${c.stem}-${c.inputSha.slice(0, 12)}`;
+  // The synthetic root is the kebab stem (ADR 0004) — no inputSha suffix.
+  // ``kebabStem`` is idempotent on an already-kebab stem (the upload name is
+  // kebab'd upstream). Two converted inputs whose stems kebab to the same root
+  // therefore share this raw path; ``scanFiles`` drops the second as a visible
+  // ``duplicate_path`` skip (the accepted trade for dropping ``-sha12`` —
+  // ADR 0004 §3). ``normalizeForImport``'s ``-2``/``-3`` numbering only applies
+  // to distinct *plain* names that collapse to the same kebab.
+  const root = kebabStem(c.stem);
   const files: File[] = [];
   files.push(
     syntheticFile(
-      `${c.stem}.md`,
-      `_mineru/${root}/${c.stem}.md`,
+      `${root}.md`,
+      `_mineru/${root}/${root}.md`,
       new TextEncoder().encode(c.markdown),
       "text/markdown",
     ),

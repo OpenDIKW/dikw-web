@@ -194,9 +194,8 @@ async function handleConvert(
 
   // Reverify the SHA-256 against the bytes we actually received — the
   // claimed value in the URL is only a hint. The verified hash is what we
-  // use everywhere downstream (mineru's `data_id`, frontmatter, response
-  // tar) so a malicious or buggy caller can't poison the cache key or
-  // forge the `original_sha256` provenance in the markdown.
+  // use for mineru's `data_id` (the cache key), so a malicious or buggy
+  // caller can't poison it.
   const inputSha = sha256Hex(fileBytes);
   if (inputSha !== claimedInputSha.toLowerCase()) {
     return errorJson(
@@ -211,10 +210,10 @@ async function handleConvert(
   const modelVersion = ext === ".pdf" ? "vlm" : null;
   const stem = stemOf(fileName);
   const dataId = inputSha.slice(0, 32);
-  // The browser shortens long filenames before uploading (MinerU errors on
-  // them) but passes the true original here so frontmatter stays honest.
-  // Strip CR/LF so a pathological name can't break the YAML block. Falls back
-  // to the (possibly shortened) multipart filename when absent.
+  // The browser kebab-cases the filename before uploading (ADR 0004) but passes
+  // the true original here so frontmatter stays honest. Strip CR/LF so a
+  // pathological name can't break the YAML block. Falls back to the (kebab)
+  // multipart filename when absent.
   const originalFilename =
     url.searchParams.get("originalFilename")?.replace(/[\r\n]+/g, " ") || fileName;
 
@@ -247,7 +246,6 @@ async function handleConvert(
     stem,
     dataId,
     originalFilename,
-    inputSha,
   });
   return json(res, { jobId: job.id, status: "pending" }, 202);
 }
@@ -260,7 +258,6 @@ interface ConversionArgs {
   stem: string;
   dataId: string;
   originalFilename: string;
-  inputSha: string;
 }
 
 /** The MinerU pipeline, detached from any HTTP request. Updates the job record
@@ -283,11 +280,7 @@ async function runConversion(store: JobStore, jobId: string, args: ConversionArg
     store.setPhase(jobId, "downloading");
     const zipBytes = await args.client.downloadZip(zipUrl);
     const extracted = extractResultZip(zipBytes);
-    const markdownWithFrontmatter = injectFrontmatter(
-      extracted.markdown,
-      args.originalFilename,
-      args.inputSha,
-    );
+    const markdownWithFrontmatter = injectFrontmatter(extracted.markdown, args.originalFilename);
     const tarBytes = buildResponseTar(args.stem, markdownWithFrontmatter, extracted.assets);
     // Async gzip so a multi-hundred-MB tar doesn't block the event loop for
     // sister conversions. Level 6 (zlib default) — the marginal compression
@@ -457,15 +450,16 @@ function buildResponseTar(
   return buildTar(entries);
 }
 
-function injectFrontmatter(markdown: string, originalFilename: string, inputSha: string): string {
-  // Only deterministic keys so the resulting bundle is byte-stable for
-  // identical inputs. No converted_at, no batch_id.
+function injectFrontmatter(markdown: string, originalFilename: string): string {
+  // Flat keys only (ADR 0004): the Base reader renders a nested value as JSON,
+  // so ``original_filename`` and ``converter`` are top-level strings. Only
+  // deterministic keys so the bundle is byte-stable for identical inputs — no
+  // ``original_sha256``, no timestamps. MinerU output is machine-generated and
+  // never carries author frontmatter, so a plain prepend (no merge) is safe.
   const fm = [
     "---",
-    "source:",
-    `  converter: mineru`,
-    `  original_filename: ${yamlSafe(originalFilename)}`,
-    `  original_sha256: ${inputSha}`,
+    `original_filename: ${yamlSafe(originalFilename)}`,
+    `converter: ${yamlSafe("mineru")}`,
     "---",
     "",
   ].join("\n");
