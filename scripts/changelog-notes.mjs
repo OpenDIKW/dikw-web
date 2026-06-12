@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Extract one version's section from CHANGELOG.md as GitHub Release notes. Prints
-// the body between the `## [<version>]` heading and the next `## [` heading to
-// stdout, falling back to a one-line note when the version isn't documented yet.
+// the body between the `## [<version>]` heading and the next level-2 (`## `)
+// heading to stdout, falling back to a one-line note when the version isn't
+// documented yet (breaking on any `## ` heading, not just `## [`, stays correct
+// even if a release heading is ever written without the `[..]` brackets).
 // Used by the `release` job in .github/workflows/ci.yml to feed
 // `gh release create --notes-file`.
 //
@@ -22,7 +24,7 @@ let body = "";
 if (start >= 0) {
   const collected = [];
   for (let i = start + 1; i < lines.length; i++) {
-    if (lines[i].startsWith("## [")) break;
+    if (lines[i].startsWith("## ")) break;
     collected.push(lines[i]);
   }
   body = collected.join("\n").trim();

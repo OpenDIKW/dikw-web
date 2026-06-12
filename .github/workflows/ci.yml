@@ -183,6 +183,10 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          # This is the only job with `contents: write`; it authenticates `gh`
+          # via GH_TOKEN and never uses the checkout's git credential, so drop the
+          # persisted token (defense-in-depth for the write-scoped run).
+          persist-credentials: false
 
       - name: Resolve version and check for existing tag
         id: meta
