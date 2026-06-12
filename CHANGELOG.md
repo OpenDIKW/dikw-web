@@ -11,6 +11,14 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **Automated release tags** — a `release` job in CI (`.github/workflows/ci.yml`)
+  cuts a GitHub Release tagged `dikw-web-v<package.json version>` after the full CI
+  gate is green on a push to `main`. It is idempotent (skips when the tag already
+  exists), so only an actual `package.json.version` bump produces a new tag — which
+  makes "every version update gets a tag" fall out for free; the current `0.3.0` is
+  tagged on the first run. Release notes are pulled from the matching CHANGELOG
+  section by `scripts/changelog-notes.mjs`. Job-scoped `contents: write` keeps the
+  workflow-level read-only default everywhere else. No new dependencies.
 - **Sidecar translation endpoint** (`/web/translate`, `server/web/`) — the backend half
   of Base-reader bilingual reading. A **job + poll** API (mirroring mineru, issue #60):
   `POST /web/translate/submit` (`{ blocks, targetLang }`, the document's markdown split

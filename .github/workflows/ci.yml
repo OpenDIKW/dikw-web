@@ -160,3 +160,52 @@ jobs:
           exit-code: "1"
           severity: HIGH,CRITICAL
           version: ${{ env.TRIVY_VERSION }}
+
+  release:
+    name: Release tag (dikw-web-v*)
+    # Cuts a GitHub Release tagged dikw-web-v<package.json version> once the whole
+    # CI is green on a push to main (i.e. a merged PR). Idempotent: it skips when
+    # the tag already exists, so only an actual version bump produces a new tag —
+    # which makes "every version update gets a tag" fall out for free. Notes come
+    # from the matching CHANGELOG.md section. Job-scoped `contents: write` keeps the
+    # workflow-level read-only default everywhere else.
+    needs: [verify, audit, gitleaks, trivy]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version and check for existing tag
+        id: meta
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          tag="dikw-web-v${version}"
+          if git rev-parse -q --verify "refs/tags/${tag}" >/dev/null; then
+            echo "Tag ${tag} already exists — nothing to release."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: steps.meta.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Passed via env (not inline `${{ }}` in the script) to keep the version
+          # out of the shell-command string — the standard guard against Actions
+          # expression/script injection.
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAG: ${{ steps.meta.outputs.tag }}
+        run: |
+          node scripts/changelog-notes.mjs "$VERSION" > release-notes.md
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "dikw-web v$VERSION" \
+            --notes-file release-notes.md
