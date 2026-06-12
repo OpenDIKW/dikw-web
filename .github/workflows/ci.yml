@@ -8,7 +8,11 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel only redundant PR runs (cost saver during iteration). Never cancel a
+  # main run: the `release` job tags from package.json.version, so a cancelled
+  # main run would skip a version's tag when two version-bumping merges land close
+  # together. Main runs instead queue and each runs to completion.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
