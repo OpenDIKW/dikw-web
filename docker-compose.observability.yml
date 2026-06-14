@@ -1,0 +1,108 @@
+# Local observability demo stack for dikw-web's OpenTelemetry export. This is NOT
+# the production compose (see docker-compose.yml) and does not touch it. It brings
+# up an OTel Collector that fans OTLP into Jaeger (traces) + Prometheus (metrics) +
+# Loki (logs), all visualized in Grafana with datasources pre-provisioned.
+#
+# Quickstart (backends only):
+#   docker compose -f docker-compose.observability.yml up
+# Then point any OTLP source at the collector, e.g. run the sidecar with
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318  npm.cmd start
+# and open Grafana at http://localhost:3000 (Jaeger http://localhost:16686,
+# Prometheus http://localhost:9090).
+#
+# Full demo incl. the app (needs LLM creds in .env — never inlined here):
+#   docker compose -f docker-compose.observability.yml --profile app up
+#
+# Placeholder secrets only (changeme). See docs/observability.md.
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    container_name: dikw-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP (sidecar + browser RUM)
+      - "8889:8889" # Prometheus scrape (collector-exposed metrics)
+    depends_on: [jaeger, prometheus, loki]
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: dikw-jaeger
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # Jaeger UI
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: dikw-prometheus
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090" # Prometheus UI
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.0.0
+    container_name: dikw-loki
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    ports:
+      - "3100:3100" # Loki API (OTLP ingestion at /otlp/v1/logs)
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: dikw-grafana
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_SECURITY_ADMIN_PASSWORD: "changeme" # placeholder; demo only
+    volumes:
+      - ./observability/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    ports:
+      - "3000:3000" # Grafana UI
+    depends_on: [prometheus, loki, jaeger]
+    restart: unless-stopped
+
+  # Optional: the dikw-web app itself, exporting to the in-network collector.
+  # Excluded from the default `up` (profile "app") so the backends come up without
+  # LLM credentials; enable with `--profile app`. Creds come from the operator's
+  # .env (never inlined). Unlike docker-compose.yml these use `:-` not `:?` —
+  # compose interpolates every service (even profiled-out ones) before filtering,
+  # so a required-var (`:?`) here would block the cred-free backends-only `up`. When
+  # the app profile runs without creds the sidecar exits with a clear config error.
+  dikw-web:
+    profiles: ["app"]
+    build: .
+    image: dikw-web:local
+    container_name: dikw-web-otel
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4318"
+      OTEL_SERVICE_NAME: "dikw-web"
+      DIKW_AGENT_PROVIDER: "${DIKW_AGENT_PROVIDER:-minimax}"
+      DIKW_AGENT_API: "${DIKW_AGENT_API:-anthropic-messages}"
+      DIKW_AGENT_API_KEY: "${DIKW_AGENT_API_KEY:-}"
+      DIKW_AGENT_BASE_URL: "${DIKW_AGENT_BASE_URL:-}"
+      DIKW_AGENT_MODEL: "${DIKW_AGENT_MODEL:-}"
+      DIKW_AGENT_TAVILY_API_KEY: "${DIKW_AGENT_TAVILY_API_KEY:-}"
+      DIKW_AGENT_JINA_API_KEY: "${DIKW_AGENT_JINA_API_KEY:-}"
+      DIKW_WEB_MINERU_API_KEY: "${DIKW_WEB_MINERU_API_KEY:-}"
+    ports:
+      - "4321:4321"
+    volumes:
+      - dikw-agent-sessions:/data/agent-sessions
+    depends_on: [otel-collector]
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  dikw-agent-sessions:
+    name: dikw-agent-sessions

@@ -204,6 +204,12 @@ A Docker image is the recommended deployment form. See
 `docker run` / `docker compose` recipes, and notes on connecting to an
 external dikw-core (host networking + CORS).
 
+Telemetry export is opt-in via standard `OTEL_*` env (traces + metrics + logs,
+plus optional browser RUM). A self-contained demo stack —
+`docker compose -f docker-compose.observability.yml up` (OTel Collector →
+Jaeger + Prometheus + Loki + Grafana) — and the full env reference are in
+[`docs/observability.md`](docs/observability.md).
+
 ## Where canonical docs live
 
 - `CLAUDE.md` — operational guide for Claude Code sessions (working
@@ -216,6 +222,9 @@ external dikw-core (host networking + CORS).
 - `docs/graph-view.md` — Graph View architecture and rendering.
 - `docs/agent.md` — ADK agent sidecar (MiniMaxLlm, ADK runner/session
   store, sqlite sessions, OpenTelemetry `#trace`), tool registry.
+- `docs/observability.md` — OpenTelemetry export (traces + metrics + logs +
+  browser RUM): `OTEL_*` env reference, the `dikw.*` metric catalog, and a
+  local demo stack (`docker-compose.observability.yml`).
 - `docs/tdd.md` — TDD workflow for this project.
 - `docs/adr/` — Architecture Decision Records (one decision per file,
   prefixed `NNNN-`).
