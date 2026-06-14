@@ -8,8 +8,11 @@ import { AdkSessionStore } from "./adkSessionStore.js";
 import { AdkAgentRunner } from "./adkRunner.js";
 import { SpanStore } from "./spanStore.js";
 import { initAgentTelemetry } from "./telemetry.js";
+import { createLogger } from "../shared/logger.js";
 import type { AgentRunner } from "./runtime.js";
 import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types.js";
+
+const log = createLogger("agent");
 
 export interface AgentHandlerOptions {
   cwd?: string;
@@ -177,7 +180,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         next(error);
         return;
       }
-      console.error("[agent] unhandled handler error", error);
+      log.error("unhandled handler error", { error });
       return errorJson(res, 500, "agent_http_error", "internal agent error");
     }
   };

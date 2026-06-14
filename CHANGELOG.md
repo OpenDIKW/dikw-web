@@ -11,6 +11,23 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **Structured sidecar logging + OTel logs bridge** — Phase 4 of OTel observability.
+  A new `server/shared/logger.ts` (`createLogger(scope)`) replaces the sidecar's ~21
+  ad-hoc `console.*` calls with one-line structured records: JSON to stdout (a human
+  text line when stdout is a TTY or `DIKW_LOG_FORMAT=text`), the active span's
+  `trace_id` / `span_id` injected for trace↔log correlation, and a mirrored OTel
+  `LogRecord`. When `OTEL_EXPORTER_OTLP_ENDPOINT` (or `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`)
+  is set, ADK's `maybeSetOtelProviders` builds the `LoggerProvider` (its own OTLP
+  `BatchLogRecordProcessor`), so logs ship to Loki/etc. alongside traces and metrics
+  under the same `service.name=dikw-web` resource; with no endpoint env there is no
+  provider and the bridge is a no-op (stdout output only). Field **names** matching
+  `key|token|auth|secret|password|credential` are redacted to `[redacted]` as defense
+  in depth, and there is no arbitrary-object dump path, so a secret can't be logged by
+  accident; `Error` field values are reduced to `name: message` (no stack dump). This
+  is a visible **stdout format change** for `npm start` — set `DIKW_LOG_FORMAT=text`
+  for the prior human-readable style. `@opentelemetry/api-logs` is a new runtime dep
+  (the emit API); `@opentelemetry/sdk-logs` is added for the test harness (both pinned
+  to ADK's resolved `0.205.0`). Logging never touches `dikw-core`.
 - **OpenTelemetry metrics** — Phase 3 of OTel observability. A new
   `server/shared/metrics.ts` records six instruments on the global meter:
   `http.server.request.duration` (histogram, seconds; `http.request.method` /

@@ -1,5 +1,8 @@
 import { join } from "node:path";
 import { readEnvFile, readOptional } from "../shared/env.js";
+import { createLogger } from "../shared/logger.js";
+
+const log = createLogger("agent");
 
 /**
  * Context-window compaction knobs. The agent runs on ADK's built-in
@@ -95,9 +98,9 @@ function readBoolean(
   }
   // Surface a typo'd flag (e.g. "disabled") instead of silently keeping the
   // default, which can leave a feature on when the operator meant to turn it off.
-  console.warn(
-    `[dikw-agent] ${key}="${value}" is not a recognized boolean; using default ${fallback}`,
-  );
+  // Field name is `flag`, not `key`: the logger redacts any field NAME matching
+  // /key|.../, which would blank the very env var name this warning exists to name.
+  log.warn("unrecognized boolean flag; using default", { flag: key, value, default: fallback });
   return fallback;
 }
 
