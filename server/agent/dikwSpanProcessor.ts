@@ -25,11 +25,13 @@ export class DikwSpanProcessor implements SpanProcessor {
   }
 
   onEnd(span: ReadableSpan): void {
-    // HTTP server spans (withServerSpan) share the trace with the agent
-    // invocation they wrap, but they are distributed-tracing infrastructure for
-    // OTLP export — not agent work. Keep them out of the in-memory #trace store
-    // so the waterfall stays agent-only (ADK emits only INTERNAL spans).
-    if (span.kind === SpanKind.SERVER) {
+    // HTTP infrastructure spans share the trace with the agent invocation but are
+    // distributed-tracing plumbing for OTLP export, not agent work: the inbound
+    // SERVER span (withServerSpan) and the outbound CLIENT spans
+    // (instrumentation-undici). ADK's own agent spans are all INTERNAL, so keep
+    // only INTERNAL in the in-memory #trace store and the waterfall stays
+    // agent-only (they still export over OTLP).
+    if (span.kind !== SpanKind.INTERNAL) {
       return;
     }
     const ctx = span.spanContext();

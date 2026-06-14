@@ -11,6 +11,26 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **OpenTelemetry outbound CLIENT spans (opt-in)** — Phase 5 of OTel observability.
+  A new `server/agent/instrumentation.ts` registers `@opentelemetry/instrumentation-undici`
+  so the standalone sidecar's outbound `fetch`/undici calls (dikw-core `/v1`, MinerU,
+  Tavily/Jina, the translator's Anthropic SDK) emit OTel **CLIENT** spans and inject a
+  W3C `traceparent`, continuing the inbound SERVER-span trace through to the upstream.
+  Registration is **gated on an OTLP traces endpoint** (`OTEL_EXPORTER_OTLP_ENDPOINT` /
+  `*_TRACES_ENDPOINT`): with no endpoint env the HTTP layer is **not patched** at all, so
+  outbound behavior is byte-identical to before. The patch is via undici's
+  `diagnostics_channel` (dispatcher-agnostic). The query string is **redacted** from
+  every CLIENT span (`startSpanHook` keeps `scheme://host/path`, sets `url.query` to
+  `[REDACTED]`) so MinerU's presigned upload/result URLs — whose query carries a
+  bearer credential — never reach the OTLP backend. CLIENT spans (like SERVER spans)
+  are filtered out of the in-memory `#trace` store (`DikwSpanProcessor` now keeps only
+  `SpanKind.INTERNAL`, ADK's own kind), so the `#trace` waterfall stays agent-only; the
+  spans still export over OTLP. `@opentelemetry/instrumentation@^0.219.0`
+  + `@opentelemetry/instrumentation-undici@^0.29.0` are added as runtime deps
+  (`@opentelemetry/api` stays single-deduped). Note: a fetch using a per-call
+  `dispatcher` from the npm `undici` package (the `tools.ts` `HTTPS_PROXY` `ProxyAgent`
+  path) is incompatible with Node's built-in `fetch` independently of this change (a
+  pre-existing undici-version mismatch); the instrumentation is orthogonal to it.
 - **Structured sidecar logging + OTel logs bridge** — Phase 4 of OTel observability.
   A new `server/shared/logger.ts` (`createLogger(scope)`) replaces the sidecar's ~21
   ad-hoc `console.*` calls with one-line structured records: JSON to stdout (a human

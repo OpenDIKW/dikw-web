@@ -128,6 +128,39 @@ describe("DikwSpanProcessor.onEnd", () => {
     expect(spanIds).not.toContain("http-span");
   });
 
+  it("skips CLIENT-kind spans so outbound HTTP (instrumentation-undici) stays out of the store", () => {
+    const store = new SpanStore();
+    const processor = new DikwSpanProcessor(store);
+
+    // An outbound CLIENT span (a core /v1 or MinerU fetch) shares the agent trace
+    // but is HTTP plumbing — it must not pollute the agent-only #trace waterfall.
+    processor.onEnd(
+      fakeSpan({
+        name: "GET",
+        kind: SpanKind.CLIENT,
+        spanId: "client-span",
+        attributes: {
+          "gcp.vertex.agent.session_id": "s1",
+          "http.request.method": "GET",
+          "server.address": "127.0.0.1",
+        },
+      }),
+    );
+    processor.onEnd(
+      fakeSpan({
+        name: "call_llm",
+        spanId: "llm-span",
+        attributes: { "gcp.vertex.agent.session_id": "s1" },
+      }),
+    );
+
+    const spanIds = store
+      .getSessionTraces("s1")
+      .invocations.flatMap((invocation) => invocation.spans.map((span) => span.spanId));
+    expect(spanIds).toContain("llm-span");
+    expect(spanIds).not.toContain("client-span");
+  });
+
   it("maps status codes and falls back to gen_ai.conversation.id for sessionId, null parent", () => {
     const store = new SpanStore();
     const processor = new DikwSpanProcessor(store);

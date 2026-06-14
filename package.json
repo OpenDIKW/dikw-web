@@ -32,6 +32,8 @@
     "@mikro-orm/sqlite": "^6.6.14",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.205.0",
+    "@opentelemetry/instrumentation": "^0.219.0",
+    "@opentelemetry/instrumentation-undici": "^0.29.0",
     "@opentelemetry/resources": "^2.7.1",
     "@opentelemetry/sdk-logs": "^0.205.0",
     "@opentelemetry/sdk-metrics": "^2.7.1",
