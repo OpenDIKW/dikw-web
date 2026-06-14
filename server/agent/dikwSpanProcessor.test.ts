@@ -49,6 +49,20 @@ describe("DikwSpanProcessor.onEnd", () => {
     const store = new SpanStore();
     const processor = new DikwSpanProcessor(store);
 
+    // Seed the parent (root invocation) so the child's extracted parentSpanId is
+    // present in the served view and survives getSessionTraces' dangling-parent
+    // normalization — keeping this a faithful parent-child extraction check.
+    processor.onEnd(
+      fakeSpan({
+        name: "invocation",
+        spanId: "parent-1",
+        parentSpanId: null,
+        attributes: {
+          "gcp.vertex.agent.session_id": "s1",
+          "gcp.vertex.agent.invocation_id": "inv-1",
+        },
+      }),
+    );
     processor.onEnd(
       fakeSpan({
         attributes: {
@@ -64,7 +78,7 @@ describe("DikwSpanProcessor.onEnd", () => {
 
     const view = store.getSessionTraces("s1");
     expect(view.invocations).toHaveLength(1);
-    const span = view.invocations[0].spans[0];
+    const span = view.invocations[0].spans.find((s) => s.spanId === "span-1")!;
     expect(span.spanId).toBe("span-1");
     expect(span.parentSpanId).toBe("parent-1");
     expect(span.name).toBe("call_llm");

@@ -24,8 +24,11 @@ file format introduced in `[0.0.1.0]` was dropped.
   aggregation key). SERVER spans export via OTLP (when an endpoint
   is configured) but are filtered out of the in-memory `#trace` store
   (`DikwSpanProcessor` skips `SpanKind.SERVER`; ADK agent spans are all `INTERNAL`),
-  so the `#trace` waterfall is unchanged. No new dependencies; no change to the
-  `#trace` DTO or any `/agent/*` wire format.
+  so the `#trace` waterfall is unchanged. Because the SERVER span now parents ADK's
+  root `invocation` span, `SpanStore.getSessionTraces` normalizes any parent absent
+  from the served view (the filtered SERVER span, or a FIFO-evicted parent) back to
+  `null`, so the invocation stays a true root and the `TraceSpanView` contract holds.
+  No new dependencies; no change to the `#trace` DTO or any `/agent/*` wire format.
 - **OpenTelemetry trace export (opt-in)** — the first phase of OTel observability.
   Agent spans now carry a `service.name=dikw-web` resource
   (`server/agent/telemetryResource.ts`; `service.version` from `package.json`, a

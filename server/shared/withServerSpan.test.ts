@@ -192,10 +192,13 @@ describe("withServerSpan", () => {
     expect(invocation!.parentSpanContext?.spanId).toBe(serverSpan!.spanContext().spanId);
 
     // #trace side: only the agent spans, never the SERVER span.
-    const storeNames = store
-      .getSessionTraces("s1")
-      .invocations.flatMap((inv) => inv.spans.map((span) => span.name));
+    const storeSpans = store.getSessionTraces("s1").invocations.flatMap((inv) => inv.spans);
+    const storeNames = storeSpans.map((span) => span.name);
     expect(storeNames).toContain("call_llm");
     expect(storeNames).not.toContain("POST /agent/sessions/:id/messages");
+    // The `invocation` span was parented to the now-filtered SERVER span; the view
+    // must normalize that dangling parent to null so it stays a true root.
+    const storedInvocation = storeSpans.find((span) => span.name === "invocation")!;
+    expect(storedInvocation.parentSpanId).toBeNull();
   });
 });
