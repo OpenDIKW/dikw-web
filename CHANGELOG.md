@@ -9,6 +9,8 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-14
+
 ### Added
 
 - **论文知识库 (MB-Web) reading variant** — a focused paper-reading UI shipped in
