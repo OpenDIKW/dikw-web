@@ -1,6 +1,7 @@
 import { maybeSetOtelProviders } from "@google/adk";
 import { DikwSpanProcessor } from "./dikwSpanProcessor.js";
 import type { SpanStore } from "./spanStore.js";
+import { buildDikwResource } from "./telemetryResource.js";
 
 // maybeSetOtelProviders registers a process-global NodeTracerProvider and will
 // not override an already-set global provider — so registering twice silently
@@ -10,6 +11,13 @@ let registered = false;
 /**
  * Wires the DikwSpanProcessor into ADK's OTel setup so finished agent spans
  * land in the given (in-memory) SpanStore. Idempotent per process.
+ *
+ * We also pass a dikw-web Resource as the 2nd arg: ADK merges our span
+ * processor with its own env-gated OTLP exporters (active only when
+ * OTEL_EXPORTER_OTLP_ENDPOINT / *_TRACES_ENDPOINT is set), so any OTLP-exported
+ * span carries our service.name/version/instance.id. With no endpoint env this
+ * is a no-op for export — only the in-memory SpanStore (the #trace UI) is fed,
+ * exactly as before.
  */
 export function initAgentTelemetry(store: SpanStore): void {
   // ADK captures full LLM request/response + tool I/O into span attributes by
@@ -24,5 +32,5 @@ export function initAgentTelemetry(store: SpanStore): void {
     return;
   }
   registered = true;
-  maybeSetOtelProviders([{ spanProcessors: [new DikwSpanProcessor(store)] }]);
+  maybeSetOtelProviders([{ spanProcessors: [new DikwSpanProcessor(store)] }], buildDikwResource());
 }

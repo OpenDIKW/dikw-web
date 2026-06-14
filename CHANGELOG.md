@@ -11,6 +11,19 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **OpenTelemetry trace export (opt-in)** — the first phase of OTel observability.
+  Agent spans now carry a `service.name=dikw-web` resource
+  (`server/agent/telemetryResource.ts`; `service.version` from `package.json`, a
+  per-process `service.instance.id`, overridable via the standard `OTEL_SERVICE_NAME`).
+  Setting `OTEL_EXPORTER_OTLP_ENDPOINT` (or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`) makes
+  ADK additionally export these spans over OTLP to any collector/backend (Jaeger, Grafana
+  Tempo, Honeycomb, …), with sampling honoring `OTEL_TRACES_SAMPLER`/`_ARG`. With no
+  endpoint env the spans stay in the in-memory `#trace` store only — behavior-identical to
+  before — and OTLP-exported spans inherit the same content-free redaction
+  (`ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false`). `@opentelemetry/resources` +
+  `@opentelemetry/semantic-conventions` are promoted from already-hoisted transitive deps
+  to direct deps (pinned to ADK's resolved versions; no new physical install). No change to
+  the in-memory `SpanStore`, the `#trace` DTO, or any `/agent/*` wire format.
 - **Automated release tags** — a `release` job in CI (`.github/workflows/ci.yml`)
   cuts a GitHub Release tagged `dikw-web-v<package.json version>` after the full CI
   gate is green on a push to `main`. It is idempotent (skips when the tag already
