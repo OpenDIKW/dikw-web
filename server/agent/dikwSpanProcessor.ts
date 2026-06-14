@@ -1,6 +1,7 @@
-import type { Context } from "@opentelemetry/api";
-import type { HrTime } from "@opentelemetry/api";
+import type { Context, HrTime } from "@opentelemetry/api";
+import { SpanKind } from "@opentelemetry/api";
 import type { ReadableSpan, Span, SpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { recordLlmTokens } from "../shared/metrics.js";
 import type { SpanStore, SpanRow } from "./spanStore.js";
 
 const SESSION_ID_ATTRS = ["gcp.vertex.agent.session_id", "gen_ai.conversation.id"] as const;
@@ -24,10 +25,29 @@ export class DikwSpanProcessor implements SpanProcessor {
   }
 
   onEnd(span: ReadableSpan): void {
+    // HTTP infrastructure spans share the trace with the agent invocation but are
+    // distributed-tracing plumbing for OTLP export, not agent work: the inbound
+    // SERVER span (withServerSpan) and the outbound CLIENT spans
+    // (instrumentation-undici). ADK's own agent spans are all INTERNAL, so keep
+    // only INTERNAL in the in-memory #trace store and the waterfall stays
+    // agent-only (they still export over OTLP).
+    if (span.kind !== SpanKind.INTERNAL) {
+      return;
+    }
     const ctx = span.spanContext();
     const attributes = coerceAttributes(span.attributes);
     const sessionId = firstString(attributes, SESSION_ID_ATTRS) ?? null;
     const invocationId = stringAttr(attributes, INVOCATION_ID_ATTR) ?? null;
+    const tokensInput = numberAttr(attributes, INPUT_TOKENS_ATTR);
+    const tokensOutput = numberAttr(attributes, OUTPUT_TOKENS_ATTR);
+    // Mirror the parsed LLM token counts into the dikw.llm.tokens metric. No-op
+    // when no MeterProvider is registered (no OTLP endpoint configured).
+    if (tokensInput !== undefined) {
+      recordLlmTokens("input", tokensInput);
+    }
+    if (tokensOutput !== undefined) {
+      recordLlmTokens("output", tokensOutput);
+    }
     const row: SpanRow = {
       traceId: ctx.traceId,
       spanId: ctx.spanId,
@@ -39,8 +59,8 @@ export class DikwSpanProcessor implements SpanProcessor {
       attributes,
       sessionId,
       invocationId,
-      ...withToken("tokensInput", numberAttr(attributes, INPUT_TOKENS_ATTR)),
-      ...withToken("tokensOutput", numberAttr(attributes, OUTPUT_TOKENS_ATTR)),
+      ...withToken("tokensInput", tokensInput),
+      ...withToken("tokensOutput", tokensOutput),
     };
     this.store.record(row);
   }

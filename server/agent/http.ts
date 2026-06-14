@@ -8,8 +8,11 @@ import { AdkSessionStore } from "./adkSessionStore.js";
 import { AdkAgentRunner } from "./adkRunner.js";
 import { SpanStore } from "./spanStore.js";
 import { initAgentTelemetry } from "./telemetry.js";
+import { createLogger } from "../shared/logger.js";
 import type { AgentRunner } from "./runtime.js";
 import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types.js";
+
+const log = createLogger("agent");
 
 export interface AgentHandlerOptions {
   cwd?: string;
@@ -39,9 +42,10 @@ export async function createDefaultAgentHandler(
   const sessionService = new DatabaseSessionService(dbUri);
   const store = new AdkSessionStore({ sessionService, appName: "dikw-web", userId: "demo" });
   // Register telemetry BEFORE building the runner so the first turn's spans are
-  // captured (maybeSetOtelProviders is global + idempotent — see telemetry.ts).
-  const spanStore = new SpanStore();
-  initAgentTelemetry(spanStore);
+  // captured; initAgentTelemetry owns the process-global SpanStore (see
+  // telemetry.ts) so a dev /web request before any /agent request still
+  // registers the provider, and #trace reads from this same store.
+  const spanStore = initAgentTelemetry();
   const runner = new AdkAgentRunner({ config, store, sessionService });
   return createAgentHandler({ cwd, store, runner, spanStore });
 }
@@ -176,7 +180,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         next(error);
         return;
       }
-      console.error("[agent] unhandled handler error", error);
+      log.error("unhandled handler error", { error });
       return errorJson(res, 500, "agent_http_error", "internal agent error");
     }
   };

@@ -17,6 +17,9 @@
 // injectable `client` seam so tests never hit the network.
 
 import Anthropic from "@anthropic-ai/sdk";
+import { createLogger } from "../shared/logger.js";
+
+const log = createLogger("translate");
 
 export type TranslatorErrorCode =
   | "translator_auth"
@@ -222,12 +225,13 @@ export class TranslatorClient {
       // is accepted: some blocks — names, identifiers — legitimately stay English.)
       if (looksOversized(src, retried)) {
         out[i] = src;
-        console.warn(
-          `[translate] block ${i} still oversized/echoed after re-ask (was ${reason}); falling back to source`,
-        );
+        log.warn("block still oversized/echoed after re-ask; falling back to source", {
+          block: i,
+          was: reason,
+        });
       } else {
         out[i] = retried;
-        console.warn(`[translate] block ${i} repaired via singleton re-ask (was ${reason})`);
+        log.warn("block repaired via singleton re-ask", { block: i, was: reason });
       }
     }
     return out;
@@ -253,9 +257,10 @@ export class TranslatorClient {
       // they all belong to this block, so join them into a single translation.
       return [arr.join("\n\n")];
     }
-    console.warn(
-      `[translate] batch of ${blocks.length} blocks returned ${arr.length}; splitting and re-translating the halves`,
-    );
+    log.warn("batch returned wrong block count; splitting and re-translating the halves", {
+      expected: blocks.length,
+      got: arr.length,
+    });
     const mid = Math.ceil(blocks.length / 2);
     const left = await this.translateBlocks(blocks.slice(0, mid), langName);
     const right = await this.translateBlocks(blocks.slice(mid), langName);

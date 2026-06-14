@@ -79,7 +79,15 @@ export class SpanStore {
 
     const invocations: TraceInvocationView[] = [];
     for (const [invocationId, bucket] of groups) {
-      const spans = bucket.map(toSpanView).sort((a, b) => a.startTimeMs - b.startTimeMs);
+      // A span whose parent isn't present in this view is a root here. Notably the
+      // inbound SERVER span (Phase 2) parents ADK's `invocation` span but is
+      // filtered out of the store by DikwSpanProcessor, so its id must not leak as
+      // a dangling parent — normalize it (and any FIFO-evicted parent) to null to
+      // honor the TraceSpanView root invariant.
+      const presentIds = new Set(bucket.map((row) => row.spanId));
+      const spans = bucket
+        .map((row) => toSpanView(row, presentIds))
+        .sort((a, b) => a.startTimeMs - b.startTimeMs);
       const startTimeMs = Math.min(...spans.map((span) => span.startTimeMs));
       const endTimeMs = Math.max(...spans.map((span) => span.startTimeMs + span.durationMs));
       invocations.push({
@@ -95,10 +103,10 @@ export class SpanStore {
   }
 }
 
-function toSpanView(row: SpanRow): TraceSpanView {
+function toSpanView(row: SpanRow, presentIds: Set<string>): TraceSpanView {
   return {
     spanId: row.spanId,
-    parentSpanId: row.parentSpanId,
+    parentSpanId: row.parentSpanId && presentIds.has(row.parentSpanId) ? row.parentSpanId : null,
     name: row.name,
     startTimeMs: row.startTimeMs,
     durationMs: row.durationMs,

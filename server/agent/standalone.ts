@@ -5,6 +5,15 @@ import { loadAgentConfig } from "./config.js";
 import { createDefaultAgentHandler, resolveSessionsDir } from "./http.js";
 import { createDefaultWebHandler } from "../web/http.js";
 import { loadWebConfig } from "../web/config.js";
+import { withServerSpan } from "../shared/withServerSpan.js";
+import { createLogger } from "../shared/logger.js";
+import { registerOutboundInstrumentation } from "./instrumentation.js";
+
+// Patch outbound undici/fetch for CLIENT spans before anything makes a request.
+// No-op unless an OTLP traces endpoint is configured (see instrumentation.ts).
+registerOutboundInstrumentation();
+
+const log = createLogger("server");
 
 const HOST = process.env.DIKW_WEB_HOST?.trim() || "0.0.0.0";
 const PORT = Number(process.env.DIKW_WEB_PORT?.trim() || "4321");
@@ -37,27 +46,27 @@ const MIME: Record<string, string> = {
 
 async function main(): Promise<void> {
   if (!Number.isFinite(PORT) || PORT <= 0 || PORT > 65535) {
-    console.error(`[dikw-web] invalid DIKW_WEB_PORT: ${process.env.DIKW_WEB_PORT}`);
+    log.error("invalid DIKW_WEB_PORT", { value: process.env.DIKW_WEB_PORT });
     process.exit(1);
   }
 
   try {
     const config = await loadAgentConfig({ cwd });
-    console.log(
-      `[dikw-web] agent provider=${config.provider} api=${config.api} model=${config.model}`,
-    );
+    log.info("agent config loaded", {
+      provider: config.provider,
+      api: config.api,
+      model: config.model,
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`[dikw-web] agent configuration error: ${message}`);
+    log.error("agent configuration error", { error });
     process.exit(1);
   }
 
   try {
     const webConfig = await loadWebConfig({ cwd });
-    console.log(`[dikw-web] mineru enabled=${Boolean(webConfig.mineruApiKey)}`);
+    log.info("web config loaded", { mineruEnabled: Boolean(webConfig.mineruApiKey) });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`[dikw-web] web configuration error: ${message}`);
+    log.error("web configuration error", { error });
     process.exit(1);
   }
 
@@ -67,9 +76,10 @@ async function main(): Promise<void> {
       throw new Error("index.html is not a regular file");
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`[dikw-web] static build missing at ${INDEX_HTML}: ${message}`);
-    console.error("[dikw-web] run `npm run build` before starting, or set DIKW_WEB_STATIC_DIR");
+    log.error("static build missing — run `npm run build` or set DIKW_WEB_STATIC_DIR", {
+      path: INDEX_HTML,
+      error,
+    });
     process.exit(1);
   }
 
@@ -78,7 +88,7 @@ async function main(): Promise<void> {
 
   const server = createServer((req, res) => {
     handleRequest(req, res, agentHandler, webHandler).catch((error) => {
-      console.error("[dikw-web] request error", error);
+      log.error("request error", { error });
       if (!res.headersSent) {
         res.statusCode = 500;
         res.setHeader("Content-Type", "text/plain; charset=utf-8");
@@ -94,13 +104,15 @@ async function main(): Promise<void> {
   });
 
   server.listen(PORT, HOST, () => {
-    console.log(`[dikw-web] listening on http://${HOST}:${PORT}`);
-    console.log(`[dikw-web] static root: ${STATIC_DIR}`);
-    console.log(`[dikw-web] sessions dir: ${resolveSessionsDir(cwd)}`);
+    log.info("listening", {
+      url: `http://${HOST}:${PORT}`,
+      staticRoot: STATIC_DIR,
+      sessionsDir: resolveSessionsDir(cwd),
+    });
   });
 
   const shutdown = (signal: NodeJS.Signals): void => {
-    console.log(`[dikw-web] received ${signal}, shutting down`);
+    log.info("received signal, shutting down", { signal });
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(1), 10_000).unref();
   };
@@ -121,13 +133,19 @@ async function handleRequest(
   if (url.pathname === "/agent" || url.pathname.startsWith("/agent/")) {
     const rest = url.pathname.slice("/agent".length) || "/";
     req.url = `${rest}${url.search ?? ""}`;
-    await agentHandler(req, res);
+    await withServerSpan(
+      { method: req.method ?? "GET", pathname: url.pathname, headers: req.headers, res },
+      () => agentHandler(req, res),
+    );
     return;
   }
   if (url.pathname === "/web" || url.pathname.startsWith("/web/")) {
     const rest = url.pathname.slice("/web".length) || "/";
     req.url = `${rest}${url.search ?? ""}`;
-    await webHandler(req, res);
+    await withServerSpan(
+      { method: req.method ?? "GET", pathname: url.pathname, headers: req.headers, res },
+      () => webHandler(req, res),
+    );
     return;
   }
   await serveStatic(req.method ?? "GET", url.pathname, req.headers.accept, res);
@@ -237,6 +255,6 @@ function sendFile(res: ServerResponse, path: string, body: Buffer, method: strin
 }
 
 main().catch((error) => {
-  console.error("[dikw-web] fatal", error);
+  log.error("fatal", { error });
   process.exit(1);
 });

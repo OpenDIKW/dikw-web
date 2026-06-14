@@ -20,6 +20,11 @@ import {
 import { JobLimitError, JobStore, type Job } from "./jobStore.js";
 import { type AnthropicLike, TranslatorClient } from "./translatorClient.js";
 import { runTranslation } from "./translateRun.js";
+import { initAgentTelemetry } from "../agent/telemetry.js";
+import { type JobOutcome, recordJobEnd, recordJobStart } from "../shared/metrics.js";
+import { createLogger } from "../shared/logger.js";
+
+const log = createLogger("web");
 
 const gzipAsync = promisify(gzip);
 
@@ -63,6 +68,10 @@ export interface WebHandlerOptions {
 
 export async function createDefaultWebHandler(cwd = process.cwd()): Promise<WebHandler> {
   const config = await loadWebConfig({ cwd });
+  // Register the OTel provider so /web SERVER spans export even when a /web
+  // request arrives before any /agent request (dev server). Idempotent; shares
+  // the agent handler's process-global provider + SpanStore.
+  initAgentTelemetry();
   return createWebHandler({ cwd, config });
 }
 
@@ -150,7 +159,7 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
         next(err);
         return;
       }
-      console.error("[web] unhandled handler error", err);
+      log.error("unhandled handler error", { error: err });
       return errorJson(res, 500, "web_internal_error", "internal web handler error");
     }
   };
@@ -266,6 +275,9 @@ interface ConversionArgs {
  *  this `void`-ed promise would crash / log-spam the sidecar. Never references
  *  the request/response objects (they are gone once the 202 was sent). */
 async function runConversion(store: JobStore, jobId: string, args: ConversionArgs): Promise<void> {
+  const startedAt = Date.now();
+  recordJobStart("mineru");
+  let outcome: JobOutcome = "succeeded";
   try {
     store.setRunning(jobId);
     store.setPhase(jobId, "uploading");
@@ -291,8 +303,11 @@ async function runConversion(store: JobStore, jobId: string, args: ConversionArg
     const gz = await gzipAsync(tarBytes);
     store.setSucceeded(jobId, gz);
   } catch (err) {
+    outcome = "failed";
     const { code, message } = mapConvertError(err);
     store.setFailed(jobId, { code, message });
+  } finally {
+    recordJobEnd("mineru", outcome, (Date.now() - startedAt) / 1000);
   }
 }
 

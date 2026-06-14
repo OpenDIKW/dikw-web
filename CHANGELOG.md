@@ -26,6 +26,93 @@ file format introduced in `[0.0.1.0]` was dropped.
   (localStorage card list + detail page, with a delete-confirmation dialog) mirrored to the
   **Wisdom layer** (`POST /v1/base/wisdom`); and **upload** (PDF/Office → MinerU → import →
   ingest → synth) with optional pre-translation at import.
+- **OpenTelemetry outbound CLIENT spans (opt-in)** — Phase 5 of OTel observability.
+  A new `server/agent/instrumentation.ts` registers `@opentelemetry/instrumentation-undici`
+  so the standalone sidecar's outbound `fetch`/undici calls (dikw-core `/v1`, MinerU,
+  Tavily/Jina, the translator's Anthropic SDK) emit OTel **CLIENT** spans and inject a
+  W3C `traceparent`, continuing the inbound SERVER-span trace through to the upstream.
+  Registration is **gated on an OTLP traces endpoint** (`OTEL_EXPORTER_OTLP_ENDPOINT` /
+  `*_TRACES_ENDPOINT`): with no endpoint env the HTTP layer is **not patched** at all, so
+  outbound behavior is byte-identical to before. The patch is via undici's
+  `diagnostics_channel` (dispatcher-agnostic). The query string is **redacted** from
+  every CLIENT span (`startSpanHook` keeps `scheme://host/path`, sets `url.query` to
+  `[REDACTED]`) so MinerU's presigned upload/result URLs — whose query carries a
+  bearer credential — never reach the OTLP backend. CLIENT spans (like SERVER spans)
+  are filtered out of the in-memory `#trace` store (`DikwSpanProcessor` now keeps only
+  `SpanKind.INTERNAL`, ADK's own kind), so the `#trace` waterfall stays agent-only; the
+  spans still export over OTLP. `@opentelemetry/instrumentation@^0.219.0`
+  + `@opentelemetry/instrumentation-undici@^0.29.0` are added as runtime deps
+  (`@opentelemetry/api` stays single-deduped). Note: a fetch using a per-call
+  `dispatcher` from the npm `undici` package (the `tools.ts` `HTTPS_PROXY` `ProxyAgent`
+  path) is incompatible with Node's built-in `fetch` independently of this change (a
+  pre-existing undici-version mismatch); the instrumentation is orthogonal to it.
+- **Structured sidecar logging + OTel logs bridge** — Phase 4 of OTel observability.
+  A new `server/shared/logger.ts` (`createLogger(scope)`) replaces the sidecar's ~21
+  ad-hoc `console.*` calls with one-line structured records: JSON to stdout (a human
+  text line when stdout is a TTY or `DIKW_LOG_FORMAT=text`), the active span's
+  `trace_id` / `span_id` injected for trace↔log correlation, and a mirrored OTel
+  `LogRecord`. When `OTEL_EXPORTER_OTLP_ENDPOINT` (or `OTEL_EXPORTER_OTLP_LOGS_ENDPOINT`)
+  is set, ADK's `maybeSetOtelProviders` builds the `LoggerProvider` (its own OTLP
+  `BatchLogRecordProcessor`), so logs ship to Loki/etc. alongside traces and metrics
+  under the same `service.name=dikw-web` resource; with no endpoint env there is no
+  provider and the bridge is a no-op (stdout output only). Field **names** matching
+  `key|token|auth|secret|password|credential` are redacted to `[redacted]` as defense
+  in depth, and there is no arbitrary-object dump path, so a secret can't be logged by
+  accident; `Error` field values are reduced to `name: message` (no stack dump). This
+  is a visible **stdout format change** for `npm start` — set `DIKW_LOG_FORMAT=text`
+  for the prior human-readable style. `@opentelemetry/api-logs` is a new runtime dep
+  (the emit API); `@opentelemetry/sdk-logs` is added for the test harness (both pinned
+  to ADK's resolved `0.205.0`). Logging never touches `dikw-core`.
+- **OpenTelemetry metrics** — Phase 3 of OTel observability. A new
+  `server/shared/metrics.ts` records six instruments on the global meter:
+  `http.server.request.duration` (histogram, seconds; `http.request.method` /
+  `http.route` / `http.response.status_code`, recorded as each SERVER span ends),
+  `dikw.job.duration` + `dikw.job.count` + `dikw.job.inflight`
+  (`{dikw.job.family = mineru|translate, dikw.job.outcome = succeeded|failed}`,
+  recorded at the detached conversion/translation runner boundaries — inflight is an
+  UpDownCounter toggled `+1`/`-1` across the run), `dikw.llm.tokens`
+  (`{gen_ai.token.type = input|output}`, from the token counts `DikwSpanProcessor`
+  already parses), and `dikw.agent.turn.duration`
+  (`{dikw.agent.turn.outcome = ok|aborted|error}`, around one `runMessage`). Instruments
+  bind lazily on first record, so they pick up the MeterProvider ADK's
+  `maybeSetOtelProviders` installs when `OTEL_EXPORTER_OTLP_ENDPOINT` (or
+  `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`) is set — metrics then export over OTLP via
+  ADK's `PeriodicExportingMetricReader`, alongside traces, sharing the
+  `service.name=dikw-web` resource. With no endpoint env there is no MeterProvider and
+  every record is a no-op (no behavior change). `@opentelemetry/sdk-metrics` is added
+  for the test harness only (pinned to ADK's resolved `2.7.1`); the sidecar never
+  imports an exporter. Metrics never touch `dikw-core`.
+- **OpenTelemetry inbound SERVER spans** — Phase 2 of OTel observability. Every
+  `/agent/*` and `/web/*` request is wrapped in a route-templated SERVER span
+  (`server/shared/withServerSpan.ts`): it extracts inbound W3C trace context (so a
+  browser → sidecar trace stitches through), runs the handler inside that span's
+  context (the ADK invocation / future outbound spans nest under it), and ends on
+  response `finish`/`close` with the `http.request.method` / `http.route` /
+  `http.response.status_code` semantic-convention attributes. Session and job ids
+  collapse to `:id` (and proposal ids to `:proposalId`) so span names / `http.route`
+  stay low-cardinality; the raw request path is deliberately **not** exported as
+  `url.path` (it would re-introduce those ids into span data — `http.route` is the
+  aggregation key). SERVER spans export via OTLP (when an endpoint
+  is configured) but are filtered out of the in-memory `#trace` store
+  (`DikwSpanProcessor` skips `SpanKind.SERVER`; ADK agent spans are all `INTERNAL`),
+  so the `#trace` waterfall is unchanged. Because the SERVER span now parents ADK's
+  root `invocation` span, `SpanStore.getSessionTraces` normalizes any parent absent
+  from the served view (the filtered SERVER span, or a FIFO-evicted parent) back to
+  `null`, so the invocation stays a true root and the `TraceSpanView` contract holds.
+  No new dependencies; no change to the `#trace` DTO or any `/agent/*` wire format.
+- **OpenTelemetry trace export (opt-in)** — the first phase of OTel observability.
+  Agent spans now carry a `service.name=dikw-web` resource
+  (`server/agent/telemetryResource.ts`; `service.version` from `package.json`, a
+  per-process `service.instance.id`, overridable via the standard `OTEL_SERVICE_NAME`).
+  Setting `OTEL_EXPORTER_OTLP_ENDPOINT` (or `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`) makes
+  ADK additionally export these spans over OTLP to any collector/backend (Jaeger, Grafana
+  Tempo, Honeycomb, …), with sampling honoring `OTEL_TRACES_SAMPLER`/`_ARG`. With no
+  endpoint env the spans stay in the in-memory `#trace` store only — behavior-identical to
+  before — and OTLP-exported spans inherit the same content-free redaction
+  (`ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false`). `@opentelemetry/resources` +
+  `@opentelemetry/semantic-conventions` are promoted from already-hoisted transitive deps
+  to direct deps (pinned to ADK's resolved versions; no new physical install). No change to
+  the in-memory `SpanStore`, the `#trace` DTO, or any `/agent/*` wire format.
 - **Automated release tags** — a `release` job in CI (`.github/workflows/ci.yml`)
   cuts a GitHub Release tagged `dikw-web-v<package.json version>` after the full CI
   gate is green on a push to `main`. It is idempotent (skips when the tag already

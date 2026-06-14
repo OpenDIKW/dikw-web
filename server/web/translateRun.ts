@@ -13,6 +13,10 @@
 
 import type { JobStore } from "./jobStore.js";
 import { TranslatorClient, TranslatorClientError } from "./translatorClient.js";
+import { type JobOutcome, recordJobEnd, recordJobStart } from "../shared/metrics.js";
+import { createLogger } from "../shared/logger.js";
+
+const logger = createLogger("translate");
 
 export interface TranslateRunArgs {
   client: TranslatorClient;
@@ -77,6 +81,8 @@ export async function runTranslation(
   const total = args.blocks.length;
   const batches = splitIntoBatches(args.blocks);
   log(jobId, `start: ${total} blocks → ${batches.length} batches (lang ${args.targetLang})`);
+  recordJobStart("translate");
+  let outcome: JobOutcome = "succeeded";
   try {
     store.setRunning(jobId);
     const done: Array<{ i: number; tr: string }> = [];
@@ -98,16 +104,19 @@ export async function runTranslation(
     store.setSucceeded(jobId, new TextEncoder().encode(JSON.stringify({ blocks: done })));
     log(jobId, `done: ${total} blocks in ${Date.now() - startedAt}ms`);
   } catch (err) {
+    outcome = "failed";
     const { code, message } = mapTranslateError(err);
     store.setFailed(jobId, { code, message });
     log(jobId, `failed (${code}) after ${Date.now() - startedAt}ms: ${message}`);
+  } finally {
+    recordJobEnd("translate", outcome, (Date.now() - startedAt) / 1000);
   }
 }
 
 function log(jobId: string, message: string): void {
   // Sidecar-side observability for the translate path (issue: "一直加载中" was
   // invisible — no logs). Short job id is enough to correlate poll requests.
-  console.log(`[translate] job ${jobId.slice(0, 8)} ${message}`);
+  logger.info(message, { jobId: jobId.slice(0, 8) });
 }
 
 const WIKILINK = /\[\[([^\]|]+)(\|[^\]]*)?\]\]/g;
