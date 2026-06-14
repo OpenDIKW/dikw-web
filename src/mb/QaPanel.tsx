@@ -64,6 +64,9 @@ export function QaPanel({ paper, agentClient, hidden, onSaveAnswer }: Props) {
   const [streamSrc, setStreamSrc] = useState<AgentSource[]>([]);
   const ctrlRef = useRef<AbortController | null>(null);
   const msgsRef = useRef<HTMLDivElement | null>(null);
+  // Synchronous re-entry guard: `running` is last-render state, so a fast double
+  // Enter / click could enter send() twice before the rerender disables the UI.
+  const sendingRef = useRef(false);
 
   const path = paper?.path ?? null;
   const messages = path ? (chats[path] ?? EMPTY) : EMPTY;
@@ -88,7 +91,8 @@ export function QaPanel({ paper, agentClient, hidden, onSaveAnswer }: Props) {
 
   async function send() {
     const q = draft.trim();
-    if (!q || running || !paper) return;
+    if (!q || running || sendingRef.current || !paper) return;
+    sendingRef.current = true;
     // Capture the paper this question belongs to; every write below keys off it,
     // so a mid-flight paper switch can't misfile the answer.
     const key = paper.path;
@@ -136,6 +140,7 @@ export function QaPanel({ paper, agentClient, hidden, onSaveAnswer }: Props) {
         }));
       }
     } finally {
+      sendingRef.current = false;
       // Only the still-current request clears the shared stream / running flags —
       // a request aborted by a paper switch must not stomp the new paper's state.
       if (ctrlRef.current === ctrl) {

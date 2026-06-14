@@ -227,7 +227,13 @@ export function PaperLibrary({
           })
         )}
       </div>
-      <button className="mb-up" type="button" onClick={onPickClick} title="上传论文">
+      <button
+        className="mb-up"
+        type="button"
+        onClick={onPickClick}
+        disabled={uploadInFlight}
+        title={uploadInFlight ? "正在上传，请稍候…" : "上传论文"}
+      >
         <Upload size={16} aria-hidden="true" />
         上传论文
       </button>

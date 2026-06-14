@@ -64,7 +64,16 @@ function loadNotes(): MbNote[] {
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return parsed.filter((n): n is MbNote => !!n && typeof (n as MbNote).nid === "string");
+    return parsed
+      .filter((n): n is MbNote => !!n && typeof (n as MbNote).nid === "string")
+      .map((n) => ({
+        // Coerce the render-critical fields so a corrupt / schema-drifted entry
+        // can't crash the notes view (KIND[type], tags.map, formatNoteDate).
+        ...n,
+        type: n.type === "clip" || n.type === "answer" || n.type === "thought" ? n.type : "thought",
+        tags: Array.isArray(n.tags) ? n.tags : [],
+        ts: typeof n.ts === "number" ? n.ts : Date.now(),
+      }));
   } catch {
     return [];
   }
@@ -225,10 +234,13 @@ export function MbApp() {
 
   popOpenRef.current = !!pop?.show;
 
+  const toastTimerRef = useRef<number | undefined>(undefined);
   const showToast = useCallback((msg: string) => {
     setToast(msg);
-    window.setTimeout(() => setToast(null), 2000);
+    window.clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = window.setTimeout(() => setToast(null), 2000);
   }, []);
+  useEffect(() => () => window.clearTimeout(toastTimerRef.current), []);
 
   // Save a whole Q&A answer to 我的笔记 (kind "answer") + mirror to Wisdom.
   const saveAnswerNote = useCallback(
@@ -278,7 +290,8 @@ export function MbApp() {
         selTypeRef.current = inChat ? "answer" : "clip";
         selSrcRef.current = inChat ? `对话 · ${paper?.title ?? ""}` : (paper?.title ?? "");
         selSrcPathRef.current = paper?.path;
-        const range = sel!.getRangeAt(0);
+        if (!sel || sel.rangeCount === 0) return;
+        const range = sel.getRangeAt(0);
         const rect = range.getBoundingClientRect();
         selRectRef.current = rect;
         // Mark the chosen text so it stays visible through the save flow.
