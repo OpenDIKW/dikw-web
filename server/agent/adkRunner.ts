@@ -220,6 +220,12 @@ export class AdkAgentRunner implements AgentRunner {
       });
       for await (const event of stream) {
         for (const mapped of mapAdkEvent(sessionId, event)) {
+          // ADK surfaces LLM/transport failures as a yielded `error` event (not a
+          // throw — see mapAdkEvent), so the loop completes normally. Mark the
+          // turn failed here, otherwise the turn metric would report it as "ok".
+          if (mapped.type === "error") {
+            outcome = "error";
+          }
           await onEvent(mapped);
         }
       }

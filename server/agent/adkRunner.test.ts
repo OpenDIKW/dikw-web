@@ -1,8 +1,21 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getFunctionCalls, getFunctionResponses, stringifyContent } from "@google/adk";
 import type { Event } from "@google/adk";
+
+// Mock the metrics module so we can assert how runMessage classifies a turn's
+// outcome without standing up a MeterProvider. adkRunner only uses
+// recordAgentTurnDuration; the rest are stubbed for completeness.
+vi.mock("../shared/metrics.js", () => ({
+  recordAgentTurnDuration: vi.fn(),
+  recordHttpServerDuration: vi.fn(),
+  recordJobStart: vi.fn(),
+  recordJobEnd: vi.fn(),
+  recordLlmTokens: vi.fn(),
+}));
+
 import { AdkAgentRunner, mapAdkEvent, type RunnerLike } from "./adkRunner";
+import { recordAgentTurnDuration } from "../shared/metrics.js";
 import type { AgentConfig } from "./config";
 import type { AdkSessionStore } from "./adkSessionStore";
 import type { AgentStreamEvent } from "../../src/agent/types";
@@ -246,6 +259,10 @@ async function collect(
 }
 
 describe("AdkAgentRunner.runMessage", () => {
+  beforeEach(() => {
+    vi.mocked(recordAgentTurnDuration).mockClear();
+  });
+
   it("streams agent_start, deltas, tool events, then agent_end and finalizes once", async () => {
     const fakeRunner: RunnerLike = {
       async *runAsync() {
@@ -317,6 +334,7 @@ describe("AdkAgentRunner.runMessage", () => {
     expect(events.some((e) => e.type === "source")).toBe(true);
     expect(finalizeTurn).toHaveBeenCalledTimes(1);
     expect(finalizeTurn).toHaveBeenCalledWith(SESSION_ID);
+    expect(recordAgentTurnDuration).toHaveBeenCalledWith(expect.any(Number), "ok");
   });
 
   it("treats a throw after abort as graceful: still finalizes + ends, no rethrow", async () => {
@@ -341,6 +359,7 @@ describe("AdkAgentRunner.runMessage", () => {
 
     expect(events[events.length - 1]).toEqual({ type: "agent_end", sessionId: SESSION_ID });
     expect(finalizeTurn).toHaveBeenCalledTimes(1);
+    expect(recordAgentTurnDuration).toHaveBeenCalledWith(expect.any(Number), "aborted");
   });
 
   it("rethrows a normal error (no abort)", async () => {
@@ -360,6 +379,7 @@ describe("AdkAgentRunner.runMessage", () => {
       }),
     ).rejects.toThrow("boom");
     expect(finalizeTurn).not.toHaveBeenCalled();
+    expect(recordAgentTurnDuration).toHaveBeenCalledWith(expect.any(Number), "error");
   });
 
   it("surfaces an ADK-yielded error event and still ends the turn (no rethrow)", async () => {
@@ -395,5 +415,8 @@ describe("AdkAgentRunner.runMessage", () => {
     // The loop completes normally — nothing is thrown — and still finalizes + ends.
     expect(events[events.length - 1]).toEqual({ type: "agent_end", sessionId: SESSION_ID });
     expect(finalizeTurn).toHaveBeenCalledTimes(1);
+    // A yielded error event marks the turn failed even though nothing threw, so
+    // the turn metric must not report it as a success.
+    expect(recordAgentTurnDuration).toHaveBeenCalledWith(expect.any(Number), "error");
   });
 });
