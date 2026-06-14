@@ -11,6 +11,25 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **OpenTelemetry metrics** — Phase 3 of OTel observability. A new
+  `server/shared/metrics.ts` records six instruments on the global meter:
+  `http.server.request.duration` (histogram, seconds; `http.request.method` /
+  `http.route` / `http.response.status_code`, recorded as each SERVER span ends),
+  `dikw.job.duration` + `dikw.job.count` + `dikw.job.inflight`
+  (`{dikw.job.family = mineru|translate, dikw.job.outcome = succeeded|failed}`,
+  recorded at the detached conversion/translation runner boundaries — inflight is an
+  UpDownCounter toggled `+1`/`-1` across the run), `dikw.llm.tokens`
+  (`{gen_ai.token.type = input|output}`, from the token counts `DikwSpanProcessor`
+  already parses), and `dikw.agent.turn.duration`
+  (`{dikw.agent.turn.outcome = ok|aborted|error}`, around one `runMessage`). Instruments
+  bind lazily on first record, so they pick up the MeterProvider ADK's
+  `maybeSetOtelProviders` installs when `OTEL_EXPORTER_OTLP_ENDPOINT` (or
+  `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT`) is set — metrics then export over OTLP via
+  ADK's `PeriodicExportingMetricReader`, alongside traces, sharing the
+  `service.name=dikw-web` resource. With no endpoint env there is no MeterProvider and
+  every record is a no-op (no behavior change). `@opentelemetry/sdk-metrics` is added
+  for the test harness only (pinned to ADK's resolved `2.7.1`); the sidecar never
+  imports an exporter. Metrics never touch `dikw-core`.
 - **OpenTelemetry inbound SERVER spans** — Phase 2 of OTel observability. Every
   `/agent/*` and `/web/*` request is wrapped in a route-templated SERVER span
   (`server/shared/withServerSpan.ts`): it extracts inbound W3C trace context (so a

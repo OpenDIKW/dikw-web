@@ -5,6 +5,7 @@ import {
   ATTR_HTTP_RESPONSE_STATUS_CODE,
   ATTR_HTTP_ROUTE,
 } from "@opentelemetry/semantic-conventions";
+import { recordHttpServerDuration } from "./metrics.js";
 
 const TRACER_NAME = "dikw-web";
 
@@ -82,6 +83,7 @@ export async function withServerSpan(
     },
     parentCtx,
   );
+  const startedAt = Date.now();
 
   let ended = false;
   let errored = false;
@@ -95,6 +97,11 @@ export async function withServerSpan(
       span.setStatus({ code: SpanStatusCode.ERROR });
     }
     span.end();
+    recordHttpServerDuration((Date.now() - startedAt) / 1000, {
+      method,
+      route,
+      statusCode: res.statusCode,
+    });
   };
   res.on("finish", end);
   res.on("close", end);
