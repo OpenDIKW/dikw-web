@@ -1,5 +1,6 @@
 import type { Plugin } from "vite";
 import { createDefaultAgentHandler } from "./http.js";
+import { withServerSpan } from "../shared/withServerSpan.js";
 
 export function agentSidecarPlugin(): Plugin {
   return {
@@ -10,7 +11,14 @@ export function agentSidecarPlugin(): Plugin {
         try {
           handlerPromise ??= createDefaultAgentHandler(process.cwd());
           const handler = await handlerPromise;
-          await handler(req, res, next);
+          // Connect strips the "/agent" mount prefix from req.url; rebuild the
+          // full path for the route template.
+          const sub = new URL(req.url ?? "/", "http://localhost").pathname;
+          const pathname = sub === "/" ? "/agent" : `/agent${sub}`;
+          await withServerSpan(
+            { method: req.method ?? "GET", pathname, headers: req.headers, res },
+            () => handler(req, res, next),
+          );
         } catch (error) {
           next(error);
         }

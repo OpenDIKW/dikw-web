@@ -61,12 +61,13 @@ describe("buildDikwResource", () => {
 });
 
 describe("initAgentTelemetry", () => {
-  it("registers the DikwSpanProcessor with the dikw-web resource", async () => {
+  it("registers the DikwSpanProcessor with the dikw-web resource and returns a SpanStore", async () => {
     const { initAgentTelemetry } = await import("./telemetry.js");
     const { SpanStore } = await import("./spanStore.js");
     const { DikwSpanProcessor } = await import("./dikwSpanProcessor.js");
 
-    initAgentTelemetry(new SpanStore());
+    const store = initAgentTelemetry();
+    expect(store).toBeInstanceOf(SpanStore);
 
     expect(maybeSetOtelProviders).toHaveBeenCalledTimes(1);
     const [hooks, resource] = maybeSetOtelProviders.mock.calls[0];
@@ -75,23 +76,23 @@ describe("initAgentTelemetry", () => {
     expect(resource.attributes["service.name"]).toBe("dikw-web");
   });
 
-  it("is idempotent per process (registers providers only once)", async () => {
+  it("is idempotent: registers once and returns the same shared store", async () => {
     const { initAgentTelemetry } = await import("./telemetry.js");
-    const { SpanStore } = await import("./spanStore.js");
-    const store = new SpanStore();
 
-    initAgentTelemetry(store);
-    initAgentTelemetry(store);
-    initAgentTelemetry(store);
+    const first = initAgentTelemetry();
+    const second = initAgentTelemetry();
+    const third = initAgentTelemetry();
 
     expect(maybeSetOtelProviders).toHaveBeenCalledTimes(1);
+    // Same instance every time — agent + web entry points share one store.
+    expect(second).toBe(first);
+    expect(third).toBe(first);
   });
 
   it("keeps message content out of spans (privacy default)", async () => {
     const { initAgentTelemetry } = await import("./telemetry.js");
-    const { SpanStore } = await import("./spanStore.js");
 
-    initAgentTelemetry(new SpanStore());
+    initAgentTelemetry();
 
     expect(process.env.ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS).toBe("false");
   });

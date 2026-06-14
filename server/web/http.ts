@@ -20,6 +20,7 @@ import {
 import { JobLimitError, JobStore, type Job } from "./jobStore.js";
 import { type AnthropicLike, TranslatorClient } from "./translatorClient.js";
 import { runTranslation } from "./translateRun.js";
+import { initAgentTelemetry } from "../agent/telemetry.js";
 
 const gzipAsync = promisify(gzip);
 
@@ -63,6 +64,10 @@ export interface WebHandlerOptions {
 
 export async function createDefaultWebHandler(cwd = process.cwd()): Promise<WebHandler> {
   const config = await loadWebConfig({ cwd });
+  // Register the OTel provider so /web SERVER spans export even when a /web
+  // request arrives before any /agent request (dev server). Idempotent; shares
+  // the agent handler's process-global provider + SpanStore.
+  initAgentTelemetry();
   return createWebHandler({ cwd, config });
 }
 

@@ -11,6 +11,21 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **OpenTelemetry inbound SERVER spans** — Phase 2 of OTel observability. Every
+  `/agent/*` and `/web/*` request is wrapped in a route-templated SERVER span
+  (`server/shared/withServerSpan.ts`): it extracts inbound W3C trace context (so a
+  browser → sidecar trace stitches through), runs the handler inside that span's
+  context (the ADK invocation / future outbound spans nest under it), and ends on
+  response `finish`/`close` with the `http.request.method` / `http.route` /
+  `http.response.status_code` semantic-convention attributes. Session and job ids
+  collapse to `:id` (and proposal ids to `:proposalId`) so span names / `http.route`
+  stay low-cardinality; the raw request path is deliberately **not** exported as
+  `url.path` (it would re-introduce those ids into span data — `http.route` is the
+  aggregation key). SERVER spans export via OTLP (when an endpoint
+  is configured) but are filtered out of the in-memory `#trace` store
+  (`DikwSpanProcessor` skips `SpanKind.SERVER`; ADK agent spans are all `INTERNAL`),
+  so the `#trace` waterfall is unchanged. No new dependencies; no change to the
+  `#trace` DTO or any `/agent/*` wire format.
 - **OpenTelemetry trace export (opt-in)** — the first phase of OTel observability.
   Agent spans now carry a `service.name=dikw-web` resource
   (`server/agent/telemetryResource.ts`; `service.version` from `package.json`, a
