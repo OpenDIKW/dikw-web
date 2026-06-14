@@ -7,6 +7,11 @@ import { createDefaultWebHandler } from "../web/http.js";
 import { loadWebConfig } from "../web/config.js";
 import { withServerSpan } from "../shared/withServerSpan.js";
 import { createLogger } from "../shared/logger.js";
+import { registerOutboundInstrumentation } from "./instrumentation.js";
+
+// Patch outbound undici/fetch for CLIENT spans before anything makes a request.
+// No-op unless an OTLP traces endpoint is configured (see instrumentation.ts).
+registerOutboundInstrumentation();
 
 const log = createLogger("server");
 
