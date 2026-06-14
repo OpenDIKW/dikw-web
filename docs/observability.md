@@ -49,12 +49,15 @@ docker compose -f docker-compose.observability.yml --profile app up
 ## Environment reference
 
 All standard `OTEL_*` variables are honored by ADK's exporters; dikw-web adds none of
-its own for export. Set them in `.env.local` (dev) or the container environment.
+its own for export. **Export them into the process environment** — inline
+(`OTEL_EXPORTER_OTLP_ENDPOINT=… npm.cmd start`), a shell `export`, or the container's
+`environment:` block. They are **not** read from `.env.local`: the sidecar parses that
+file only for its own `DIKW_*` keys, while ADK reads `OTEL_*` straight from `process.env`.
 
 | Variable | Effect |
 |----------|--------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | Base OTLP/HTTP endpoint. Enables trace **and** metric **and** log export. Unset → no export. |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` / `_METRICS_ENDPOINT` / `_LOGS_ENDPOINT` | Per-signal endpoint overrides (e.g. export only traces). Any one enables its signal. |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` / `_METRICS_ENDPOINT` / `_LOGS_ENDPOINT` | Per-signal endpoint overrides (e.g. export only traces). Any one enables its signal. **Full URLs incl. the signal path** (`…/v1/traces`, `…/v1/metrics`, `…/v1/logs`) — unlike the base endpoint, no path is appended. |
 | `OTEL_EXPORTER_OTLP_HEADERS` | Comma-separated `key=value` headers for auth — required for Grafana Cloud / Honeycomb / Datadog (e.g. `x-honeycomb-team=<key>` or `authorization=Bearer <token>`). |
 | `OTEL_SERVICE_NAME` | Overrides the `service.name` resource attribute (default `dikw-web`). |
 | `OTEL_TRACES_SAMPLER` / `OTEL_TRACES_SAMPLER_ARG` | Sampling strategy, e.g. `parentbased_traceidratio` + `0.1` for 10%. Default: always-on. **See the sampling limitation below.** |

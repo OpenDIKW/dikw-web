@@ -97,12 +97,14 @@ services:
     ports:
       - "4321:4321"
     volumes:
-      - dikw-agent-sessions:/data/agent-sessions
+      - dikw-otel-demo-sessions:/data/agent-sessions
     depends_on: [otel-collector]
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
 volumes:
-  dikw-agent-sessions:
-    name: dikw-agent-sessions
+  # Demo-scoped name so `--profile app` never shares or locks the production
+  # docker-compose.yml's global `dikw-agent-sessions` SQLite session volume.
+  dikw-otel-demo-sessions:
+    name: dikw-otel-demo-sessions
