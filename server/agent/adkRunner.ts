@@ -17,6 +17,7 @@ import type { AdkSessionStore } from "./adkSessionStore.js";
 import { proposalFromTool, sourcesFromTool, systemPrompt } from "./runtime.js";
 import type { AgentRunner, RunAgentMessageOptions } from "./runtime.js";
 import type { AgentStreamEvent } from "../../src/agent/types.js";
+import { recordAgentTurnDuration, type TurnOutcome } from "../shared/metrics.js";
 
 const APP_NAME = "dikw-web";
 const USER_ID = "demo";
@@ -168,6 +169,8 @@ export class AdkAgentRunner implements AgentRunner {
   }: RunAgentMessageOptions): Promise<void> {
     await onEvent({ type: "agent_start", sessionId });
 
+    const startedAt = Date.now();
+    let outcome: TurnOutcome = "ok";
     try {
       // Turn setup lives inside the try so a construction-time throw is handled
       // by the same catch as the run loop (non-abort errors rethrow → http.ts
@@ -223,8 +226,12 @@ export class AdkAgentRunner implements AgentRunner {
     } catch (error) {
       // A throw after the caller aborted is graceful: finalize + close cleanly.
       if (!signal?.aborted) {
+        outcome = "error";
         throw error;
       }
+      outcome = "aborted";
+    } finally {
+      recordAgentTurnDuration((Date.now() - startedAt) / 1000, outcome);
     }
 
     await this.store.finalizeTurn(sessionId);

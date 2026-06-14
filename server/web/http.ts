@@ -21,6 +21,7 @@ import { JobLimitError, JobStore, type Job } from "./jobStore.js";
 import { type AnthropicLike, TranslatorClient } from "./translatorClient.js";
 import { runTranslation } from "./translateRun.js";
 import { initAgentTelemetry } from "../agent/telemetry.js";
+import { type JobOutcome, recordJobEnd, recordJobStart } from "../shared/metrics.js";
 
 const gzipAsync = promisify(gzip);
 
@@ -271,6 +272,9 @@ interface ConversionArgs {
  *  this `void`-ed promise would crash / log-spam the sidecar. Never references
  *  the request/response objects (they are gone once the 202 was sent). */
 async function runConversion(store: JobStore, jobId: string, args: ConversionArgs): Promise<void> {
+  const startedAt = Date.now();
+  recordJobStart("mineru");
+  let outcome: JobOutcome = "succeeded";
   try {
     store.setRunning(jobId);
     store.setPhase(jobId, "uploading");
@@ -296,8 +300,11 @@ async function runConversion(store: JobStore, jobId: string, args: ConversionArg
     const gz = await gzipAsync(tarBytes);
     store.setSucceeded(jobId, gz);
   } catch (err) {
+    outcome = "failed";
     const { code, message } = mapConvertError(err);
     store.setFailed(jobId, { code, message });
+  } finally {
+    recordJobEnd("mineru", outcome, (Date.now() - startedAt) / 1000);
   }
 }
 

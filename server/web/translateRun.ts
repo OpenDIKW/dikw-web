@@ -13,6 +13,7 @@
 
 import type { JobStore } from "./jobStore.js";
 import { TranslatorClient, TranslatorClientError } from "./translatorClient.js";
+import { type JobOutcome, recordJobEnd, recordJobStart } from "../shared/metrics.js";
 
 export interface TranslateRunArgs {
   client: TranslatorClient;
@@ -77,6 +78,8 @@ export async function runTranslation(
   const total = args.blocks.length;
   const batches = splitIntoBatches(args.blocks);
   log(jobId, `start: ${total} blocks → ${batches.length} batches (lang ${args.targetLang})`);
+  recordJobStart("translate");
+  let outcome: JobOutcome = "succeeded";
   try {
     store.setRunning(jobId);
     const done: Array<{ i: number; tr: string }> = [];
@@ -98,9 +101,12 @@ export async function runTranslation(
     store.setSucceeded(jobId, new TextEncoder().encode(JSON.stringify({ blocks: done })));
     log(jobId, `done: ${total} blocks in ${Date.now() - startedAt}ms`);
   } catch (err) {
+    outcome = "failed";
     const { code, message } = mapTranslateError(err);
     store.setFailed(jobId, { code, message });
     log(jobId, `failed (${code}) after ${Date.now() - startedAt}ms: ${message}`);
+  } finally {
+    recordJobEnd("translate", outcome, (Date.now() - startedAt) / 1000);
   }
 }
 
