@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Loader2, PencilLine, RotateCw, Upload, X } from "lucide-react";
-import type { DikwClient } from "../api/client";
+import { DikwClientError, type DikwClient } from "../api/client";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { basename } from "../utils/format";
 import type { DocumentRecord } from "../types";
@@ -44,6 +44,19 @@ function loadNames(): Record<string, string> {
   } catch {
     return {};
   }
+}
+
+// Turn a failed library load into an actionable message: an empty/wrong token
+// 401s (the common cold-open cause — issue #97), a network fault means the URL
+// is unreachable. Either way the fix is in MB-Web's connection settings.
+function connErrorMessage(err: unknown): string {
+  if (err instanceof DikwClientError) {
+    if (err.status === 401 || err.status === 403) {
+      return `无法连接 dikw-core：鉴权失败（HTTP ${err.status}）。请在连接设置中填写正确的 Token。`;
+    }
+    return `论文库加载失败（HTTP ${err.status}）。请在连接设置中检查 Server URL 与 dikw-core 状态。`;
+  }
+  return "无法连接 dikw-core。请在连接设置中检查 Server URL 是否可达。";
 }
 
 export function PaperLibrary({
@@ -165,7 +178,16 @@ export function PaperLibrary({
         {pages.loading && !pages.data ? (
           <div className="mb-lib-empty">正在加载论文库…</div>
         ) : pages.error ? (
-          <div className="mb-lib-empty">论文库加载失败，请确认 dikw-core 已连接。</div>
+          <div className="mb-lib-empty mb-lib-err">
+            <p>{connErrorMessage(pages.error)}</p>
+            <button
+              type="button"
+              className="mb-btn"
+              onClick={() => window.dispatchEvent(new CustomEvent("mb-open-settings"))}
+            >
+              连接设置
+            </button>
+          </div>
         ) : !papers.length && !uploads.length ? (
           <div className="mb-lib-empty">还没有论文。点下方上传，自动转换并入库。</div>
         ) : (
