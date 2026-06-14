@@ -3,7 +3,14 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { MbApp } from "./mb/MbApp";
 import { loadBranding, type Branding } from "./config/branding";
+import { loadTelemetry } from "./config/telemetry";
+import { initBrowserOtel } from "./telemetry/initBrowserOtel";
 import "./styles.css";
+
+// Browser RUM is opt-in (a `telemetry` block in /config.json). Fire-and-forget so
+// it never blocks first render; it no-ops entirely — loading none of the OTel web
+// SDK — when unconfigured.
+void loadTelemetry().then(initBrowserOtel);
 
 // One bundle, two front-ends picked by the URL hash:
 //   #MB-Web       → the focused 论文知识库 (MbApp)

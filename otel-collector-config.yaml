@@ -1,0 +1,55 @@
+# OpenTelemetry Collector config for the dikw-web observability demo stack
+# (docker-compose.observability.yml). Receives OTLP from the sidecar and the
+# browser RUM exporter, then fans the three signals out to Jaeger (traces),
+# Prometheus (metrics), and Loki (logs). Not used in production — there the app
+# exports OTLP straight to whatever backend OTEL_EXPORTER_OTLP_ENDPOINT names.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        # The browser RUM exporter POSTs OTLP/HTTP cross-origin, so the collector
+        # must allow the app origin(s) through CORS preflight. Add your deployed
+        # app origin here; the defaults cover the local dev server.
+        cors:
+          allowed_origins:
+            - http://localhost:4321
+            - http://127.0.0.1:4321
+
+processors:
+  batch: {}
+
+exporters:
+  # Traces → Jaeger's native OTLP ingestion (COLLECTOR_OTLP_ENABLED=true).
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  # Metrics → a Prometheus scrape endpoint the collector exposes on :8889.
+  # resource_to_telemetry_conversion turns resource attrs (service.name, …) into
+  # labels so dikw.* series are filterable by service.
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    resource_to_telemetry_conversion:
+      enabled: true
+  # Logs → Loki's OTLP ingestion (the otlphttp exporter appends /v1/logs).
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/jaeger]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/loki]

@@ -1,0 +1,19 @@
+# Grafana datasource provisioning for the dikw-web observability demo stack.
+# Auto-wires the three backends so the dashboards work on first `up` with no
+# manual setup. Demo only — anonymous admin access is enabled in the compose file.
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+  - name: Jaeger
+    type: jaeger
+    access: proxy
+    url: http://jaeger:16686
