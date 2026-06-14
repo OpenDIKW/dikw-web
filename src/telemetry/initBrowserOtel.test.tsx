@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// The heavy OTel web SDK is pulled in via dynamic import() inside initBrowserOtel;
-// mock every module so the test asserts the init wiring without loading the real
-// (zone.js-patching) SDK. vi.hoisted keeps the mock fns reachable from the hoisted
-// vi.mock factories.
+// The OTel web SDK is pulled in via dynamic import() inside initBrowserOtel; mock
+// every module so the test asserts the init wiring without loading the real SDK.
+// vi.hoisted keeps the mock fns reachable from the hoisted vi.mock factories.
 const mocks = vi.hoisted(() => {
   const register = vi.fn();
   return {
@@ -15,22 +14,18 @@ const mocks = vi.hoisted(() => {
       return { register };
     }),
     BatchSpanProcessor: vi.fn(),
-    ZoneContextManager: vi.fn(),
     OTLPTraceExporter: vi.fn(),
     resourceFromAttributes: vi.fn((attrs: unknown) => ({ attrs })),
     registerInstrumentations: vi.fn(),
     DocumentLoadInstrumentation: vi.fn(),
     FetchInstrumentation: vi.fn(),
-    UserInteractionInstrumentation: vi.fn(),
   };
 });
 
-vi.mock("zone.js", () => ({}));
 vi.mock("@opentelemetry/sdk-trace-web", () => ({
   WebTracerProvider: mocks.WebTracerProvider,
   BatchSpanProcessor: mocks.BatchSpanProcessor,
 }));
-vi.mock("@opentelemetry/context-zone", () => ({ ZoneContextManager: mocks.ZoneContextManager }));
 vi.mock("@opentelemetry/exporter-trace-otlp-http", () => ({
   OTLPTraceExporter: mocks.OTLPTraceExporter,
 }));
@@ -46,9 +41,6 @@ vi.mock("@opentelemetry/instrumentation-document-load", () => ({
 }));
 vi.mock("@opentelemetry/instrumentation-fetch", () => ({
   FetchInstrumentation: mocks.FetchInstrumentation,
-}));
-vi.mock("@opentelemetry/instrumentation-user-interaction", () => ({
-  UserInteractionInstrumentation: mocks.UserInteractionInstrumentation,
 }));
 
 // initBrowserOtel guards on module-level `initialized`; reset the module registry
@@ -83,21 +75,19 @@ describe("initBrowserOtel", () => {
       headers: { "x-key": "v" },
     });
     expect(mocks.WebTracerProvider).toHaveBeenCalledTimes(1);
+    // Registered with the default (StackContextManager) — no contextManager arg.
     expect(mocks.register).toHaveBeenCalledTimes(1);
-    // Provider registers with a ZoneContextManager for async context propagation.
-    expect(mocks.ZoneContextManager).toHaveBeenCalledTimes(1);
-    expect(mocks.register.mock.calls[0][0]).toHaveProperty("contextManager");
+    expect(mocks.register.mock.calls[0]).toHaveLength(0);
   });
 
-  it("registers document-load, fetch, and user-interaction instrumentations", async () => {
+  it("registers document-load and fetch instrumentations only", async () => {
     const initBrowserOtel = await freshInit();
     await initBrowserOtel({ endpoint: "https://c/v1/traces" });
 
     expect(mocks.registerInstrumentations).toHaveBeenCalledTimes(1);
     const arg = mocks.registerInstrumentations.mock.calls[0][0] as { instrumentations: unknown[] };
-    expect(arg.instrumentations).toHaveLength(3);
+    expect(arg.instrumentations).toHaveLength(2);
     expect(mocks.DocumentLoadInstrumentation).toHaveBeenCalledTimes(1);
-    expect(mocks.UserInteractionInstrumentation).toHaveBeenCalledTimes(1);
     // The fetch instrumentation must ignore the exporter's own collector POSTs so
     // span export is never traced recursively.
     expect(mocks.FetchInstrumentation).toHaveBeenCalledWith(

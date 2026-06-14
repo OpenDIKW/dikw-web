@@ -13,28 +13,34 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 - **Browser RUM (opt-in frontend traces)** — Phase 6 of OTel observability. A new
   `src/telemetry/initBrowserOtel.ts` boots the OpenTelemetry **web** SDK
-  (`WebTracerProvider` + `ZoneContextManager` + `OTLPTraceExporter`, with
-  document-load / fetch / user-interaction instrumentations) so the React app emits
-  RUM spans under `service.name=dikw-web-browser`. The fetch instrumentation
-  propagates a W3C `traceparent` to **same-origin** `/agent` + `/web` calls, stitching
-  a browser span to the sidecar's Phase 2 SERVER span (cross-origin core `/v1` is
-  intentionally not propagated; the exporter's own collector POSTs are excluded from
-  tracing via `ignoreUrls`). It is **opt-in and default-off**: a new
-  `src/config/telemetry.ts` reads a `telemetry.endpoint` from the runtime
-  `public/config.json` (mirroring `loadBranding()`); with no endpoint configured the
-  init is a no-op and — because the heavy SDK is loaded via dynamic `import()` — none
-  of it is downloaded. The OTel web SDK therefore stays **out of the entry bundle**
-  (it lands in a lazy chunk); `scripts/check-bundle.mjs`'s `total JS` ceiling was
-  raised 1900 → 1950 KB to count that opt-in chunk while restoring the pre-RUM
-  headroom (the entry budget is unchanged). RUM init is best-effort — any failure is
-  swallowed so it can never break the app or add console noise (the e2e console gate
-  is unaffected). `public/config.example.json` ships the `telemetry` block with an
-  **empty endpoint** (disabled) so copying it for branding never silently enables
-  telemetry. New browser runtime deps: `@opentelemetry/sdk-trace-web`,
-  `@opentelemetry/context-zone`, `@opentelemetry/exporter-trace-otlp-http`,
-  `@opentelemetry/instrumentation-{fetch,document-load,user-interaction}`, and
-  `zone.js` (`@opentelemetry/api` stays single-deduped at 1.9.x). RUM does not touch
-  `dikw-core`; browser logs/metrics are a noted follow-up (RUM convention is traces first).
+  (`WebTracerProvider` + `OTLPTraceExporter`, with **document-load + fetch**
+  instrumentations) so the React app emits RUM spans under
+  `service.name=dikw-web-browser`. The fetch instrumentation propagates a W3C
+  `traceparent` to **same-origin** requests — always the sidecar's `/agent` + `/web`,
+  stitching a browser span to the sidecar's Phase 2 SERVER span; a cross-origin core
+  (`/v1` in the standalone deployment) gets no header and no CORS preflight, and the
+  exporter's own collector POSTs are excluded via `ignoreUrls`. The **user-interaction**
+  instrumentation is deliberately **not** registered: it only wraps listeners added
+  after it loads, but React attaches its delegated listeners at render — before the
+  async, lazy SDK init resolves — so it would miss them, and the fix (loading `zone.js`,
+  which globally patches `Promise`/`setTimeout`/`requestAnimationFrame`, before React +
+  Pixi mount) is an unjustified risk for click-span coverage; the default
+  `StackContextManager` is enough for fetch propagation. It is **opt-in and
+  default-off**: a new `src/config/telemetry.ts` reads a `telemetry.endpoint` from the
+  runtime `public/config.json` (mirroring `loadBranding()`); with no endpoint configured
+  the init is a no-op and — because the SDK is loaded via dynamic `import()` — none of it
+  is downloaded. The OTel web SDK therefore stays **out of the entry bundle** (it lands
+  in a lazy chunk); `scripts/check-bundle.mjs`'s `total JS` ceiling was raised 1900 →
+  1950 KB to count that opt-in chunk while restoring the pre-RUM headroom (the entry
+  budget is unchanged). RUM init is best-effort — any failure is swallowed so it can
+  never break the app or add console noise (the e2e console gate is unaffected).
+  `public/config.example.json` ships the `telemetry` block with an **empty endpoint**
+  (disabled) so copying it for branding never silently enables telemetry. New browser
+  runtime deps: `@opentelemetry/sdk-trace-web`,
+  `@opentelemetry/exporter-trace-otlp-http`, and
+  `@opentelemetry/instrumentation-{fetch,document-load}` (`@opentelemetry/api` stays
+  single-deduped at 1.9.x). RUM does not touch `dikw-core`; browser logs/metrics and
+  user-interaction spans are noted follow-ups (RUM convention is traces first).
 - **OpenTelemetry outbound CLIENT spans (opt-in)** — Phase 5 of OTel observability.
   A new `server/agent/instrumentation.ts` registers `@opentelemetry/instrumentation-undici`
   so the standalone sidecar's outbound `fetch`/undici calls (dikw-core `/v1`, MinerU,

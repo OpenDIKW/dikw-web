@@ -32,13 +32,11 @@
     "@mikro-orm/sqlite": "^6.6.14",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.205.0",
-    "@opentelemetry/context-zone": "^2.8.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.205.0",
     "@opentelemetry/instrumentation": "^0.219.0",
     "@opentelemetry/instrumentation-document-load": "^0.64.0",
     "@opentelemetry/instrumentation-fetch": "^0.219.0",
     "@opentelemetry/instrumentation-undici": "^0.29.0",
-    "@opentelemetry/instrumentation-user-interaction": "^0.63.0",
     "@opentelemetry/resources": "^2.7.1",
     "@opentelemetry/sdk-logs": "^0.205.0",
     "@opentelemetry/sdk-metrics": "^2.7.1",
@@ -55,8 +53,7 @@
     "pixi.js": "^8.19.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.7",
-    "undici": "^8.4.0",
-    "zone.js": "^0.16.0"
+    "undici": "^8.4.0"
   },
   "overrides": {
     "node-gyp": "^12.3.0",
