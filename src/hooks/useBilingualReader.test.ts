@@ -113,6 +113,40 @@ describe("useBilingualReader", () => {
     expect(translate).toHaveBeenCalledTimes(1); // cached translations reused
   });
 
+  it("keeps an in-flight translation running when toggled off mid-translation (no restart)", async () => {
+    let resolveFn!: (v: string[]) => void;
+    const translate = vi.fn(
+      () =>
+        new Promise<string[]>((res) => {
+          resolveFn = res;
+        }),
+    );
+    const { result } = renderHook(() =>
+      useBilingualReader({ body: BODY, enabled: true, translate }),
+    );
+
+    act(() => result.current.toggle()); // ON → translation starts
+    expect(result.current.translating).toBe(true);
+    expect(translate).toHaveBeenCalledTimes(1);
+
+    act(() => result.current.toggle()); // OFF before it finishes
+    expect(result.current.active).toBe(false);
+
+    act(() => result.current.toggle()); // ON again
+    expect(result.current.active).toBe(true);
+    // Regression: toggling off used to abort + discard, so toggling back on
+    // re-ran translate from scratch. Now the original run is reused.
+    expect(translate).toHaveBeenCalledTimes(1);
+
+    // The original in-flight translation still resolves and fills the columns.
+    await act(async () => {
+      resolveFn(["A", "B", "C"]);
+    });
+    await waitFor(() => expect(result.current.translating).toBe(false));
+    expect(result.current.blocks[0].translation).toBe("A");
+    expect(result.current.blocks[3].translation).toBe("C");
+  });
+
   it("resets to the mono view when the page body changes", async () => {
     const translate = echo();
     const { result, rerender } = renderHook(

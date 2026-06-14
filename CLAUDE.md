@@ -125,7 +125,9 @@ Both prefixes are served by the same Node process in dev and in the standalone `
 
 ### Routes and contracts (hash-based)
 
-`src/App.tsx` is the shell — sidebar groups, hash routing (`viewFromHash()`), `DikwClient` + `AgentClient` construction, i18n + theme wiring. Pages live in `src/pages/`.
+`src/main.tsx` is a thin top-level switch (`Root`): the `#MB-Web` hash mounts the focused 论文知识库 (`src/mb/MbApp.tsx`); **every other hash** (`#chat`, `#base`, …) mounts the original multi-page workbench (`src/App.tsx`). Both ship in one bundle on port 4321 — the shareable MB link is `http://127.0.0.1:4321/#MB-Web`. The two never fight over the URL because `App` only rewrites its own legacy `query→chat` hash and leaves an unknown hash like `#MB-Web` untouched. Switching apps remounts (each owns its own state/theme); MbApp's notes persist in `localStorage` but its in-memory Q&A is per-session. MbApp is read-only over core + the same sidecar (`/agent`, `/web/translate`, `/web/mineru`); its own UI lives under `src/mb/` (styled by `.mb-`-prefixed `mb.css`).
+
+`src/App.tsx` is the workbench shell — sidebar groups, hash routing (`viewFromHash()`), `DikwClient` + `AgentClient` construction, i18n + theme wiring. Pages live in `src/pages/`.
 
 - `#chat` is the canonical chat route. `#query` must redirect to `#chat` — do not reintroduce a Query UI or `/v1/query` calls (no longer part of the consumed core contract).
 - `#trace` (`TracePage`) is a **hidden** route — reachable by URL only, intentionally absent from the sidebar nav (`hiddenViewIds` in `src/App.tsx`). It shows a per-session conversation alongside an OpenTelemetry span waterfall from `GET /agent/sessions/{id}/traces`. Spans are ephemeral (in-memory `SpanStore`, lost on sidecar restart); the conversation is sourced from the persistent sqlite session store.

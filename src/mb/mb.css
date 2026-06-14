@@ -1,0 +1,1354 @@
+/*
+ * dikw-mb-web focused "论文知识库" UI — self-contained, .mb- prefixed, scoped
+ * under .mb-app so its green tokens never collide with the workbench tokens in
+ * styles.css. Ported from dikw-mb-web-界面demo.html and extended with draggable
+ * panel splitters.
+ */
+.mb-app {
+  --bg: #f5f8f5;
+  --surface: #ffffff;
+  --surface2: #e9f0ea;
+  --border: #dde6df;
+  --border2: #c8d6cd;
+  --text: #18221b;
+  --muted: #54615a;
+  --faint: #8a978e;
+  --ac: #15803d;
+  --acb: #d9efdf;
+  --act: #125330;
+  --acfg: #ffffff;
+  --hover-bp: #eef7f1;
+  --anno-bg: #f0f6f2;
+  --ans-bg: #e6f1fb;
+  --ans-tx: #0c447c;
+  --danger: #dc4d4b;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --sans:
+    "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei",
+    sans-serif;
+  --serif: "Source Serif 4", Georgia, "Songti SC", serif;
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+html[data-theme="dark"] .mb-app {
+  --bg: #0d1410;
+  --surface: #151e18;
+  --surface2: #1b2620;
+  --border: #28352d;
+  --border2: #33453a;
+  --text: #e6ece8;
+  --muted: #93a59a;
+  --faint: #6a7c71;
+  --ac: #34d399;
+  --acb: #103425;
+  --act: #a7f3cf;
+  --acfg: #042018;
+  --hover-bp: #18291f;
+  --anno-bg: #18211b;
+  --ans-bg: #12304e;
+  --ans-tx: #b5d4f4;
+  --danger: #f0807f;
+}
+.mb-app *,
+.mb-app *::before,
+.mb-app *::after {
+  box-sizing: border-box;
+}
+.mb-app button,
+.mb-app input,
+.mb-app textarea {
+  font-family: inherit;
+}
+@keyframes mb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.mb-spin {
+  animation: mb-spin 0.8s linear infinite;
+}
+
+/* ── top bar ───────────────────────────────────────────────────────────── */
+.mb-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 54px;
+  flex: 0 0 54px;
+  padding: 0 18px;
+  border-bottom: 0.5px solid var(--border);
+  background: var(--surface);
+}
+.mb-lgroup {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.mb-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  font-size: 15px;
+}
+.mb-brand svg {
+  color: var(--ac);
+}
+.mb-seg {
+  display: flex;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.mb-seg button {
+  border: 0;
+  background: transparent;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.mb-seg button.on {
+  background: var(--acb);
+  color: var(--act);
+  font-weight: 500;
+}
+.mb-badge {
+  background: var(--acb);
+  color: var(--act);
+  font-size: 11px;
+  border-radius: 20px;
+  padding: 0 6px;
+  min-width: 16px;
+  text-align: center;
+  line-height: 16px;
+}
+.mb-seg button.on .mb-badge {
+  background: var(--ac);
+  color: var(--acfg);
+}
+.mb-rgroup {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: var(--faint);
+  font-size: 12.5px;
+}
+.mb-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ac);
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.mb-dot.off {
+  background: var(--danger);
+}
+.mb-iconbtn {
+  background: none;
+  border: 0;
+  color: var(--faint);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+}
+.mb-iconbtn:hover {
+  color: var(--ac);
+}
+
+/* ── main / research grid ──────────────────────────────────────────────── */
+.mb-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.mb-research {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  /* grid-template-columns is set inline from JS (resizable). */
+}
+.mb-col {
+  min-height: 0;
+  overflow: auto;
+}
+/* Collapsed side panels are hidden, not unmounted (keeps their React state —
+   e.g. the chat history — alive across collapse/expand). display:none also drops
+   them from the grid so the column tracks stay correct. The `.mb-col` compound
+   raises specificity above `.mb-lib`/`.mb-qa`'s own `display:flex` (which appear
+   later in this file and would otherwise win at equal specificity). */
+.mb-col.mb-col--hidden {
+  display: none;
+}
+
+/* splitter handles between columns */
+.mb-resizer {
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 5;
+  touch-action: none;
+}
+.mb-resizer::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-50%);
+  background: var(--border);
+  transition:
+    background 0.15s,
+    width 0.15s;
+}
+.mb-resizer:hover::after,
+.mb-resizer[data-dragging="true"]::after {
+  background: var(--ac);
+  width: 2px;
+}
+.mb-resizer:focus-visible {
+  outline: none;
+}
+.mb-resizer:focus-visible::after {
+  background: var(--ac);
+  width: 2px;
+}
+body.mb-col-resizing,
+body.mb-col-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* edge expanders shown when a side panel is collapsed */
+.mb-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--faint);
+  z-index: 6;
+  border: 0;
+}
+.mb-edge:hover {
+  color: var(--ac);
+  background: var(--acb);
+}
+.mb-edge-left {
+  left: 0;
+  border-right: 0.5px solid var(--border);
+}
+.mb-edge-right {
+  right: 0;
+  border-left: 0.5px solid var(--border);
+}
+
+/* ── library ───────────────────────────────────────────────────────────── */
+.mb-lib {
+  border-right: 0.5px solid var(--border);
+  padding: 16px 14px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.mb-lib-head {
+  font-size: 11.5px;
+  color: var(--faint);
+  margin-bottom: 10px;
+  letter-spacing: 0.04em;
+  flex: 0 0 auto;
+  padding: 0 2px;
+}
+.mb-lib-list {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  padding: 1px;
+}
+.mb-lib-empty {
+  font-size: 12.5px;
+  color: var(--faint);
+  padding: 10px 4px;
+  line-height: 1.5;
+}
+.mb-paper {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--text);
+  line-height: 1.45;
+  cursor: pointer;
+  margin-bottom: 9px;
+  width: 100%;
+  text-align: left;
+}
+.mb-paper:hover:not(.on):not(.proc) {
+  border-color: var(--border2);
+  background: var(--surface2);
+}
+.mb-paper.on {
+  border-color: var(--ac);
+  background: var(--acb);
+  color: var(--act);
+}
+.mb-pico {
+  color: var(--faint);
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+.mb-paper.on .mb-pico {
+  color: var(--ac);
+}
+.mb-ptit {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+.mb-prename {
+  opacity: 0;
+  border: 0;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+  padding: 1px;
+  display: flex;
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+.mb-paper:hover .mb-prename,
+.mb-paper:focus-within .mb-prename {
+  opacity: 1;
+}
+.mb-prename:hover {
+  color: var(--ac);
+}
+.mb-rename-input {
+  flex: 1;
+  min-width: 0;
+  border: 0.5px solid var(--ac);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 2px 6px;
+}
+.mb-rename-input:focus {
+  outline: 0;
+  box-shadow: 0 0 0 2px var(--acb);
+}
+.mb-paper.proc {
+  cursor: default;
+  border-style: dashed;
+  border-color: var(--border2);
+  color: var(--muted);
+  overflow: hidden;
+}
+.mb-paper.proc .mb-prog {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--acb);
+  transition: width 0.25s ease;
+  z-index: 0;
+}
+.mb-paper.proc .mb-pico,
+.mb-paper.proc .mb-ptit,
+.mb-paper.proc .mb-pstage {
+  position: relative;
+  z-index: 1;
+}
+.mb-pstage {
+  font-size: 11px;
+  color: var(--ac);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+.mb-up {
+  flex: 0 0 auto;
+  margin-top: 10px;
+  width: 100%;
+  height: 36px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  cursor: pointer;
+}
+.mb-up:hover {
+  border-color: var(--ac);
+  color: var(--ac);
+  background: var(--acb);
+}
+
+/* ── reader ────────────────────────────────────────────────────────────── */
+.mb-reader {
+  padding: 22px 30px;
+}
+.mb-reader-in {
+  max-width: 1160px;
+  margin: 0 auto;
+}
+.mb-r-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.mb-ptoggle {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mb-ptoggle:hover {
+  color: var(--ac);
+}
+.mb-ptoggle.on {
+  color: var(--ac);
+  border-color: var(--ac);
+  background: var(--acb);
+}
+.mb-r-title {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1.3;
+  margin: 0 0 4px;
+}
+.mb-r-meta {
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 16px;
+  word-break: break-all;
+}
+.mb-cols {
+  display: grid;
+  gap: 26px;
+}
+.mb-cols.bi {
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 32px;
+  align-items: start;
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.78;
+}
+.mb-lab {
+  font-size: 11.5px;
+  color: var(--faint);
+  letter-spacing: 0.06em;
+  margin: 0 0 2px;
+  text-transform: uppercase;
+  padding: 0 9px;
+  font-family: var(--sans);
+}
+.mb-bp {
+  margin: 0;
+  padding: 4px 9px;
+  border-radius: 6px;
+  transition: background 0.12s;
+}
+.mb-bp.en {
+  color: var(--muted);
+}
+.mb-bp.hl {
+  background: var(--hover-bp);
+}
+/* While a selection awaits a save/dismiss decision (.mb-selecting on the app
+   root), suppress the paragraph hover highlight so the chosen text's yellow
+   selection stays clearly visible instead of being covered by the green block —
+   restored once the chip / popover closes. */
+.mb-selecting .mb-bp.hl {
+  background: transparent;
+}
+.mb-bp > :first-child {
+  margin-top: 0;
+}
+.mb-bp > :last-child {
+  margin-bottom: 0;
+}
+.mb-bp p {
+  margin: 0 0 0.5em;
+}
+.mb-special {
+  grid-column: 1 / -1;
+  font-family: var(--sans);
+  margin: 6px 0;
+}
+.mb-skel {
+  display: inline-block;
+  width: 92%;
+  height: 1em;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--surface2), var(--border), var(--surface2));
+  background-size: 200% 100%;
+  animation: mb-shimmer 1.2s ease-in-out infinite;
+}
+@keyframes mb-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+.mb-bi-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  background: var(--surface2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 12px;
+  margin-bottom: 14px;
+}
+.mb-bi-status .left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.mb-bi-status.err {
+  color: var(--danger);
+}
+.mb-bi-status button {
+  border: 0;
+  background: none;
+  color: var(--ac);
+  cursor: pointer;
+  font-size: 12px;
+}
+.mb-chip-cached {
+  font-size: 11px;
+  background: var(--acb);
+  color: var(--act);
+  border-radius: 12px;
+  padding: 1px 8px;
+}
+.mb-reader-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 74px 20px;
+  color: var(--muted);
+}
+.mb-reader-empty > svg {
+  color: var(--faint);
+  margin-bottom: 14px;
+}
+.mb-reader-empty .t {
+  font-size: 17px;
+  color: var(--text);
+  margin-bottom: 5px;
+}
+.mb-reader-empty .s {
+  font-size: 13px;
+  color: var(--faint);
+  margin-bottom: 18px;
+}
+
+/* MarkdownView lives in the source reader — give it the serif paper feel. */
+.mb-reader .markdown-body {
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.78;
+  color: var(--text);
+}
+
+/* ── Q&A ───────────────────────────────────────────────────────────────── */
+.mb-qa {
+  border-left: 0.5px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  overflow: hidden;
+}
+.mb-qa-h {
+  padding: 14px 16px;
+  border-bottom: 0.5px solid var(--border);
+  flex: 0 0 auto;
+}
+.mb-qa-h b {
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.mb-qa-h b svg {
+  color: var(--ac);
+}
+.mb-qa-h span {
+  font-size: 11.5px;
+  color: var(--faint);
+  display: block;
+  margin-top: 3px;
+}
+.mb-msgs {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  font-size: 13.5px;
+}
+.mb-m-u {
+  align-self: flex-end;
+  max-width: 86%;
+  background: var(--acb);
+  color: var(--act);
+  padding: 8px 11px;
+  border-radius: var(--radius);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.mb-m-a {
+  align-self: flex-start;
+  max-width: 96%;
+  line-height: 1.6;
+}
+.mb-m-a .markdown-body {
+  font-size: 13.5px;
+}
+.mb-m-hint {
+  color: var(--faint);
+  text-align: center;
+  margin-top: 18px;
+  font-size: 12.5px;
+}
+.mb-cite {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.mb-cite span {
+  font-size: 11.5px;
+  background: var(--surface2);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 3px 8px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mb-m-actions {
+  margin-top: 8px;
+}
+.mb-save-ans {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  border: 0.5px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.mb-save-ans:hover {
+  border-color: var(--ac);
+  color: var(--ac);
+  background: var(--acb);
+}
+.mb-qa-in {
+  padding: 12px;
+  border-top: 0.5px solid var(--border);
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.mb-qa-in input {
+  flex: 1;
+  min-width: 0;
+  height: 38px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  padding: 0 12px;
+  font-size: 13.5px;
+}
+.mb-qa-in input:focus {
+  outline: 0;
+  border-color: var(--ac);
+  box-shadow: 0 0 0 3px var(--acb);
+}
+.mb-snd {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  background: var(--ac);
+  border: 0;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--acfg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.mb-snd:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ── notes ─────────────────────────────────────────────────────────────── */
+.mb-notes {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 26px 0;
+}
+.mb-notes-in {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+.mb-notes-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.mb-notes-head .t {
+  font-size: 20px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.mb-notes-head .t svg {
+  color: var(--ac);
+}
+.mb-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+.mb-search {
+  position: relative;
+  flex: 1;
+  min-width: 180px;
+  max-width: 300px;
+}
+.mb-search svg {
+  position: absolute;
+  left: 11px;
+  top: 11px;
+  color: var(--faint);
+}
+.mb-search input {
+  width: 100%;
+  height: 38px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 12px 0 34px;
+  font-size: 13.5px;
+}
+.mb-search input:focus {
+  outline: 0;
+  border-color: var(--ac);
+  box-shadow: 0 0 0 3px var(--acb);
+}
+.mb-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.mb-f {
+  font-size: 12.5px;
+  padding: 5px 13px;
+  border-radius: 20px;
+  border: 0.5px solid var(--border2);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.mb-f.on {
+  background: var(--acb);
+  color: var(--act);
+  border-color: transparent;
+  font-weight: 500;
+}
+.mb-note {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+  margin-bottom: 12px;
+}
+
+/* card list — compact, clickable; full content lives on the detail page */
+.mb-note-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.mb-note-card {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.mb-note-card:hover {
+  border-color: var(--border2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+.mb-note-card:focus-visible {
+  outline: none;
+  border-color: var(--ac);
+  box-shadow: 0 0 0 3px var(--acb);
+}
+.mb-note-card .mb-na {
+  opacity: 0;
+}
+.mb-note-card:hover .mb-na,
+.mb-note-card:focus-within .mb-na {
+  opacity: 1;
+}
+.mb-card-preview {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* detail page */
+.mb-notes-in--detail {
+  max-width: 760px;
+}
+.mb-note--detail {
+  margin-bottom: 0;
+}
+.mb-detail-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.mb-detail-bar .right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mb-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 5px 8px 5px 4px;
+  border-radius: var(--radius);
+}
+.mb-back:hover {
+  color: var(--ac);
+  background: var(--surface2);
+}
+.mb-note-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.mb-note-top .right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.mb-kind {
+  font-size: 11.5px;
+  padding: 2px 9px;
+  border-radius: var(--radius);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.mb-kind.clip {
+  background: var(--acb);
+  color: var(--act);
+}
+.mb-kind.answer {
+  background: var(--ans-bg);
+  color: var(--ans-tx);
+}
+.mb-kind.thought {
+  background: var(--surface2);
+  color: var(--muted);
+}
+.mb-note-date {
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.mb-na {
+  background: none;
+  border: 0;
+  color: var(--faint);
+  cursor: pointer;
+  padding: 3px;
+  display: flex;
+  border-radius: 6px;
+}
+.mb-na:hover {
+  color: var(--ac);
+  background: var(--surface2);
+}
+/* White-background quote (no green fill) with a neutral left bar; the content is
+   rendered through MarkdownView so a saved 问答摘录 keeps its formatting and
+   reads like the chat answer. */
+.mb-quote {
+  font-family: var(--serif);
+  font-size: 14.5px;
+  line-height: 1.7;
+  background: transparent;
+  color: var(--text);
+  padding: 2px 0 2px 14px;
+  border-left: 3px solid var(--border2);
+  margin: 0 0 12px;
+}
+.mb-quote .markdown-body {
+  font-family: var(--serif);
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--text);
+  background: transparent;
+}
+.mb-quote .markdown-body > :first-child {
+  margin-top: 0;
+}
+.mb-quote .markdown-body > :last-child {
+  margin-bottom: 0;
+}
+.mb-note-txt {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0 0 11px;
+  white-space: pre-wrap;
+}
+/* The user's own annotation — set apart from the quoted source: a soft block
+   with an accent bar + a "我的批注" label so it never reads as part of the
+   original / answer above it. */
+.mb-anno {
+  background: var(--anno-bg);
+  border-left: 3px solid var(--ac);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 10px 14px;
+  margin: 0 0 12px;
+}
+.mb-anno-lab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--ac);
+  letter-spacing: 0.03em;
+  margin-bottom: 5px;
+}
+.mb-anno-body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.62;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+.mb-note-foot {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+.mb-note-foot .src {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.mb-ed-lab {
+  font-size: 11px;
+  color: var(--faint);
+  margin: 0 0 5px;
+  letter-spacing: 0.03em;
+}
+.mb-ed-quote {
+  width: 100%;
+  min-height: 110px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px 11px;
+  font-family: var(--serif);
+  font-size: 13.5px;
+  line-height: 1.55;
+  resize: vertical;
+  margin-bottom: 11px;
+}
+.mb-ed-txt {
+  width: 100%;
+  min-height: 180px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  padding: 9px 11px;
+  font-size: 14px;
+  line-height: 1.55;
+  resize: vertical;
+  margin-bottom: 11px;
+}
+.mb-ed-quote:focus,
+.mb-ed-txt:focus {
+  outline: 0;
+  border-color: var(--ac);
+}
+.mb-empty {
+  text-align: center;
+  color: var(--faint);
+  font-size: 14px;
+  padding: 40px 0;
+  line-height: 1.6;
+}
+
+/* ── selection chip / popover / toast (position:fixed overlays) ─────────── */
+.mb-chip {
+  position: fixed;
+  z-index: 50;
+  background: var(--ac);
+  color: var(--acfg);
+  border: 0;
+  border-radius: 22px;
+  font-size: 13px;
+  padding: 7px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
+}
+.mb-pop {
+  position: fixed;
+  z-index: 55;
+  width: 300px;
+  background: var(--surface);
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius-lg);
+  padding: 15px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+.mb-pop-h {
+  font-size: 13px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+.mb-pop-h svg {
+  color: var(--ac);
+}
+.mb-pop-q {
+  font-family: var(--serif);
+  font-size: 13px;
+  line-height: 1.6;
+  background: var(--acb);
+  color: var(--act);
+  padding: 9px 11px;
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  max-height: 86px;
+  overflow: auto;
+}
+.mb-pop textarea {
+  width: 100%;
+  min-height: 54px;
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 13px;
+  resize: none;
+  margin-bottom: 10px;
+}
+.mb-pop textarea:focus {
+  outline: 0;
+  border-color: var(--ac);
+}
+.mb-pop-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-bottom: 13px;
+}
+.mb-pop-meta .src {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  overflow: hidden;
+}
+.mb-pop-meta .src span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mb-pop-w {
+  font-size: 11px;
+  color: var(--faint);
+  white-space: nowrap;
+}
+.mb-pop-act {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
+.mb-btn {
+  font-size: 13px;
+  padding: 7px 14px;
+  border-radius: var(--radius);
+  border: 0.5px solid var(--border2);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.mb-btn.pri {
+  background: var(--ac);
+  color: var(--acfg);
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.mb-btn.danger {
+  background: var(--danger);
+  color: #fff;
+  border: 0;
+}
+/* Delete-confirmation dialog (asked before a note is removed). */
+.mb-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.32);
+}
+.mb-confirm {
+  width: min(380px, 100%);
+  background: var(--surface);
+  border: 0.5px solid var(--border2);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+  padding: 18px 18px 16px;
+}
+.mb-confirm-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.mb-confirm-h svg {
+  color: var(--danger);
+}
+.mb-confirm-b {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.mb-toast {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  background: var(--ac);
+  color: var(--acfg);
+  font-size: 13px;
+  padding: 9px 16px;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.22);
+}
+
+/* note → Wisdom sync chip */
+.mb-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  border: 0.5px solid var(--border);
+  background: var(--surface2);
+  color: var(--muted);
+  border-radius: 20px;
+  padding: 2px 9px;
+  cursor: default;
+}
+.mb-sync--synced {
+  color: var(--act);
+  background: var(--acb);
+  border-color: transparent;
+}
+.mb-sync--syncing {
+  color: var(--ac);
+}
+.mb-sync--error {
+  color: var(--danger);
+  border-color: var(--danger);
+  cursor: pointer;
+}
+
+/* failed-upload row + dismiss */
+.mb-paper.proc.is-failed {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.mb-up-err {
+  display: block;
+  font-size: 11px;
+  color: var(--danger);
+  margin-top: 2px;
+  white-space: normal;
+}
+.mb-pdismiss,
+.mb-pretry {
+  border: 0;
+  background: none;
+  color: var(--faint);
+  cursor: pointer;
+  display: flex;
+  padding: 1px;
+  flex: 0 0 auto;
+}
+.mb-pretry {
+  margin-top: 1px;
+}
+.mb-pretry:hover {
+  color: var(--ac);
+}
+.mb-pdismiss:hover {
+  color: var(--danger);
+}
+
+/* Selected text shows in yellow — in the reader and the chat (the two places a
+   selection can be saved to 我的笔记) — so it stays visible on top of the green
+   paragraph-hover highlight and the user sees exactly what will be saved. */
+.mb-reader ::selection,
+.mb-msgs ::selection {
+  background: #fef08a;
+  color: #1a1a1a;
+}
+.mb-reader ::-moz-selection,
+.mb-msgs ::-moz-selection {
+  background: #fef08a;
+  color: #1a1a1a;
+}
+/* "Staged" highlight: once text is selected we register its range as a CSS
+   Custom Highlight (see stageHighlight in MbApp) so the chosen text stays
+   marked — in a slightly warmer amber than the live selection — while the user
+   moves to the chip/popover, even after the native selection is gone. */
+::highlight(mb-staged) {
+  background: #fcd34d;
+  color: #1a1a1a;
+}
+
+@media (max-width: 900px) {
+  .mb-research {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .mb-lib,
+  .mb-qa,
+  .mb-resizer {
+    display: none;
+  }
+}
