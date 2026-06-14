@@ -1,0 +1,11 @@
+# Prometheus config for the dikw-web observability demo stack. Scrapes the OTel
+# Collector's Prometheus exporter, which republishes the metrics the sidecar
+# pushes over OTLP (http.server.request.duration, dikw.job.*, dikw.llm.tokens,
+# dikw.agent.turn.duration — dots become underscores in Prometheus).
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: otel-collector
+    static_configs:
+      - targets: ["otel-collector:8889"]

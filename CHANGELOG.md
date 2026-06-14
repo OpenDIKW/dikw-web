@@ -11,6 +11,21 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Added
 
+- **Observability demo stack + docs** — Phase 7 (final) of OTel observability. A new
+  `docker-compose.observability.yml` (separate from the production `docker-compose.yml`,
+  which it does not touch) brings up an OTel Collector that fans OTLP into **Jaeger**
+  (traces) + **Prometheus** (metrics) + **Loki** (logs), all visualized in **Grafana**
+  with datasources pre-provisioned. `otel-collector-config.yaml` wires the three
+  pipelines (OTLP in → Jaeger / Prometheus-scrape / Loki, CORS-enabled for the browser
+  RUM exporter); `observability/prometheus.yml` + `observability/grafana-datasources.yml`
+  make the stack work on first `up`. Default `up` is **backends-only** (no LLM creds
+  needed); `--profile app` also builds + runs the sidecar pointed at the in-network
+  collector (creds from the operator's `.env`, never inlined — placeholder secrets only,
+  gitleaks-clean). New `docs/observability.md` documents the full `OTEL_*` env reference
+  (incl. `OTEL_EXPORTER_OTLP_HEADERS` for Grafana Cloud / Honeycomb / Datadog), the
+  env-only sampling limitation, the `dikw.*` metric catalog, the browser-RUM
+  `config.json` block + its credential-exposure security model, and the privacy posture;
+  `.env.example`, `README.md`, and `CLAUDE.md` cross-reference it. No app behavior change.
 - **Browser RUM (opt-in frontend traces)** — Phase 6 of OTel observability. A new
   `src/telemetry/initBrowserOtel.ts` boots the OpenTelemetry **web** SDK
   (`WebTracerProvider` + `OTLPTraceExporter`, with **document-load + fetch**
