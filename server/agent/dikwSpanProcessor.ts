@@ -1,5 +1,5 @@
-import type { Context } from "@opentelemetry/api";
-import type { HrTime } from "@opentelemetry/api";
+import type { Context, HrTime } from "@opentelemetry/api";
+import { SpanKind } from "@opentelemetry/api";
 import type { ReadableSpan, Span, SpanProcessor } from "@opentelemetry/sdk-trace-base";
 import type { SpanStore, SpanRow } from "./spanStore.js";
 
@@ -24,6 +24,13 @@ export class DikwSpanProcessor implements SpanProcessor {
   }
 
   onEnd(span: ReadableSpan): void {
+    // HTTP server spans (withServerSpan) share the trace with the agent
+    // invocation they wrap, but they are distributed-tracing infrastructure for
+    // OTLP export — not agent work. Keep them out of the in-memory #trace store
+    // so the waterfall stays agent-only (ADK emits only INTERNAL spans).
+    if (span.kind === SpanKind.SERVER) {
+      return;
+    }
     const ctx = span.spanContext();
     const attributes = coerceAttributes(span.attributes);
     const sessionId = firstString(attributes, SESSION_ID_ATTRS) ?? null;

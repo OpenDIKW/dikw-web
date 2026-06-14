@@ -5,6 +5,7 @@ import { loadAgentConfig } from "./config.js";
 import { createDefaultAgentHandler, resolveSessionsDir } from "./http.js";
 import { createDefaultWebHandler } from "../web/http.js";
 import { loadWebConfig } from "../web/config.js";
+import { withServerSpan } from "../shared/withServerSpan.js";
 
 const HOST = process.env.DIKW_WEB_HOST?.trim() || "0.0.0.0";
 const PORT = Number(process.env.DIKW_WEB_PORT?.trim() || "4321");
@@ -121,13 +122,19 @@ async function handleRequest(
   if (url.pathname === "/agent" || url.pathname.startsWith("/agent/")) {
     const rest = url.pathname.slice("/agent".length) || "/";
     req.url = `${rest}${url.search ?? ""}`;
-    await agentHandler(req, res);
+    await withServerSpan(
+      { method: req.method ?? "GET", pathname: url.pathname, headers: req.headers, res },
+      () => agentHandler(req, res),
+    );
     return;
   }
   if (url.pathname === "/web" || url.pathname.startsWith("/web/")) {
     const rest = url.pathname.slice("/web".length) || "/";
     req.url = `${rest}${url.search ?? ""}`;
-    await webHandler(req, res);
+    await withServerSpan(
+      { method: req.method ?? "GET", pathname: url.pathname, headers: req.headers, res },
+      () => webHandler(req, res),
+    );
     return;
   }
   await serveStatic(req.method ?? "GET", url.pathname, req.headers.accept, res);

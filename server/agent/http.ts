@@ -39,9 +39,10 @@ export async function createDefaultAgentHandler(
   const sessionService = new DatabaseSessionService(dbUri);
   const store = new AdkSessionStore({ sessionService, appName: "dikw-web", userId: "demo" });
   // Register telemetry BEFORE building the runner so the first turn's spans are
-  // captured (maybeSetOtelProviders is global + idempotent — see telemetry.ts).
-  const spanStore = new SpanStore();
-  initAgentTelemetry(spanStore);
+  // captured; initAgentTelemetry owns the process-global SpanStore (see
+  // telemetry.ts) so a dev /web request before any /agent request still
+  // registers the provider, and #trace reads from this same store.
+  const spanStore = initAgentTelemetry();
   const runner = new AdkAgentRunner({ config, store, sessionService });
   return createAgentHandler({ cwd, store, runner, spanStore });
 }

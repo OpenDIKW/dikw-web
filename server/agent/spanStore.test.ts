@@ -131,4 +131,41 @@ describe("SpanStore.getSessionTraces", () => {
     seedArchitectureTrace(store);
     expect(store.getSessionTraces("nope")).toEqual({ sessionId: "nope", invocations: [] });
   });
+
+  it("normalizes a parent that points to a span absent from the view to null", () => {
+    // With the inbound SERVER span (Phase 2), ADK's root `invocation` span is
+    // created inside the server span's context, so it carries the SERVER span's
+    // id as its parent. DikwSpanProcessor filters SERVER spans out of the store,
+    // so that parent id is never present here. The view must report the root as a
+    // true root (parentSpanId null) — not a dangling reference — to honor the
+    // TraceSpanView contract and keep the waterfall depth correct.
+    const store = new SpanStore();
+    store.record(
+      row({
+        spanId: "root",
+        parentSpanId: "server-span-1", // filtered SERVER span, never recorded
+        name: "invocation",
+        sessionId: null,
+        invocationId: null,
+        durationMs: 1_000,
+      }),
+    );
+    store.record(
+      row({
+        spanId: "llm",
+        parentSpanId: "root",
+        name: "call_llm",
+        attributes: { "gen_ai.conversation.id": "s1" },
+      }),
+    );
+
+    const view = store.getSessionTraces("s1");
+    const spans = view.invocations[0].spans;
+    const rootSpan = spans.find((span) => span.spanId === "root")!;
+    const llmSpan = spans.find((span) => span.spanId === "llm")!;
+    // Dangling SERVER parent → null (root).
+    expect(rootSpan.parentSpanId).toBeNull();
+    // A genuine in-invocation parent is preserved.
+    expect(llmSpan.parentSpanId).toBe("root");
+  });
 });

@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
+import { SpanKind } from "@opentelemetry/api";
 import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
 import { DikwSpanProcessor } from "./dikwSpanProcessor";
 import { SpanStore } from "./spanStore";
@@ -16,6 +17,7 @@ function fakeSpan(
     startTime: [number, number];
     duration: [number, number];
     statusCode: number;
+    kind: SpanKind;
     attributes: Record<string, unknown>;
   }> = {},
 ): ReadableSpan {
@@ -27,10 +29,12 @@ function fakeSpan(
     startTime = [1_717, 500_000_000], // 1_717_000.5 ms
     duration = [0, 900_000_000], // 900 ms
     statusCode = 1,
+    kind = SpanKind.INTERNAL,
     attributes = {},
   } = overrides;
   return {
     name,
+    kind,
     spanContext: () => ({ traceId, spanId, traceFlags: 1 }),
     parentSpanContext: parentSpanId ? ({ spanId: parentSpanId } as never) : undefined,
     startTime,
@@ -45,6 +49,20 @@ describe("DikwSpanProcessor.onEnd", () => {
     const store = new SpanStore();
     const processor = new DikwSpanProcessor(store);
 
+    // Seed the parent (root invocation) so the child's extracted parentSpanId is
+    // present in the served view and survives getSessionTraces' dangling-parent
+    // normalization — keeping this a faithful parent-child extraction check.
+    processor.onEnd(
+      fakeSpan({
+        name: "invocation",
+        spanId: "parent-1",
+        parentSpanId: null,
+        attributes: {
+          "gcp.vertex.agent.session_id": "s1",
+          "gcp.vertex.agent.invocation_id": "inv-1",
+        },
+      }),
+    );
     processor.onEnd(
       fakeSpan({
         attributes: {
@@ -60,7 +78,7 @@ describe("DikwSpanProcessor.onEnd", () => {
 
     const view = store.getSessionTraces("s1");
     expect(view.invocations).toHaveLength(1);
-    const span = view.invocations[0].spans[0];
+    const span = view.invocations[0].spans.find((s) => s.spanId === "span-1")!;
     expect(span.spanId).toBe("span-1");
     expect(span.parentSpanId).toBe("parent-1");
     expect(span.name).toBe("call_llm");
@@ -73,6 +91,41 @@ describe("DikwSpanProcessor.onEnd", () => {
     expect(span.attributes["gen_ai.request.model"]).toBe("MiniMax-M3");
     // Array attribute coerced to a JSON string (nothing dropped).
     expect(span.attributes.tags).toBe('["a","b"]');
+  });
+
+  it("skips SERVER-kind spans so HTTP server spans stay out of the #trace store", () => {
+    const store = new SpanStore();
+    const processor = new DikwSpanProcessor(store);
+
+    // A withServerSpan HTTP span shares the trace with the agent invocation but
+    // is OTLP-only infrastructure — it must not pollute the agent waterfall.
+    processor.onEnd(
+      fakeSpan({
+        name: "POST /agent/sessions/:id/messages",
+        kind: SpanKind.SERVER,
+        spanId: "http-span",
+        parentSpanId: null,
+        attributes: {
+          "gcp.vertex.agent.session_id": "s1",
+          "http.route": "/agent/sessions/:id/messages",
+        },
+      }),
+    );
+    // An ordinary INTERNAL agent span on the same session is still recorded.
+    processor.onEnd(
+      fakeSpan({
+        name: "call_llm",
+        spanId: "llm-span",
+        attributes: { "gcp.vertex.agent.session_id": "s1" },
+      }),
+    );
+
+    const view = store.getSessionTraces("s1");
+    const spanIds = view.invocations.flatMap((invocation) =>
+      invocation.spans.map((span) => span.spanId),
+    );
+    expect(spanIds).toContain("llm-span");
+    expect(spanIds).not.toContain("http-span");
   });
 
   it("maps status codes and falls back to gen_ai.conversation.id for sessionId, null parent", () => {
