@@ -50,6 +50,20 @@ describe("mb connection storage", () => {
     expect(loadConnection().serverUrl).toBe("https://session.example");
   });
 
+  it("never splices a remembered token onto a live session URL", () => {
+    // Live tab has a URL but no token (e.g. the workbench mounted with the
+    // default, or the user cleared the token); a stale remembered token from a
+    // prior MB-Web visit must not resurface paired with the session URL.
+    sessionStorage.setItem(serverKey, defaultServerUrl);
+    localStorage.setItem(serverKey, "https://remembered.example");
+    localStorage.setItem(tokenKey, "stale-remembered-token");
+    localStorage.setItem(rememberKey, "true");
+
+    const conn = loadConnection();
+    expect(conn.serverUrl).toBe(defaultServerUrl);
+    expect(conn.token).toBe("");
+  });
+
   it("saves to sessionStorage only and clears localStorage when remember is off", () => {
     // Pre-seed a stale remembered connection to prove "remember off" wipes it.
     localStorage.setItem(serverKey, "https://stale.example");

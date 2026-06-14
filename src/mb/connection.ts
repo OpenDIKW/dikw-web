@@ -23,13 +23,25 @@ export interface MbConnection {
 }
 
 export function loadConnection(): MbConnection {
-  // The live tab (and the workbench App in the same tab) wins; a remembered
-  // localStorage mirror is the cold-open fallback.
-  const serverUrl =
-    sessionStorage.getItem(serverKey) ?? localStorage.getItem(serverKey) ?? defaultServerUrl;
-  const token = sessionStorage.getItem(tokenKey) ?? localStorage.getItem(tokenKey) ?? "";
   const remember = localStorage.getItem(rememberKey) === "true";
-  return { serverUrl, token, remember };
+  // Source the connection as a *unit* — never splice a remembered token onto a
+  // different session URL. The live tab wins whenever it has a URL (the workbench
+  // App writes one on mount, even the default), and its token is taken verbatim:
+  // an absent session token means "no token", not "fall back to the remembered one".
+  const sessionUrl = sessionStorage.getItem(serverKey);
+  if (sessionUrl !== null) {
+    return { serverUrl: sessionUrl, token: sessionStorage.getItem(tokenKey) ?? "", remember };
+  }
+  // Cold tab (no session connection): recover the remembered localStorage mirror
+  // as a unit, otherwise the default.
+  if (remember) {
+    return {
+      serverUrl: localStorage.getItem(serverKey) ?? defaultServerUrl,
+      token: localStorage.getItem(tokenKey) ?? "",
+      remember: true,
+    };
+  }
+  return { serverUrl: defaultServerUrl, token: "", remember: false };
 }
 
 export function saveConnection(conn: MbConnection): void {
