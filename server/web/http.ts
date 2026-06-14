@@ -22,6 +22,9 @@ import { type AnthropicLike, TranslatorClient } from "./translatorClient.js";
 import { runTranslation } from "./translateRun.js";
 import { initAgentTelemetry } from "../agent/telemetry.js";
 import { type JobOutcome, recordJobEnd, recordJobStart } from "../shared/metrics.js";
+import { createLogger } from "../shared/logger.js";
+
+const log = createLogger("web");
 
 const gzipAsync = promisify(gzip);
 
@@ -156,7 +159,7 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
         next(err);
         return;
       }
-      console.error("[web] unhandled handler error", err);
+      log.error("unhandled handler error", { error: err });
       return errorJson(res, 500, "web_internal_error", "internal web handler error");
     }
   };

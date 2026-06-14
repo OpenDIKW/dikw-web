@@ -195,7 +195,7 @@ describe("agent config", () => {
 
   it("keeps the compaction default and warns on an unrecognized enabled flag", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "dikw-agent-config-"));
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const writeSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
     try {
       await writeFile(
         join(cwd, ".env.local"),
@@ -213,9 +213,16 @@ describe("agent config", () => {
       // A typo'd disable must not silently leave compaction off-by-fallback semantics:
       // it stays at the default (true) AND surfaces a warning.
       expect(config.compaction.enabled).toBe(true);
-      expect(warnSpy).toHaveBeenCalled();
+      // The warning must name the offending flag — not redact it (the field is
+      // `flag`, not `key`, precisely so the logger's name-based scrub doesn't blank it).
+      const warned = writeSpy.mock.calls.find((c) =>
+        String(c[0]).includes("unrecognized boolean flag"),
+      );
+      expect(warned).toBeDefined();
+      expect(String(warned![0])).toContain("DIKW_AGENT_COMPACTION_ENABLED");
+      expect(String(warned![0])).not.toContain("[redacted]");
     } finally {
-      warnSpy.mockRestore();
+      writeSpy.mockRestore();
       await rm(cwd, { recursive: true, force: true });
     }
   });

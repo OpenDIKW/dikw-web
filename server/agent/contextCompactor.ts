@@ -1,6 +1,9 @@
 import { LlmSummarizer, TokenBasedContextCompactor } from "@google/adk";
 import type { BaseContextCompactor, BaseLlm, InvocationContext } from "@google/adk";
 import type { CompactionConfig } from "./config.js";
+import { createLogger } from "../shared/logger.js";
+
+const log = createLogger("agent");
 
 /**
  * Builds the ADK context compactor for one agent turn, or `undefined` when
@@ -67,10 +70,7 @@ class ResilientContextCompactor implements BaseContextCompactor {
       if (invocationContext.abortSignal?.aborted) {
         throw error;
       }
-      console.error(
-        "[dikw-agent] context compaction failed; proceeding without compaction:",
-        error,
-      );
+      log.error("context compaction failed; proceeding without compaction", { error });
     }
   }
 }

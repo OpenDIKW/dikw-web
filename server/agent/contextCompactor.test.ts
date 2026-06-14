@@ -122,7 +122,7 @@ describe("buildContextCompactor", () => {
     });
 
     it("swallows a summarization failure and leaves the history untouched", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const writeSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
       const llm = fakeLlm(async function* () {
         throw new Error("llm down");
       });
@@ -136,12 +136,14 @@ describe("buildContextCompactor", () => {
 
       await expect(compactor.compact(ctx)).resolves.toBeUndefined();
       expect(events).toHaveLength(3); // no CompactedEvent pushed
-      expect(errorSpy).toHaveBeenCalled();
-      errorSpy.mockRestore();
+      expect(
+        writeSpy.mock.calls.some((c) => String(c[0]).includes("context compaction failed")),
+      ).toBe(true);
+      writeSpy.mockRestore();
     });
 
     it("re-throws a user-Stop abort instead of logging it as a compaction failure", async () => {
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const writeSpy = vi.spyOn(process.stdout, "write").mockReturnValue(true);
       const llm = fakeLlm(async function* () {
         throw new Error("aborted"); // the summarizer call torn down by the turn signal
       });
@@ -156,8 +158,11 @@ describe("buildContextCompactor", () => {
       const ctx = ctxWith(events, controller.signal);
 
       await expect(compactor.compact(ctx)).rejects.toThrow("aborted");
-      expect(errorSpy).not.toHaveBeenCalled(); // a Stop is graceful, not a "compaction failed"
-      errorSpy.mockRestore();
+      // a Stop is graceful, not a "compaction failed"
+      expect(
+        writeSpy.mock.calls.some((c) => String(c[0]).includes("context compaction failed")),
+      ).toBe(false);
+      writeSpy.mockRestore();
     });
   });
 });

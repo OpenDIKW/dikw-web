@@ -14,6 +14,9 @@
 import type { JobStore } from "./jobStore.js";
 import { TranslatorClient, TranslatorClientError } from "./translatorClient.js";
 import { type JobOutcome, recordJobEnd, recordJobStart } from "../shared/metrics.js";
+import { createLogger } from "../shared/logger.js";
+
+const logger = createLogger("translate");
 
 export interface TranslateRunArgs {
   client: TranslatorClient;
@@ -113,7 +116,7 @@ export async function runTranslation(
 function log(jobId: string, message: string): void {
   // Sidecar-side observability for the translate path (issue: "一直加载中" was
   // invisible — no logs). Short job id is enough to correlate poll requests.
-  console.log(`[translate] job ${jobId.slice(0, 8)} ${message}`);
+  logger.info(message, { jobId: jobId.slice(0, 8) });
 }
 
 const WIKILINK = /\[\[([^\]|]+)(\|[^\]]*)?\]\]/g;
