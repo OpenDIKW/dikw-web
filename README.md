@@ -7,6 +7,12 @@ routes for chat plus `/web/*` routes for browser-side helpers (mineru-backed
 PDF / Office conversion for Import, and on-demand LLM markdown translation
 for the Base reader).
 
+This bundle ships **two front-ends** selected by the URL hash: visiting
+`#MB-Web` opens the focused 论文知识库 (paper knowledge base) reading variant
+(`src/mb/`, `MbApp`), while every other hash (`#chat`, `#base`, …) loads the
+original multi-page workbench. Both are read-only over `dikw-core`; see
+`CLAUDE.md` → "Routes and contracts (hash-based)" for the split.
+
 ## Quick start
 
 ```powershell

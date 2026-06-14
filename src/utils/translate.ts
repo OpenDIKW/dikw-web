@@ -50,6 +50,9 @@ export interface TranslateOptions {
   signal?: AbortSignal;
   onProgress?: (e: TranslateProgress) => void;
   cache?: TranslateCache | null;
+  /** When true, skip the cache *read* (force a fresh translation) but still
+   *  write the fresh result back. Drives the reader's "再翻译一次" action. */
+  refresh?: boolean;
   /** Override for tests. */
   fetch?: typeof fetch;
   pollIntervalMs?: number;
@@ -91,7 +94,7 @@ export async function translateBlocks(
   opts.onProgress?.({ phase: "hashing" });
   const key = await cacheKey(blocks, targetLang);
   throwIfAborted(signal);
-  if (opts.cache) {
+  if (opts.cache && !opts.refresh) {
     const hit = await opts.cache.get(key);
     if (hit && hit.length === blocks.length) {
       opts.onProgress?.({ phase: "cache_hit" });

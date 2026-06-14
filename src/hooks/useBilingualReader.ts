@@ -28,6 +28,8 @@ export interface BilingualReader {
   blocks: BilingualBlock[];
   toggle: () => void;
   retranslate: () => void;
+  /** Re-translate, bypassing the cache (force fresh). */
+  forceRetranslate: () => void;
   cancel: () => void;
 }
 
@@ -64,56 +66,60 @@ export function useBilingualReader({
     [blocks],
   );
 
-  const run = useCallback(() => {
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    const runId = ++runIdRef.current;
-    setTranslating(true);
-    setError(null);
-    setCached(false);
-    setPartial(null);
-    void translate(textBlocks, {
-      targetLang,
-      signal: controller.signal,
-      cache,
-      onProgress: (e) => {
-        if (runIdRef.current !== runId) return;
-        if (e.phase === "cache_hit") {
-          setCached(true);
-        } else if (e.phase === "partial") {
-          setPartial((prev) => {
-            const next = prev
-              ? prev.slice()
-              : new Array<string | undefined>(textBlocks.length).fill(undefined);
-            for (const { i, tr } of e.blocks) {
-              if (i >= 0 && i < next.length) next[i] = tr;
-            }
-            return next;
-          });
-        }
-      },
-    })
-      .then((result) => {
-        if (runIdRef.current !== runId) return;
-        setTranslations(result);
-        setTranslating(false);
+  const run = useCallback(
+    (refresh = false) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const runId = ++runIdRef.current;
+      setTranslating(true);
+      setError(null);
+      setCached(false);
+      setPartial(null);
+      void translate(textBlocks, {
+        targetLang,
+        signal: controller.signal,
+        cache,
+        refresh,
+        onProgress: (e) => {
+          if (runIdRef.current !== runId) return;
+          if (e.phase === "cache_hit") {
+            setCached(true);
+          } else if (e.phase === "partial") {
+            setPartial((prev) => {
+              const next = prev
+                ? prev.slice()
+                : new Array<string | undefined>(textBlocks.length).fill(undefined);
+              for (const { i, tr } of e.blocks) {
+                if (i >= 0 && i < next.length) next[i] = tr;
+              }
+              return next;
+            });
+          }
+        },
       })
-      .catch((err: unknown) => {
-        if (runIdRef.current !== runId) return;
-        // Abort is intentional (cancel / page switch) — leave state to the caller.
-        if (err instanceof TranslateError && err.code === "aborted") return;
-        setError(
-          err instanceof TranslateError
-            ? err
-            : new TranslateError(
-                "translator_api",
-                err instanceof Error ? err.message : String(err),
-              ),
-        );
-        setTranslating(false);
-      });
-  }, [textBlocks, targetLang, cache, translate]);
+        .then((result) => {
+          if (runIdRef.current !== runId) return;
+          setTranslations(result);
+          setTranslating(false);
+        })
+        .catch((err: unknown) => {
+          if (runIdRef.current !== runId) return;
+          // Abort is intentional (cancel / page switch) — leave state to the caller.
+          if (err instanceof TranslateError && err.code === "aborted") return;
+          setError(
+            err instanceof TranslateError
+              ? err
+              : new TranslateError(
+                  "translator_api",
+                  err instanceof Error ? err.message : String(err),
+                ),
+          );
+          setTranslating(false);
+        });
+    },
+    [textBlocks, targetLang, cache, translate],
+  );
 
   // Reset everything when the page body changes — a new document starts in the
   // single-column (mono) view, and any in-flight translation is abandoned.
@@ -134,22 +140,30 @@ export function useBilingualReader({
 
   const toggle = useCallback(() => {
     if (!enabled) return;
-    // Decide outside the setState updater — updaters must stay pure (React
-    // StrictMode invokes them twice, which would fire two translate requests).
     if (active) {
-      abortRef.current?.abort();
-      runIdRef.current += 1;
+      // Only hide the dual column — do NOT abort an in-flight translation.
+      // Letting it run to completion fills `translations` and writes the cache,
+      // so toggling back shows the finished (or still-streaming) result instead
+      // of discarding the work and re-translating from scratch on every click.
       setActive(false);
-      setTranslating(false);
       return;
     }
     setActive(true);
-    if (!translations) run();
-  }, [enabled, active, translations, run]);
+    // Start a translation only when one isn't already done or in flight for this
+    // page (so toggling back mid-translation doesn't kick off a second run).
+    if (!translations && !translating) run();
+  }, [enabled, active, translations, translating, run]);
 
   const retranslate = useCallback(() => {
     if (!enabled) return;
     run();
+  }, [enabled, run]);
+
+  // Like retranslate, but bypasses the cache read so it always re-translates
+  // (the reader's "再翻译一次" action). The fresh result overwrites the cache.
+  const forceRetranslate = useCallback(() => {
+    if (!enabled) return;
+    run(true);
   }, [enabled, run]);
 
   const cancel = useCallback(() => {
@@ -175,5 +189,15 @@ export function useBilingualReader({
     });
   }, [blocks, translations, partial]);
 
-  return { active, translating, cached, error, blocks: biBlocks, toggle, retranslate, cancel };
+  return {
+    active,
+    translating,
+    cached,
+    error,
+    blocks: biBlocks,
+    toggle,
+    retranslate,
+    forceRetranslate,
+    cancel,
+  };
 }

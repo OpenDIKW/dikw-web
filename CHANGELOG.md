@@ -9,8 +9,25 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-14
+
 ### Added
 
+- **论文知识库 (MB-Web) reading variant** — a focused paper-reading UI shipped in
+  the same bundle. `src/main.tsx` now renders a top-level `Root` that mounts the new
+  `MbApp` (`src/mb/`) for the `#MB-Web` hash and the original multi-page workbench
+  (`App`) for every other hash (`#chat` / `#base` / …), so both ship together
+  (shareable link `http://127.0.0.1:4321/#MB-Web`); `App` only rewrites its own legacy
+  `query→chat` hash, so the two never fight over the URL. The variant is read-only over
+  `dikw-core` and reuses the existing `/v1`, `/agent`, and `/web/translate` + `/web/mineru`
+  infra; its UI lives under `src/mb/` with `.mb-`-scoped styles (no new framework), and
+  `App` + `pages/` are untouched. Features: a three-column **resizable + collapsible**
+  workspace; a Source-layer **paper library** with browser-side rename aliases; a reader
+  with **原文 / 中英对照** (paragraph-aligned bilingual via `/web/translate`, persisted
+  per paper); **per-paper agent Q&A** (chat history kept per paper); **我的笔记**
+  (localStorage card list + detail page, with a delete-confirmation dialog) mirrored to the
+  **Wisdom layer** (`POST /v1/base/wisdom`); and **upload** (PDF/Office → MinerU → import →
+  ingest → synth) with optional pre-translation at import.
 - **Observability demo stack + docs** — Phase 7 (final) of OTel observability. A new
   `docker-compose.observability.yml` (separate from the production `docker-compose.yml`,
   which it does not touch) brings up an OTel Collector that fans OTLP into **Jaeger**
@@ -293,6 +310,13 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ### Changed
 
+- **Bilingual reader keeps an in-flight translation on toggle-off** — shared
+  `useBilingualReader.toggle()` no longer aborts the running translation when switching
+  back to the source view; it lets the job finish and write the IndexedDB cache, so
+  toggling 原文 ↔ 中英对照 (in both the Base reader and the new MB reader) no longer
+  restarts the translation from scratch every click. `BilingualPaper` (MB reader) is now
+  `React.memo`'d so a parent re-render doesn't rebuild the dual-column DOM and drop an
+  active text selection / staged highlight.
 - Extracted the dotenv helpers shared by both sidecar config loaders
   (`parseEnv` / `readEnvFile` / `readOptional`) into a new `server/shared/env.ts`;
   `server/agent/config.ts` and `server/web/config.ts` now import them instead of
