@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BookText, Bookmark, Check, Contrast, File, Files, MessageSquareText } from "lucide-react";
+import {
+  BookText,
+  Bookmark,
+  Check,
+  Contrast,
+  File,
+  Files,
+  MessageSquareText,
+  Settings,
+} from "lucide-react";
 import { DikwClient, normalizeBaseUrl } from "../api/client";
 import { AgentClient } from "../api/agentClient";
 import {
@@ -9,6 +18,8 @@ import {
 } from "../utils/translate";
 import { ResearchWorkspace } from "./ResearchWorkspace";
 import { NotesView } from "./NotesView";
+import { MbConnectionPanel } from "./MbConnectionPanel";
+import { defaultServerUrl, loadConnection, saveConnection, type MbConnection } from "./connection";
 import { archiveNoteInWisdom, writeNoteToWisdom } from "./wisdom-sync";
 import "./mb.css";
 
@@ -40,11 +51,8 @@ export interface CurrentPaper {
 
 type MbView = "research" | "notes";
 
-const serverKey = "dikw-web.serverUrl";
-const tokenKey = "dikw-web.token";
 const themeKey = "dikw-mb.theme";
 const notesKey = "dikw-mb.notes";
-const defaultServerUrl = "http://127.0.0.1:8765";
 
 function newNid(): string {
   const c = globalThis.crypto;
@@ -104,11 +112,12 @@ function stageHighlight(range: Range | null): void {
 }
 
 export function MbApp() {
-  const [serverUrl] = useState(() => sessionStorage.getItem(serverKey) ?? defaultServerUrl);
-  const [token] = useState(() => sessionStorage.getItem(tokenKey) ?? "");
+  const [conn, setConn] = useState<MbConnection>(() => loadConnection());
+  const { serverUrl, token } = conn;
+  const [showConn, setShowConn] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => readTheme());
   const [view, setView] = useState<MbView>("research");
-  const [coreOk, setCoreOk] = useState(false);
+  const [coreState, setCoreState] = useState<"checking" | "ok" | "down">("checking");
   const [notes, setNotes] = useState<MbNote[]>(() => loadNotes());
 
   const [translatorEnabled, setTranslatorEnabled] = useState(false);
@@ -138,6 +147,27 @@ export function MbApp() {
     localStorage.setItem(notesKey, JSON.stringify(notes));
   }, [notes]);
 
+  // Persist + apply a connection only on an explicit save from the panel —
+  // never on mount. A mount-time write would let merely opening MB-Web in a tab
+  // (e.g. a workbench→#MB-Web handoff, where App has already written the default
+  // into sessionStorage) overwrite a previously-remembered localStorage
+  // connection the user never touched. setConn rebuilds the client and re-probes.
+  const saveConn = useCallback((next: MbConnection) => {
+    setConn(next);
+    saveConnection(next);
+  }, []);
+
+  // Descendants (e.g. the library's connection-error CTA) ask to open the
+  // settings panel via a window event — same decoupling as mb-toast, so the
+  // workspace tree doesn't have to prop-drill an onOpenSettings callback.
+  useEffect(() => {
+    function onOpen() {
+      setShowConn(true);
+    }
+    window.addEventListener("mb-open-settings", onOpen);
+    return () => window.removeEventListener("mb-open-settings", onOpen);
+  }, []);
+
   // probe sidecar translator once (gates 中英对照)
   useEffect(() => {
     let cancelled = false;
@@ -155,17 +185,18 @@ export function MbApp() {
     };
   }, []);
 
-  // health dot
+  // health dot — tri-state so a failed probe settles on "未连接" instead of
+  // looking stuck at "连接中…" (issue #97).
   useEffect(() => {
     let cancelled = false;
-    setCoreOk(false);
+    setCoreState("checking");
     void client
       .get("/v1/health")
       .then(() => {
-        if (!cancelled) setCoreOk(true);
+        if (!cancelled) setCoreState("ok");
       })
       .catch(() => {
-        if (!cancelled) setCoreOk(false);
+        if (!cancelled) setCoreState("down");
       });
     return () => {
       cancelled = true;
@@ -421,9 +452,22 @@ export function MbApp() {
         </div>
         <div className="mb-rgroup">
           <span>
-            <span className={`mb-dot ${coreOk ? "" : "off"}`} />
-            {coreOk ? "已连接 · dikw-core" : "连接中…"}
+            <span className={`mb-dot ${coreState === "down" ? "off" : ""}`} />
+            {coreState === "ok"
+              ? "已连接 · dikw-core"
+              : coreState === "checking"
+                ? "连接中…"
+                : "未连接 · dikw-core"}
           </span>
+          <button
+            className="mb-iconbtn"
+            type="button"
+            aria-label="连接设置"
+            title="连接设置"
+            onClick={() => setShowConn(true)}
+          >
+            <Settings size={18} aria-hidden="true" />
+          </button>
           <button
             className="mb-iconbtn"
             type="button"
@@ -514,6 +558,16 @@ export function MbApp() {
             </button>
           </div>
         </div>
+      ) : null}
+
+      {showConn ? (
+        <MbConnectionPanel
+          serverUrl={serverUrl}
+          token={token}
+          remember={conn.remember}
+          onSave={saveConn}
+          onClose={() => setShowConn(false)}
+        />
       ) : null}
 
       {toast ? (

@@ -164,6 +164,11 @@ Use `.env.example` as the template.
 - `dikw-web.locale` (localStorage) — `en` or `zh-CN`, defaults to `en`.
 - `dikw-web.theme` (localStorage) — `system` / `light` / `dark`,
   defaults to `system`. Applied as `html[data-theme="..."]`.
+- `dikw-mb.rememberConn` (localStorage) — MB-Web only. When `"true"`,
+  MB-Web's connection panel mirrors `dikw-web.serverUrl` + `dikw-web.token`
+  to `localStorage` so a cold-opened `#MB-Web` link recovers the connection
+  after a tab close / browser restart. Off by default (opt-in via "记住连接"),
+  so the token only lands at rest when the user asks for it (issue #97).
 
 ## Branding (white-label)
 

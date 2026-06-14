@@ -25,6 +25,12 @@ preferences and connection configuration:
 - `dikw-web.locale` in `localStorage` selects the UI locale.
 - `dikw-web.theme` in `localStorage` selects `system`, `light`, or
   `dark`.
+- `dikw-mb.rememberConn` in `localStorage` (MB-Web variant only) — when
+  `"true"`, MB-Web's own connection panel mirrors `dikw-web.serverUrl` +
+  `dikw-web.token` into `localStorage` so a cold-opened `#MB-Web` link
+  recovers the connection across a tab close / browser restart. Off by
+  default; the token reaches `localStorage` only on explicit opt-in
+  (issue #97). The workbench Settings page never writes `localStorage`.
 
 The top bar may summarize connection target and token posture, but it
 must not display the token value. When the visible server URL is the

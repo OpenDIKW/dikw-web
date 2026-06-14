@@ -9,6 +9,26 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-06-14
+
+### Fixed
+
+- **MB-Web could not reach `dikw-core` on a cold open**
+  ([#97](https://github.com/OpenDIKW/dikw-web/issues/97)). The `#MB-Web` variant read the
+  core Server URL + Token only from per-tab `sessionStorage` and shipped no settings UI of
+  its own, so a shareable `#MB-Web` link opened in a fresh tab (or after a browser restart)
+  silently fell back to `http://127.0.0.1:8765` + an empty token and showed a generic
+  "论文库加载失败" with no way to recover. MB-Web now:
+  - has its own **connection settings panel** (Server URL + Token), reachable from a header
+    gear and from the library error CTA — so a cold-opened link can be configured/recovered
+    without bouncing through the workbench Settings page;
+  - can **opt in to "记住连接"**, mirroring the connection to `localStorage`
+    (`dikw-mb.rememberConn`) so it survives a tab close / browser restart; off by default, so
+    the bearer token only lands at rest when the user explicitly enables it;
+  - replaces the generic library error with an **actionable** one that distinguishes a
+    401/403 auth failure from an unreachable core, each with a button into the panel; and
+  - reports an honest **未连接 · dikw-core** header state instead of a stuck "连接中…".
+
 ## [0.4.0] - 2026-06-14
 
 ### Added
