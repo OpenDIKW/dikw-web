@@ -1,4 +1,6 @@
 import type { TelemetryConfig } from "../config/telemetry";
+// Type-only (erased at build, no bundle cost) — the runtime SDK is dynamic-imported.
+import type { SpanProcessor } from "@opentelemetry/sdk-trace-web";
 
 // service.name for browser RUM spans — kept distinct from the sidecar's
 // "dikw-web" so frontend and backend signals are separable, while the W3C trace
@@ -6,6 +8,39 @@ import type { TelemetryConfig } from "../config/telemetry";
 const BROWSER_SERVICE_NAME = "dikw-web-browser";
 
 let initialized = false;
+
+// Path segments whose immediately-following segment is a high-cardinality or
+// user-derived id: session/job/proposal ids on the sidecar's /agent + /web (these
+// match server/shared/withServerSpan.ts's serverRoute) and page/asset/task ids on
+// the core's /v1. The following segment is folded to ":id".
+const ID_PARENT_SEGMENTS = new Set(["sessions", "jobs", "proposals", "pages", "assets", "tasks"]);
+
+// URL-bearing fetch-span attributes (legacy + stable semconv) that the default
+// FetchInstrumentation fills with the raw request URL.
+const URL_ATTRS = ["url.full", "http.url"] as const;
+
+/**
+ * Redact a browser fetch URL before export: drop the query string entirely (it can
+ * carry user-derived values — e.g. `/web/mineru/convert?originalFilename=…` — and
+ * tokens) and template high-cardinality id path segments. This mirrors the sidecar's
+ * privacy-minimizing SERVER-span posture (serverRoute templates the route and never
+ * exports the raw path/query); the default FetchInstrumentation would otherwise
+ * export the raw `url.full` / `http.url`.
+ */
+export function redactBrowserUrl(raw: string): string {
+  try {
+    const url = new URL(raw);
+    const segments = url.pathname.split("/");
+    const path = segments
+      .map((segment, i) => (ID_PARENT_SEGMENTS.has(segments[i - 1]) ? ":id" : segment))
+      .join("/");
+    return `${url.origin}${path}`;
+  } catch {
+    // Fetch hrefs are absolute so this shouldn't happen, but still strip the query
+    // so nothing user-derived can leak through the fallback.
+    return raw.split("?", 1)[0];
+  }
+}
 
 /**
  * Initialize browser RUM (OpenTelemetry web tracing), but only when a telemetry
@@ -51,9 +86,29 @@ export async function initBrowserOtel(config: TelemetryConfig | null): Promise<v
       import("@opentelemetry/instrumentation-fetch"),
     ]);
 
+    // Rewrites raw fetch-span URLs (query + id segments) before they are exported.
+    // onEnding runs while the span is still writable and before BatchSpanProcessor
+    // queues it, so setAttribute here is what ships — covering every fetch span
+    // (success, error, abort) regardless of how it was invoked.
+    const redactingProcessor: SpanProcessor = {
+      onStart() {},
+      onEnding(span) {
+        for (const key of URL_ATTRS) {
+          const value = span.attributes[key];
+          if (typeof value === "string") {
+            span.setAttribute(key, redactBrowserUrl(value));
+          }
+        }
+      },
+      onEnd() {},
+      forceFlush: () => Promise.resolve(),
+      shutdown: () => Promise.resolve(),
+    };
+
     const provider = new WebTracerProvider({
       resource: resourceFromAttributes({ [ATTR_SERVICE_NAME]: BROWSER_SERVICE_NAME }),
       spanProcessors: [
+        redactingProcessor,
         new BatchSpanProcessor(
           new OTLPTraceExporter({ url: config.endpoint, headers: config.headers }),
         ),

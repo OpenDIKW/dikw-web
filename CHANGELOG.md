@@ -19,7 +19,13 @@ file format introduced in `[0.0.1.0]` was dropped.
   `traceparent` to **same-origin** requests — always the sidecar's `/agent` + `/web`,
   stitching a browser span to the sidecar's Phase 2 SERVER span; a cross-origin core
   (`/v1` in the standalone deployment) gets no header and no CORS preflight, and the
-  exporter's own collector POSTs are excluded via `ignoreUrls`. The **user-interaction**
+  exporter's own collector POSTs are excluded via `ignoreUrls`. Fetch-span URLs are
+  **redacted before export** — the query string is dropped (it can carry user-derived
+  values such as `originalFilename` and `inputSha`) and high-cardinality id path
+  segments are templated (`/web/mineru/jobs/:id`, `/v1/base/pages/:id`), mirroring the
+  sidecar's privacy-minimizing SERVER-span posture (`serverRoute`); this runs in an
+  `onEnding` span processor so every fetch span (success, error, abort) is covered,
+  not just the default `url.full`/`http.url` raw export. The **user-interaction**
   instrumentation is deliberately **not** registered: it only wraps listeners added
   after it loads, but React attaches its delegated listeners at render — before the
   async, lazy SDK init resolves — so it would miss them, and the fix (loading `zone.js`,

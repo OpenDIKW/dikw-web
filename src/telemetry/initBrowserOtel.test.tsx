@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { redactBrowserUrl } from "./initBrowserOtel";
 
 // The OTel web SDK is pulled in via dynamic import() inside initBrowserOtel; mock
 // every module so the test asserts the init wiring without loading the real SDK.
@@ -95,6 +96,28 @@ describe("initBrowserOtel", () => {
     );
   });
 
+  it("registers a redacting onEnding processor that strips URLs before export", async () => {
+    const initBrowserOtel = await freshInit();
+    await initBrowserOtel({ endpoint: "https://c/v1/traces" });
+
+    const config = (mocks.WebTracerProvider.mock.calls[0] as unknown[])[0] as {
+      spanProcessors: Array<{ onEnding?: (span: unknown) => void }>;
+    };
+    // The redacting processor plus the (mocked) BatchSpanProcessor.
+    expect(config.spanProcessors).toHaveLength(2);
+    const redactor = config.spanProcessors.find((p) => typeof p.onEnding === "function");
+    expect(redactor).toBeDefined();
+
+    const setAttribute = vi.fn();
+    redactor!.onEnding!({
+      attributes: {
+        "url.full": "http://app/web/mineru/convert?originalFilename=secret.pdf&inputSha=ab",
+      },
+      setAttribute,
+    });
+    expect(setAttribute).toHaveBeenCalledWith("url.full", "http://app/web/mineru/convert");
+  });
+
   it("passes headers: undefined to the exporter when none are configured", async () => {
     const initBrowserOtel = await freshInit();
     await initBrowserOtel({ endpoint: "https://c/v1/traces" });
@@ -117,5 +140,42 @@ describe("initBrowserOtel", () => {
     });
     const initBrowserOtel = await freshInit();
     await expect(initBrowserOtel({ endpoint: "https://c/v1/traces" })).resolves.toBeUndefined();
+  });
+});
+
+describe("redactBrowserUrl", () => {
+  it("drops the query string (user-derived filename, inputSha, tokens)", () => {
+    expect(
+      redactBrowserUrl(
+        "http://app/web/mineru/convert?originalFilename=My%20Paper.pdf&inputSha=abc",
+      ),
+    ).toBe("http://app/web/mineru/convert");
+  });
+
+  it("templates session/job ids on /agent and /web (matching serverRoute)", () => {
+    expect(redactBrowserUrl("http://app/agent/sessions/sess-123/messages")).toBe(
+      "http://app/agent/sessions/:id/messages",
+    );
+    expect(redactBrowserUrl("http://app/web/mineru/jobs/9f9b/result")).toBe(
+      "http://app/web/mineru/jobs/:id/result",
+    );
+  });
+
+  it("templates core /v1 page / asset / task ids", () => {
+    expect(redactBrowserUrl("http://app/v1/base/pages/some-doc/links")).toBe(
+      "http://app/v1/base/pages/:id/links",
+    );
+    expect(redactBrowserUrl("http://app/v1/assets/sha256abc")).toBe("http://app/v1/assets/:id");
+    expect(redactBrowserUrl("http://app/v1/tasks/42/events")).toBe(
+      "http://app/v1/tasks/:id/events",
+    );
+  });
+
+  it("leaves static paths unchanged", () => {
+    expect(redactBrowserUrl("http://app/v1/base/graph")).toBe("http://app/v1/base/graph");
+  });
+
+  it("strips the query in the parse-failure (relative URL) fallback", () => {
+    expect(redactBrowserUrl("/web/mineru/convert?originalFilename=x")).toBe("/web/mineru/convert");
   });
 });
