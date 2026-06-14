@@ -14,10 +14,16 @@ import { gzipSync } from "node:zlib";
 
 const ASSETS = "dist/assets";
 
-// Gzipped-KB ceilings. Baseline (2026-06): entry 243, total JS 1695, CSS 25.
+// Gzipped-KB ceilings. Baseline (2026-06): entry 249, total JS 1744, CSS 26.
+// The total-JS ceiling was raised 1900 → 1950 when the opt-in browser-RUM
+// (OpenTelemetry web SDK) was added: it is dynamic-import()ed into lazy chunks — so
+// it stays OUT of the entry budget and only downloads when a deployment enables
+// telemetry in config.json — but check:bundle sums every chunk, so it counts here
+// (total moved ~1700 → 1744). Raised deliberately (not to pass — it already fit) to
+// restore the pre-RUM headroom margin.
 const BUDGET = {
   entryJsGzipKB: 280, // initial page JS (index-*.js) — the bytes users wait on
-  totalJsGzipKB: 1900, // all JS incl. lazy mermaid/echarts/cytoscape chunks — runaway guard
+  totalJsGzipKB: 1950, // all JS incl. lazy mermaid/echarts/cytoscape/telemetry chunks — runaway guard
   cssGzipKB: 35, // hand-rolled tokens; a jump here usually means a UI framework crept in
 };
 
