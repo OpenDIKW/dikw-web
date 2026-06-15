@@ -102,16 +102,19 @@ describe("App shell", () => {
       target: { value: "http://127.0.0.1:8765" },
     });
     fireEvent.change(screen.getByLabelText("Token"), { target: { value: "secret" } });
+    // Connection now persists on an explicit Save, to localStorage (shared
+    // across tabs / survives a restart) rather than per-tab sessionStorage.
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => {
-      expect(sessionStorage.getItem("dikw-web.serverUrl")).toBe("http://127.0.0.1:8765");
-      expect(sessionStorage.getItem("dikw-web.token")).toBe("secret");
+      expect(localStorage.getItem("dikw-web.serverUrl")).toBe("http://127.0.0.1:8765");
+      expect(localStorage.getItem("dikw-web.token")).toBe("secret");
     });
 
-    await userEvent.click(screen.getByRole("button", { name: "Clear connection" }));
+    await userEvent.click(screen.getByRole("button", { name: "Clear" }));
     await waitFor(() => {
       expect(screen.getByLabelText("Server URL")).toHaveValue("http://127.0.0.1:8765");
-      expect(sessionStorage.getItem("dikw-web.serverUrl")).toBe("http://127.0.0.1:8765");
-      expect(sessionStorage.getItem("dikw-web.token")).toBeNull();
+      expect(localStorage.getItem("dikw-web.serverUrl")).toBe("http://127.0.0.1:8765");
+      expect(localStorage.getItem("dikw-web.token")).toBeNull();
     });
 
     await userEvent.click(screen.getByRole("button", { name: "Base" }));

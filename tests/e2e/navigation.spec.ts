@@ -49,6 +49,9 @@ test("loads overview and navigates with localized sidebar labels and settings", 
   await expect(page.getByLabel("Server URL")).toHaveValue("http://127.0.0.1:8765");
   await page.getByLabel("Server URL").fill("http://127.0.0.1:8765");
   await page.getByLabel("Token").fill("secret");
+  // Connection now takes an explicit Save (no live-write); the top bar only
+  // reflects it once committed.
+  await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("http://127.0.0.1:8765")).toBeVisible();
   await expect(page.getByText("token configured")).toBeVisible();
   await expect(page.getByText("secret")).toHaveCount(0);

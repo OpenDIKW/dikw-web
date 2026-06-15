@@ -2411,7 +2411,45 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .settings-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Left side of the connection actions row: the transient save state — an
+   "unsaved changes" hint while editing, an inline "saved" confirmation after a
+   commit. Kept in the muted/accent palette (not a loud warning colour). */
+.settings-actions__status {
+  min-height: 20px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.settings-actions__hint,
+.settings-actions__saved {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-actions__hint {
+  color: var(--muted);
+}
+
+.settings-actions__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.settings-actions__saved {
+  color: var(--green);
+}
+
+.settings-actions__buttons {
+  display: flex;
+  gap: 10px;
 }
 
 .graph-search {
@@ -4356,8 +4394,9 @@ html[data-theme="dark"] .markdown-body blockquote {
    ─ Status pills lose 800 weight, gain hairline edge
    ============================================================ */
 
-/* Editorial serif on display titles + big numbers */
-.page-header h1,
+/* Editorial serif on display titles + big numbers. Page H1s are deliberately
+   excluded — they use the UI sans family (see the `.page-header h1` rule below)
+   so page chrome reads as one type family rather than serif-title-over-sans. */
 .metric-card__value,
 .markdown-body h1,
 .markdown-body h2,
@@ -4432,10 +4471,15 @@ html[data-theme="dark"] .markdown-body blockquote {
   border-color: var(--line);
 }
 
-/* Page H1: nudge to a proper display size, ditch hard-bold UI feel */
+/* Page H1: UI sans display title (not the editorial serif used for reader /
+   card headings) so page chrome is one cohesive family; nudge to a proper
+   display size + weight, ditch the browser-default hard-bold. */
 .page-header h1 {
+  font-family: var(--font-ui);
   font-size: 30px;
   line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 /* Reader: longer measure + taller leading on Markdown body */

@@ -41,7 +41,7 @@ Each item is pass/fail against the **diff under review**.
 
 - [ ] `#chat` is the canonical chat route; `#query` redirects to it. No Query UI /
   `/v1/query` calls reintroduced.
-- [ ] Connection config (serverUrl/token) is **Settings-owned**, in `sessionStorage`.
+- [ ] Connection config (serverUrl/token) is **Settings-owned**, committed on an explicit Save to `localStorage`.
 - [ ] Graph exposes only `search` + `hide-orphans`; no layer-scope toggle or force
   sliders reintroduced (`docs/graph-view.md`).
 - [ ] The current `src/styles.css` token system is the baseline — don't rewrite it.

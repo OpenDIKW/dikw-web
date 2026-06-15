@@ -9,6 +9,35 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-06-15
+
+### Changed
+
+- **Connection settings unified into the workbench Settings page.** The Server URL
+  + Token now commit on an explicit **Save** (replacing the previous keystroke-by-
+  keystroke write), with an inline "unsaved changes" hint and a "Saved" confirmation
+  beside the button; the existing clear-connection button is renamed **Clear** and
+  now resets to the default URL + empty token **immediately**. The connection
+  persists to **`localStorage`** instead of per-tab `sessionStorage`, so a saved
+  connection is shared across tabs and survives a browser restart — the bearer token
+  is therefore at rest in `localStorage` by default. The shared connection keys +
+  default URL are single-sourced in `src/config/connection.ts`.
+- **MB-Web reads the connection instead of owning a settings panel.** Its header gear
+  and the actionable library-load error CTA both navigate to the workbench
+  `#settings` page; a cold-opened `#MB-Web` link recovers the connection from the
+  shared `localStorage` without a per-tab handoff (the [#97](https://github.com/OpenDIKW/dikw-web/issues/97)
+  cold-open fix, now via shared storage rather than an opt-in mirror).
+- **Page titles use the UI sans family.** `.page-header h1` no longer renders in the
+  editorial serif (which fell back to a serif CJK face, clashing with the sans body);
+  page chrome now reads as one cohesive type family. Reader / card headings and big
+  metric numbers keep the editorial serif.
+
+### Removed
+
+- The MB-Web connection panel (`MbConnectionPanel`) and its opt-in
+  `dikw-mb.rememberConn` localStorage mirror — superseded by the unified Settings
+  page + always-on `localStorage` persistence above.
+
 ## [0.4.1] - 2026-06-14
 
 ### Fixed
