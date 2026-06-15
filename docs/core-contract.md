@@ -17,22 +17,20 @@ uses core retrieval/page/wisdom endpoints as tools.
 Settings does not add a core endpoint. It only manages browser-side
 preferences and connection configuration:
 
-- `dikw-web.serverUrl` in `sessionStorage` selects a custom core base
-  URL for the current browser session. The default visible value is
-  `http://127.0.0.1:8765`.
-- `dikw-web.token` in `sessionStorage` stores the current session bearer
-  token value.
+- `dikw-web.serverUrl` in `localStorage` selects a custom core base URL.
+  The default visible value is `http://127.0.0.1:8765`.
+- `dikw-web.token` in `localStorage` stores the bearer token value.
 - `dikw-web.locale` in `localStorage` selects the UI locale.
 - `dikw-web.theme` in `localStorage` selects `system`, `light`, or
   `dark`.
-- `dikw-mb.rememberConn` in `localStorage` (MB-Web variant only) — when
-  `"true"`, MB-Web's own connection panel mirrors `dikw-web.serverUrl` +
-  `dikw-web.token` into `localStorage` so a cold-opened `#MB-Web` link
-  recovers the connection across a tab close / browser restart. Off by
-  default; the token reaches `localStorage` only on explicit opt-in
-  (issue #97). The workbench Settings page never mirrors the *connection*
-  to `localStorage` (only `locale`/`theme` live there); MB-Web's opt-in
-  mirror is the sole path that persists the connection beyond the session.
+
+The connection (`serverUrl` + `token`) is owned by the workbench Settings page,
+which commits it on an explicit **Save** (Clear resets to the default URL +
+empty token immediately). Persisting to `localStorage` (not per-tab
+`sessionStorage`) means a saved connection is shared across tabs and survives a
+browser restart, so a cold-opened `#MB-Web` link recovers it without a per-tab
+handoff — MB-Web only reads these keys and its gear navigates to `#settings`
+(issue #97). The bearer token is therefore at rest in `localStorage` by default.
 
 The top bar may summarize connection target and token posture, but it
 must not display the token value. When the visible server URL is the

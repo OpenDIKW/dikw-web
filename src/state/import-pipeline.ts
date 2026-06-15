@@ -1,10 +1,11 @@
 // Pipeline state for the Import page. Persisted in **sessionStorage** so a
-// page refresh while a task is running can pick up polling where it left off
-// — and tagged with the ``coreUrl`` it belongs to so a Settings change to
-// the connection (or a new tab against a different core) can't resume a stale
-// task id against the wrong server. sessionStorage matches the scope of the
-// connection itself (``dikw-web.serverUrl`` / ``dikw-web.token`` also live
-// there), so the two die together when the tab closes.
+// page refresh while a task is running can pick up polling where it left off,
+// while staying per-tab — a running import belongs to the tab that started it,
+// not to every tab. It's tagged with the ``coreUrl`` it belongs to so a
+// Settings change to the connection (or a new tab against a different core)
+// can't resume a stale task id against the wrong server; that ``coreUrl`` tag
+// — not a shared storage scope — is the guard (the connection itself lives in
+// ``localStorage``, which is cross-tab).
 //
 // Upload itself is a single POST — if the user refreshes mid-upload we can't
 // recover the request, so we reset to ``idle`` on next mount.

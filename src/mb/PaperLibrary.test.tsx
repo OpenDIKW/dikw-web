@@ -21,6 +21,8 @@ function renderLib(client: ReturnType<typeof createMockClient>) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  // Always reset the hash — a failed assertion mid-test must not leak it.
+  window.location.hash = "";
 });
 
 describe("PaperLibrary — actionable connection error", () => {
@@ -45,17 +47,14 @@ describe("PaperLibrary — actionable connection error", () => {
     expect(await screen.findByText(/无法连接|Server URL/)).toBeInTheDocument();
   });
 
-  it("dispatches mb-open-settings when the error's settings button is clicked", async () => {
+  it("navigates to the workbench Settings page when the error's settings button is clicked", async () => {
     const client = createMockClient();
     client.get.mockRejectedValue(
       new DikwClientError({ status: 401, code: "unauthorized", message: "no token" }),
     );
-    const onOpen = vi.fn();
-    window.addEventListener("mb-open-settings", onOpen);
     renderLib(client);
 
     fireEvent.click(await screen.findByRole("button", { name: "连接设置" }));
-    expect(onOpen).toHaveBeenCalled();
-    window.removeEventListener("mb-open-settings", onOpen);
+    expect(window.location.hash).toBe("#settings");
   });
 });

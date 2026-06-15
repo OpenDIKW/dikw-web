@@ -18,8 +18,7 @@ import {
 } from "../utils/translate";
 import { ResearchWorkspace } from "./ResearchWorkspace";
 import { NotesView } from "./NotesView";
-import { MbConnectionPanel } from "./MbConnectionPanel";
-import { defaultServerUrl, loadConnection, saveConnection, type MbConnection } from "./connection";
+import { defaultServerUrl, loadConnection, type MbConnection } from "./connection";
 import { archiveNoteInWisdom, writeNoteToWisdom } from "./wisdom-sync";
 import "./mb.css";
 
@@ -112,9 +111,11 @@ function stageHighlight(range: Range | null): void {
 }
 
 export function MbApp() {
-  const [conn, setConn] = useState<MbConnection>(() => loadConnection());
+  // MB-Web is read-only over the connection: it loads what the workbench
+  // Settings page saved to localStorage. The gear navigates to #settings to
+  // edit it (see the header button below).
+  const [conn] = useState<MbConnection>(() => loadConnection());
   const { serverUrl, token } = conn;
-  const [showConn, setShowConn] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => readTheme());
   const [view, setView] = useState<MbView>("research");
   const [coreState, setCoreState] = useState<"checking" | "ok" | "down">("checking");
@@ -146,27 +147,6 @@ export function MbApp() {
   useEffect(() => {
     localStorage.setItem(notesKey, JSON.stringify(notes));
   }, [notes]);
-
-  // Persist + apply a connection only on an explicit save from the panel —
-  // never on mount. A mount-time write would let merely opening MB-Web in a tab
-  // (e.g. a workbench→#MB-Web handoff, where App has already written the default
-  // into sessionStorage) overwrite a previously-remembered localStorage
-  // connection the user never touched. setConn rebuilds the client and re-probes.
-  const saveConn = useCallback((next: MbConnection) => {
-    setConn(next);
-    saveConnection(next);
-  }, []);
-
-  // Descendants (e.g. the library's connection-error CTA) ask to open the
-  // settings panel via a window event — same decoupling as mb-toast, so the
-  // workspace tree doesn't have to prop-drill an onOpenSettings callback.
-  useEffect(() => {
-    function onOpen() {
-      setShowConn(true);
-    }
-    window.addEventListener("mb-open-settings", onOpen);
-    return () => window.removeEventListener("mb-open-settings", onOpen);
-  }, []);
 
   // probe sidecar translator once (gates 中英对照)
   useEffect(() => {
@@ -464,7 +444,9 @@ export function MbApp() {
             type="button"
             aria-label="连接设置"
             title="连接设置"
-            onClick={() => setShowConn(true)}
+            onClick={() => {
+              window.location.hash = "#settings";
+            }}
           >
             <Settings size={18} aria-hidden="true" />
           </button>
@@ -558,16 +540,6 @@ export function MbApp() {
             </button>
           </div>
         </div>
-      ) : null}
-
-      {showConn ? (
-        <MbConnectionPanel
-          serverUrl={serverUrl}
-          token={token}
-          remember={conn.remember}
-          onSave={saveConn}
-          onClose={() => setShowConn(false)}
-        />
       ) : null}
 
       {toast ? (

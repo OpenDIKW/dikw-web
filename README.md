@@ -158,17 +158,15 @@ Use `.env.example` as the template.
 
 ## Settings & state
 
-- `dikw-web.serverUrl` (sessionStorage) — selected core base URL.
-- `dikw-web.token` (sessionStorage) — bearer token, never displayed in
-  chrome.
+- `dikw-web.serverUrl` (localStorage) — selected core base URL. Owned by the
+  Settings page, committed on an explicit Save (Clear resets to the default).
+- `dikw-web.token` (localStorage) — bearer token, never displayed in chrome.
+  Persisted to `localStorage` so the connection is shared across tabs and
+  survives a restart (the token is therefore at rest by default). MB-Web reads
+  it and its gear opens `#settings` to edit it (issue #97).
 - `dikw-web.locale` (localStorage) — `en` or `zh-CN`, defaults to `en`.
 - `dikw-web.theme` (localStorage) — `system` / `light` / `dark`,
   defaults to `system`. Applied as `html[data-theme="..."]`.
-- `dikw-mb.rememberConn` (localStorage) — MB-Web only. When `"true"`,
-  MB-Web's connection panel mirrors `dikw-web.serverUrl` + `dikw-web.token`
-  to `localStorage` so a cold-opened `#MB-Web` link recovers the connection
-  after a tab close / browser restart. Off by default (opt-in via "记住连接"),
-  so the token only lands at rest when the user asks for it (issue #97).
 
 ## Branding (white-label)
 

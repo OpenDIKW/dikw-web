@@ -48,7 +48,8 @@ function loadNames(): Record<string, string> {
 
 // Turn a failed library load into an actionable message: an empty/wrong token
 // 401s (the common cold-open cause — issue #97), a network fault means the URL
-// is unreachable. Either way the fix is in MB-Web's connection settings.
+// is unreachable. Either way the fix is in the connection settings — the error
+// CTA navigates to the workbench Settings page (#settings).
 function connErrorMessage(err: unknown): string {
   if (err instanceof DikwClientError) {
     if (err.status === 401 || err.status === 403) {
@@ -183,7 +184,9 @@ export function PaperLibrary({
             <button
               type="button"
               className="mb-btn"
-              onClick={() => window.dispatchEvent(new CustomEvent("mb-open-settings"))}
+              onClick={() => {
+                window.location.hash = "#settings";
+              }}
             >
               连接设置
             </button>

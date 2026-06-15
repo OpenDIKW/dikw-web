@@ -16,6 +16,11 @@ import { DikwClient, normalizeBaseUrl } from "./api/client";
 import { AgentClient } from "./api/agentClient";
 import { defaultBranding, type Branding } from "./config/branding";
 import {
+  defaultServerUrl,
+  serverUrlStorageKey as serverKey,
+  tokenStorageKey as tokenKey,
+} from "./config/connection";
+import {
   isLocale,
   isThemePreference,
   localeStorageKey,
@@ -49,10 +54,7 @@ type ViewId =
   | "trace";
 type NavLabelKey = keyof (typeof translations)["en"]["nav"];
 
-const serverKey = "dikw-web.serverUrl";
-const tokenKey = "dikw-web.token";
 const sidebarCollapsedKey = "dikw-web.sidebarCollapsed";
-const defaultServerUrl = "http://127.0.0.1:8765";
 
 type NavItem = { id: ViewId; labelKey: NavLabelKey; icon: typeof LayoutDashboard };
 type NavGroupId = keyof (typeof translations)["en"]["navGroups"];
@@ -97,10 +99,16 @@ const allViewIds: ViewId[] = [
 
 export function App({ branding = defaultBranding }: { branding?: Branding }) {
   const [activeView, setActiveView] = useState<ViewId>(() => viewFromHash());
+  // Connection lives in localStorage (shared across tabs / survives a restart).
+  // The `sessionStorage` fallback is a one-time migration for a tab carried over
+  // from a pre-0.5.0 build (which stored these keys per-tab) — the mount effect
+  // below then persists the recovered value into localStorage.
   const [serverUrl, setServerUrl] = useState(
-    () => sessionStorage.getItem(serverKey) ?? defaultServerUrl,
+    () => localStorage.getItem(serverKey) ?? sessionStorage.getItem(serverKey) ?? defaultServerUrl,
   );
-  const [token, setToken] = useState(() => sessionStorage.getItem(tokenKey) ?? "");
+  const [token, setToken] = useState(
+    () => localStorage.getItem(tokenKey) ?? sessionStorage.getItem(tokenKey) ?? "",
+  );
   const [locale, setLocale] = useState<Locale>(() => readLocale());
   const [theme, setTheme] = useState<ThemePreference>(() => readThemePreference());
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
@@ -126,17 +134,17 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
 
   useEffect(() => {
     if (serverUrl) {
-      sessionStorage.setItem(serverKey, serverUrl);
+      localStorage.setItem(serverKey, serverUrl);
     } else {
-      sessionStorage.removeItem(serverKey);
+      localStorage.removeItem(serverKey);
     }
   }, [serverUrl]);
 
   useEffect(() => {
     if (token) {
-      sessionStorage.setItem(tokenKey, token);
+      localStorage.setItem(tokenKey, token);
     } else {
-      sessionStorage.removeItem(tokenKey);
+      localStorage.removeItem(tokenKey);
     }
   }, [token]);
 
@@ -193,6 +201,11 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
   function openWikiPath(path: string) {
     setWikiInitialPath(path);
     openView("base");
+  }
+
+  function saveConnection(nextServerUrl: string, nextToken: string) {
+    setServerUrl(nextServerUrl);
+    setToken(nextToken);
   }
 
   function clearConnection() {
@@ -316,8 +329,7 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
               token={token}
               onLocaleChange={setLocale}
               onThemeChange={setTheme}
-              onServerUrlChange={setServerUrl}
-              onTokenChange={setToken}
+              onSaveConnection={saveConnection}
               onClearConnection={clearConnection}
             />
           ) : null}
