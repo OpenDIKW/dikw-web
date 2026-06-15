@@ -99,10 +99,16 @@ const allViewIds: ViewId[] = [
 
 export function App({ branding = defaultBranding }: { branding?: Branding }) {
   const [activeView, setActiveView] = useState<ViewId>(() => viewFromHash());
+  // Connection lives in localStorage (shared across tabs / survives a restart).
+  // The `sessionStorage` fallback is a one-time migration for a tab carried over
+  // from a pre-0.5.0 build (which stored these keys per-tab) — the mount effect
+  // below then persists the recovered value into localStorage.
   const [serverUrl, setServerUrl] = useState(
-    () => localStorage.getItem(serverKey) ?? defaultServerUrl,
+    () => localStorage.getItem(serverKey) ?? sessionStorage.getItem(serverKey) ?? defaultServerUrl,
   );
-  const [token, setToken] = useState(() => localStorage.getItem(tokenKey) ?? "");
+  const [token, setToken] = useState(
+    () => localStorage.getItem(tokenKey) ?? sessionStorage.getItem(tokenKey) ?? "",
+  );
   const [locale, setLocale] = useState<Locale>(() => readLocale());
   const [theme, setTheme] = useState<ThemePreference>(() => readThemePreference());
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>

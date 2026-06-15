@@ -37,4 +37,12 @@ describe("mb connection storage", () => {
     localStorage.setItem(tokenKey, "tok-only");
     expect(loadConnection()).toEqual({ serverUrl: defaultServerUrl, token: "tok-only" });
   });
+
+  it("trims stored values and treats a blank URL as the default", () => {
+    // Legacy or hand-edited storage could hold whitespace; a cold-open must not
+    // produce an invalid URL or a Bearer header with stray whitespace.
+    localStorage.setItem(serverKey, "   ");
+    localStorage.setItem(tokenKey, "  tok  ");
+    expect(loadConnection()).toEqual({ serverUrl: defaultServerUrl, token: "tok" });
+  });
 });

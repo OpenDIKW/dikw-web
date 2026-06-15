@@ -21,6 +21,8 @@ function renderLib(client: ReturnType<typeof createMockClient>) {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  // Always reset the hash — a failed assertion mid-test must not leak it.
+  window.location.hash = "";
 });
 
 describe("PaperLibrary — actionable connection error", () => {
@@ -54,6 +56,5 @@ describe("PaperLibrary — actionable connection error", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "连接设置" }));
     expect(window.location.hash).toBe("#settings");
-    window.location.hash = "";
   });
 });

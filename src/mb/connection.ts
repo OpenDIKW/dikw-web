@@ -19,8 +19,13 @@ export interface MbConnection {
 }
 
 export function loadConnection(): MbConnection {
+  // Trim + coerce on read: a blank/whitespace value (legacy data or a hand-edited
+  // localStorage) would otherwise cold-open MB-Web with an invalid URL or a
+  // broken Bearer header. A blank URL falls back to the default.
+  const savedUrl = localStorage.getItem(serverKey)?.trim();
+  const savedToken = localStorage.getItem(tokenKey)?.trim();
   return {
-    serverUrl: localStorage.getItem(serverKey) ?? defaultServerUrl,
-    token: localStorage.getItem(tokenKey) ?? "",
+    serverUrl: savedUrl || defaultServerUrl,
+    token: savedToken ?? "",
   };
 }

@@ -415,7 +415,7 @@ export const translations = {
     },
     settings: {
       title: "Settings",
-      description: "Manage connection, language, and appearance for this browser session.",
+      description: "Manage connection, language, and appearance for this browser.",
       connectionTitle: "Connection",
       serverUrl: "Server URL",
       serverPlaceholder: "http://127.0.0.1:8765",
@@ -841,7 +841,7 @@ export const translations = {
     },
     settings: {
       title: "设置",
-      description: "管理当前浏览器会话的连接、语言和外观。",
+      description: "管理当前浏览器的连接、语言和外观。",
       connectionTitle: "连接",
       serverUrl: "服务器地址",
       serverPlaceholder: "http://127.0.0.1:8765",
