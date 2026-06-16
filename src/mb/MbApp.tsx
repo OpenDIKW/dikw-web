@@ -19,6 +19,7 @@ import {
 import { ResearchWorkspace } from "./ResearchWorkspace";
 import { NotesView } from "./NotesView";
 import { defaultServerUrl, loadConnection, type MbConnection } from "./connection";
+import { useSharedTheme } from "./theme";
 import { archiveNoteInWisdom, writeNoteToWisdom } from "./wisdom-sync";
 import "./mb.css";
 
@@ -50,19 +51,12 @@ export interface CurrentPaper {
 
 type MbView = "research" | "notes";
 
-const themeKey = "dikw-mb.theme";
 const notesKey = "dikw-mb.notes";
 
 function newNid(): string {
   const c = globalThis.crypto;
   if (c && typeof c.randomUUID === "function") return c.randomUUID();
   return `n-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
-}
-
-function readTheme(): "light" | "dark" {
-  const stored = localStorage.getItem(themeKey);
-  if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function loadNotes(): MbNote[] {
@@ -116,7 +110,10 @@ export function MbApp() {
   // edit it (see the header button below).
   const [conn] = useState<MbConnection>(() => loadConnection());
   const { serverUrl, token } = conn;
-  const [theme, setTheme] = useState<"light" | "dark">(() => readTheme());
+  // Theme is shared with the workbench (read from `dikw-web.theme`); MB-Web keeps
+  // a one-tap toggle but no longer owns its own storage. See ./theme. MbApp only
+  // needs the toggle — the hook applies the theme to <html> itself.
+  const [, toggleTheme] = useSharedTheme();
   const [view, setView] = useState<MbView>("research");
   const [coreState, setCoreState] = useState<"checking" | "ok" | "down">("checking");
   const [notes, setNotes] = useState<MbNote[]>(() => loadNotes());
@@ -135,13 +132,6 @@ export function MbApp() {
     () => new AgentClient({ coreUrl: serverUrl, token }),
     [serverUrl, token],
   );
-
-  // theme → <html data-theme>
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
-    localStorage.setItem(themeKey, theme);
-  }, [theme]);
 
   // persist notes
   useEffect(() => {
@@ -455,7 +445,7 @@ export function MbApp() {
             type="button"
             aria-label="切换主题"
             title="切换深/浅色"
-            onClick={() => setTheme((t) => (t === "dark" ? "light" : "dark"))}
+            onClick={toggleTheme}
           >
             <Contrast size={18} aria-hidden="true" />
           </button>

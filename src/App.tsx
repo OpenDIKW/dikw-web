@@ -24,6 +24,7 @@ import {
   isLocale,
   isThemePreference,
   localeStorageKey,
+  resolveTheme,
   themeStorageKey,
   translations,
   type Locale,
@@ -381,13 +382,6 @@ function readSidebarCollapsed(): boolean {
 function readThemePreference(): ThemePreference {
   const value = localStorage.getItem(themeStorageKey);
   return isThemePreference(value) ? value : "system";
-}
-
-function resolveTheme(theme: ThemePreference): ResolvedTheme {
-  if (theme === "light" || theme === "dark") {
-    return theme;
-  }
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
 function viewFromHash(): ViewId {

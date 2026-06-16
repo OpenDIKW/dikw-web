@@ -872,3 +872,13 @@ export function isLocale(value: string | null): value is Locale {
 export function isThemePreference(value: string | null): value is ThemePreference {
   return value === "system" || value === "light" || value === "dark";
 }
+
+/** Resolve a stored preference to the concrete theme applied to the DOM. A
+ *  `"system"` preference follows the OS via `prefers-color-scheme`. Shared by
+ *  the workbench (App) and the MB-Web reader so both resolve identically. */
+export function resolveTheme(theme: ThemePreference): ResolvedTheme {
+  if (theme === "light" || theme === "dark") {
+    return theme;
+  }
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
