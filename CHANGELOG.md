@@ -9,6 +9,28 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-06-16
+
+### Changed
+
+- **MB-Web appearance unified with the workbench.** MB-Web no longer keeps a
+  standalone theme preference (`dikw-mb.theme`); it now reads the same
+  `dikw-web.theme` key the workbench Settings appearance panel writes, resolving a
+  stored `system` preference to light/dark via the shared `resolveTheme` (lifted
+  into `src/i18n.ts`) and following live OS `prefers-color-scheme` changes while
+  it stays `system` (parity with the workbench). MB-Web keeps its one-tap header
+  light/dark toggle, but the toggle now commits an explicit light/dark to that
+  shared key — so a flip in MB-Web is reflected in the workbench and vice versa,
+  and switching between `#MB-Web` and the workbench no longer flips the theme
+  between two independently stored values. Opening MB-Web (or the OS flipping
+  while it's open) never overwrites a stored `system` preference (it applies the
+  resolved value to the DOM but only persists on an explicit toggle).
+
+### Removed
+
+- MB-Web's standalone `dikw-mb.theme` localStorage key and its private theme
+  initializer — superseded by the shared `dikw-web.theme` read above.
+
 ## [0.5.0] - 2026-06-15
 
 ### Changed

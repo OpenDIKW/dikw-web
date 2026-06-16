@@ -166,7 +166,11 @@ Use `.env.example` as the template.
   it and its gear opens `#settings` to edit it (issue #97).
 - `dikw-web.locale` (localStorage) — `en` or `zh-CN`, defaults to `en`.
 - `dikw-web.theme` (localStorage) — `system` / `light` / `dark`,
-  defaults to `system`. Applied as `html[data-theme="..."]`.
+  defaults to `system`. Applied as `html[data-theme="..."]`. Shared by the
+  workbench and MB-Web: MB-Web reads it (resolving `system` to light/dark) and
+  its one-tap header toggle writes an explicit `light`/`dark` back to this same
+  key, so appearance is unified across both apps. Only the workbench Settings
+  appearance panel sets the full 3-state preference.
 
 ## Branding (white-label)
 
