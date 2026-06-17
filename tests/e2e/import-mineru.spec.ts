@@ -295,3 +295,87 @@ test("conversion failure: per-file Skip surfaces and dismisses the row", async (
   // Row gone after skip; ConversionProgress eventually transitions away.
   await expect(page.getByTestId("conversion-row")).toHaveCount(0);
 });
+
+test("conversion failure: per-file Retry re-runs the file and advances on success", async ({
+  page,
+}) => {
+  await page.route("**/web/mineru/health", async (route) => {
+    await route.fulfill({ json: { enabled: true, hasKey: true } });
+  });
+
+  // Stateful job mock: the first conversion attempt fails (quota); the retry
+  // re-submits a fresh job that succeeds. The convert POST returns a distinct
+  // jobId per attempt and the status poll branches on it.
+  let convertCount = 0;
+  await page.route("**/web/mineru/convert**", async (route) => {
+    convertCount += 1;
+    await route.fulfill({
+      status: 202,
+      contentType: "application/json",
+      body: JSON.stringify({
+        jobId: convertCount === 1 ? "job-fail" : "job-ok",
+        status: "pending",
+      }),
+    });
+  });
+  await page.route("**/web/mineru/jobs/**", async (route) => {
+    const url = route.request().url();
+    if (url.endsWith("/cancel")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+      return;
+    }
+    if (url.endsWith("/result")) {
+      const fixture = makeConvertResponse("fail", "# Recovered\n\nBody from the retry.\n", []);
+      await route.fulfill({
+        status: 200,
+        headers: { "Content-Type": fixture.contentType },
+        body: fixture.body,
+      });
+      return;
+    }
+    // Bare status poll: the first job fails, the retry's job succeeds.
+    const failed = url.includes("job-fail");
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        failed
+          ? {
+              jobId: "job-fail",
+              status: "failed",
+              error: { code: "mineru_quota", message: "Daily quota exceeded" },
+            }
+          : { jobId: "job-ok", status: "succeeded" },
+      ),
+    });
+  });
+
+  const healthReady = page.waitForResponse("**/web/mineru/health");
+  await page.goto("/#import");
+  await healthReady;
+  await expect(page.getByRole("heading", { name: "Import" })).toBeVisible();
+  const fileInput = page.locator('[data-testid="import-file-input"]');
+  await fileInput.setInputFiles([
+    {
+      name: "fail.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from([0x25, 0x50, 0x44, 0x46]),
+    },
+  ]);
+
+  // First attempt fails → the row exposes Retry (+ Skip), no preview yet.
+  await expect(page.getByTestId("conversion-progress")).toBeVisible();
+  await expect(page.getByTestId("conversion-row")).toContainText("Daily quota exceeded");
+  await expect(page.getByTestId("conversion-retry")).toBeVisible();
+  await expect(page.getByTestId("import-preview")).toHaveCount(0);
+
+  // Retry re-submits a fresh job that succeeds → the batch finalizes into the
+  // bundle preview.
+  await page.getByTestId("conversion-retry").click();
+  await expect(page.getByTestId("import-preview")).toBeVisible({ timeout: 5000 });
+  expect(convertCount).toBe(2);
+});

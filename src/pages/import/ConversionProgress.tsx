@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Check, FileText, Loader2, X } from "lucide-react";
+import { AlertCircle, Check, FileText, Loader2, RotateCw, X } from "lucide-react";
 import type { ConversionFileState, ConversionState } from "../../state/import-pipeline";
 import { formatBytes, formatElapsed, type ImportCopy } from "./format";
 
@@ -9,6 +9,9 @@ interface ConversionProgressProps {
   /** Drop a single failed entry from the in-flight queue so the batch can
    *  proceed without it. UI only — parent decides what "skip" means. */
   onSkipFailed: (inputSha: string) => void;
+  /** Re-run conversion for a single failed entry in place. UI only — parent
+   *  re-invokes convertSource for that file. */
+  onRetryFailed: (inputSha: string) => void;
 }
 
 /** A row is "in flight" (vs queued / done / failed) whenever the mineru
@@ -28,7 +31,12 @@ function isActive(substage: ConversionFileState["substage"]): boolean {
 /** Renders one row per file currently going through /web/mineru/convert.
  *  No spinner duplication with PipelineSteps — this surface is exclusive
  *  to the ``converting`` stage. */
-export function ConversionProgress({ copy, conversion, onSkipFailed }: ConversionProgressProps) {
+export function ConversionProgress({
+  copy,
+  conversion,
+  onSkipFailed,
+  onRetryFailed,
+}: ConversionProgressProps) {
   const c = copy.conversion;
   const count = conversion.inputOrder.length;
   const queuedTemplate = count === 1 ? c.queuedOne : c.queuedMany;
@@ -104,6 +112,14 @@ export function ConversionProgress({ copy, conversion, onSkipFailed }: Conversio
               {file.substage === "failed" && file.error ? (
                 <div className="conversion-row__fail">
                   <span className="conversion-row__error">{file.error.message}</span>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => onRetryFailed(file.inputSha)}
+                    data-testid="conversion-retry"
+                  >
+                    <RotateCw size={14} /> {c.retry}
+                  </button>
                   <button
                     type="button"
                     className="secondary-button"

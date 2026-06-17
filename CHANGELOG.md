@@ -9,6 +9,25 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-06-17
+
+### Added
+
+- **Retry a failed PDF/Office conversion in place.** A failed conversion row in
+  the import `converting` stage now offers a **Retry** button beside **Skip** that
+  re-runs `convertSource` for just that file — no re-selecting or re-uploading the
+  whole batch. A single transient failure (e.g. a mineru quota/5xx hiccup that
+  fails every file at once) can now be recovered per row.
+
+### Changed
+
+- **Conversion no longer auto-advances on partial success.** Previously, once any
+  file converted the batch jumped straight to the bundle preview and silently
+  dropped the still-failed files. Now a still-failed row keeps the `converting`
+  stage open (with Retry/Skip) until it is resolved; the batch advances to
+  bundling only once every row is converted or skipped with at least one success.
+  **Skip** now drops only that one row.
+
 ## [0.5.1] - 2026-06-16
 
 ### Changed

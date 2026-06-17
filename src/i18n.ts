@@ -395,6 +395,7 @@ export const translations = {
           queuedOne: "{n} file queued",
           queuedMany: "{n} files queued",
           skip: "Skip",
+          retry: "Retry",
           hint: "Large files can take a minute or two.",
           elapsedLabel: "elapsed",
           substages: {
@@ -821,6 +822,7 @@ export const translations = {
           queuedOne: "已排队 {n} 个文件",
           queuedMany: "已排队 {n} 个文件",
           skip: "跳过",
+          retry: "重试",
           hint: "大文件可能要一两分钟。",
           elapsedLabel: "已用时",
           substages: {
