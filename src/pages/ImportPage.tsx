@@ -74,11 +74,17 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
   // Track the in-flight convert AbortController so onCancel can abort
   // mineru calls mid-batch.
   const convertCtrlRef = useRef<AbortController | null>(null);
-  // Cache of converted sources keyed by inputSha within this batch, used
-  // when the user clicks Skip on a failed file: we drop it from the set
-  // and rebuild the bundle from the still-successful conversions.
+  // Successful conversions keyed by inputSha within this batch (only the
+  // success write sets it; failed rows are never added). finalizeConversion
+  // reads this + conversionNativeRef to build the bundle once every row is
+  // resolved, so Skipping a failed row just drops it from pipeline.conversion.
   const conversionResultsRef = useRef<Map<string, ConvertedSource>>(new Map());
   const conversionNativeRef = useRef<File[]>([]);
+  // Original mineru File objects keyed by their stable placeholder row key
+  // (``placeholder-{i}``) so onRetryFailed can re-run convertSource for a
+  // failed row without the user re-selecting it. A ref because File is not
+  // JSON-serializable and the ``converting`` stage is never persisted.
+  const conversionFilesRef = useRef<Map<string, File>>(new Map());
 
   // Persist every pipeline-state change so a refresh during a task stage
   // can resume without losing the task id.
@@ -176,6 +182,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       convertCtrlRef.current = ctrl;
       conversionResultsRef.current = new Map();
       conversionNativeRef.current = native;
+      conversionFilesRef.current = new Map(mineru.map((f, i) => [`placeholder-${i}`, f]));
       const initial = makeInitialConversionState(mineru);
       setPipeline((p) => ({ ...p, stage: "converting", conversion: initial }));
 
@@ -202,30 +209,39 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     }
   }, []);
 
-  /** Update one ConversionFileState entry. Identified by inputSha (the key
-   *  in conversion.files). When inputSha is the original placeholder
-   *  (pre-hash), update the queued entry in order. */
-  const updateConversionFile = useCallback(
-    (
-      mineru: File[],
-      index: number,
-      update: Partial<ConversionFileState> & { inputSha?: string },
-    ) => {
+  /** Update one ConversionFileState entry addressed by its current key in the
+   *  ``files`` map (the stable ``placeholder-{i}`` until a success re-keys it to
+   *  the real inputSha). Resolving inputSha rewrites the map key + the matching
+   *  ``inputOrder`` slot. No-ops if the row was already removed (e.g. skipped).
+   *  Key-addressed (not positional) so a mid-batch Skip — which filters
+   *  ``inputOrder`` and shifts positions — can't mis-address a concurrent
+   *  worker or retry. */
+  const updateConversionFileByKey = useCallback(
+    (rowKey: string, update: Partial<ConversionFileState> & { inputSha?: string }) => {
       setPipeline((p) => {
         if (!p.conversion) return p;
-        const orderedKey = p.conversion.inputOrder[index];
-        const existing = p.conversion.files[orderedKey];
+        const existing = p.conversion.files[rowKey];
         if (!existing) return p;
         const next = { ...existing, ...update };
-        const files = { ...p.conversion.files, [orderedKey]: next };
-        // If the entry's effective key changes (inputSha resolved), rewrite
-        // the map key + inputOrder slot so subsequent updates address the
-        // right entry.
-        if (update.inputSha && update.inputSha !== orderedKey) {
-          delete files[orderedKey];
+        const files = { ...p.conversion.files, [rowKey]: next };
+        if (update.inputSha && update.inputSha !== rowKey) {
+          const index = p.conversion.inputOrder.indexOf(rowKey);
+          // A byte-identical sibling may have already resolved to this inputSha
+          // (the same bytes under two names, or a cache hit) — collapse this row
+          // into the existing one instead of clobbering it and duplicating the
+          // inputOrder slot (which would render two <li> with the same React key).
+          if (files[update.inputSha]) {
+            delete files[rowKey];
+            const inputOrder =
+              index >= 0
+                ? p.conversion.inputOrder.filter((_, i) => i !== index)
+                : p.conversion.inputOrder.slice();
+            return { ...p, conversion: { files, inputOrder } };
+          }
+          delete files[rowKey];
           files[update.inputSha] = next;
           const inputOrder = p.conversion.inputOrder.slice();
-          inputOrder[index] = update.inputSha;
+          if (index >= 0) inputOrder[index] = update.inputSha;
           return { ...p, conversion: { files, inputOrder } };
         }
         return { ...p, conversion: { files, inputOrder: p.conversion.inputOrder } };
@@ -234,116 +250,104 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     [],
   );
 
+  /** Convert one file in place through /web/mineru/convert, driving its row's
+   *  substage. Shared by the initial batch and onRetryFailed. ``gen`` gates
+   *  every state write so a stale worker/retry (superseded by a fresh file
+   *  selection) can't write into the new batch's same-named placeholder row. */
+  const convertOne = useCallback(
+    async (file: File, rowKey: string, ctrl: AbortController, gen: number): Promise<void> => {
+      const cache = convertCacheRef.current ?? undefined;
+      const write = (update: Partial<ConversionFileState> & { inputSha?: string }) => {
+        if (bundleGenRef.current === gen) updateConversionFileByKey(rowKey, update);
+      };
+      // Upload under the kebab name (ADR 0004) — this is also what the converted
+      // page lands under. Keep the original extension so MinerU's format
+      // detection still works; the bytes are unchanged, so inputSha / dedup are
+      // unaffected. The true original is forwarded so the sidecar keeps it in
+      // frontmatter.
+      const dot = file.name.lastIndexOf(".");
+      const uploadName = `${kebabStem(file.name)}${dot < 0 ? "" : file.name.slice(dot)}`;
+      const fileForConvert =
+        uploadName === file.name
+          ? file
+          : new File([file], uploadName, {
+              type: file.type,
+              lastModified: file.lastModified,
+            });
+      try {
+        const result = await convertSource(fileForConvert, {
+          signal: ctrl.signal,
+          cache: cache ?? null,
+          originalFilename: file.name,
+          onProgress: (e) => {
+            if (e.phase === "cache_hit") {
+              write({ substage: "done" });
+              return;
+            }
+            if (e.phase === "hashing") {
+              // hashing is convertSource's first event on every path (fires
+              // before the cache check), so stamp the per-file start here to
+              // drive the elapsed timer in ConversionProgress.
+              write({ substage: "hashing", startedAt: Date.now() });
+              return;
+            }
+            if (e.phase === "uploading") {
+              write({ substage: "uploading" });
+              return;
+            }
+            if (e.phase === "polling") {
+              // Conversion runs detached on the sidecar; we poll for it.
+              write({ substage: "polling" });
+              return;
+            }
+            if (e.phase === "downloading") {
+              write({ substage: "downloading" });
+            }
+          },
+        });
+        if (bundleGenRef.current !== gen) return;
+        // After fetch resolves we have the real inputSha — re-key the
+        // ConversionFileState entry to it so later updates address the right row.
+        write({ inputSha: result.inputSha, substage: "done" });
+        conversionResultsRef.current.set(result.inputSha, result);
+      } catch (err) {
+        const code = err instanceof MineruConvertError ? err.code : "mineru_api";
+        const message = err instanceof Error ? err.message : String(err);
+        write({ substage: "failed", error: { code, message } });
+      }
+    },
+    [updateConversionFileByKey],
+  );
+
   const runMineruBatch = useCallback(
     async (mineru: File[], gen: number, ctrl: AbortController) => {
-      const cache = convertCacheRef.current ?? undefined;
       let next = 0;
       const worker = async (): Promise<void> => {
         while (!ctrl.signal.aborted) {
           const i = next++;
           if (i >= mineru.length) return;
-          const file = mineru[i];
-          // Upload under the kebab name (ADR 0004) — this is also what the
-          // converted page lands under. Keep the original extension so MinerU's
-          // format detection still works; the bytes are unchanged, so inputSha /
-          // dedup are unaffected. The true original is forwarded below so the
-          // sidecar keeps it in frontmatter.
-          const dot = file.name.lastIndexOf(".");
-          const uploadName = `${kebabStem(file.name)}${dot < 0 ? "" : file.name.slice(dot)}`;
-          const fileForConvert =
-            uploadName === file.name
-              ? file
-              : new File([file], uploadName, {
-                  type: file.type,
-                  lastModified: file.lastModified,
-                });
-          try {
-            const result = await convertSource(fileForConvert, {
-              signal: ctrl.signal,
-              cache: cache ?? null,
-              originalFilename: file.name,
-              onProgress: (e) => {
-                if (e.phase === "cache_hit") {
-                  updateConversionFile(mineru, i, { substage: "done" });
-                  return;
-                }
-                if (e.phase === "hashing") {
-                  // hashing is convertSource's first event on every path
-                  // (fires before the cache check), so stamp the per-file
-                  // start here to drive the elapsed timer in ConversionProgress.
-                  updateConversionFile(mineru, i, {
-                    substage: "hashing",
-                    startedAt: Date.now(),
-                  });
-                  return;
-                }
-                if (e.phase === "uploading") {
-                  updateConversionFile(mineru, i, { substage: "uploading" });
-                  return;
-                }
-                if (e.phase === "polling") {
-                  // Conversion runs detached on the sidecar; we poll for it.
-                  updateConversionFile(mineru, i, { substage: "polling" });
-                  return;
-                }
-                if (e.phase === "downloading") {
-                  updateConversionFile(mineru, i, { substage: "downloading" });
-                }
-              },
-            });
-            // After fetch resolves we have the real inputSha — re-key the
-            // ConversionFileState entry to it so onSkipFailed addresses the
-            // right row even after refresh-resume work lands.
-            updateConversionFile(mineru, i, {
-              inputSha: result.inputSha,
-              substage: "done",
-            });
-            conversionResultsRef.current.set(result.inputSha, result);
-          } catch (err) {
-            const code =
-              err instanceof MineruConvertError
-                ? err.code
-                : err instanceof Error
-                  ? "mineru_api"
-                  : "mineru_api";
-            const message = err instanceof Error ? err.message : String(err);
-            updateConversionFile(mineru, i, {
-              substage: "failed",
-              error: { code, message },
-            });
-          }
+          await convertOne(mineru[i], `placeholder-${i}`, ctrl, gen);
         }
       };
       const workers = Array.from({ length: Math.min(MINERU_CONCURRENCY, mineru.length) }, () =>
         worker(),
       );
       await Promise.all(workers);
-      if (bundleGenRef.current !== gen) return;
-      if (ctrl.signal.aborted) return;
-      // All workers finished — bail out if anything is still pending (shouldn't
-      // happen since workers exit only on aborted / exhausted). Then either
-      // hand off to bundle build (if any conversion succeeded) or remain on
-      // the converting stage so the user can interact with failures.
-      const succeeded = Array.from(conversionResultsRef.current.values());
-      if (succeeded.length === 0) {
-        // Every mineru conversion failed. Stay on the converting stage so the
-        // user sees the per-file error rows — even if `native` is non-empty,
-        // proceeding into the bundle would silently drop the office files
-        // they tried to import. They can Skip each failed row to fall back
-        // to the native-only bundle, or click Start over to reset.
-        return;
-      }
-      await finalizeConversion(gen);
+      // Finalize is driven by the conversion ``useEffect`` once every row is
+      // resolved (converted or skipped) with ≥1 success. A still-failed row
+      // keeps the batch on the converting stage so the user can Retry or Skip
+      // it — partial success no longer silently drops failures.
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- finalizeConversion is a forward-referenced sibling callback
-    [updateConversionFile],
+    [convertOne],
   );
 
   /** Combine native + successful conversions into a single File[], build
    *  the bundle, then transition back to idle so IdlePicker shows the
-   *  bundle preview. */
+   *  bundle preview. Gen-guarded against a stale trigger from a superseded
+   *  batch. */
   const finalizeConversion = useCallback(
     async (gen: number) => {
+      if (bundleGenRef.current !== gen) return;
       const synthetic = Array.from(conversionResultsRef.current.values())
         .map(convertedToFiles)
         .flat();
@@ -355,35 +359,57 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     [buildAndSet],
   );
 
-  const onSkipFailed = useCallback(
-    (inputSha: string) => {
-      // Inspect the post-skip files map inside the updater so we never read a
-      // pre-commit snapshot. A previous version used setTimeout + a mirrored
-      // ref which raced React's commit ordering and could leave the UI stuck
-      // on `converting` when the user skipped the last failed row.
-      let shouldFinalize = false;
-      let nextSucceededAny = false;
-      setPipeline((p) => {
-        if (!p.conversion) return p;
-        const files = { ...p.conversion.files };
-        const inputOrder = p.conversion.inputOrder.filter((k) => k !== inputSha);
-        delete files[inputSha];
-        const remaining = Object.values(files);
-        const anyPending = remaining.some((f) => f.substage !== "done" && f.substage !== "failed");
-        nextSucceededAny =
-          remaining.some((f) => f.substage === "done") || conversionResultsRef.current.size > 0;
-        shouldFinalize = !anyPending && nextSucceededAny;
-        return { ...p, conversion: { files, inputOrder } };
-      });
-      // Defer to a microtask so finalize's setPipeline isn't fired inside the
-      // previous setPipeline's updater.
-      if (shouldFinalize) {
-        queueMicrotask(() => {
-          void finalizeConversion(bundleGenRef.current);
-        });
+  // Single source of truth for "is the conversion batch done?". Runs after every
+  // conversion-state commit, reading the committed ``files`` map — so it can't
+  // see a pre-commit snapshot (the bug the old onSkipFailed worked around). The
+  // batch finalizes once every row is resolved (converted or skipped); a still-
+  // pending or still-failed row keeps it on the converting stage for Retry/Skip.
+  // After finalize flips the stage to ``idle`` this re-runs and the guard short-
+  // circuits, so it fires finalize at most once per batch.
+  useEffect(() => {
+    if (pipeline.stage !== "converting" || !pipeline.conversion) return;
+    if (conversionDisposition(pipeline.conversion.files) === "finalize") {
+      void finalizeConversion(bundleGenRef.current);
+    }
+  }, [pipeline.stage, pipeline.conversion, finalizeConversion]);
+
+  /** Drop a single failed row from the queue. The conversion effect then
+   *  finalizes once every remaining row is resolved (or the queue is empty). */
+  const onSkipFailed = useCallback((inputSha: string) => {
+    setPipeline((p) => {
+      if (!p.conversion) return p;
+      const files = { ...p.conversion.files };
+      const inputOrder = p.conversion.inputOrder.filter((k) => k !== inputSha);
+      delete files[inputSha];
+      return { ...p, conversion: { files, inputOrder } };
+    });
+  }, []);
+
+  /** Re-run convertSource for a single failed row in place. Reuses the batch's
+   *  AbortController (so Cancel still aborts a retry) and the captured ``gen``
+   *  so a retry superseded by a fresh file selection no-ops. The conversion
+   *  effect finalizes once the batch is fully resolved. */
+  const onRetryFailed = useCallback(
+    (rowKey: string) => {
+      const file = conversionFilesRef.current.get(rowKey);
+      if (!file) return;
+      let ctrl = convertCtrlRef.current;
+      if (!ctrl || ctrl.signal.aborted) {
+        ctrl = new AbortController();
+        convertCtrlRef.current = ctrl;
       }
+      const gen = bundleGenRef.current;
+      // Clear the prior error synchronously so the row shows in-progress
+      // immediately; ``error: undefined`` must be explicit — a shallow merge
+      // won't drop an omitted key.
+      updateConversionFileByKey(rowKey, {
+        substage: "queued",
+        error: undefined,
+        startedAt: undefined,
+      });
+      void convertOne(file, rowKey, ctrl, gen);
     },
-    [finalizeConversion],
+    [convertOne, updateConversionFileByKey],
   );
 
   const resetPicker = useCallback(() => {
@@ -716,6 +742,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     convertCtrlRef.current = null;
     conversionResultsRef.current = new Map();
     conversionNativeRef.current = [];
+    conversionFilesRef.current = new Map();
     clearPipelineState();
     setPipeline(initialState());
     setActiveEvent(null);
@@ -777,6 +804,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           copy={copy}
           conversion={pipeline.conversion}
           onSkipFailed={onSkipFailed}
+          onRetryFailed={onRetryFailed}
         />
       ) : null}
 
@@ -906,13 +934,29 @@ function collectMdReferences(files: File[]): Set<string> {
   return refs;
 }
 
+/** Decide whether the conversion stage can advance to bundle building.
+ *  ``"finalize"`` once every row is resolved — none still converting
+ *  (``anyPending``) and none left ``failed`` awaiting the user's Retry/Skip.
+ *  A still-failed row blocks finalize, so a single retry success never silently
+ *  drops its siblings; the user resolves each failed row (Retry to success or
+ *  Skip to drop) before the batch advances. When the user Skips every failed
+ *  row the map goes empty → ``"finalize"`` → finalizeConversion builds the
+ *  native-only bundle (or, with nothing left, surfaces a "no files" notice on
+ *  the idle picker), so the converting stage is never a dead-end. */
+function conversionDisposition(files: Record<string, ConversionFileState>): "wait" | "finalize" {
+  const rows = Object.values(files);
+  const anyPending = rows.some((f) => f.substage !== "done" && f.substage !== "failed");
+  const anyFailed = rows.some((f) => f.substage === "failed");
+  return anyPending || anyFailed ? "wait" : "finalize";
+}
+
 function makeInitialConversionState(mineru: File[]): {
   files: Record<string, ConversionFileState>;
   inputOrder: string[];
 } {
   // Placeholder keys (``placeholder-{i}``) are used until convertSource
-  // resolves the real sha256. updateConversionFile re-keys on inputSha
-  // when the hash phase completes.
+  // resolves the real sha256. updateConversionFileByKey re-keys to that
+  // inputSha on the success write (not at the hashing phase).
   const files: Record<string, ConversionFileState> = {};
   const inputOrder: string[] = [];
   for (let i = 0; i < mineru.length; i++) {

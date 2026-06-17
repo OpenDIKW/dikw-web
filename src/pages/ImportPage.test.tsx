@@ -1,11 +1,21 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ImportPage } from "./ImportPage";
 import { createMockClient, type MockDikwClient } from "../test/mockClient";
 import { DikwClientError } from "../api/client";
 import { PIPELINE_STORAGE_KEY, type PipelineState } from "../state/import-pipeline";
+import { convertSource, MineruConvertError, type ConvertedSource } from "../utils/mineru-convert";
 import type { ApplyReport, FixProposal, ImportResponse, TaskEvent, TaskHandle } from "../types";
+
+// Mock only the network-touching convertSource; everything else (convertedToFiles,
+// MineruConvertError, MINERU_EXTENSIONS, tryOpenDefaultCache) stays real so the
+// partition + finalize + on-mount cache probe behave normally.
+vi.mock("../utils/mineru-convert", async () => {
+  const actual =
+    await vi.importActual<typeof import("../utils/mineru-convert")>("../utils/mineru-convert");
+  return { ...actual, convertSource: vi.fn() };
+});
 
 /** Create a File whose ``webkitRelativePath`` matches the picker shape so
  *  ``computeProjectRelPath`` strips the top dir consistently with the input
@@ -624,5 +634,114 @@ describe("ImportPage — event-stream race reconciliation", () => {
     expect(screen.queryByText("Import failed")).not.toBeInTheDocument();
     expect(screen.queryByText(/synth failed/i)).not.toBeInTheDocument();
     expect(getTaskFinalEvent).toHaveBeenCalledWith("synth-1", expect.any(AbortSignal));
+  });
+});
+
+describe("ImportPage — conversion retry", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.mocked(convertSource).mockReset();
+  });
+
+  /** Stub /web/mineru/health so the picker flips into mineru mode (office
+   *  formats accepted). Duck-typed Response — avoids depending on a global
+   *  Response constructor in jsdom. */
+  function enableMineru(): void {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: unknown) => {
+        const enabled = String(url).includes("/web/mineru/health");
+        return { ok: true, json: async () => (enabled ? { enabled: true } : {}) } as Response;
+      }),
+    );
+  }
+
+  function convertedSource(input: File): ConvertedSource {
+    return {
+      input,
+      inputSha: "sha-retry-ok",
+      stem: "report",
+      markdown: "# Report\n\nConverted body.\n",
+      assets: new Map(),
+    };
+  }
+
+  it("retries a single failed conversion in place and advances on success", async () => {
+    enableMineru();
+    const client = createMockClient();
+    const docx = file("report.docx", "fake docx bytes");
+    vi.mocked(convertSource)
+      .mockRejectedValueOnce(new MineruConvertError("mineru_api", "boom"))
+      .mockResolvedValueOnce(convertedSource(docx));
+
+    render(<ImportPage client={client} locale="en" />);
+
+    const input = screen.getByTestId("import-file-input") as HTMLInputElement;
+    // Wait for the /web/mineru/health probe to enable office formats before
+    // selecting — otherwise .docx is filtered out at the picker.
+    await waitFor(() => expect(input.getAttribute("accept")).toContain(".docx"));
+    selectFile(input, docx);
+
+    // First conversion fails → the failed row exposes Retry (+ Skip).
+    const retry = await screen.findByTestId("conversion-retry");
+    expect(convertSource).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("import-preview")).toBeNull();
+
+    retry.click();
+
+    // Retry re-runs convertSource; on success the batch finalizes into the
+    // bundle preview.
+    await waitFor(() => expect(screen.getByTestId("import-preview")).toBeInTheDocument());
+    expect(convertSource).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the converting stage when a retry fails again", async () => {
+    enableMineru();
+    const client = createMockClient();
+    const docx = file("report.docx", "fake docx bytes");
+    vi.mocked(convertSource)
+      .mockRejectedValueOnce(new MineruConvertError("mineru_api", "boom"))
+      .mockRejectedValueOnce(new MineruConvertError("mineru_quota", "still down"));
+
+    render(<ImportPage client={client} locale="en" />);
+
+    const input = screen.getByTestId("import-file-input") as HTMLInputElement;
+    await waitFor(() => expect(input.getAttribute("accept")).toContain(".docx"));
+    selectFile(input, docx);
+
+    const retry = await screen.findByTestId("conversion-retry");
+    retry.click();
+
+    // The second failure surfaces and the page stays on the converting stage
+    // (no bundle preview), with Retry still available.
+    await waitFor(() => expect(screen.getByText("still down")).toBeInTheDocument());
+    expect(screen.queryByTestId("import-preview")).toBeNull();
+    expect(screen.getByTestId("conversion-retry")).toBeInTheDocument();
+    expect(convertSource).toHaveBeenCalledTimes(2);
+  });
+
+  it("falls back to a native-only bundle when the only conversion is skipped (no dead-end)", async () => {
+    enableMineru();
+    const client = createMockClient();
+    const md = file("notes.md", "# Notes\n\nKept after the office file is skipped.\n");
+    const docx = file("report.docx", "fake docx bytes");
+    vi.mocked(convertSource).mockRejectedValueOnce(new MineruConvertError("mineru_api", "boom"));
+
+    render(<ImportPage client={client} locale="en" />);
+    const input = screen.getByTestId("import-file-input") as HTMLInputElement;
+    await waitFor(() => expect(input.getAttribute("accept")).toContain(".docx"));
+    selectFile(input, md, docx);
+
+    // The docx conversion fails → its row offers Skip; no preview yet.
+    const skip = await screen.findByTestId("conversion-skip");
+    expect(screen.queryByTestId("import-preview")).toBeNull();
+    skip.click();
+
+    // Skipping the only (failed) conversion must finalize into a native-only
+    // bundle containing the co-selected markdown — not strand on an empty
+    // converting stage.
+    await waitFor(() => expect(screen.getByTestId("import-preview")).toBeInTheDocument());
+    const included = screen.getByTestId("import-included-list");
+    expect(within(included).getByText("sources/notes.md")).toBeInTheDocument();
   });
 });
