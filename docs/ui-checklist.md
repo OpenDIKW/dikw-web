@@ -102,13 +102,13 @@ no e2e are the ones the manual pass exists for.
   (the model occasionally echoes a long paragraph). The sidecar self-heals these
   (`[translate] block N returned untranslated; re-translated …` in the dev log);
   if one survives, capture the block and the server log. _Unit:
-  `translate.test.ts` "re-translates a block the model echoes back as English"._
+  `server/web/translate.test.ts` "re-translates a block the model echoes back as English"._
 - [ ] **No fabricated content in the translated column.** The right column must
   not contain anything absent from the left (source) — watch for an invented
   section, outline, or unrelated paragraph appended after a block (esp. near the
   references / end). The sidecar flags grossly-oversized translations and re-asks
   or falls back to source (`[translate] block N translation … oversized …` in the
-  dev log). _Unit: `translate.test.ts` "re-translates a grossly oversized
+  dev log). _Unit: `server/web/translate.test.ts` "re-translates a grossly oversized
   translation"._
 - [ ] **Progressive reveal + cache.** Paragraphs fill top-to-bottom as batches
   land (not all at the end). Re-toggling the same unchanged page is instant and

@@ -36,18 +36,18 @@ Graph View followed the same vertical loop:
    `count` values.
 3. Page test then covers the API boundary: load
    `/v1/base/graph?active=true`, render the complete active graph, then
-   verify search, hide-orphans, focus, path mode, and open-in-Wiki. The
+   verify search, hide-orphans, focus, and open-in-Wiki. The
    page should also assert removed controls stay removed, such as
    `wiki` / `source` / `all` scope toggles and force sliders.
 4. E2E mock locks the user path: navigate to `#graph`, click a node,
    inspect detail, assert graph loading did not loop through
-   `/v1/base/pages/{path}`, exercise path mode, and open it in the Wiki
+   `/v1/base/pages/{path}`, and open it in the Wiki
    reader. Include both wiki and source nodes so `WikiPage.initialPath`
    cannot regress to the default page while the page list is loading.
 
 Pixi canvas work adds a pure utility slice before page integration:
 derive a deterministic galaxy graph, compute stable clusters, lay out
-nodes without mutating inputs, and test shortest-path behavior. This
+nodes without mutating inputs. This
 keeps implementation choices replaceable while the visible graph
 behavior stays protected.
 
@@ -128,7 +128,7 @@ reader boundary:
    styling changes do not reintroduce near-white blocks or page-level
    horizontal overflow.
 
-## Pi Agent Slice Example
+## Agent Chat Slice Example
 
 Agent chat integration should land as separate red-green slices:
 
@@ -137,7 +137,8 @@ Agent chat integration should land as separate red-green slices:
 2. Sidecar configuration next: load `.env.local`, require
    `DIKW_AGENT_API_KEY`, and assert errors do not leak secret values.
 3. Session store next: create, list, reopen, rename, append, and delete
-   `.agent-sessions/*.json` sessions with atomic writes.
+   sessions through the ADK-backed `AdkSessionStore` (ADK
+   `DatabaseSessionService` persisting to `.agent-sessions/agent.sqlite`).
 4. DIKW tools next: test each tool against mocked core responses,
    especially `/v1/retrieve`, base pages, page links, and wisdom.
 5. HTTP protocol next: test `/agent/sessions` and streamed

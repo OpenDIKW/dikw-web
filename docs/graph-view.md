@@ -57,7 +57,7 @@ The canvas uses a web-only render model derived from `KnowledgeGraph`:
   hairball.
 - Cluster nebulae, edges, node bodies, and labels are drawn as separate
   Pixi layers. The graph intentionally does not ship Bloom or node halo
-  effects; focus and path emphasis use stroke weight, opacity, and color
+  effects; focus emphasis uses stroke weight, opacity, and color
   so large graphs stay cheaper to render.
 - DOM hit buttons are positioned over the canvas for keyboard access,
   Testing Library queries, and Playwright clicks.
@@ -68,8 +68,6 @@ The canvas uses a web-only render model derived from `KnowledgeGraph`:
 - Hide orphans removes nodes whose inbound plus outbound count is zero.
 - Clicking a node focuses that node and its one-hop neighbors.
 - Non-neighbor nodes and unrelated edges are muted, not removed.
-- Path mode lets the user select a source node and target node, then
-  highlights the shortest available path using BFS over graph edges.
 - Pan and wheel zoom are handled inside the Pixi canvas. Layout and
   visual parameters are fixed defaults; the page no longer exposes
   force sliders.
@@ -79,11 +77,11 @@ The canvas uses a web-only render model derived from `KnowledgeGraph`:
 Tests lock the behavior at three layers:
 
 - `src/utils/graph.test.ts`: core graph adaptation, filtering,
-  unresolved count accounting, galaxy graph derivation, deterministic
-  layout output, and shortest-path behavior.
+  unresolved count accounting, galaxy graph derivation, and
+  deterministic layout output.
 - Page/App tests: `/v1/base/graph?active=true`, absence of scope and
-  force controls, complete graph visibility, focus/detail, path mode,
+  force controls, complete graph visibility, focus/detail,
   and open-in-Wiki behavior.
-- Playwright smoke: graph route, stats, Pixi canvas, path mode, node
+- Playwright smoke: graph route, stats, Pixi canvas, node
   detail, absence of `/v1/base/pages/{path}` graph body reads, and Wiki
   navigation.

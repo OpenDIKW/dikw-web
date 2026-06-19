@@ -30,8 +30,8 @@ styled like a generic admin dashboard.
   use a 2px leading marker, assistant messages read as quiet article
   cards, user messages use a solid accent bubble, and the composer is one
   focused input surface with icon actions.
-- Graph View includes an always-visible legend for Wiki and Source node
-  colors. The graph canvas owns visual layout; core/API data should remain
+- Graph View includes an always-visible legend for Knowledge and Source
+  node colors. The graph canvas owns visual layout; core/API data should remain
   layout-free. Graph does not expose layer-scope toggles or force
   parameter sliders; those choices are product defaults.
 - The top bar is a read-only connection status strip. It shows the
@@ -147,18 +147,18 @@ subtle and used to separate work areas, not decorate the page.
 
 Graph uses PixiJS as a rendering detail inside the existing workbench
 surface. It should not become a separate black-space product mode. Use
-the same warm neutral background, petrol wiki nodes, muted source nodes,
+the same warm neutral background, petrol knowledge nodes, muted source nodes,
 hairline borders, and small control radii as the rest of the app.
 
 Graph should not use Bloom or per-node halo effects. They add rendering
 cost and make dense graphs look less precise. Cluster nebulae should be
-low-alpha context, not decorative blobs; focus and path emphasis should
+low-alpha context, not decorative blobs; focus emphasis should
 come from stroke weight, opacity, and color.
 
 When the graph is large, the default view should behave like an
 overview, not a literal full-detail diagram. Use small nodes, faint idle
 edges, very soft nebulae, and sparse labels. The detail panel, hover,
-focus, and path mode are where stronger edges and labels belong.
+and focus are where stronger edges and labels belong.
 
 The canvas must keep an accessible DOM overlay for graph nodes. Pixi may
 own pixels and camera interaction, but tests and keyboard users still

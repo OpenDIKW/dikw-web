@@ -1,6 +1,6 @@
 # dikw-web 部署指南
 
-本文档说明如何把 dikw-web 部署成单个 Docker 容器。镜像内包含已构建的 SPA 静态资源和 Pi-Agent sidecar，两者由同一个 Node 进程同源对外暴露（默认端口 4321）。dikw-core 不在镜像内，需要用户自备。
+本文档说明如何把 dikw-web 部署成单个 Docker 容器。镜像内包含已构建的 SPA 静态资源和 agent sidecar（基于 Google ADK），两者由同一个 Node 进程同源对外暴露（默认端口 4321）。dikw-core 不在镜像内，需要用户自备。
 
 ## 架构速览
 
@@ -32,7 +32,7 @@
 | `DIKW_WEB_HOST` | `0.0.0.0` | 监听 host |
 | `DIKW_WEB_PORT` | `4321` | 监听 port |
 | `DIKW_WEB_STATIC_DIR` | `/app/dist` | SPA 静态资源根目录 |
-| `DIKW_AGENT_SESSIONS_DIR` | `/data/agent-sessions` | 会话 JSON 文件目录（推荐挂 volume） |
+| `DIKW_AGENT_SESSIONS_DIR` | `/data/agent-sessions` | ADK sqlite 会话目录（内含 `agent.sqlite`，推荐挂 volume） |
 
 启动时若必需变量缺失，进程会打印错误并以非零状态退出（fail-fast）。
 
@@ -46,7 +46,7 @@ docker run --rm -p 4321:4321 \
   -e DIKW_AGENT_API=anthropic-messages \
   -e DIKW_AGENT_API_KEY=sk-... \
   -e DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic \
-  -e DIKW_AGENT_MODEL=MiniMax-M2.7 \
+  -e DIKW_AGENT_MODEL=MiniMax-M3 \
   -v dikw-agent-sessions:/data/agent-sessions \
   --add-host=host.docker.internal:host-gateway \
   dikw-web:local
@@ -63,7 +63,7 @@ DIKW_AGENT_PROVIDER=minimax
 DIKW_AGENT_API=anthropic-messages
 DIKW_AGENT_API_KEY=sk-...
 DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic
-DIKW_AGENT_MODEL=MiniMax-M2.7
+DIKW_AGENT_MODEL=MiniMax-M3
 # 可选
 # DIKW_AGENT_TAVILY_API_KEY=...
 # DIKW_AGENT_JINA_API_KEY=...
@@ -88,7 +88,7 @@ docker compose logs -f dikw-web
 
 ## 会话持久化
 
-- session JSON 写入 `DIKW_AGENT_SESSIONS_DIR`，镜像默认 `/data/agent-sessions`，已声明为 `VOLUME`。
+- ADK 会话数据（`agent.sqlite`，ADK `DatabaseSessionService`，本地 SQLite）写入 `DIKW_AGENT_SESSIONS_DIR`，镜像默认 `/data/agent-sessions`，已声明为 `VOLUME`。
 - 升级镜像版本时，只要 volume 不删，已有对话历史会保留。
 
 ## 健康检查
@@ -96,7 +96,9 @@ docker compose logs -f dikw-web
 镜像内置：
 
 ```dockerfile
-HEALTHCHECK CMD wget -qO- http://127.0.0.1:4321/agent/sessions
+# node:24-slim 不带 wget/curl，用始终存在的 node 探活
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:4321/agent/sessions').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 ```
 
 `docker inspect --format='{{.State.Health.Status}}' <container>` 可观察。
