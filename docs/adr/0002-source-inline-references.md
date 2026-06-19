@@ -148,11 +148,13 @@ export function injectInlineRefs(
 
 `src/pages/WikiPage.tsx`:
 
-1. 在 `sourceReferences` useMemo 之后再加一个 useMemo `enhancedSourcePage`,
-   仅当 `page.layer === "source"` 时调用 `injectInlineRefs`,否则返回 null
-2. `<MarkdownView body={...} />` 的 body prop 改为 `enhancedSourcePage?.body ?? page.body`
+1. 在 `sourceReferences` useMemo 之后再加一个 useMemo `enhancedSourceBody`,
+   始终返回 `{ body, matchedPaths }`(仅 `page.layer === "source"` 时调用
+   `injectInlineRefs`;其余情况 body 回退为 `page.body`、matchedPaths 为空集)
+2. WikiPage 通过 `<WikiReader enhancedBody={page?.layer === "source" ? enhancedSourceBody.body : undefined} />`
+   下传增强 body,`WikiReader` 内部再渲染 `<MarkdownView body={enhancedBody ?? page.body} />`
 3. `<WikiBacklinksSection references={...} />` 的 references prop 改为:
-   - source 层: `sourceReferences.filter(r => !enhancedSourcePage.matchedPaths.has(r.path))`
+   - source 层: `sourceReferences.filter(r => !enhancedSourceBody.matchedPaths.has(r.path))`
    - 非 source 层: 保持 `sourceReferences`(实际上是空,因为非 source 不拉 backlinks)
 4. WikiBacklinksSection 文案 — **决定:复用现有 `pages.wiki.linkedRefsTitle`,
    不新增 i18n key**。理由:inline 已经表达了"linked",底部 panel 自然变成

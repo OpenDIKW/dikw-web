@@ -88,7 +88,7 @@ card is an enhancement, not a load-bearing surface. An already-Chinese target
 (`isEnglishBody` false) is never re-translated.
 
 **Caching / lifecycle.** Translations are cached in IndexedDB
-(`dikw-translate-cache`, keyed by `sha256(targetLang + blocks)`, 7-day TTL) so a
+(`dikw-translate-cache`, keyed by `sha256(TRANSLATE_VERSION + targetLang + blocks)`, 7-day TTL) so a
 repeat toggle is instant. The `useBilingualReader` hook owns split → translate →
 map with abort, cancel, re-translate, and reset-on-page-change.
 
@@ -143,8 +143,9 @@ map with abort, cancel, re-translate, and reset-on-page-change.
   though the batch count matched, so the split path never sees it) is caught by a
   post-batch check: for a Chinese target, a source with ≥ 6 English words whose
   translation contains no CJK is re-asked **alone** once (focused context usually
-  translates it) and the result accepted regardless — bounded to one re-ask so a
-  genuinely un-translatable block can't loop the job. Short non-prose (citations,
+  translates it); the re-ask is re-validated — a result still oversized or
+  echoing the source verbatim is rejected in favour of the source text — bounded
+  to one re-ask so a genuinely un-translatable block can't loop the job. Short non-prose (citations,
   acronyms, identifiers, captions) is below the word threshold and left as-is.
   This was live-observed on cho-cqa (a long Methods paragraph came back English).
 - The translated-column wikilink preview translates only the card's title +

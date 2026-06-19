@@ -114,7 +114,7 @@ Supports:
 - Safe `<details>/<summary>` blocks.
 - KaTeX inline `$...$` and block `$$...$$`.
 - Mermaid fenced code (lazy-imported; `securityLevel: "strict"`).
-- Obsidian-style image embeds `![[assets/images/<sha>.jpg]]` — resolved
+- Standard CommonMark `![alt](path)` and Obsidian-style `![[assets/images/<sha>.jpg]]` image embeds — resolved
   through `PageReadResult.assets[]` and streamed from
   `/v1/assets/{asset_id}`. When a session token is set, images are
   hydrated via authenticated `fetch` + `URL.createObjectURL` so the

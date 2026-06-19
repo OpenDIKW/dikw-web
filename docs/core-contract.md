@@ -9,8 +9,8 @@ suite mocks `/v1`, so this script is what actually catches contract drift. Keep
 its assertions in lockstep with this doc.
 
 `/v1/query` is no longer part of the consumed core contract. Natural
-language answers are composed by the web-side Pi Agent sidecar, which
-uses core retrieval/page/wisdom endpoints as tools.
+language answers are composed by the web-side agent sidecar (Google ADK),
+which uses core retrieval/page/wisdom endpoints as tools.
 
 ## Web Settings
 
@@ -90,8 +90,9 @@ The Base middle pane derives all reading tabs from the selected
 
 - `Read` renders the markdown body as a polished, read-only article.
   Frontmatter is not shown in this tab.
-- `Info` renders the server-parsed `PageReadResult.frontmatter`
-  (read-only) alongside path, layer, anchor count, and update metadata.
+- `Frontmatter` (the `info` tab; `元信息` in zh-CN) renders the
+  server-parsed `PageReadResult.frontmatter` (read-only) alongside path,
+  layer, anchor count, and update metadata.
 - `Outline` derives headings and wikilinks from the markdown body.
 - `Source` renders the raw markdown body for verification.
 
@@ -183,14 +184,14 @@ client-side presentation filters, but the page no longer exposes
 `wiki`, `source`, or `all` scope toggles. Unresolved wikilinks are shown
 as counts and source-node detail, but they do not create ghost nodes.
 
-Pixi rendering, deterministic clustering, shortest-path highlighting,
-and Bloom styling are web-only presentation concerns. They do not add
+Pixi rendering and deterministic clustering are web-only presentation
+concerns. They do not add
 request parameters or change the `/v1/base/graph` response shape.
 
 ## Chat
 
 Chat is exposed to the browser as same-origin `/agent/*` routes
-owned by `dikw-web`, not by `dikw-core`. The sidecar runs Pi Agent and
+owned by `dikw-web`, not by `dikw-core`. The sidecar runs the Google ADK agent and
 uses the current Settings `Server URL` from each browser request to call
 these core endpoints as tools:
 
@@ -199,7 +200,6 @@ these core endpoints as tools:
 - `GET /v1/base/pages`
 - `GET /v1/base/pages/{path}`
 - `GET /v1/base/pages/{path}/links`
-- `GET /v1/base/pages/{path}/provenance`
 - `GET /v1/wisdom`
 
 Core returns facts and evidence; the Agent composes the final answer
@@ -328,8 +328,10 @@ markdown + assets are bundled exactly like a user-authored `.md` source.
 The `/v1/import` wire shape is unchanged. Same input bytes → identical
 `package_sha256` (mineru `cache_tolerance` + browser IndexedDB by
 SHA-256 + byte-stable tar packaging), so core's existing dedup continues
-to apply. Long mineru-bound filenames are shortened (≤25-char stem,
-extension kept, bytes unchanged) before upload because MinerU errors on
+to apply. Long mineru-bound filenames are Unicode-kebab-normalized
+(see ADR 0004) — lowercased, punctuation/whitespace collapsed to hyphens,
+Han/digits preserved — with the stem capped at 28 code points (whole name
+incl. `.md` stays under 32), bytes unchanged, because MinerU errors on
 very long names; the browser passes the true original as the
 `originalFilename` query so the converted page's frontmatter
 `original_filename` stays complete.

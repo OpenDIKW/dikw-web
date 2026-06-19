@@ -51,9 +51,11 @@ The runtime lives in `server/agent/` and is wired together by
 ADK emits OpenTelemetry spans for every invocation. `initAgentTelemetry`
 (`telemetry.ts`) registers a `DikwSpanProcessor` (`dikwSpanProcessor.ts`)
 via ADK's `maybeSetOtelProviders` — once per process, since the provider is
-process-global and idempotent. The processor projects each finished span
+process-global and idempotent. The processor projects each finished **INTERNAL** (ADK agent) span
 into a flat `SpanRow` in an in-memory `SpanStore` (`spanStore.ts`, bounded,
-FIFO-evicted at 5000 rows), resolving the session id from
+FIFO-evicted at 5000 rows) — the SERVER (`withServerSpan`) and CLIENT
+(outbound undici) spans are filtered out so the `#trace` waterfall stays
+agent-only — resolving the session id from
 `gcp.vertex.agent.session_id` / `gen_ai.conversation.id` and the invocation
 id from `gcp.vertex.agent.invocation_id`.
 
@@ -195,7 +197,7 @@ requirement.
 `source`, `proposal`, `error`, and `agent_end`.
 
 `tool_event` and `source` payloads are appended to the session context.
-The sidecar de-duplicates sources by `path` and `title`, and updates tool
+The sidecar de-duplicates sources by `path`, `title`, and `kind`, and updates tool
 events by `id`.
 
 `PATCH /agent/sessions/{id}` trims the title and requires 1-80
@@ -238,9 +240,11 @@ Sidecar-only external tools (do not touch `dikw-core`):
   implemented in `WebToolClient.search` and unit-tested but **not**
   registered in the agent's tool list, so the LLM does not see it.
 - `web_fetch` — Jina Reader (`r.jina.ai/<encoded url>`). Requires
-  `DIKW_AGENT_JINA_API_KEY`. Only `http(s)` URLs accepted. Markdown
-  body is truncated to 50 000 characters with `truncated: true` when
-  the page is larger.
+  `DIKW_AGENT_JINA_API_KEY`. Only `http(s)` URLs accepted. The fetched
+  body is truncated to 50 000 characters in `WebToolClient.fetchPage`,
+  then the tool result is further trimmed by `trimWebFetch` so its
+  serialized form stays within `WEB_FETCH_TEXT_BUDGET` (12 000 chars);
+  `truncated: true` is set when either cap applies.
 
 Both web tools wrap fetch with `AbortSignal.timeout(15_000)` and combine
 it with the per-request user abort signal via `AbortSignal.any`, so
