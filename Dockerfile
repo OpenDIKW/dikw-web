@@ -42,6 +42,13 @@ RUN apt-get update \
  && apt-get upgrade -y \
  && apt-get clean \
  && rm -rf /var/lib/apt/lists/*
+# The runtime only ever runs `node dist-server/standalone.mjs` (and the node-based
+# HEALTHCHECK) — npm is never invoked here. node:24-slim bundles npm with an
+# undici < 6.27.0 (CVE-2026-12151, WebSocket fragment-count DoS) that Trivy flags
+# as a shipped vulnerable file even though it's unreachable at runtime. `npm i -g
+# npm@latest` does NOT clear it (latest npm still bundles undici 6.26.0); removing
+# npm/npx does, and keeps future npm-bundled-dep CVEs out of the image entirely.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ENV NODE_ENV=production \
     DIKW_WEB_HOST=0.0.0.0 \
     DIKW_WEB_PORT=4321 \
