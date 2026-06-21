@@ -1,6 +1,27 @@
+<div align="center">
+
+<img src="public/opendikw-avatar.png" alt="OpenDIKW" width="88" height="88" />
+
 # dikw-web
 
-A read-only React/Vite knowledge workbench over [`dikw-core`](../dikw-core).
+**A read-only React + Vite knowledge workbench over [`dikw-core`](https://github.com/OpenDIKW/dikw-core)** — chat agent, knowledge graph, bilingual Markdown reader, and document import in one same-origin bundle.
+
+[![CI](https://github.com/OpenDIKW/dikw-web/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenDIKW/dikw-web/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/OpenDIKW/dikw-web/actions/workflows/codeql.yml/badge.svg)](https://github.com/OpenDIKW/dikw-web/actions/workflows/codeql.yml)
+
+![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-8-646CFF?logo=vite&logoColor=white)
+![Node ≥24](https://img.shields.io/badge/Node-%E2%89%A524-339933?logo=node.js&logoColor=white)
+![Google ADK](https://img.shields.io/badge/Agent-Google%20ADK-4285F4?logo=google&logoColor=white)
+![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-instrumented-425CC7?logo=opentelemetry&logoColor=white)
+
+**[Quick start](#quick-start) · [Commands](#commands-windows-powershell) · [Architecture](#architecture-in-one-diagram) · [Routes](#routes) · [Branding](#branding-white-label) · [Deployment](#deployment) · [Docs](#where-canonical-docs-live)**
+
+</div>
+
+---
+
 The browser app consumes `dikw-core`'s `/v1` HTTP API; a small Node
 sidecar runs alongside the dev server and exposes same-origin `/agent/*`
 routes for chat plus `/web/*` routes for browser-side helpers (mineru-backed
@@ -181,9 +202,10 @@ mounted volume in prod) — copy the shape from
 [`public/config.example.json`](public/config.example.json):
 
 ```json
-{ "brand": { "name": { "en": "Maibo-DIKW", "zh-CN": "迈博知识库" } } }
+{ "brand": { "name": { "en": "Acme-DIKW", "zh-CN": "示例知识库" } } }
 ```
 
+(`Acme-DIKW` / `示例知识库` are placeholders — substitute your own brand.)
 The app fetches `/config.json` once at startup; a missing or malformed file
 falls back to the `OpenDIKW` defaults. `name` is per-locale (a bare string
 applies to all locales) and the tab title follows it. `config.json` is

@@ -4,9 +4,9 @@ import { defaultBranding, loadBranding, resolveBranding } from "./branding";
 describe("resolveBranding", () => {
   it("applies a full per-locale name override", () => {
     const result = resolveBranding({
-      brand: { name: { en: "Maibo-DIKW", "zh-CN": "迈博知识库" } },
+      brand: { name: { en: "Acme-DIKW", "zh-CN": "示例知识库" } },
     });
-    expect(result.name).toEqual({ en: "Maibo-DIKW", "zh-CN": "迈博知识库" });
+    expect(result.name).toEqual({ en: "Acme-DIKW", "zh-CN": "示例知识库" });
   });
 
   it("treats a bare string as the same name for every locale", () => {
@@ -45,7 +45,7 @@ describe("loadBranding", () => {
     stubFetch(() =>
       Promise.resolve(
         new Response(
-          JSON.stringify({ brand: { name: { en: "Maibo-DIKW", "zh-CN": "迈博知识库" } } }),
+          JSON.stringify({ brand: { name: { en: "Acme-DIKW", "zh-CN": "示例知识库" } } }),
           {
             status: 200,
             headers: { "Content-Type": "application/json" },
@@ -54,7 +54,7 @@ describe("loadBranding", () => {
       ),
     );
     const result = await loadBranding();
-    expect(result.name).toEqual({ en: "Maibo-DIKW", "zh-CN": "迈博知识库" });
+    expect(result.name).toEqual({ en: "Acme-DIKW", "zh-CN": "示例知识库" });
   });
 
   it("falls back to defaults on a 404", async () => {
