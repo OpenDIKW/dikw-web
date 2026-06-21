@@ -46,7 +46,15 @@ TDD is the default loop (see `docs/tdd.md` and §Testing approach): failing test
 - "Fix the bug" → write a failing test that reproduces it, then make it pass.
 - "Refactor X" → tests pass before and after.
 
-For multi-step work, state a brief plan with a check per step (`npx vitest run …`, `npm.cmd run typecheck`, a `curl` against `/v1/...`, a Chrome MCP screenshot). `npm.cmd run verify` is the final gate before claiming a behavior change is done — don't lower the coverage thresholds in `vite.config.ts` to make a feature pass.
+Each step is a loop, not a line: **write → run the checks → read the error → fix the cause → re-run** (`npx vitest run …`, `npm.cmd run typecheck`; `npm.cmd run verify` is the final gate before a behavior change is done). Bound this inner verify-loop — stop when:
+
+- **Green** — report "done", quoting *this session's* passing check output as proof (never a remembered or prior run).
+- **5 attempts spent** — stop; report what still fails and what you tried, instead of thrashing.
+- **Same error twice in a row** — stop; you're guessing, not fixing. Re-diagnose root-cause-first (`superpowers:systematic-debugging`), or hand off to a fresh context via `@fixer` (`.claude/agents/fixer.md`).
+
+**Fix the code, not the test** — don't weaken an assertion or lower the `vite.config.ts` coverage thresholds to make a feature pass.
+
+For multi-step work, state a brief plan with a check per step (`npx vitest run …`, `npm.cmd run typecheck`, a `curl` against `/v1/...`, a Chrome MCP screenshot).
 
 Strong success criteria let you loop independently; "make it work" requires constant clarification.
 
