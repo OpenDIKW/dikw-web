@@ -33,7 +33,7 @@ This bundle ships **two front-ends** selected by the URL hash: visiting
 (`src/mb/`, `MbApp`), while every other hash (`#chat`, `#base`, …) loads the
 original multi-page workbench. Both consume `dikw-core` over `/v1` —
 predominantly reads, plus explicit write surfaces (Import / paper upload,
-the Tasks maintenance ops); see `CLAUDE.md` → "Routes and contracts
+the Wisdom editor, the Tasks maintenance ops); see `CLAUDE.md` → "Routes and contracts
 (hash-based)" for the split.
 
 ## Quick start
