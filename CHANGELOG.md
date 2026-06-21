@@ -16,7 +16,8 @@ file format introduced in `[0.0.1.0]` was dropped.
   GitHub repo instead of a sibling-checkout relative path.
 - **Corrected "read-only" doc drift against the code.** `dikw-web` is no longer
   read-only over `dikw-core`: ImportPage and MB-Web upload papers
-  (`/v1/import` → ingest → synth), the Tasks page fires maintenance ops, and the
+  (`/v1/import` → ingest → synth), the Wisdom editor saves/favorites
+  (`POST /v1/base/wisdom`), the Tasks page fires maintenance ops, and the
   agent proposes maintenance. Dropped the inaccurate whole-app "read-only"
   framing from the GitHub About, `README.md`, `CLAUDE.md`, `CONTEXT.md`,
   `docs/core-contract.md`, and `docs/ui-system.md`. Genuinely read-only contexts
