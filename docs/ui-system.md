@@ -1,6 +1,6 @@
 # dikw-web UI System
 
-`dikw-web` is a read-only knowledge workbench. The UI should stay quiet,
+`dikw-web` is a knowledge workbench. The UI should stay quiet,
 compact, and inspection-focused: dense enough for repeated use, but not
 styled like a generic admin dashboard.
 

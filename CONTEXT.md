@@ -1,6 +1,6 @@
 # dikw-web
 
-The read-only React/Vite knowledge workbench over dikw-core. This glossary
+The React/Vite knowledge workbench over dikw-core. This glossary
 captures the terms that shape how the web layer consumes the core task
 contract, where the wire vocabulary is easy to confuse.
 
