@@ -4,7 +4,7 @@
 
 # dikw-web
 
-**A read-only React + Vite knowledge workbench over [`dikw-core`](https://github.com/OpenDIKW/dikw-core)** — chat agent, knowledge graph, bilingual Markdown reader, and document import in one same-origin bundle.
+**A React + Vite knowledge workbench over [`dikw-core`](https://github.com/OpenDIKW/dikw-core)** — chat agent, knowledge graph, bilingual Markdown reader, and document import & ingest in one same-origin bundle.
 
 [![CI](https://github.com/OpenDIKW/dikw-web/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenDIKW/dikw-web/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/OpenDIKW/dikw-web/actions/workflows/codeql.yml/badge.svg)](https://github.com/OpenDIKW/dikw-web/actions/workflows/codeql.yml)
@@ -31,8 +31,10 @@ for the Base reader).
 This bundle ships **two front-ends** selected by the URL hash: visiting
 `#MB-Web` opens the focused 论文知识库 (paper knowledge base) reading variant
 (`src/mb/`, `MbApp`), while every other hash (`#chat`, `#base`, …) loads the
-original multi-page workbench. Both are read-only over `dikw-core`; see
-`CLAUDE.md` → "Routes and contracts (hash-based)" for the split.
+original multi-page workbench. Both consume `dikw-core` over `/v1` —
+predominantly reads, plus explicit write surfaces (Import / paper upload,
+the Tasks maintenance ops); see `CLAUDE.md` → "Routes and contracts
+(hash-based)" for the split.
 
 ## Quick start
 

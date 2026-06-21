@@ -1,6 +1,8 @@
 # dikw-core Contract Notes
 
-`dikw-web` is a read-only console over the `dikw-core` `/v1` HTTP API.
+`dikw-web` is a browser console over the `dikw-core` `/v1` HTTP API —
+predominantly read paths, plus explicit write surfaces (Import, the Tasks
+maintenance ops; see the `## Import` and `## Task list` sections below).
 This document records the web-facing subset that current tests lock.
 
 `scripts/smoke-core.mjs` (`npm run smoke:core`, the `dikw-web-smoke-core` skill)
