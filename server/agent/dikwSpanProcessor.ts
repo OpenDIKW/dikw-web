@@ -14,7 +14,7 @@ const OUTPUT_TOKENS_ATTR = "gen_ai.usage.output_tokens";
  * SpanStore as flat SpanRows. Only onEnd matters; the other hooks are no-ops.
  *
  * ReadableSpan shape verified for the installed @opentelemetry/sdk-trace-base
- * 2.7.x: parent span id lives on `parentSpanContext?.spanId` (NOT a flat
+ * 2.8.x: parent span id lives on `parentSpanContext?.spanId` (NOT a flat
  * `parentSpanId` field, which earlier versions used).
  */
 export class DikwSpanProcessor implements SpanProcessor {

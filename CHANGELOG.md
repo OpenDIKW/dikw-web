@@ -9,6 +9,32 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-06-21
+
+### Security
+
+- **Clear the OpenTelemetry moderate advisories (12 of them).** Bumped the
+  experimental OTel deps we import directly (`@opentelemetry/api-logs`,
+  `exporter-trace-otlp-http`, `sdk-logs`) to `^0.219.0`, and added `overrides`
+  forcing the stable OTel packages (`@opentelemetry/core`, `resources`,
+  `sdk-metrics`, `sdk-trace-base`, `sdk-trace-node`) to `^2.8.0` tree-wide so the
+  copies pulled transitively by `@google/adk` are also patched — clearing the
+  `@opentelemetry/core <2.8.0` W3C Baggage unbounded-memory advisory and every
+  advisory chained to it. Also overrode `dompurify` to `^3.4.11` (the
+  `IN_PLACE`/`SAFE_FOR_TEMPLATES` XSS fixes) for the copy pulled by `mermaid`.
+  The remaining moderate advisories (`uuid` / `googleapis` / `protobufjs` /
+  `@google-cloud/*`) are all transitive via `@google/adk`'s **unused** GCP
+  exporter path and have no clean fix (npm's only "fix" is a `@google/adk`
+  major _downgrade_ to 0.1.3) — left as accepted risk. None are reachable in
+  dikw-web's runtime and none gate the prod high+ audit.
+- **Drop npm from the production image.** The runtime stage only ever runs
+  `node dist-server/standalone.mjs`, so npm is removed (`rm -rf` of
+  `/usr/local/lib/node_modules/npm` + the `npm`/`npx` bins). This clears the
+  Trivy HIGH for the npm-bundled `undici < 6.27.0` (CVE-2026-12151, WebSocket
+  fragment-count DoS) — which `npm i -g npm@latest` would _not_ fix, since the
+  latest npm still bundles undici 6.26.0 — and keeps future npm-bundled-dep CVEs
+  out of the image entirely.
+
 ## [0.6.0] - 2026-06-17
 
 ### Added

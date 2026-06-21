@@ -5,7 +5,7 @@ import type { ReadableSpan } from "@opentelemetry/sdk-trace-base";
 import { DikwSpanProcessor } from "./dikwSpanProcessor";
 import { SpanStore } from "./spanStore";
 
-// Minimal fake matching the installed @opentelemetry/sdk-trace-base 2.7.x
+// Minimal fake matching the installed @opentelemetry/sdk-trace-base 2.8.x
 // ReadableSpan shape: spanContext() returns trace/span ids, parent lives on
 // parentSpanContext?.spanId, times are HrTime ([seconds, nanos]).
 function fakeSpan(
