@@ -1,8 +1,8 @@
 {
   "brand": {
     "name": {
-      "en": "Maibo-DIKW",
-      "zh-CN": "迈博知识库"
+      "en": "Acme-DIKW",
+      "zh-CN": "示例知识库"
     }
   },
   "telemetry": {

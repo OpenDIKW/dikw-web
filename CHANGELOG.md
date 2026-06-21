@@ -9,6 +9,17 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+### Changed
+
+- **README polish.** Added a centered header (logo, tagline, status + tech
+  badges) and a compact section nav; pointed the `dikw-core` link at the public
+  GitHub repo instead of a sibling-checkout relative path.
+- **Genericized the white-label branding example.** `public/config.example.json`,
+  the README branding snippet, and the branding tests now use neutral
+  placeholders (`Acme-DIKW` / `示例知识库`) instead of a real downstream brand
+  name. No runtime behavior change — the default brand stays `OpenDIKW` and
+  `config.json` remains gitignored per-deployment.
+
 ## [0.6.1] - 2026-06-21
 
 ### Security
