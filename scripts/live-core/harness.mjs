@@ -173,6 +173,12 @@ async function bootstrap(state) {
   const yml = readFileSync(TEMPLATE_FILE, "utf8")
     .replaceAll("__LLM_MODEL__", LLM_MODEL)
     .replaceAll("__PG_DSN__", dsn);
+  // `dikw init` writes dikw.yml as the container's UID (1000). On Linux bind
+  // mounts that file is owned by 1000 on the host, so truncating it as the
+  // (different) host user fails with EACCES. We own the 0777 base dir, so unlink
+  // first and recreate the file as ourselves. (Docker Desktop masks ownership,
+  // so this is a no-op locally.)
+  rmSync(dikwYml, { force: true });
   writeFileSync(dikwYml, yml);
   console.log(`[live] wrote ${dikwYml} (storage=postgres, llm=${LLM_MODEL})`);
 }
