@@ -55,15 +55,10 @@ let devServer = null;
 async function main() {
   const state = await up();
 
-  // Write pipeline (import → ingest → synth → lint), then read contract.
+  // Write pipeline (import → ingest → synth → lint), then read contract. The
+  // smoke wrapper resolves the dynamic core URL + token from the saved state.
   await run("npx", ["tsx", "scripts/seed-core.mts"]);
-  await run("node", ["scripts/smoke-core.mjs"], {
-    env: {
-      ...process.env,
-      DIKW_SMOKE_CORE_URL: state.coreUrl,
-      DIKW_SMOKE_CORE_TOKEN: state.token,
-    },
-  });
+  await run("node", ["scripts/live-core/smoke.mjs"]);
 
   // Dev server (dynamic port) with the proxy aimed at the live core.
   const webPort = await allocPort();

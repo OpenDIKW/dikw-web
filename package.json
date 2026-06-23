@@ -24,7 +24,7 @@
     "live:up": "node scripts/live-core/up.mjs",
     "live:down": "node scripts/live-core/down.mjs",
     "live:seed": "tsx scripts/seed-core.mts",
-    "live:smoke": "node scripts/smoke-core.mjs",
+    "live:smoke": "node scripts/live-core/smoke.mjs",
     "live:verify": "node scripts/live-core/run.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
     "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e"

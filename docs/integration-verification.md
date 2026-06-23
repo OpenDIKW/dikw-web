@@ -54,7 +54,7 @@ forwards to the real (dynamically-ported) core.
 | `npm run live:verify` | The whole loop: up → seed → smoke → browser e2e → agent check → down. Add `-- --keep` to leave the stack up, `-- --skip-agent` to skip the agent check. |
 | `npm run live:up` | Boot Postgres + core on dynamic ports; wait healthy. Prints the core URL. Idempotent (reuses port/token). |
 | `npm run live:seed` | Run the write pipeline (import → ingest → synth → lint) against the running core, reusing dikw-web's own `buildImportBundle` + `DikwClient`. |
-| `npm run live:smoke` | The `/v1` read-contract smoke (`scripts/smoke-core.mjs`) against the running core. Needs `DIKW_SMOKE_CORE_URL` / `_TOKEN` (printed by `live:up`, in `.tmp/live-core/<project>/state.json`). |
+| `npm run live:smoke` | The `/v1` read-contract smoke (`scripts/smoke-core.mjs`) against the running core. Resolves the dynamic core URL + token from the saved stack state automatically (override with `DIKW_SMOKE_CORE_URL` / `_TOKEN`). |
 | `npm run live:down` | Tear down. `-- --volumes` also drops the Postgres volume + per-project state. |
 
 Run a second core version in parallel:

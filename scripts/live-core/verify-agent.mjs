@@ -21,7 +21,29 @@
 // own LLM key (DIKW_AGENT_API_KEY, from .env.local). Missing key ⇒ SKIP (not a
 // failure). See docs/integration-verification.md.
 
-import { loadState } from "./harness.mjs";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { loadState, REPO_ROOT } from "./harness.mjs";
+
+/** The sidecar resolves DIKW_AGENT_API_KEY from process.env or .env.local
+ *  (server/agent/config.ts). Mirror that here so we can SKIP cleanly before
+ *  hitting /agent when the agent isn't configured, instead of inferring it from
+ *  a stream-error message after the fact. */
+function hasAgentKey() {
+  if (process.env.DIKW_AGENT_API_KEY?.trim()) return true;
+  const envLocal = join(REPO_ROOT, ".env.local");
+  if (!existsSync(envLocal)) return false;
+  for (const raw of readFileSync(envLocal, "utf8").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    const eq = line.indexOf("=");
+    if (eq < 0) continue;
+    if (line.slice(0, eq).trim() === "DIKW_AGENT_API_KEY" && line.slice(eq + 1).trim()) {
+      return true;
+    }
+  }
+  return false;
+}
 
 const CORE_TOOLS = new Set([
   "retrieve_knowledge",
@@ -43,6 +65,13 @@ function webUrl() {
 async function main() {
   const state = loadState();
   const base = webUrl();
+
+  // Skip cleanly if the sidecar's own LLM key isn't configured.
+  if (!hasAgentKey()) {
+    console.log("[agent] SKIP — DIKW_AGENT_API_KEY not set (process.env or .env.local).");
+    console.log("        set it to run the agent↔core observability check.");
+    return;
+  }
 
   // 1) Create a session.
   const created = await fetch(`${base}/agent/sessions`, { method: "POST" });
