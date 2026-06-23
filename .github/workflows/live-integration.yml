@@ -1,0 +1,104 @@
+name: Live integration
+
+# End-to-end verification against a REAL dikw-core (GHCR image) + Postgres.
+# Deliberately NOT a required PR check: it boots a container and calls live LLM
+# providers (slow, costs tokens, depends on upstream availability). Triggered
+# manually, nightly, or by labeling a PR `live-integration`. The default `verify`
+# gate in ci.yml is untouched. See docs/integration-verification.md.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * *" # nightly 03:00 UTC
+  pull_request:
+    types: [labeled]
+
+concurrency:
+  group: live-integration-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  live:
+    # Manual/nightly always; on PRs only when the `live-integration` label is added.
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.label.name == 'live-integration'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: "true"
+      DIKW_CORE_VERSION: "0.6.1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+
+      - name: Install Playwright Chromium (+ system deps)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps only (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Write core provider keys (.env.core)
+        env:
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          GITEE_API_KEY: ${{ secrets.GITEE_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          if [ -z "$MINIMAX_API_KEY" ] || [ -z "$GITEE_API_KEY" ]; then
+            echo "::error::MINIMAX_API_KEY and GITEE_API_KEY repo secrets are required for live integration."
+            exit 1
+          fi
+          {
+            echo "MINIMAX_API_KEY=$MINIMAX_API_KEY"
+            echo "GITEE_API_KEY=$GITEE_API_KEY"
+            echo "DEEPSEEK_API_KEY=$DEEPSEEK_API_KEY"
+          } > .env.core
+
+      - name: Write agent sidecar credentials (.env.local)
+        env:
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+        run: |
+          {
+            echo "DIKW_AGENT_PROVIDER=minimax"
+            echo "DIKW_AGENT_API=anthropic-messages"
+            echo "DIKW_AGENT_API_KEY=$MINIMAX_API_KEY"
+            echo "DIKW_AGENT_BASE_URL=https://api.minimaxi.com/anthropic"
+            echo "DIKW_AGENT_MODEL=MiniMax-M3"
+          } > .env.local
+
+      - name: Live integration verify
+        run: npm run live:verify
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: live-playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -9,6 +9,8 @@ playwright-report/
 test-results/
 vite*.log
 *.local
+# Live integration core keys (LLM/embedding); per-machine, never commit.
+.env.core
 .agent-sessions/
 .claude/*
 # Track shared project skills + agents, but keep local settings/locks out.

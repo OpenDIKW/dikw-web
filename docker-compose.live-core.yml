@@ -1,0 +1,70 @@
+# Live integration stack for dikw-web end-to-end verification.
+#
+# Runs a REAL dikw-core (published GHCR image) backed by Postgres/pgvector, so
+# the current dikw-web working tree can be verified against it. NOT for
+# production — see docs/integration-verification.md and docker-compose.yml
+# (which runs dikw-web itself; this file runs only its upstream core).
+#
+# Driven by scripts/live-core/*.mjs, which generates an --env-file with dynamic
+# ports + ephemeral secrets and passes a unique -p project name so multiple
+# core versions can run side by side without port or volume collisions. The
+# variables below are REQUIRED (fail-closed); the harness always sets them.
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.2-pg18
+    environment:
+      POSTGRES_USER: dikw
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set by scripts/live-core/env.mjs}
+      POSTGRES_DB: dikw
+    # No host port mapping: only dikw-core (same compose network) reaches it,
+    # so the harness never collides on 5432 across parallel stacks.
+    volumes:
+      # pg18 stores data under /var/lib/postgresql/<major>/docker, so the mount
+      # point is the parent. Compose prefixes the volume name with the project,
+      # keeping it scoped per stack.
+      - postgres-data:/var/lib/postgresql
+      - ./scripts/live-core/pg-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dikw -d dikw"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  dikw-core:
+    image: ghcr.io/opendikw/dikw-core:${DIKW_CORE_VERSION:?set DIKW_CORE_VERSION, e.g. 0.6.1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DIKW_SERVER_TOKEN: ${DIKW_SERVER_TOKEN:?set by scripts/live-core/env.mjs}
+      # Server task store lives in a separate table in the same Postgres
+      # instance (libpq keyword conninfo — survives special chars in passwords).
+      DIKW_SERVER_TASKS_DSN: "host=postgres port=5432 user=dikw password=${POSTGRES_PASSWORD} dbname=dikw"
+      # Single-server stack: reclaim 'running' rows orphaned by a restart.
+      DIKW_TASK_REAP_ON_START: "1"
+      # Provider keys — names match dikw.yml's *_api_key_env. Sourced from
+      # .env.core by the harness; blank-tolerant so a partial .env.core still
+      # boots (the missing leg fails loudly at ingest/synth, not at startup).
+      MINIMAX_API_KEY: ${MINIMAX_API_KEY:-}
+      GITEE_API_KEY: ${GITEE_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DIKW_LOG_LEVEL: ${DIKW_LOG_LEVEL:-INFO}
+    ports:
+      - "${DIKW_CORE_HOST_PORT:?set by scripts/live-core/env.mjs}:8765"
+    volumes:
+      - ${DIKW_LIVE_BASE_DIR:?set by scripts/live-core/env.mjs}:/base
+    healthcheck:
+      # The whole /v1 router is auth-gated, so the probe passes the bearer token.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request as r,os; r.urlopen(r.Request('http://localhost:8765/v1/healthz', headers={'Authorization': 'Bearer '+os.environ['DIKW_SERVER_TOKEN']})).read()"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  postgres-data:

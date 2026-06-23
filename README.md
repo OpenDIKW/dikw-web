@@ -65,6 +65,7 @@ the Vite proxy to avoid CORS; any other URL is requested directly.
 | `npm.cmd run test:e2e` | Playwright (Chromium); auto-starts dev server if needed |
 | `npm.cmd run build` | `tsc --noEmit` + `vite build` (browser to `dist/`) + `build:server` (esbuild to `dist-server/standalone.mjs`) |
 | `npm.cmd run verify` | Full gate: lint + format:check + typecheck + coverage + build + e2e |
+| `npm.cmd run live:verify` | Live integration: boot a **real `dikw-core`** (GHCR image + Postgres, dynamic ports), seed the write pipeline, then run read smoke + a `live` Playwright project + an agent↔core check against it. Needs Docker + `.env.core` (copy `.env.core.example`). Not part of `verify`. See [`docs/integration-verification.md`](docs/integration-verification.md) |
 
 Single-file iteration:
 
@@ -263,6 +264,8 @@ Jaeger + Prometheus + Loki + Grafana) — and the full env reference are in
   browser RUM): `OTEL_*` env reference, the `dikw.*` metric catalog, and a
   local demo stack (`docker-compose.observability.yml`).
 - `docs/tdd.md` — TDD workflow for this project.
+- `docs/integration-verification.md` — `npm run live:verify`: end-to-end
+  verification against a real `dikw-core` (GHCR image + Postgres).
 - `docs/adr/` — Architecture Decision Records (one decision per file,
   prefixed `NNNN-`).
 

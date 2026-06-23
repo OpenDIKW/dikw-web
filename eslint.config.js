@@ -35,7 +35,7 @@ export default tseslint.config(
   js.configs.recommended,
   // TypeScript surface: typescript-eslint's recommended (non-type-checked).
   {
-    files: ["**/*.{ts,tsx}"],
+    files: ["**/*.{ts,tsx,mts,cts}"],
     extends: [tseslint.configs.recommended],
     rules: { "@typescript-eslint/no-unused-vars": noUnusedVars },
   },
@@ -60,7 +60,7 @@ export default tseslint.config(
   // `*.js` glob matters because `no-undef` is active for plain JS (tseslint turns
   // it off for .ts), so a future Node global there would otherwise falsely error.
   {
-    files: ["server/**/*.ts", "scripts/**/*.{mjs,js}", "*.{js,cjs,mjs}", "*.config.ts"],
+    files: ["server/**/*.ts", "scripts/**/*.{mjs,js,mts}", "*.{js,cjs,mjs}", "*.config.ts"],
     languageOptions: { globals: { ...globals.node } },
   },
   // Tests run under Node + jsdom/Playwright: mock generators legitimately never
