@@ -1,0 +1,101 @@
+name: Bump dikw-core version
+
+# Watches dikw-core for a newer published release and, when found, opens a PR
+# bumping the live-integration verification target (DIKW_CORE_VERSION) and labels
+# it `live-integration` so the real-core verification runs on the PR. The pin
+# stays explicit + reviewed (reproducible nightly), but upgrades are surfaced
+# automatically. See docs/integration-verification.md.
+#
+# Requires a fine-grained PAT secret DIKW_BUMP_TOKEN (contents: read/write +
+# pull requests: read/write on this repo). The default GITHUB_TOKEN cannot be
+# used: a PR it creates does NOT trigger the required CI checks or the
+# `labeled` event, so the bump PR would be unmergeable. Without the secret the
+# job no-ops with a warning.
+
+on:
+  schedule:
+    - cron: "15 4 * * 1" # weekly, Monday 04:15 UTC (after the nightly live run)
+  workflow_dispatch:
+
+concurrency:
+  group: bump-dikw-core
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Gate on bump token
+        id: gate
+        env:
+          BUMP_TOKEN: ${{ secrets.DIKW_BUMP_TOKEN }}
+        run: |
+          if [ -z "$BUMP_TOKEN" ]; then
+            echo "::warning::DIKW_BUMP_TOKEN not set — skipping auto-bump. Add a fine-grained PAT (contents + pull-requests write) so the bump PR can trigger CI."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v7
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          token: ${{ secrets.DIKW_BUMP_TOKEN }}
+          fetch-depth: 0
+
+      - name: Resolve latest dikw-core release and compare to the pin
+        id: ver
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # dikw-core tags releases vX.Y.Z; the image tag drops the leading v.
+          latest="$(gh api repos/OpenDIKW/dikw-core/releases/latest --jq .tag_name | sed 's/^v//')"
+          if ! printf '%s' "$latest" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::unexpected dikw-core version '$latest'"; exit 1
+          fi
+          current="$(grep -oE 'DIKW_CORE_VERSION: "[0-9.]+"' .github/workflows/live-integration.yml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+          echo "pinned=$current latest=$latest"
+          newer="$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -1)"
+          if [ "$latest" = "$current" ] || [ "$newer" != "$latest" ]; then
+            echo "Already on the latest dikw-core ($current) — nothing to do."
+            echo "do=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "do=true" >> "$GITHUB_OUTPUT"
+            echo "latest=$latest" >> "$GITHUB_OUTPUT"
+            echo "current=$current" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Open bump PR
+        if: steps.gate.outputs.skip != 'true' && steps.ver.outputs.do == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.DIKW_BUMP_TOKEN }}
+          LATEST: ${{ steps.ver.outputs.latest }}
+          CURRENT: ${{ steps.ver.outputs.current }}
+        run: |
+          set -euo pipefail
+          branch="chore/bump-dikw-core-$LATEST"
+          if [ -n "$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // ""')" ]; then
+            echo "A PR for $branch is already open — nothing to do."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          # Bump the two functional pins (CI env + harness default).
+          sed -i "s/DIKW_CORE_VERSION: \"[0-9.]*\"/DIKW_CORE_VERSION: \"$LATEST\"/" .github/workflows/live-integration.yml
+          sed -i "s#process.env.DIKW_CORE_VERSION || \"[0-9.]*\"#process.env.DIKW_CORE_VERSION || \"$LATEST\"#" scripts/live-core/harness.mjs
+          git add -A
+          git commit -m "chore(live): bump dikw-core verification target to $LATEST"
+          git push -u origin "$branch"
+          gh pr create \
+            --title "chore(live): bump dikw-core verification target to $LATEST" \
+            --body "Automated bump: dikw-core released **$LATEST** (live verification was pinned to \`$CURRENT\`). The \`live-integration\` label runs the full real-core verification on this PR — merge once it and the standard checks are green. See docs/integration-verification.md." \
+            --head "$branch"
+          # Add the label as a discrete step (resolved by head branch) so the
+          # `labeled` event fires the live-integration workflow on this PR.
+          gh pr edit "$branch" --add-label live-integration
+          echo "Opened bump PR for dikw-core $LATEST."
