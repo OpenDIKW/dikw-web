@@ -9,6 +9,22 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-06-24
+
+### Added
+
+- **Auto-track new dikw-core releases (`.github/workflows/bump-dikw-core.yml`).**
+  Weekly (and on demand) the workflow resolves dikw-core's latest GitHub release
+  and, if it's newer than the pinned `DIKW_CORE_VERSION`, opens a
+  `chore/bump-dikw-core-<version>` PR editing both pin sites
+  (`live-integration.yml` + `scripts/live-core/harness.mjs`) and labels it
+  `live-integration` so the full real-core verification runs on the PR. The pin
+  stays explicit + reviewed (reproducible nightly); upgrades are surfaced
+  automatically instead of silently followed. Needs a `DIKW_BUMP_TOKEN`
+  fine-grained PAT (contents + pull-requests write) — the default `GITHUB_TOKEN`
+  can't open a CI-triggering PR; without the secret the job no-ops with a
+  warning. See `docs/integration-verification.md`.
+
 ## [0.7.0] - 2026-06-23
 
 ### Added
