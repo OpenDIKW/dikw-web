@@ -13,7 +13,10 @@ describe("dev server port", () => {
 
     expect(packageJson.scripts.dev).toContain("--port 4321");
     expect(packageJson.scripts.dev).toContain("--strictPort");
-    expect(playwrightConfig).toContain('baseURL: "http://127.0.0.1:4321"');
+    // Default (mocked) mode pins 4321; live mode overrides baseURL via
+    // PW_LIVE_BASE_URL (a dynamic port owned by the live harness), so the 4321
+    // literal is now the default branch of the ternary rather than a bare value.
+    expect(playwrightConfig).toContain('"http://127.0.0.1:4321"');
     expect(playwrightConfig).toContain("port: 4321");
     expect(playwrightConfig).toContain("reuseExistingServer: true");
     expect(playwrightConfig).not.toContain("5174");

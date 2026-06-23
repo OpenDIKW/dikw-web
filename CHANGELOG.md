@@ -9,6 +9,29 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-23
+
+### Added
+
+- **Live integration verification (`npm run live:verify`).** End-to-end
+  verification of the working tree against a **real `dikw-core`** (the published
+  GHCR image, e.g. `ghcr.io/opendikw/dikw-core:0.6.1`) backed by
+  Postgres/pgvector — the gap the rest of the stack can't cover (Playwright mocks
+  `/v1`; `smoke:core` needs a core you seeded yourself). One command boots core +
+  Postgres on **dynamic ports** under a unique compose project (so multiple core
+  versions coexist), seeds it through dikw-web's **own** write pipeline (`import →
+  ingest → synth → lint`, reusing `buildImportBundle` + `DikwClient` via `tsx` so
+  the wire shape can't drift), then verifies the read contract (`smoke-core`), the
+  browser read routes (a new opt-in Playwright `live` project on real data with
+  the console gate), and the **agent↔core** path (a real chat turn must invoke a
+  core-backed tool, read off the agent's observable event stream). New:
+  `docker-compose.live-core.yml`, `scripts/live-core/*`, `scripts/seed-core.mts`,
+  `tests/fixtures/live-base/`, `tests/e2e/live/`, `.env.core.example`, and a
+  non-gating `.github/workflows/live-integration.yml` (dispatch / nightly /
+  `live-integration` label). Sub-commands: `live:up` / `live:seed` / `live:smoke`
+  / `live:down`. The default `verify` gate is untouched. See
+  `docs/integration-verification.md`.
+
 ### Changed
 
 - **README polish.** Added a centered header (logo, tagline, status + tech

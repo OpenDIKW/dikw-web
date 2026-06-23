@@ -1,0 +1,30 @@
+# dikw.yml for the dikw-web live integration harness.
+# Generated into the live base by scripts/live-core/harness.mjs — the LLM model
+# and Postgres DSN placeholders are substituted at bootstrap time. Provider legs
+# mirror dikw-core/tests/fixtures/live-minimax-gitee.dikw.yml: MiniMax LLM over
+# the Anthropic-compatible surface + Gitee AI OpenAI-compatible embeddings. The
+# env var NAMES here must match the keys present in .env.core.
+provider:
+  llm: anthropic_compat
+  llm_model: __LLM_MODEL__
+  llm_base_url: https://api.minimaxi.com/anthropic
+  llm_api_key_env: MINIMAX_API_KEY
+  embedding: openai_compat
+  embedding_model: Qwen3-Embedding-0.6B
+  embedding_base_url: https://ai.gitee.com/v1
+  embedding_api_key_env: GITEE_API_KEY
+  embedding_dim: 1024
+  embedding_revision: ""
+  embedding_normalize: true
+  embedding_distance: cosine
+  embedding_batch_size: 16
+  embedding_provider_label: gitee-ai
+storage:
+  backend: postgres
+  dsn: "__PG_DSN__"
+  schema: dikw
+schema:
+  description: "dikw-web live integration fixture"
+sources:
+  - path: ./sources
+    pattern: "**/*.md"
