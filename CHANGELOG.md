@@ -9,6 +9,16 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.4] - 2026-06-24
+
+### Added
+
+- **Chat: send on Enter.** The composer now sends on `Enter` and inserts a
+  newline on `Shift+Enter`, matching the dominant chat convention (previously
+  only the Send button submitted). The handler skips while an IME is composing
+  (`nativeEvent.isComposing`) so confirming a Chinese candidate with Enter
+  never sends mid-composition.
+
 ## [0.7.3] - 2026-06-24
 
 ### Fixed
