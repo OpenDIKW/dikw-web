@@ -47,6 +47,11 @@ html[data-theme="light"] {
   /* PR1: Replaced 24px blur shadow (invisible on warm-stone) with 1px hairline */
   --shadow: 0 1px 0 rgba(20, 29, 28, 0.04);
   --radius: 8px;
+  /* Focus: single source of truth, derived from --accent so it tracks the
+     theme automatically. --focus-ring is the soft box-shadow ring for text
+     fields; --focus-outline is the crisp keyboard outline for other controls. */
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
+  --focus-outline: 2px solid var(--accent);
 }
 
 html[data-theme="dark"] {
@@ -522,7 +527,16 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(11, 124, 112, 0.12);
+  box-shadow: var(--focus-ring);
+}
+
+/* Keyboard focus: one branded ring across interactive controls that don't
+   already define their own :focus-visible. Zero-specificity :where() so the
+   existing per-element focus rules (graph nodes, reader controls, resizer)
+   still win. Text fields keep their softer box-shadow ring above. */
+:where(button, a[href], [role="button"], summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
 }
 
 .primary-button,

@@ -9,6 +9,31 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-06-24
+
+### Changed
+
+- **Single-source keyboard focus from the accent token (`src/styles.css`).**
+  Two new tokens — `--focus-ring` (a soft 3px box-shadow ring for text fields)
+  and `--focus-outline` (a crisp 2px solid outline for other controls) — both
+  derived from `--accent` via `color-mix`, so the focus indicator now tracks
+  light/dark automatically. A zero-specificity `:where(button, a[href],
+  [role="button"], summary, [tabindex]):focus-visible` rule gives buttons,
+  links, and other interactive controls a consistent branded keyboard-focus
+  ring (WCAG 2.4.7), while existing per-element focus styles (graph nodes,
+  reader controls, resizer) still win. Fixes a dark-mode defect where text
+  inputs rendered a hardcoded light-petrol focus ring (`rgba(11,124,112,…)`)
+  that was nearly invisible on the dark surface. See `docs/ui-system.md`.
+
+### Added
+
+- **Impeccable design baseline + UI audit backlog.** `PRODUCT.md` (strategic:
+  register, users, brand personality, anti-references, principles) and
+  `DESIGN.md` (visual: tokens, typography, components, do's/don'ts, in Stitch
+  format) capture the design system, with `.impeccable/design.json` as the
+  machine-readable sidecar. `docs/ui-audit-backlog.md` records findings from a
+  full live-core interaction walkthrough (light + dark) for follow-up.
+
 ## [0.7.1] - 2026-06-24
 
 ### Added
