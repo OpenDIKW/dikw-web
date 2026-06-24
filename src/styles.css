@@ -992,6 +992,29 @@ textarea:focus {
 
 .citation-item__meta,
 .event-tape__meta,
+.page-ref__head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.page-ref__head > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Layer reads as a muted mono tag, clearly separated from the title (not run
+   together as "Knowledgeknowledge"). Matches the label vocabulary. */
+.page-ref__layer {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .page-ref__meta {
   display: flex;
   flex-wrap: wrap;
@@ -1046,6 +1069,14 @@ textarea:focus {
 
 .result-table__row {
   grid-template-columns: 70px 70px minmax(160px, 1fr) 48px minmax(240px, 2fr);
+}
+
+/* Grid cells default to min-width:auto, so a long unbreakable path (slashes,
+   no spaces) overflows its track and collides with the Seq column. Let the
+   path cell shrink and wrap within its own track. */
+.result-table__row > strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .result-table__head,
@@ -1446,6 +1477,14 @@ body.is-col-resizing {
 .frontmatter-chip--source {
   border-radius: 6px;
   font-family: var(--font-mono);
+}
+
+/* Cap the reading measure so prose stays at a comfortable line length on wide
+   panes (DESIGN.md: body 65–75ch) instead of running edge-to-edge. Narrower
+   surfaces (chat replies, bilingual columns) sit under this width already, so
+   the cap is a no-op there. */
+.markdown-body {
+  max-width: 72ch;
 }
 
 .markdown-body h1,
