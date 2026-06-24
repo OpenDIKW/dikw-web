@@ -74,6 +74,14 @@ topbar, compact metric grid, and left-marker selected states unless a
 future design explicitly replaces the system. Avoid one-off page colors,
 heavy card shadows, oversized radii, and decorative gradients.
 
+Keyboard focus is single-sourced from the accent. `--focus-ring` (a soft
+3px box-shadow ring) is for text fields; `--focus-outline` (a crisp 2px
+solid outline) is the default for other interactive controls via a
+zero-specificity `:where(...):focus-visible` rule, so per-element focus
+styles (graph nodes, reader controls) still win. Both derive from
+`--accent` via `color-mix`, so they track light/dark automatically — don't
+hard-code a focus ring color.
+
 The Wiki reader has reader-specific tokens for article surfaces, text,
 links, borders, quote blocks, code, and tables. Dark mode must keep the
 middle reading pane as a low-glare dark surface; it must not introduce

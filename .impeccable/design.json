@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-24T00:00:00Z",
+  "title": "Design System: dikw-web",
+  "extensions": {
+    "colorMeta": {
+      "deep-petrol": {
+        "role": "primary",
+        "displayName": "Deep Petrol",
+        "canonical": "#0d5e57",
+        "darkMode": "#4eb8a6",
+        "tonalRamp": [
+          "#062825",
+          "#073b36",
+          "#094540",
+          "#0d5e57",
+          "#2f8077",
+          "#5ba79e",
+          "#9bccc5",
+          "#e2eeec"
+        ]
+      },
+      "warm-stone": {
+        "role": "neutral",
+        "displayName": "Warm Stone",
+        "canonical": "#f5f3ee",
+        "darkMode": "#14140f",
+        "tonalRamp": [
+          "#1a1d1c",
+          "#3a382e",
+          "#6c6f6a",
+          "#95968f",
+          "#cdc9bd",
+          "#e2dfd6",
+          "#f0eee8",
+          "#f5f3ee"
+        ]
+      },
+      "graphite": {
+        "role": "neutral",
+        "displayName": "Graphite",
+        "canonical": "#1a1d1c",
+        "darkMode": "#f0eee7",
+        "tonalRamp": [
+          "#0e100f",
+          "#1a1d1c",
+          "#2f322f",
+          "#4d514c",
+          "#6c6f6a",
+          "#95968f",
+          "#bcbcb5",
+          "#e8e6df"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display Serif",
+        "purpose": "Page titles and reader article headings — the one editorial moment."
+      },
+      "title": {
+        "displayName": "UI Title",
+        "purpose": "Panel headings, card titles, structural labels."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Interface text, descriptions, agent replies. Reader prose caps at 65–75ch."
+      },
+      "label": {
+        "displayName": "Mono Label",
+        "purpose": "Field labels, table heads, IDs, status posture. The only uppercase role."
+      }
+    },
+    "shadows": [
+      {
+        "name": "edge-line",
+        "value": "0 1px 0 rgba(20,29,28,0.04)",
+        "purpose": "The only elevation in light mode — crisps a card/panel bottom edge as a hairline, never a float."
+      },
+      {
+        "name": "edge-line-dark",
+        "value": "0 1px 0 rgba(0,0,0,0.4)",
+        "purpose": "Dark-mode equivalent of the edge line."
+      },
+      {
+        "name": "focus-ring",
+        "value": "0 0 0 3px color-mix(in srgb, #0d5e57 24%, transparent)",
+        "purpose": "Soft box-shadow ring for text fields (--focus-ring). Derived from --accent so it tracks the theme; non-field controls use the crisp --focus-outline (2px solid accent) instead."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state",
+        "value": "120ms ease",
+        "purpose": "Default state transition (color/border/background) on buttons, controls, links."
+      },
+      {
+        "name": "ease-out-quart",
+        "value": "cubic-bezier(0.25, 1, 0.5, 1)",
+        "purpose": "Suggested ease-out curve for any new entrance/reveal — replaces the system's current linear ease where motion is meaningful."
+      }
+    ],
+    "breakpoints": [{ "name": "mobile", "value": "640px" }]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one filled-accent action. Used once per context for the primary commit.",
+      "html": "<button class=\"ds-btn-primary\">Save</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 0 14px; border: 1px solid #094540; border-radius: 6px; background: #0d5e57; color: #fff; font-weight: 500; font-family: 'Inter Tight', system-ui, sans-serif; transition: background-color 120ms ease, border-color 120ms ease; } .ds-btn-primary:hover { background: #094540; } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, #0d5e57 30%, transparent); } .ds-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Quiet bordered action — the default non-primary control.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid #cdc9bd; border-radius: 6px; background: #fff; color: #1a1d1c; font-weight: 500; font-family: 'Inter Tight', system-ui, sans-serif; transition: background-color 120ms ease, border-color 120ms ease; } .ds-btn-secondary:hover { border-color: #9fb0aa; background: #faf9f5; } .ds-btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, #0d5e57 22%, transparent); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Labeled field. Mono uppercase label above a hairline-bordered control.",
+      "html": "<label class=\"ds-field\"><span>Server URL</span><input class=\"ds-input\" value=\"http://127.0.0.1:8765\" /></label>",
+      "css": ".ds-field { display: grid; gap: 6px; } .ds-field > span { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; color: #6c6f6a; } .ds-input { width: 100%; height: 36px; padding: 0 10px; border: 1px solid #cdc9bd; border-radius: 6px; background: #fff; color: #1a1d1c; font-family: 'Inter Tight', system-ui, sans-serif; outline: none; transition: border-color 120ms ease, box-shadow 120ms ease; } .ds-input:focus { border-color: #0d5e57; box-shadow: 0 0 0 3px color-mix(in srgb, #0d5e57 24%, transparent); }"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "status-pill",
+      "description": "Carries state only — never decoration. One variant per signal.",
+      "html": "<span class=\"ds-pill ds-pill-ok\">Connected</span>",
+      "css": ".ds-pill { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 999px; border: 1px solid transparent; font-family: 'Inter Tight', system-ui, sans-serif; font-size: 12px; font-weight: 500; white-space: nowrap; } .ds-pill-ok { background: color-mix(in srgb, #2f7a4d 16%, transparent); color: #2f7a4d; border-color: color-mix(in srgb, #2f7a4d 25%, transparent); }"
+    },
+    {
+      "name": "Segmented Control",
+      "kind": "nav",
+      "refersTo": "segmented-control",
+      "description": "Mutually exclusive view choice. Active tab gets a white surface and petrol-ink text.",
+      "html": "<div class=\"ds-seg\"><button class=\"is-active\">Read</button><button>Frontmatter</button></div>",
+      "css": ".ds-seg { display: inline-flex; align-items: center; gap: 2px; padding: 3px; border: 1px solid #e2dfd6; border-radius: 8px; background: #faf9f5; } .ds-seg button { min-height: 28px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #6c6f6a; font-family: 'Inter Tight', system-ui, sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease; } .ds-seg button:hover, .ds-seg button.is-active { border-color: #c5dad5; background: #fff; color: #094540; }"
+    },
+    {
+      "name": "Panel Card",
+      "kind": "card",
+      "refersTo": "metric-card",
+      "description": "Framed work area. Hairline border + edge-line, never a floated shadow.",
+      "html": "<section class=\"ds-card\"><h3 class=\"ds-card-title\">Layer counts</h3><p class=\"ds-card-body\">Knowledge, source, and wisdom pages tracked by the active base.</p></section>",
+      "css": ".ds-card { border: 1px solid #e2dfd6; border-radius: 8px; background: #fff; box-shadow: 0 1px 0 rgba(20,29,28,0.04); padding: 16px 20px; } .ds-card-title { margin: 0 0 6px; font-family: 'Inter Tight', system-ui, sans-serif; font-size: 17px; font-weight: 600; color: #1a1d1c; } .ds-card-body { margin: 0; font-family: 'Inter Tight', system-ui, sans-serif; font-size: 15px; line-height: 1.55; color: #6c6f6a; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Instrument",
+    "overview": "dikw-web is a precision instrument for reading and reasoning over a personal knowledge base. Like a well-made reference tool, it earns trust by receding: the chrome is calm warm-stone and hairline structure, and the knowledge is the only thing allowed to carry color and weight. A single deep-petrol accent is the instrument's one indicator light; it appears rarely and means something every time. Density is a feature — built for sustained expert use — but earned through rhythm, alignment, and restraint, never clutter. Depth comes from a 1px tonal line, not drop shadows.",
+    "keyCharacteristics": [
+      "Warm-stone neutral canvas; never true white as the page background.",
+      "One accent (deep petrol) used on ≤10% of any screen.",
+      "Hairline borders and tonal layering instead of shadows.",
+      "Serif for titles/reading, sans for UI, mono for IDs/paths/labels.",
+      "Full light + dark parity; the reader keeps a low-glare dark surface."
+    ],
+    "rules": [
+      {
+        "name": "The One Indicator Rule",
+        "body": "Deep petrol is the only chromatic accent and appears on ≤10% of any screen. Its rarity is the signal. Never introduce a second brand accent.",
+        "section": "colors"
+      },
+      {
+        "name": "The No-True-White-Background Rule",
+        "body": "The page background is always warm stone (#f5f3ee), never #ffffff. White is a raised-surface color.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono-Only-Uppercase Rule",
+        "body": "Uppercase + letter-spacing is permitted exclusively in the JetBrains Mono label role. Never set sans or serif in tracked uppercase — that is the AI eyebrow tell.",
+        "section": "typography"
+      },
+      {
+        "name": "The Hairline-Not-Box Rule",
+        "body": "Separation comes from 1px borders and surface tone, never blur. If you reach for box-shadow with a blur radius > 1px, use a border instead.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the page background warm stone (#f5f3ee); reserve #ffffff for raised surfaces.",
+      "Do spend the deep-petrol accent rarely (≤10% of a screen) and only where it means something.",
+      "Do separate surfaces with 1px hairline borders and surface tone; depth is structural, not floated.",
+      "Do keep radii on the 4 / 6 / 8 / 999 scale; controls at 6px, cards at 8px, pills fully round.",
+      "Do confine uppercase + letter-spacing to the JetBrains Mono label role.",
+      "Do maintain WCAG AA in both light and dark, with a prefers-reduced-motion fallback for every animation."
+    ],
+    "donts": [
+      "Don't build generic SaaS dashboards — no multi-color status walls, hero-metric blocks, or heavy drop-shadow card grids.",
+      "Don't reach for the AI-template look — no cream/terracotta, no tracked uppercase eyebrows, no 01/02/03 decoration.",
+      "Don't add heavy decoration or motion — no glassmorphism, glow/bloom, gradient text, or large entrance animations.",
+      "Don't crowd or over-color — no neon, no second accent, no oversized radii (stray 10/12/14px is drift), no icon-everywhere decoration.",
+      "Don't use border-left/border-right > 1px as a colored accent stripe; use a full border, a tint, or a leading marker.",
+      "Don't introduce a 24px soft drop shadow — it's invisible on warm stone and reads as a 2014 app; use a hairline."
+    ]
+  }
+}
