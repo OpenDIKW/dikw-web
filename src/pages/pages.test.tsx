@@ -1612,6 +1612,9 @@ describe("read console pages", () => {
     render(<ChatPage agentClient={agentClient} />);
     const box = await screen.findByLabelText("Message");
 
+    // Idle composer shows no Stop control — it is not a persistent dead button.
+    expect(screen.queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
+
     // Shift+Enter inserts a newline and must NOT send.
     await userEvent.type(box, "line one");
     await userEvent.keyboard("{Shift>}{Enter}{/Shift}");
@@ -1625,6 +1628,53 @@ describe("read console pages", () => {
       "session-1",
       "line one\nline two",
       expect.any(AbortSignal),
+    );
+  });
+
+  it("shows the Stop control only while a reply is streaming", async () => {
+    const emptySession = {
+      id: "session-1",
+      title: "New chat",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:00.000Z",
+      messageCount: 0,
+      lastMessagePreview: "",
+      messages: [],
+      toolEvents: [],
+      sources: [],
+      proposals: [],
+    };
+    let releaseStream: () => void = () => {};
+    const streamGate = new Promise<void>((resolve) => {
+      releaseStream = resolve;
+    });
+    async function* gatedStream(): AsyncGenerator<AgentStreamEvent> {
+      await streamGate;
+      yield { type: "agent_end", sessionId: "session-1" };
+    }
+    const agentClient: AgentClientLike = {
+      listSessions: vi.fn().mockResolvedValue([]),
+      createSession: vi.fn().mockResolvedValue(emptySession),
+      getSession: vi.fn().mockResolvedValue(emptySession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
+      sendMessage: vi.fn(() => gatedStream()),
+    };
+    render(<ChatPage agentClient={agentClient} />);
+    const box = await screen.findByLabelText("Message");
+
+    await userEvent.type(box, "hello");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    // Stop appears while the reply streams.
+    expect(await screen.findByRole("button", { name: "Stop" })).toBeInTheDocument();
+
+    // Once the stream completes, Stop disappears again.
+    releaseStream();
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Stop" })).not.toBeInTheDocument(),
     );
   });
 

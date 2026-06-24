@@ -3878,8 +3878,8 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .summary-metric {
   min-width: 0;
   padding: 10px;
-  border: 1px solid var(--line);
   border-radius: var(--radius);
+  /* Borderless recessed wells — never a bordered card nested in the panel. */
   background: var(--surface-soft);
 }
 
@@ -3904,9 +3904,9 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
-  border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--surface-soft);
+  /* Seamless grouping on the panel — the metric wells supply the structure. */
+  background: var(--surface);
 }
 
 .result-summary--compact {
@@ -3916,7 +3916,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .result-summary--error {
-  border-color: color-mix(in srgb, var(--red) 56%, var(--line));
+  border: 1px solid color-mix(in srgb, var(--red) 56%, var(--line));
   background: color-mix(in srgb, var(--red) 9%, var(--surface));
 }
 
@@ -3957,7 +3957,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .summary-metric--warn {
-  border-color: #e7c06a;
+  border: 1px solid #e7c06a;
   background: #fffaf0;
 }
 
@@ -4150,9 +4150,6 @@ html[data-theme="dark"] .frontmatter-chip,
 html[data-theme="dark"] .wisdom-chip,
 html[data-theme="dark"] .wiki-info-grid div,
 html[data-theme="dark"] .wiki-outline-columns > section,
-html[data-theme="dark"] .result-summary,
-html[data-theme="dark"] .summary-metric,
-html[data-theme="dark"] .task-summary-grid div,
 html[data-theme="dark"] .file-error-card,
 html[data-theme="dark"] .json-details,
 html[data-theme="dark"] .metrics-table__row,
@@ -4162,6 +4159,18 @@ html[data-theme="dark"] .page-ref,
 html[data-theme="dark"] .citation-item {
   background: var(--surface-2);
   border-color: var(--line);
+  color: var(--text);
+}
+
+/* Result summaries: seamless borderless grouping with recessed metric wells. */
+html[data-theme="dark"] .result-summary:not(.result-summary--error) {
+  background: var(--surface);
+  color: var(--text);
+}
+
+html[data-theme="dark"] .summary-metric,
+html[data-theme="dark"] .task-summary-grid div {
+  background: var(--surface-soft);
   color: var(--text);
 }
 

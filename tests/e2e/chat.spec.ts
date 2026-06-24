@@ -106,7 +106,9 @@ test("keeps composer action icons visually centered", async ({ page }) => {
     );
   });
 
-  expect(measurements).toHaveLength(2);
+  // The idle composer exposes a single action icon (Send); the Stop control is
+  // rendered only while a reply streams (see ChatPage), so it is absent here.
+  expect(measurements).toHaveLength(1);
   for (const measurement of measurements) {
     expect(
       Math.abs(measurement.buttonWidth - measurement.buttonHeight),

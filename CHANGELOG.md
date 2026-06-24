@@ -9,6 +9,21 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.5] - 2026-06-25
+
+### Changed
+
+- **Chat: Stop is shown only while a reply streams.** The idle composer no
+  longer renders a disabled, glyph-less Stop control next to Send (it read as an
+  empty placeholder square). Stop now appears only while a reply is streaming —
+  an honest surface with no dead control.
+- **Tasks: removed card-in-card nesting in the detail panel.** The summary tiles
+  (`created` / `duration` / `digest`) and the Result metric tiles were bordered
+  boxes nested inside the bordered detail panel. They are now borderless recessed
+  tonal wells, and the `result-summary` grouping is seamless on the panel
+  surface; the semantic `--warn` (amber) and `--error` (red) borders are kept
+  explicit. Verified in light and dark against a live core.
+
 ## [0.7.4] - 2026-06-24
 
 ### Added
