@@ -584,10 +584,12 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
               <Send size={16} />
               {copy.send}
             </button>
-            <button className="secondary-button" type="button" onClick={stop} disabled={!running}>
-              <Square size={15} />
-              {copy.stop}
-            </button>
+            {running ? (
+              <button className="secondary-button" type="button" onClick={stop}>
+                <Square size={15} />
+                {copy.stop}
+              </button>
+            ) : null}
           </div>
         </main>
       </section>

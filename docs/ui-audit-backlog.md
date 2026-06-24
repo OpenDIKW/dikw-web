@@ -16,9 +16,13 @@ with [`DESIGN.md`](../DESIGN.md) / [`PRODUCT.md`](../PRODUCT.md).
   collision), reader max-measure, Wisdom empty state, MB-Web palette alignment,
   the `.mb-anno` side-stripe callout, Graph `links` plural, Retrieve page-refs
   empty-state parity. Each is checked off inline below.
-- **Open** (need a decision or deferred): Chat Enter-to-send (product
-  decision), Chat idle Stop glyph, Tasks card-in-card (shared classes —
-  higher regression risk), and the advisory radius/color sweep.
+- **Resolved** (Enter-to-send PR): Chat Enter-to-send — `Enter` sends,
+  `Shift+Enter` newlines, IME-composition guarded.
+- **Resolved** (P3-polish PR): Chat idle Stop glyph (Stop now shows only while
+  streaming) and Tasks card-in-card (metric tiles are borderless recessed wells,
+  warn/error borders kept explicit). Both verified in light + dark on live core.
+- **Open** (deferred — judged not worth a sweep): the advisory radius
+  (7px→6px control unification) and color one-off promotions. See Advisories.
 
 **Correction:** the `styles.css` "side-tab callout" originally listed below was
 on inspection a **blockquote** (left rule = standard quote convention), not a
@@ -75,7 +79,8 @@ callout — see the revised Static-findings section.
 - **[Chat composer] Idle Stop button is an unlabeled empty square.** Next to
   Send, the Stop control renders as a bare square with no glyph when idle
   (it has an accessible name, but no visible affordance). *Fix:* give it a
-  stop glyph or hide it until streaming.
+  stop glyph or hide it until streaming. **DONE** — hidden until streaming
+  (`{running ? <Stop/> : null}`); the idle composer is just textarea + Send.
 - **[Retrieve] Empty-state inconsistency.** "No chunks yet" has teaching
   subtext; "No page refs" is bare. Match them.
 - **[Graph] Toolbar copy.** `16 LINK` should read `16 LINKS` (or keep singular
@@ -83,6 +88,9 @@ callout — see the revised Static-findings section.
 - **[Tasks] Card-in-card nesting.** The Result metric tiles are bordered boxes
   inside the bordered detail panel (`DESIGN.md`: never nest a card in a card).
   *Fix:* make the inner tiles borderless (tonal fill) or drop the panel border.
+  **DONE** — metric tiles (`.task-summary-grid div`, `.summary-metric`) are now
+  borderless recessed wells and `.result-summary` is a seamless grouping on the
+  panel surface; `--warn`/`--error` borders kept explicit. Light + dark verified.
 
 ## Static detector findings (`impeccable`)
 
