@@ -1017,8 +1017,10 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
               onToggle={toggleDir}
               onSelect={handleSelectPage}
             />
-          ) : (
+          ) : pages.length ? (
             <EmptyState title={copy.noMatches} />
+          ) : (
+            <EmptyState title={copy.emptyDirectory} detail={copy.emptyDirectoryDetail} />
           )}
         </aside>
 
