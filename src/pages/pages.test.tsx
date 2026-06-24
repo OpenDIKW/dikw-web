@@ -1582,6 +1582,52 @@ describe("read console pages", () => {
     );
   });
 
+  it("sends on Enter and inserts a newline on Shift+Enter", async () => {
+    const emptySession = {
+      id: "session-1",
+      title: "New chat",
+      createdAt: "2026-05-13T00:00:00.000Z",
+      updatedAt: "2026-05-13T00:00:00.000Z",
+      messageCount: 0,
+      lastMessagePreview: "",
+      messages: [],
+      toolEvents: [],
+      sources: [],
+      proposals: [],
+    };
+    const agentClient: AgentClientLike = {
+      listSessions: vi.fn().mockResolvedValue([]),
+      createSession: vi.fn().mockResolvedValue(emptySession),
+      getSession: vi.fn().mockResolvedValue(emptySession),
+      renameSession: vi.fn(),
+      deleteSession: vi.fn(),
+      abort: vi.fn(),
+      getSessionTraces: vi.fn().mockResolvedValue({ sessionId: "session-1", invocations: [] }),
+      sendMessage: vi.fn(() =>
+        createAsyncEvents([
+          { type: "agent_end", sessionId: "session-1" },
+        ] satisfies AgentStreamEvent[]),
+      ),
+    };
+    render(<ChatPage agentClient={agentClient} />);
+    const box = await screen.findByLabelText("Message");
+
+    // Shift+Enter inserts a newline and must NOT send.
+    await userEvent.type(box, "line one");
+    await userEvent.keyboard("{Shift>}{Enter}{/Shift}");
+    await userEvent.type(box, "line two");
+    expect(agentClient.sendMessage).not.toHaveBeenCalled();
+
+    // Plain Enter sends the multi-line draft.
+    await userEvent.keyboard("{Enter}");
+    expect(agentClient.sendMessage).toHaveBeenCalledTimes(1);
+    expect(agentClient.sendMessage).toHaveBeenCalledWith(
+      "session-1",
+      "line one\nline two",
+      expect.any(AbortSignal),
+    );
+  });
+
   it("uses chat terminology and renames sessions from the session menu", async () => {
     const activeSession = {
       id: "session-1",

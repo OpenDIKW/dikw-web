@@ -562,6 +562,15 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                 value={draft}
                 rows={3}
                 onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => {
+                  // Enter sends; Shift+Enter inserts a newline. Skip while an
+                  // IME is composing (e.g. Chinese candidate selection) so
+                  // confirming a candidate with Enter never sends the message.
+                  if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                    event.preventDefault();
+                    if (!running && draft.trim()) void sendMessage();
+                  }
+                }}
                 placeholder={copy.messagePlaceholder}
                 disabled={running}
               />
