@@ -9,6 +9,31 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-06-24
+
+### Fixed
+
+- **Retrieve layout collisions.** Page Refs rendered the page title and layer
+  label with no separator (`Knowledgeknowledge`); the layer is now a muted mono
+  tag in a flex row. In the Chunks table a long unbreakable path overflowed its
+  grid track and collided with the Seq column; the path cell now shrinks and
+  wraps (`min-width:0; overflow-wrap:anywhere`).
+- **Reader line length.** Prose ran edge-to-edge on wide panes; `.markdown-body`
+  is now capped to 72ch (DESIGN.md body 65–75ch). Narrower surfaces (chat
+  replies, bilingual columns) already sit under this width, so it's a no-op
+  there.
+- **Wisdom empty state.** An empty wisdom base showed "No wisdom pages match"
+  (implying a filter miss); it now distinguishes the true zero-state ("No wisdom
+  pages yet" + a hint to use New or run synth) from a filtered no-match.
+- **MB-Web identity drift.** MB-Web shipped its own green palette (forest-green
+  accent, green-tinted neutrals); its `mb.css` neutrals, accent, and danger are
+  realigned to the workbench warm-stone + petrol tokens (One Indicator Rule),
+  keeping the answer-blue semantic.
+- **MB annotation side-stripe.** `.mb-anno` used the banned 3px accent
+  `border-left` callout pattern; reworked to a full accent-tinted border.
+- **Copy polish.** Graph stats read "{n} links" (was singular); the Retrieve
+  "No page refs" empty state gained a teaching detail line.
+
 ## [0.7.2] - 2026-06-24
 
 ### Changed

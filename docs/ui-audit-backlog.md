@@ -9,9 +9,20 @@ Severity: **P1** clear defect (reads as broken) · **P2** quality gap ·
 **P3** minor polish. Each item notes the proposed fix and whether it aligns
 with [`DESIGN.md`](../DESIGN.md) / [`PRODUCT.md`](../PRODUCT.md).
 
-This is a backlog, not a changelog — nothing here is fixed yet. The only
-shipped change so far is the keyboard-focus token unification (see
-`docs/ui-system.md` Visual Tokens).
+### Status
+
+- **Shipped** (keyboard-focus PR): focus-token unification (`docs/ui-system.md`).
+- **Resolved** (audit-fix PR): both P1s (Page Refs separator, Chunks PATH/SEQ
+  collision), reader max-measure, Wisdom empty state, MB-Web palette alignment,
+  the `.mb-anno` side-stripe callout, Graph `links` plural, Retrieve page-refs
+  empty-state parity. Each is checked off inline below.
+- **Open** (need a decision or deferred): Chat Enter-to-send (product
+  decision), Chat idle Stop glyph, Tasks card-in-card (shared classes —
+  higher regression risk), and the advisory radius/color sweep.
+
+**Correction:** the `styles.css` "side-tab callout" originally listed below was
+on inspection a **blockquote** (left rule = standard quote convention), not a
+callout — see the revised Static-findings section.
 
 ## Interaction findings (live walkthrough)
 
@@ -80,12 +91,16 @@ advisories are acceptable one-offs; the actionable subset is small.
 
 ### Warnings
 
-- **side-tab (5)** — colored side-stripe borders.
-  - `styles.css:5108` — a muted callout block with a 3px accent `border-left`.
-    **Real** — matches the `DESIGN.md` "no side-stripe accent" ban. Rework to a
-    full border or background tint.
-  - `mb.css:984`, `mb.css:1011` — 3px `border-left` accent stripes. **Review;
-    likely real** — same rework.
+- **side-tab (5)** — colored side-stripe borders. Re-inspected; only one was a
+  genuine callout.
+  - `mb.css` `.mb-anno` (annotation callout) — 3px accent `border-left` +
+    asymmetric radius. **Real → FIXED**: reworked to a full accent-tinted
+    border + full radius (the `我的批注` label + tint still set it apart).
+  - `styles.css` `.agent-message--assistant .markdown-body blockquote` (the
+    line first listed as a "callout") — on inspection this is a **blockquote**,
+    not a callout. **Accept** — left rule is standard quote convention.
+  - `mb.css` `.mb-quote` — serif quote with a **neutral** (`--border2`) left
+    rule, not an accent stripe. **Accept** — standard quote styling.
   - `styles.css:1558` — `.markdown-body blockquote` left border. **Accept** —
     blockquote left rules are standard typographic convention, not the card
     side-tab tell. (`DESIGN.md`'s ban targets cards/callouts/alerts.)
