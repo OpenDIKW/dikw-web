@@ -107,6 +107,7 @@ export const translations = {
           "Run retrieve to show final chunks; streaming partial results appear as a preview.",
         pageRefsTitle: "Page Refs",
         emptyPageRefs: "No page refs",
+        emptyPageRefsDetail: "Page-level matches appear here once you run retrieve.",
       },
       wiki: {
         title: "Base",
@@ -540,6 +541,7 @@ export const translations = {
         emptyChunksDetail: "运行检索后会显示最终 chunks；流式 partial 会先作为预览出现。",
         pageRefsTitle: "Page Refs",
         emptyPageRefs: "尚无 page refs",
+        emptyPageRefsDetail: "运行检索后,页面级匹配会显示在这里。",
       },
       wiki: {
         title: "知识库",

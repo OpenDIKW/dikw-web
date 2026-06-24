@@ -159,7 +159,7 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
               ))}
             </div>
           ) : (
-            <EmptyState title={copy.emptyPageRefs} />
+            <EmptyState title={copy.emptyPageRefs} detail={copy.emptyPageRefsDetail} />
           )}
         </div>
       </section>

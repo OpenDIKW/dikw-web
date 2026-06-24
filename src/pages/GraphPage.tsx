@@ -156,7 +156,7 @@ export function GraphPage({
             <div className="graph-canvas__header">
               <div className="graph-stats" aria-label="Graph stats">
                 <span className="soft-label">{filteredGraph.stats.nodeCount} nodes</span>
-                <span className="soft-label">{filteredGraph.stats.edgeCount} link</span>
+                <span className="soft-label">{filteredGraph.stats.edgeCount} links</span>
                 <span className="soft-label">{filteredGraph.stats.unresolvedCount} unresolved</span>
               </div>
               <div className="graph-legend" aria-label="Graph legend">
