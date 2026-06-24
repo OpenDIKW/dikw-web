@@ -147,9 +147,9 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
             <div className="page-ref-list">
               {pageRefs.map((ref) => (
                 <article className="page-ref" key={ref.path}>
-                  <div>
+                  <div className="page-ref__head">
                     <strong>{ref.title ?? ref.path}</strong>
-                    <span>{ref.layer ?? "-"}</span>
+                    <span className="page-ref__layer">{ref.layer ?? "-"}</span>
                   </div>
                   <div className="page-ref__meta">
                     <span>{formatScore(ref.score)}</span>
@@ -159,7 +159,7 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
               ))}
             </div>
           ) : (
-            <EmptyState title={copy.emptyPageRefs} />
+            <EmptyState title={copy.emptyPageRefs} detail={copy.emptyPageRefsDetail} />
           )}
         </div>
       </section>

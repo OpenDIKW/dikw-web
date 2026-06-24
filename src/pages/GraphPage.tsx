@@ -155,8 +155,12 @@ export function GraphPage({
           <main className="graph-canvas panel">
             <div className="graph-canvas__header">
               <div className="graph-stats" aria-label="Graph stats">
-                <span className="soft-label">{filteredGraph.stats.nodeCount} nodes</span>
-                <span className="soft-label">{filteredGraph.stats.edgeCount} link</span>
+                <span className="soft-label">
+                  {`${filteredGraph.stats.nodeCount} ${filteredGraph.stats.nodeCount === 1 ? "node" : "nodes"}`}
+                </span>
+                <span className="soft-label">
+                  {`${filteredGraph.stats.edgeCount} ${filteredGraph.stats.edgeCount === 1 ? "link" : "links"}`}
+                </span>
                 <span className="soft-label">{filteredGraph.stats.unresolvedCount} unresolved</span>
               </div>
               <div className="graph-legend" aria-label="Graph legend">

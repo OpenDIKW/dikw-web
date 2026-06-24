@@ -5,23 +5,26 @@
  * panel splitters.
  */
 .mb-app {
-  --bg: #f5f8f5;
+  /* Aligned to the workbench warm-stone + petrol identity (One Indicator Rule):
+     MB-Web shares the same neutrals and accent as src/styles.css, not its own
+     green palette. --ans-* (answer blue) stays a distinct functional semantic. */
+  --bg: #f5f3ee;
   --surface: #ffffff;
-  --surface2: #e9f0ea;
-  --border: #dde6df;
-  --border2: #c8d6cd;
-  --text: #18221b;
-  --muted: #54615a;
-  --faint: #8a978e;
-  --ac: #15803d;
-  --acb: #d9efdf;
-  --act: #125330;
+  --surface2: #f0eee8;
+  --border: #e2dfd6;
+  --border2: #cdc9bd;
+  --text: #1a1d1c;
+  --muted: #6c6f6a;
+  --faint: #95968f;
+  --ac: #0d5e57;
+  --acb: #e2eeec;
+  --act: #094540;
   --acfg: #ffffff;
-  --hover-bp: #eef7f1;
-  --anno-bg: #f0f6f2;
+  --hover-bp: #faf9f5;
+  --anno-bg: #e2eeec;
   --ans-bg: #e6f1fb;
   --ans-tx: #0c447c;
-  --danger: #dc4d4b;
+  --danger: #a8362c;
   --radius: 8px;
   --radius-lg: 12px;
   --sans:
@@ -42,23 +45,23 @@
   overflow: hidden;
 }
 html[data-theme="dark"] .mb-app {
-  --bg: #0d1410;
-  --surface: #151e18;
-  --surface2: #1b2620;
-  --border: #28352d;
-  --border2: #33453a;
-  --text: #e6ece8;
-  --muted: #93a59a;
-  --faint: #6a7c71;
-  --ac: #34d399;
-  --acb: #103425;
-  --act: #a7f3cf;
-  --acfg: #042018;
-  --hover-bp: #18291f;
-  --anno-bg: #18211b;
+  --bg: #14140f;
+  --surface: #1b1b15;
+  --surface2: #25241d;
+  --border: #2f2d24;
+  --border2: #4e4a3c;
+  --text: #f0eee7;
+  --muted: #b0aca0;
+  --faint: #87826f;
+  --ac: #4eb8a6;
+  --acb: #142a26;
+  --act: #92e3d4;
+  --acfg: #06231f;
+  --hover-bp: #1f1e17;
+  --anno-bg: #142a26;
   --ans-bg: #12304e;
   --ans-tx: #b5d4f4;
-  --danger: #f0807f;
+  --danger: #ef7f75;
 }
 .mb-app *,
 .mb-app *::before,
@@ -1008,8 +1011,8 @@ body.mb-col-resizing * {
    original / answer above it. */
 .mb-anno {
   background: var(--anno-bg);
-  border-left: 3px solid var(--ac);
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border: 1px solid color-mix(in srgb, var(--ac) 28%, var(--border));
+  border-radius: var(--radius);
   padding: 10px 14px;
   margin: 0 0 12px;
 }

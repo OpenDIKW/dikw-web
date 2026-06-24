@@ -107,6 +107,7 @@ export const translations = {
           "Run retrieve to show final chunks; streaming partial results appear as a preview.",
         pageRefsTitle: "Page Refs",
         emptyPageRefs: "No page refs",
+        emptyPageRefsDetail: "Page-level matches appear here once you run retrieve.",
       },
       wiki: {
         title: "Base",
@@ -190,6 +191,9 @@ export const translations = {
         clearSearch: "Clear filter",
         fileCount: { one: "{n} page", many: "{n} pages" },
         noMatches: "No wisdom pages match",
+        emptyDirectory: "No wisdom pages yet",
+        emptyDirectoryDetail:
+          "Create one with New, or run synth to derive wisdom from your knowledge.",
         readerRegion: "Wisdom reader",
         emptyReader: "Select a wisdom page",
         tabList: "Wisdom reader tabs",
@@ -537,6 +541,7 @@ export const translations = {
         emptyChunksDetail: "运行检索后会显示最终 chunks；流式 partial 会先作为预览出现。",
         pageRefsTitle: "Page Refs",
         emptyPageRefs: "尚无 page refs",
+        emptyPageRefsDetail: "运行检索后,页面级匹配会显示在这里。",
       },
       wiki: {
         title: "知识库",
@@ -619,6 +624,8 @@ export const translations = {
         clearSearch: "清除筛选",
         fileCount: { one: "{n} 篇", many: "{n} 篇" },
         noMatches: "没有匹配的认知页面",
+        emptyDirectory: "还没有认知页面",
+        emptyDirectoryDetail: "点击「新建」创建,或运行 synth 从知识层提炼认知。",
         readerRegion: "认知阅读器",
         emptyReader: "请选择一个认知页面",
         tabList: "认知阅读器标签",
