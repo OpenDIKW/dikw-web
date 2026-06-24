@@ -18,3 +18,6 @@ vite*.log
 !.claude/agents/
 # Runtime branding override (per-deployment; copy from public/config.example.json)
 /public/config.json
+# impeccable design-skill detector cache (transient; the design system itself
+# lives in DESIGN.md + .impeccable/design.json, which ARE tracked).
+.impeccable/hook.cache.json
