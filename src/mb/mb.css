@@ -21,7 +21,7 @@
   --act: #094540;
   --acfg: #ffffff;
   --hover-bp: #faf9f5;
-  --anno-bg: #f0eee8;
+  --anno-bg: #e2eeec;
   --ans-bg: #e6f1fb;
   --ans-tx: #0c447c;
   --danger: #a8362c;
@@ -58,7 +58,7 @@ html[data-theme="dark"] .mb-app {
   --act: #92e3d4;
   --acfg: #06231f;
   --hover-bp: #1f1e17;
-  --anno-bg: #25241d;
+  --anno-bg: #142a26;
   --ans-bg: #12304e;
   --ans-tx: #b5d4f4;
   --danger: #ef7f75;
@@ -1011,8 +1011,8 @@ body.mb-col-resizing * {
    original / answer above it. */
 .mb-anno {
   background: var(--anno-bg);
-  border-left: 3px solid var(--ac);
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border: 1px solid color-mix(in srgb, var(--ac) 28%, var(--border));
+  border-radius: var(--radius);
   padding: 10px 14px;
   margin: 0 0 12px;
 }
