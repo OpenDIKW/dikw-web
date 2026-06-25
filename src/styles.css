@@ -1169,8 +1169,8 @@ textarea:focus {
 .wisdom-chip {
   padding: 5px 8px;
   border-radius: 999px;
-  background: #eef3f1;
-  color: #34423e;
+  background: var(--surface-2);
+  color: var(--text);
   font-size: 12px;
   font-weight: 500;
 }
@@ -1514,10 +1514,10 @@ body.is-col-resizing {
   gap: 5px;
   max-width: 100%;
   padding: 4px 8px;
-  border: 1px solid #dfe8e5;
+  border: 1px solid var(--line);
   border-radius: 6px;
-  background: #f8fbfa;
-  color: #34423e;
+  background: var(--surface-2);
+  color: var(--text);
   font-size: 12px;
   line-height: 1.25;
   overflow-wrap: anywhere;
@@ -3752,7 +3752,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .graph-detail h2 {
   margin: 0;
-  color: #111817;
+  color: var(--text);
   font-size: 21px;
   line-height: 1.25;
 }
@@ -3765,7 +3765,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .graph-detail__section strong {
-  color: #2d3b37;
+  color: var(--text);
   font-size: 12px;
   text-transform: uppercase;
 }
@@ -4225,16 +4225,12 @@ html[data-theme="dark"] .reader-header h2,
 html[data-theme="dark"] .task-detail__header h2,
 html[data-theme="dark"] .wisdom-card h2,
 html[data-theme="dark"] .wisdom-detail h2,
-html[data-theme="dark"] .graph-detail h2,
-html[data-theme="dark"] .graph-detail__section strong,
 html[data-theme="dark"] .summary-metric dd,
 html[data-theme="dark"] .task-summary-grid dd,
 html[data-theme="dark"] .metric-card__value {
   color: var(--text);
 }
 
-html[data-theme="dark"] .frontmatter-chip,
-html[data-theme="dark"] .wisdom-chip,
 html[data-theme="dark"] .wiki-info-grid div,
 html[data-theme="dark"] .wiki-outline-columns > section,
 html[data-theme="dark"] .file-error-card,
