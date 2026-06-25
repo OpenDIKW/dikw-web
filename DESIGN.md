@@ -224,9 +224,12 @@ as decoration.
   interactive control strokes (inputs, secondary buttons).
 - **Graphite / Slate / Ash** (`#1a1d1c` / `#6c6f6a` / `#95968f`, `--text` /
   `--muted` / `--subtle`): Text ramp — body ink, muted metadata, subtle
-  placeholder. All three hold ≥4.5:1 (body) or ≥3:1 (large/meta) against their
-  surfaces. **Rank information with this ramp first** — reach for weight and
-  size before reaching for color.
+  placeholder. **Graphite and slate** carry the AA guarantee (graphite ≥4.5:1
+  for body, slate ≥3:1 for large/meta) on both surfaces; **ash is for
+  non-essential placeholder / disabled hints only** (~3:1, under the WCAG
+  placeholder exemption) — never use it for body or metadata a reader must
+  parse. **Rank information with this ramp first** — reach for weight and size
+  before reaching for color.
 
 ### Secondary
 
