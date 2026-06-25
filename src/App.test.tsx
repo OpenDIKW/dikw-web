@@ -77,8 +77,12 @@ describe("App shell", () => {
 
     const mark = screen.getByRole("img", { name: "OpenDIKW" });
     expect(mark).toHaveAttribute("src", "/opendikw-avatar.png");
-    expect(screen.getByRole("button", { name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Chat" })).toBeInTheDocument();
+    // The active route exposes aria-current="page"; inactive routes don't.
+    expect(screen.getByRole("button", { name: "Overview" })).toHaveAttribute(
+      "aria-current",
+      "page",
+    );
+    expect(screen.getByRole("button", { name: "Chat" })).not.toHaveAttribute("aria-current");
     expect(screen.queryByRole("button", { name: "Agent" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "概览" })).not.toBeInTheDocument();
     expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();

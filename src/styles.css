@@ -276,7 +276,7 @@ button:disabled {
 
 .nav-item svg {
   flex: 0 0 auto;
-  color: #53615d;
+  color: var(--muted);
 }
 
 .nav-item__label {
@@ -654,14 +654,18 @@ textarea:focus {
   white-space: nowrap;
 }
 
+/* Pill text mixes the signal color toward --text: in light that darkens it
+   (passing 4.5:1 on the tint), in dark it lightens — raising contrast against
+   the tinted background in both themes. ok #2f7a4d / info #2f6aa8 were just
+   under AA at 12px/600 on their own 16% tint. */
 .status-pill--ok {
   background: color-mix(in srgb, var(--green) 16%, transparent);
-  color: var(--green);
+  color: color-mix(in srgb, var(--green) 80%, var(--text));
 }
 
 .status-pill--info {
   background: color-mix(in srgb, var(--blue) 16%, transparent);
-  color: var(--blue);
+  color: color-mix(in srgb, var(--blue) 80%, var(--text));
 }
 
 .status-pill--warn {
@@ -1091,7 +1095,7 @@ textarea:focus {
 .wisdom-card p,
 .event-tape__item p {
   margin: 0;
-  color: #34423e;
+  color: var(--text);
   line-height: 1.55;
 }
 
@@ -1146,13 +1150,13 @@ textarea:focus {
   margin: 0;
   max-height: 5.2em;
   overflow: hidden;
-  color: #3f4d49;
+  color: var(--text);
   line-height: 1.45;
 }
 
 .wiki-list__item:hover,
 .wiki-list__item.is-selected {
-  border-color: #b9d9d3;
+  border-color: var(--accent-border-hover);
   background: var(--accent-soft);
 }
 
@@ -2383,7 +2387,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: #31413d;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
@@ -2395,19 +2399,19 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #fbfdfc;
+  background: var(--surface);
 }
 
 .wiki-preview-card h2 {
   margin: 0;
-  color: #101817;
+  color: var(--text);
   font-size: 19px;
   line-height: 1.25;
 }
 
 .wiki-preview-card p {
   margin: 0;
-  color: #43524e;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -2459,7 +2463,14 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   font-weight: 600;
 }
 
-.segmented-control button:hover,
+/* Hover and selected must read differently: a hovered non-selected option gets
+   only a faint fill, while the selected one is a raised surface chip with a
+   petrol border — so selected ≠ hovered regardless of pointer position. */
+.segmented-control button:not(.is-active):hover {
+  background: var(--overlay-hover);
+  color: var(--accent-strong);
+}
+
 .segmented-control button.is-active {
   border-color: var(--accent-border-hover);
   background: var(--surface);
@@ -2468,6 +2479,17 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .segmented-control--settings {
   width: fit-content;
+}
+
+/* Touch devices enlarge the compact toggles that are mouse-comfortable but
+   finger-fiddly to a 44px tap target (WCAG 2.5.5). Fine pointers (desktop
+   mouse) keep the dense sizing. */
+@media (pointer: coarse) {
+  .segmented-control button,
+  .wiki-reader-tabs button,
+  .graph-zoom .icon-button {
+    min-height: 44px;
+  }
 }
 
 .settings-page {
@@ -2570,7 +2592,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   align-items: center;
   gap: 7px;
   min-height: 34px;
-  color: #394844;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
@@ -3702,7 +3724,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .graph-force-control strong {
-  color: #273632;
+  color: var(--text);
   font-size: 11px;
   text-align: right;
 }
@@ -3766,7 +3788,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .wisdom-list__item:hover,
 .wisdom-list__item.is-selected {
-  border-color: #b9d9d3;
+  border-color: var(--accent-border-hover);
   background: var(--accent-soft);
 }
 
@@ -3862,7 +3884,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .task-list__item:hover,
 .task-list__item.is-selected {
-  border-color: #b9d9d3;
+  border-color: var(--accent-border-hover);
   background: var(--accent-soft);
 }
 
@@ -4012,8 +4034,8 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .summary-metric--warn {
-  border: 1px solid #e7c06a;
-  background: #fffaf0;
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, var(--line));
+  background: color-mix(in srgb, var(--amber) 10%, var(--surface));
 }
 
 .file-error-list {
@@ -4029,9 +4051,9 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   display: grid;
   gap: 5px;
   padding: 10px;
-  border: 1px solid #e7c06a;
+  border: 1px solid color-mix(in srgb, var(--amber) 45%, var(--line));
   border-radius: var(--radius);
-  background: #fffaf0;
+  background: color-mix(in srgb, var(--amber) 10%, var(--surface));
 }
 
 .file-error-card__title {
@@ -4039,18 +4061,18 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  color: #4c3a12;
+  color: var(--text);
   font-size: 13px;
 }
 
 .file-error-card__title span {
-  color: #7b5b12;
+  color: var(--amber);
   font-size: 12px;
   font-weight: 600;
 }
 
 .file-error-card__path {
-  color: #26332f;
+  color: var(--text);
   font-size: 13px;
   font-weight: 600;
   overflow-wrap: anywhere;
@@ -4058,7 +4080,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .file-error-card p {
   margin: 0;
-  color: #654a12;
+  color: var(--text);
   font-size: 13px;
   overflow-wrap: anywhere;
 }
@@ -5803,8 +5825,19 @@ html[data-theme="dark"] .overview-grid > .metric-card {
   box-shadow: none;
 }
 
+/* Hide the composer's field label visually but keep it in the a11y tree
+   (display:none would strip it, leaving the textarea named only by its
+   placeholder, which vanishes on input). Mirrors the .sr-only utility. */
 .agent-composer .field > span {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .agent-composer textarea {
@@ -6875,7 +6908,7 @@ html[data-theme="dark"] .graph-pixi-stage {
   flex: none;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--subtle);
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -6986,7 +7019,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 .trace-span-time {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--subtle);
+  color: var(--muted);
   white-space: nowrap;
 }
 

@@ -21,10 +21,11 @@ interface SegmentedControlProps<T extends string> {
 
 /**
  * Shared segmented control wrapping the `.segmented-control` class — the chosen
- * pattern for mutually exclusive view choices (Settings theme / locale).
- * DOM-identical to the hand-rolled markup: a labeled `<div>` track of
- * `type="button"` options where the selected one carries `is-active`. Generic
- * over a string value union so the caller's `onChange` stays type-safe.
+ * pattern for mutually exclusive view choices (Settings theme / locale). The
+ * track is a named `role="group"` (a bare `<div>` would drop its `aria-label`),
+ * and each option is a toggle `<button>` carrying `aria-pressed`, so a
+ * screen-reader user hears which option is selected — not three identical
+ * buttons. Generic over a string value union so `onChange` stays type-safe.
  */
 export function SegmentedControl<T extends string>({
   value,
@@ -36,19 +37,24 @@ export function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   return (
     <div
+      role="group"
       className={cx("segmented-control", settings && "segmented-control--settings", className)}
       aria-label={ariaLabel}
     >
-      {options.map((option) => (
-        <button
-          key={option.value}
-          type="button"
-          className={option.value === value ? "is-active" : ""}
-          onClick={() => onChange(option.value)}
-        >
-          {option.label}
-        </button>
-      ))}
+      {options.map((option) => {
+        const selected = option.value === value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            aria-pressed={selected}
+            className={selected ? "is-active" : ""}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

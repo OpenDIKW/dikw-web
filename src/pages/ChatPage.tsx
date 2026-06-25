@@ -372,6 +372,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                     <button
                       className="agent-session"
                       type="button"
+                      aria-current={activeSession?.id === session.id ? "true" : undefined}
                       onClick={() => openSession(session.id)}
                     >
                       <strong>{session.title}</strong>

@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ResearchWorkspace } from "./ResearchWorkspace";
 import { createMockClient } from "../test/mockClient";
 import type { AgentClient } from "../api/agentClient";
@@ -89,5 +89,45 @@ describe("ResearchWorkspace — Q&A panel collapse", () => {
     // the other being the edge button) — the conversation is back and visible.
     fireEvent.click(screen.getAllByRole("button", { name: "展开知识问答" })[0]);
     expect(screen.getByText("AI says hello.")).toBeVisible();
+  });
+});
+
+describe("ResearchWorkspace — narrow viewport panel switcher", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("offers a tab bar below 900px so the library and Q&A stay reachable", async () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: true,
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+      onchange: null,
+    }));
+    mountWorkspace("AI says hi.");
+
+    // A tab bar appears; it lands on the library so a paper can be picked
+    // (previously the library + Q&A were display:none'd away with no fallback).
+    const tabs = screen.getByRole("group", { name: "切换面板" });
+    expect(within(tabs).getByRole("button", { name: "论文库" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    // Picking a paper from the (reachable) library jumps to the reader.
+    fireEvent.click(await screen.findByText("Paper One"));
+    expect(within(tabs).getByRole("button", { name: "阅读" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    // The Q&A tab is reachable too.
+    fireEvent.click(within(tabs).getByRole("button", { name: "知识问答" }));
+    expect(within(tabs).getByRole("button", { name: "知识问答" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 });

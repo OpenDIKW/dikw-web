@@ -9,6 +9,38 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.9] - 2026-06-25
+
+### Fixed
+
+- **Accessibility & contrast pass (from an `/impeccable audit`).** Resolved the
+  genuine findings of a 5-dimension UI audit:
+  - **ARIA state on selection controls.** `SegmentedControl` is now a named
+    `role="group"` with `aria-pressed` per option (was className-only, so screen
+    readers couldn't tell which theme/locale was active); the active option is a
+    distinct raised chip vs. a faint hover tint. `aria-current` marks the active
+    sidebar route and the selected master-detail row in Tasks / Trace / Chat.
+    `Notice` exposes `role="alert"` (errors) / `role="status"` (info) so
+    post-action banners are announced. The chat composer label is `sr-only`
+    (was `display:none`, leaving the textarea unnamed). MB-Web note-editor and
+    popover textareas regained a real focus ring (WCAG 2.4.7).
+  - **Dark-mode contrast leaks → tokens.** Hard-coded graphite/amber literals
+    with no dark override (`.wiki-preview-card`/`__header`,
+    `.graph-force-control`, `.citation-item`/`.event-tape__item`/`.result-table`
+    body text, `.graph-toggle`, `.nav-item svg`, the `#b9d9d3` selected-row
+    border, and the `.summary-metric--warn`/`.file-error-card` warn cluster) now
+    use theme-tracking tokens (`--text`/`--muted`/`--accent-border-hover`/
+    `color-mix(--amber …)`), so dark mode no longer renders dark-on-dark text or
+    glaring near-white cards. Status-pill `ok`/`info` text mixes the signal
+    color toward `--text` to clear 4.5:1 on its tint; Trace timestamps moved off
+    the sub-AA `--subtle`.
+  - **Touch targets.** `@media (pointer: coarse)` raises segmented / reader-tab /
+    graph-zoom controls to a 44px tap target (WCAG 2.5.5); desktop is unchanged.
+  - **MB-Web mobile reflow.** Below 900px the library and Q&A panels were
+    `display:none`'d with no fallback, so a phone-opened `#MB-Web` link could
+    neither pick a paper nor ask a question. A tab bar (论文库 / 阅读 / 知识问答)
+    now switches which single panel fills the width (WCAG 1.4.10).
+
 ## [0.7.8] - 2026-06-25
 
 ### Changed

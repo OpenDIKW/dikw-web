@@ -1082,6 +1082,7 @@ body.mb-col-resizing * {
 .mb-ed-txt:focus {
   outline: 0;
   border-color: var(--ac);
+  box-shadow: 0 0 0 3px var(--acb);
 }
 .mb-empty {
   text-align: center;
@@ -1156,6 +1157,7 @@ body.mb-col-resizing * {
 .mb-pop textarea:focus {
   outline: 0;
   border-color: var(--ac);
+  box-shadow: 0 0 0 3px var(--acb);
 }
 .mb-pop-meta {
   display: flex;
@@ -1360,13 +1362,57 @@ body.mb-col-resizing * {
   color: #1a1a1a;
 }
 
+/* Mobile panel switcher: a top tab bar picks which single panel fills the
+   width (论文库 / 阅读 / 知识问答). Only rendered ≤900px — desktop keeps the
+   three-pane grid. Mirrors the .mb-seg vocabulary. */
+.mb-mobile-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 0.5px solid var(--border2);
+  background: var(--surface);
+}
+.mb-mobile-tabs button {
+  flex: 1 1 0;
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.mb-mobile-tabs button.on {
+  background: var(--acb);
+  color: var(--act);
+}
+
 @media (max-width: 900px) {
+  /* Stack as a flex column: tab bar (auto height) over the one active panel. */
   .mb-research {
-    grid-template-columns: minmax(0, 1fr) !important;
+    display: flex !important;
+    flex-direction: column;
   }
-  .mb-lib,
-  .mb-qa,
-  .mb-resizer {
+  .mb-research > .mb-lib,
+  .mb-research > .mb-reader,
+  .mb-research > .mb-qa {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: auto;
+  }
+  .mb-resizer,
+  .mb-edge {
+    display: none !important;
+  }
+  /* Hide the two inactive panels; the active one keeps its natural display
+     (replaces the old display:none that dropped lib + qa with no fallback). */
+  .mb-research[data-mobile="lib"] > .mb-reader,
+  .mb-research[data-mobile="lib"] > .mb-qa,
+  .mb-research[data-mobile="reader"] > .mb-lib,
+  .mb-research[data-mobile="reader"] > .mb-qa,
+  .mb-research[data-mobile="qa"] > .mb-lib,
+  .mb-research[data-mobile="qa"] > .mb-reader {
     display: none;
   }
 }

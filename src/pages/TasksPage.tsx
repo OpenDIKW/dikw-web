@@ -484,6 +484,7 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
                     className={`task-list__item ${selectedId === task.task_id ? "is-selected" : ""}`}
                     key={task.task_id}
                     type="button"
+                    aria-current={selectedId === task.task_id ? "true" : undefined}
                     onClick={() => {
                       cancelFollow();
                       eventTapeTaskIdRef.current = null;

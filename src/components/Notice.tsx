@@ -19,7 +19,9 @@ export function Notice({ title, error, children, tone = error ? "bad" : "info" }
   const code = error instanceof DikwClientError ? `${error.status} ${error.code}` : null;
 
   return (
-    <div className={`notice notice--${tone}`}>
+    // Errors interrupt assertively; info/warn announce politely. Either way a
+    // Notice surfaced after a user action is read out, not silently rendered.
+    <div className={`notice notice--${tone}`} role={tone === "bad" ? "alert" : "status"}>
       <Icon size={18} aria-hidden="true" />
       <div>
         {title ? <div className="notice__title">{title}</div> : null}
