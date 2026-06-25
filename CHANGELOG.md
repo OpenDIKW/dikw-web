@@ -9,6 +9,29 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.11] - 2026-06-26
+
+### Changed
+
+- **Theming: migrated the genuine remaining chip/graph literals to tokens.** The
+  audit's "manual dark-patch block" finding is mostly a false alarm — most of
+  that block is legitimate dark theming (light `--surface` → dark `--surface-2`),
+  not redundant literal re-patching. The actual literal re-patches —
+  `.frontmatter-chip` (`#dfe8e5`/`#f8fbfa`/`#34423e`), `.wisdom-chip`
+  (`#eef3f1`/`#34423e`), and `.graph-detail h2`/`__section strong`
+  (`#111817`/`#2d3b37`) — now use `--surface-2`/`--line`/`--text`, so they resolve
+  to exactly their old dark-override values (**dark mode unchanged, browser-
+  verified**) and those four selectors were dropped from the override block. Light
+  chips render as clean recessed warm-stone pills instead of a near-invisible
+  cool near-white.
+
+### Fixed
+
+- **a11y: MB-Web view switcher.** The 研究/笔记 switcher declared `role="tablist"`
+  + `role="tab"`/`aria-selected` but had no tabpanels or roving-tabindex keyboard
+  model. Downgraded to `role="group"` + `aria-pressed` (matching `SegmentedControl`
+  and the mobile panel tabs) so the announced semantics match the actual behavior.
+
 ## [0.7.10] - 2026-06-25
 
 ### Fixed

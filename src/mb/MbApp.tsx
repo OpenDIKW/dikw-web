@@ -396,11 +396,10 @@ export function MbApp() {
             <BookText size={20} aria-hidden="true" />
             论文知识库
           </div>
-          <div className="mb-seg" role="tablist" aria-label="视图">
+          <div className="mb-seg" role="group" aria-label="视图">
             <button
               type="button"
-              role="tab"
-              aria-selected={view === "research"}
+              aria-pressed={view === "research"}
               className={view === "research" ? "on" : ""}
               onClick={() => setView("research")}
             >
@@ -409,8 +408,7 @@ export function MbApp() {
             </button>
             <button
               type="button"
-              role="tab"
-              aria-selected={view === "notes"}
+              aria-pressed={view === "notes"}
               className={view === "notes" ? "on" : ""}
               onClick={() => setView("notes")}
             >
