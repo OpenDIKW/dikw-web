@@ -431,8 +431,10 @@ the incremental token pass (see `docs/ui-refactor-plan.md`).
   500, transitions on `--dur-fast`.
 - **danger** is a modifier that recolors **text only** (`--danger`, now defined
   as `var(--red)`); it does not change the fill.
-- _Tighten:_ control radius is **7px** (not the 6px earlier prose claimed); the
-  hover-border literal `#9fb0aa` should migrate to `--accent-border-hover`.
+- _Tighten:_ control radius is **7px** (not the 6px earlier prose claimed). The
+  secondary/icon hover-border literal `#9fb0aa` **migrated** to
+  `--accent-border-hover` (Phase 2). The shared `Button` / `IconButton` wrappers
+  (Phase 1) carry these styles; `danger` is a prop, not a class.
 
 ### Field / Input
 
@@ -460,10 +462,12 @@ the incremental token pass (see `docs/ui-refactor-plan.md`).
 - Track: `--surface-soft`, 1px `--line`, 8px radius, 3px inset padding, 2px gap.
 - Button: 28px min-height, `0 10px` padding, 6px radius, transparent border,
   `--muted` 12px / 600 text.
-- Active/hover button: `--surface` fill, `--accent-border-hover` border,
-  `--accent-strong` text. The chosen pattern for mutually exclusive view
-  choices. Optionally animate the active state with `--dur-state` +
-  `--ease-emphasis`.
+- Active/hover button: `--surface` fill, `--accent-border-hover` border
+  (the `#c5dad5` literal **migrated** in Phase 2), `--accent-strong` text. The
+  chosen pattern for mutually exclusive view choices. Optionally animate the
+  active state with `--dur-state` + `--ease-emphasis`. The shared
+  `SegmentedControl` wrapper (Phase 2) renders this; `WikiReaderTabs` and
+  MB-Web's `.mb-seg` stay bespoke.
 
 ### Cards / Panels
 
@@ -471,8 +475,10 @@ the incremental token pass (see `docs/ui-refactor-plan.md`).
   (`--radius`) corners, the Edge Line shadow only.
 - Internal padding 16px (`--space-4`); the reader pane may take 24px. **Never
   nest a card inside a card.**
-- _Tighten:_ panel title color literal `#25322f` → `--text`; the 13px
-  metric-card padding → `--space-3` (12px).
+- _Tighten:_ panel/section title color literal `#25322f` **migrated** to
+  `--text` (Phase 2; the now-redundant dark override was dropped). _Still
+  pending:_ the 13px metric-card padding → `--space-3` (12px) — a 1px layout
+  tighten deliberately deferred from the Phase-2 color-literal pass.
 
 ### Navigation (sidebar)
 
@@ -481,8 +487,11 @@ the incremental token pass (see `docs/ui-refactor-plan.md`).
 - **Active** route uses a 2px leading petrol marker (`::before`) plus weight —
   **not** a filled pill. **Hover** is a quiet `--surface-soft` fill. Single
   language per locale — never bilingual chrome like `Overview / 工作台概览`.
-- _Tighten:_ collapse the duplicate base/override rules; literals `#3c4a46` /
-  `#1d2926` / `#cbd8d4` → `--muted` / `--text` / `--accent-border-hover`.
+- _Tighten (done, Phase 2):_ the duplicate base/override rules were collapsed and
+  the literals `#3c4a46` / `#1d2926` / `#cbd8d4` **migrated** to `--muted` /
+  `--text` / `--accent-border-hover`. The resting label is now `--muted` (one
+  step lighter than the old hand-picked `#3c4a46`); the active marker, fill, and
+  text are unchanged.
 
 ## 9. Voice & Content
 

@@ -6,6 +6,7 @@ import { Button } from "../components/Button";
 import { IconButton } from "../components/IconButton";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
+import { SoftLabel } from "../components/SoftLabel";
 import { translations, type Locale } from "../i18n";
 import type { GraphResult } from "../types";
 import { filterKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "../utils/graph";
@@ -145,7 +146,7 @@ export function GraphPage({
           />
           <span>{copy.hideOrphans}</span>
         </label>
-        {state.loading ? <span className="soft-label">{copy.loadingGraph}</span> : null}
+        {state.loading ? <SoftLabel>{copy.loadingGraph}</SoftLabel> : null}
       </section>
 
       {state.error ? <Notice title={copy.errorTitle} error={state.error} /> : null}
@@ -155,13 +156,13 @@ export function GraphPage({
           <main className="graph-canvas panel">
             <div className="graph-canvas__header">
               <div className="graph-stats" aria-label="Graph stats">
-                <span className="soft-label">
+                <SoftLabel>
                   {`${filteredGraph.stats.nodeCount} ${filteredGraph.stats.nodeCount === 1 ? "node" : "nodes"}`}
-                </span>
-                <span className="soft-label">
+                </SoftLabel>
+                <SoftLabel>
                   {`${filteredGraph.stats.edgeCount} ${filteredGraph.stats.edgeCount === 1 ? "link" : "links"}`}
-                </span>
-                <span className="soft-label">{filteredGraph.stats.unresolvedCount} unresolved</span>
+                </SoftLabel>
+                <SoftLabel>{filteredGraph.stats.unresolvedCount} unresolved</SoftLabel>
               </div>
               <div className="graph-legend" aria-label="Graph legend">
                 <span className="graph-legend__chip">
@@ -193,17 +194,15 @@ export function GraphPage({
               <div className="reader-header__path">{focusedNode.path}</div>
               <h2>{focusedNode.title}</h2>
               <div className="graph-detail__meta">
-                <span className="soft-label">{focusedNode.layer}</span>
-                <span className="soft-label">{focusedNode.inbound} inbound</span>
-                <span className="soft-label">{focusedNode.outbound} outbound</span>
+                <SoftLabel>{focusedNode.layer}</SoftLabel>
+                <SoftLabel>{focusedNode.inbound} inbound</SoftLabel>
+                <SoftLabel>{focusedNode.outbound} outbound</SoftLabel>
               </div>
               {focusedUnresolvedLinks.length ? (
                 <div className="graph-detail__section">
                   <strong>Unresolved links</strong>
                   {focusedUnresolvedLinks.map((link) => (
-                    <span key={`${link.source}-${link.target}`} className="soft-label">
-                      {link.target}
-                    </span>
+                    <SoftLabel key={`${link.source}-${link.target}`}>{link.target}</SoftLabel>
                   ))}
                 </div>
               ) : null}

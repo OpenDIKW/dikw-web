@@ -9,6 +9,32 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.8] - 2026-06-25
+
+### Changed
+
+- **Badge + segmented-control components (Phase 2 of `docs/ui-refactor-plan.md`).**
+  Added `SoftLabel`, `FrontmatterChip`, and a generic `SegmentedControl`
+  (`<T extends string>`) under `src/components/` and migrated their call-sites:
+  the `.soft-label` count/layer/anchor badges across Base, Graph, Wisdom, and
+  Tasks; the `.frontmatter-chip` tag/source chips in the Markdown reader and the
+  Base info panel; and the Settings theme/locale toggles. The wrappers are
+  **DOM-identical** (same element, classes, and passthrough attributes), so the
+  e2e console gate and layout are unchanged. `StatusPill` stays separate and the
+  three CSS classes are not merged; three block uses of `.soft-label` on a `<p>`
+  (hints / empty state) stay raw markup by design.
+- **Scattered color literals → design tokens.** Migrated the six hand-picked hex
+  literals to the DESIGN.md Intent-Mapping ramp: the nav / segmented /
+  secondary+icon hover borders (`#cbd8d4` / `#c5dad5` / `#9fb0aa`) →
+  `--accent-border-hover`; the nav resting text (`#3c4a46`) → `--muted`; the nav
+  strong label (`#1d2926`) and the panel + section titles (`#25322f`) → `--text`.
+  Collapsed the dead duplicate `.page-header h1` rule (the survivor now consumes
+  `--type-title-page-*`) and dropped three now-redundant dark-mode `color`
+  overrides whose light base already tracks the theme. The only intended visual
+  change is the nav resting label rendering one step lighter (`#3c4a46` →
+  `--muted`); active markers, fills, and hover/active states are unchanged.
+  Verified route-by-route in light + dark against a live `dikw-core`.
+
 ## [0.7.7] - 2026-06-25
 
 ### Changed

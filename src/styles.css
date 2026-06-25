@@ -266,7 +266,7 @@ button:disabled {
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
-  color: #3c4a46;
+  color: var(--muted);
   text-align: left;
   transition:
     background-color 120ms ease,
@@ -287,7 +287,7 @@ button:disabled {
 }
 
 .nav-item__label strong {
-  color: #1d2926;
+  color: var(--text);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0;
@@ -304,7 +304,7 @@ button:disabled {
 
 .nav-item:hover,
 .nav-item.is-active {
-  border-color: #cbd8d4;
+  border-color: var(--accent-border-hover);
   background: var(--surface-soft);
   color: var(--accent-strong);
 }
@@ -419,10 +419,8 @@ button:disabled {
   margin: 0;
 }
 
-.page-header h1 {
-  font-size: 25px;
-  line-height: 1.18;
-}
+/* The page H1 display size / family lives in one place — the `.page-header h1`
+   rule in the PR1 type-role block below (it overrode this size anyway). */
 
 .page-header__description {
   max-width: 640px;
@@ -453,7 +451,7 @@ button:disabled {
   align-items: center;
   gap: 8px;
   margin-bottom: 14px;
-  color: #25322f;
+  color: var(--text);
   font-size: 14px;
   font-weight: 600;
 }
@@ -632,7 +630,7 @@ textarea:focus {
 
 .secondary-button:hover,
 .icon-button:hover {
-  border-color: #9fb0aa;
+  border-color: var(--accent-border-hover);
   background: var(--surface-soft);
 }
 
@@ -2463,7 +2461,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .segmented-control button:hover,
 .segmented-control button.is-active {
-  border-color: #c5dad5;
+  border-color: var(--accent-border-hover);
   background: var(--surface);
   color: var(--accent-strong);
 }
@@ -3987,7 +3985,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  color: #25322f;
+  color: var(--text);
   font-size: 14px;
   font-weight: 600;
 }
@@ -4182,9 +4180,6 @@ html[data-theme="dark"] .graph-detail {
 }
 
 html[data-theme="dark"] .nav-item,
-html[data-theme="dark"] .nav-item__label strong,
-html[data-theme="dark"] .panel__title,
-html[data-theme="dark"] .section-title,
 html[data-theme="dark"] .markdown-view,
 html[data-theme="dark"] .markdown-body h1,
 html[data-theme="dark"] .markdown-body h2,
@@ -4595,10 +4590,10 @@ html[data-theme="dark"] .markdown-body blockquote {
    display size + weight, ditch the browser-default hard-bold. */
 .page-header h1 {
   font-family: var(--font-ui);
-  font-size: 30px;
-  line-height: 1.1;
+  font-size: var(--type-title-page-size);
+  line-height: var(--type-title-page-lh);
   font-weight: 600;
-  letter-spacing: -0.01em;
+  letter-spacing: var(--type-title-page-ls);
 }
 
 /* Reader: longer measure + taller leading on Markdown body */

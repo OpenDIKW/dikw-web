@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, Globe2, MonitorCog, PlugZap } from "lucide-react";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
+import { SegmentedControl } from "../components/SegmentedControl";
 import type { Locale, ResolvedTheme, ThemePreference } from "../i18n";
 import { translations } from "../i18n";
 import { defaultServerUrl } from "../config/connection";
@@ -147,32 +148,17 @@ export function SettingsPage({
               <p>{copy.appearanceDetail}</p>
             </div>
           </div>
-          <div
-            className="segmented-control segmented-control--settings"
-            aria-label={copy.appearanceTitle}
-          >
-            <button
-              className={theme === "system" ? "is-active" : ""}
-              type="button"
-              onClick={() => onThemeChange("system")}
-            >
-              {copy.system}
-            </button>
-            <button
-              className={theme === "light" ? "is-active" : ""}
-              type="button"
-              onClick={() => onThemeChange("light")}
-            >
-              {copy.light}
-            </button>
-            <button
-              className={theme === "dark" ? "is-active" : ""}
-              type="button"
-              onClick={() => onThemeChange("dark")}
-            >
-              {copy.dark}
-            </button>
-          </div>
+          <SegmentedControl
+            settings
+            ariaLabel={copy.appearanceTitle}
+            value={theme}
+            onChange={onThemeChange}
+            options={[
+              { value: "system", label: copy.system },
+              { value: "light", label: copy.light },
+              { value: "dark", label: copy.dark },
+            ]}
+          />
           <dl className="compact-dl">
             <div>
               <dt>{copy.currentTheme}</dt>
@@ -189,25 +175,16 @@ export function SettingsPage({
               <p>{copy.languageDetail}</p>
             </div>
           </div>
-          <div
-            className="segmented-control segmented-control--settings"
-            aria-label={copy.languageTitle}
-          >
-            <button
-              className={locale === "en" ? "is-active" : ""}
-              type="button"
-              onClick={() => onLocaleChange("en")}
-            >
-              {copy.english}
-            </button>
-            <button
-              className={locale === "zh-CN" ? "is-active" : ""}
-              type="button"
-              onClick={() => onLocaleChange("zh-CN")}
-            >
-              {copy.chinese}
-            </button>
-          </div>
+          <SegmentedControl
+            settings
+            ariaLabel={copy.languageTitle}
+            value={locale}
+            onChange={onLocaleChange}
+            options={[
+              { value: "en", label: copy.english },
+              { value: "zh-CN", label: copy.chinese },
+            ]}
+          />
         </article>
       </section>
     </div>

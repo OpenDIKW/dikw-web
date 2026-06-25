@@ -6,6 +6,7 @@ import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Field";
 import { IconButton } from "../components/IconButton";
 import { Notice } from "../components/Notice";
+import { SoftLabel } from "../components/SoftLabel";
 import { StatusPill } from "../components/StatusPill";
 import { translations, type Locale } from "../i18n";
 import type {
@@ -620,7 +621,7 @@ function EventTape({
     <section className="event-section">
       <div className="section-title">
         <span>Event tape</span>
-        <span className="soft-label">{events.length} events</span>
+        <SoftLabel>{events.length} events</SoftLabel>
       </div>
       <div className="event-tape">
         {pagedEvents.map((event) => (
@@ -957,7 +958,7 @@ function PaginationBar({
       >
         {copy.prev}
       </Button>
-      <span className="soft-label">{label}</span>
+      <SoftLabel>{label}</SoftLabel>
       <Button
         variant="secondary"
         onClick={() => onChange(pageIndex + 1)}
