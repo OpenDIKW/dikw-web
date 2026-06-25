@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Check, CheckCircle2, XCircle } from "lucide-react";
+import { Button } from "../../components/Button";
 import type { FixProposal, LintKind } from "../../types";
 import { lintKindTone, type ImportCopy } from "./format";
 
@@ -54,25 +55,18 @@ export function LintReview({
             <div className="import-preview-head__hint">{copy.lintReviewHint}</div>
           </div>
           <div className="import-preview-head__actions">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={onSkipAll}
-              data-testid="import-lint-skip-all"
-            >
+            <Button variant="secondary" onClick={onSkipAll} data-testid="import-lint-skip-all">
               <XCircle size={14} />
               {copy.skipAll}
-            </button>
-            <button
-              type="button"
-              className="primary-button"
+            </Button>
+            <Button
               onClick={() => onApply(Array.from(picked).sort((a, b) => a - b))}
               disabled={picked.size === 0}
               data-testid="import-lint-apply"
             >
               <CheckCircle2 size={16} />
               {copy.applySelected} {picked.size} / {proposals.length}
-            </button>
+            </Button>
           </div>
         </div>
       </section>
@@ -95,22 +89,20 @@ export function LintReview({
           {copy.lintSelected.replace("{n}", String(picked.size))}
         </span>
         <span className="import-lint-bar__sep">·</span>
-        <button
-          type="button"
-          className="secondary-button"
+        <Button
+          variant="secondary"
           onClick={() => setPicked(new Set(proposals.map((_, i) => i)))}
           data-testid="import-lint-select-all"
         >
           {copy.selectAll}
-        </button>
-        <button
-          type="button"
-          className="secondary-button"
+        </Button>
+        <Button
+          variant="secondary"
           onClick={() => setPicked(new Set())}
           data-testid="import-lint-select-none"
         >
           {copy.selectNone}
-        </button>
+        </Button>
       </div>
 
       <div className="import-lint-groups">

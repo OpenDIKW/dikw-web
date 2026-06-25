@@ -9,7 +9,21 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
-## [0.7.6] - 2026-06-25
+## [0.7.7] - 2026-06-25
+
+### Changed
+
+- **Shared control components (Phase 1 of `docs/ui-refactor-plan.md`).** Added
+  `Button`, `IconButton`, and `Field` (plus a `cx` class-joiner) under
+  `src/components/` and migrated every hand-rolled `.primary-button` /
+  `.secondary-button` / `.icon-button` / `.field` call-site across 14 page files
+  to them. The wrappers are **DOM-identical** (same element, classes, and
+  attributes), so behavior, the e2e console gate, and layout are unchanged — the
+  change is −104 net lines of duplicated markup. `Button` defaults `type="button"`
+  (no accidental form submits) and exposes `variant="primary|secondary|danger"`;
+  `IconButton` requires a `label` (→ `aria-label`) so every icon button keeps an
+  accessible name; `Field` maps `grow/small/inline/token` to the existing
+  `field--*` modifiers. Segmented controls are deferred to a later phase.
 
 ### Added
 

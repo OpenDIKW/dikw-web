@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
 import { DikwClient } from "../api/client";
+import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
+import { Field } from "../components/Field";
 import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
 import type { Hit, PageRef, RetrieveResult } from "../types";
@@ -71,16 +73,14 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
 
       <section className="panel">
         <div className="query-form query-form--compact">
-          <label className="field field--grow">
-            <span>{copy.queryLabel}</span>
+          <Field label={copy.queryLabel} grow>
             <input
               value={question}
               onChange={(event) => setQuestion(event.target.value)}
               placeholder={copy.queryPlaceholder}
             />
-          </label>
-          <label className="field field--small">
-            <span>{copy.limitLabel}</span>
+          </Field>
+          <Field label={copy.limitLabel} small>
             <input
               type="number"
               min={1}
@@ -88,25 +88,19 @@ export function RetrievePage({ client, locale = "en" }: RetrievePageProps) {
               value={limit}
               onChange={(event) => setLimit(Number(event.target.value))}
             />
-          </label>
-          <button
-            className="primary-button"
-            type="button"
-            onClick={runRetrieve}
-            disabled={running || !question.trim()}
-          >
+          </Field>
+          <Button onClick={runRetrieve} disabled={running || !question.trim()}>
             <Play size={16} />
             {copy.run}
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => controllerRef.current?.abort()}
             disabled={!running}
           >
             <Pause size={16} />
             {copy.stop}
-          </button>
+          </Button>
         </div>
       </section>
 

@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { RefreshCw, Server, Shield, Waypoints } from "lucide-react";
 import { DikwClient } from "../api/client";
+import { IconButton } from "../components/IconButton";
 import { MetricCard } from "../components/MetricCard";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
@@ -42,14 +43,9 @@ export function OverviewPage({ client, locale = "en" }: OverviewPageProps) {
         <div>
           <h1>{copy.title}</h1>
         </div>
-        <button
-          className="icon-button"
-          type="button"
-          onClick={resource.reload}
-          aria-label={copy.refresh}
-        >
+        <IconButton label={copy.refresh} onClick={resource.reload}>
           <RefreshCw size={18} />
-        </button>
+        </IconButton>
       </header>
 
       {resource.error ? <Notice title={copy.errorTitle} error={resource.error} /> : null}

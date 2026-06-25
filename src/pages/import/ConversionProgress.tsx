@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, Check, FileText, Loader2, RotateCw, X } from "lucide-react";
+import { Button } from "../../components/Button";
 import type { ConversionFileState, ConversionState } from "../../state/import-pipeline";
 import { formatBytes, formatElapsed, type ImportCopy } from "./format";
 
@@ -112,22 +113,20 @@ export function ConversionProgress({
               {file.substage === "failed" && file.error ? (
                 <div className="conversion-row__fail">
                   <span className="conversion-row__error">{file.error.message}</span>
-                  <button
-                    type="button"
-                    className="secondary-button"
+                  <Button
+                    variant="secondary"
                     onClick={() => onRetryFailed(file.inputSha)}
                     data-testid="conversion-retry"
                   >
                     <RotateCw size={14} /> {c.retry}
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button"
+                  </Button>
+                  <Button
+                    variant="secondary"
                     onClick={() => onSkipFailed(file.inputSha)}
                     data-testid="conversion-skip"
                   >
                     <X size={14} /> {c.skip}
-                  </button>
+                  </Button>
                 </div>
               ) : null}
             </li>

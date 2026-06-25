@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, Search } from "lucide-react";
 import type { DikwClient } from "../api/client";
 import { GraphCanvas } from "../components/GraphCanvas";
+import { Button } from "../components/Button";
+import { IconButton } from "../components/IconButton";
 import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
@@ -107,17 +109,15 @@ export function GraphPage({
         <div>
           <h1>{copy.title}</h1>
         </div>
-        <button
-          className="icon-button"
-          type="button"
-          aria-label={copy.refresh}
+        <IconButton
+          label={copy.refresh}
           onClick={() => {
             resetFocus();
             setReloadId((value) => value + 1);
           }}
         >
           <RefreshCw size={18} />
-        </button>
+        </IconButton>
       </header>
 
       <section className="graph-toolbar panel">
@@ -207,13 +207,9 @@ export function GraphPage({
                   ))}
                 </div>
               ) : null}
-              <button
-                className="secondary-button"
-                type="button"
-                onClick={() => _onOpenWikiPath?.(focusedNode.path)}
-              >
+              <Button variant="secondary" onClick={() => _onOpenWikiPath?.(focusedNode.path)}>
                 {copy.openInWiki}
-              </button>
+              </Button>
             </aside>
           ) : null}
         </section>
