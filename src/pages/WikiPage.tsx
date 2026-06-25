@@ -17,6 +17,8 @@ import {
   X,
 } from "lucide-react";
 import { DikwClient, DikwClientError } from "../api/client";
+import { Button } from "../components/Button";
+import { IconButton } from "../components/IconButton";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
 import { BilingualView, type BilingualSide } from "../components/BilingualView";
@@ -552,14 +554,9 @@ export function WikiPage({
         <div>
           <h1>{copy.title}</h1>
         </div>
-        <button
-          className="icon-button"
-          type="button"
-          onClick={refreshWiki}
-          aria-label={copy.refresh}
-        >
+        <IconButton label={copy.refresh} onClick={refreshWiki}>
           <RefreshCw size={18} />
-        </button>
+        </IconButton>
       </header>
 
       {pages.error ? <Notice title={copy.listErrorTitle} error={pages.error} /> : null}
@@ -1293,13 +1290,9 @@ function WikiLinkPreview({
           <div className="wiki-preview-card wiki-preview-card--empty">
             <h2>{copy.previewNotFound}</h2>
             <p>{preview.target}</p>
-            <button
-              className="secondary-button"
-              type="button"
-              onClick={() => onFilter(preview.target)}
-            >
+            <Button variant="secondary" onClick={() => onFilter(preview.target)}>
               {copy.previewFilter}
-            </button>
+            </Button>
           </div>
         </PreviewFrame>
       ) : null}
@@ -1355,9 +1348,9 @@ function WikiPreviewCard({
           the selection effect would round-trip the unknown path back to the
           default page since visiblePages doesn't contain it yet. */}
       {doc.doc_id ? (
-        <button className="secondary-button" type="button" onClick={() => onOpen(page.path)}>
+        <Button variant="secondary" onClick={() => onOpen(page.path)}>
           {copy.previewOpen}
-        </button>
+        </Button>
       ) : null}
     </article>
   );
@@ -1378,9 +1371,9 @@ function PreviewFrame({
     <>
       <div className="wiki-preview__header">
         <span>{title}</span>
-        <button className="icon-button" type="button" onClick={onClose} aria-label={closeLabel}>
+        <IconButton label={closeLabel} onClick={onClose}>
           <X size={16} />
-        </button>
+        </IconButton>
       </div>
       {children}
     </>

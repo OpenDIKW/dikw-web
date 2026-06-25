@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { FileText, Upload } from "lucide-react";
+import { Button } from "../../components/Button";
 import { Notice } from "../../components/Notice";
 import { ImportBundleError, lowerExt, type ImportBundleResult } from "../../utils/import-bundle";
 import { isSelectableExt } from "../../utils/import-extensions";
@@ -126,14 +127,10 @@ export function IdlePicker({
             <div className="import-dropzone__hint">{copy.pickerHint}</div>
           </div>
           <div className="import-dropzone__actions">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => fileRef.current?.click()}
-            >
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}>
               <FileText size={16} />
               {copy.pickFiles}
-            </button>
+            </Button>
           </div>
         </div>
         <input

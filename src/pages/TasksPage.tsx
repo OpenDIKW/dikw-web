@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Play, RefreshCw, Square } from "lucide-react";
 import { DikwClient, DikwClientError } from "../api/client";
+import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
+import { Field } from "../components/Field";
+import { IconButton } from "../components/IconButton";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
 import { translations, type Locale } from "../i18n";
@@ -420,19 +423,13 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
         <div>
           <h1>{copy.title}</h1>
         </div>
-        <button
-          className="icon-button"
-          type="button"
-          onClick={refreshTasks}
-          aria-label={copy.refresh}
-        >
+        <IconButton onClick={refreshTasks} label={copy.refresh}>
           <RefreshCw size={18} />
-        </button>
+        </IconButton>
       </header>
 
       <section className="panel filter-bar">
-        <label className="field">
-          <span>{copy.statusLabel}</span>
+        <Field label={copy.statusLabel}>
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as "" | TaskStatus)}
@@ -443,9 +440,8 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
               </option>
             ))}
           </select>
-        </label>
-        <label className="field">
-          <span>{copy.opLabel}</span>
+        </Field>
+        <Field label={copy.opLabel}>
           <input
             value={op}
             onChange={(event) => setOp(event.target.value)}
@@ -457,30 +453,20 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
               <option value={value} key={value} />
             ))}
           </datalist>
-        </label>
+        </Field>
         <div className="task-actions">
-          <button className="secondary-button" type="button" onClick={onIngest} disabled={busy}>
+          <Button variant="secondary" onClick={onIngest} disabled={busy}>
             {copy.actions.ingest}
-          </button>
-          <button className="secondary-button" type="button" onClick={onSynth} disabled={busy}>
+          </Button>
+          <Button variant="secondary" onClick={onSynth} disabled={busy}>
             {copy.actions.synth}
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={onLintPropose}
-            disabled={busy}
-          >
+          </Button>
+          <Button variant="secondary" onClick={onLintPropose} disabled={busy}>
             {copy.actions.lintPropose}
-          </button>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={onLintApply}
-            disabled={!canApply}
-          >
+          </Button>
+          <Button variant="secondary" onClick={onLintApply} disabled={!canApply}>
             {copy.actions.lintApply}
-          </button>
+          </Button>
         </div>
       </section>
 
@@ -521,14 +507,13 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
               </div>
               {hasMore ? (
                 <div className="task-list__more">
-                  <button
-                    className="secondary-button"
-                    type="button"
+                  <Button
+                    variant="secondary"
                     onClick={() => void loadMore()}
                     disabled={loadingMore}
                   >
                     {loadingMore ? copy.loadingMore : copy.loadMore}
-                  </button>
+                  </Button>
                 </div>
               ) : null}
             </>
@@ -566,24 +551,18 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
               ) : null}
               {selected.error ? <TaskErrorSummary error={selected.error} /> : null}
               <div className="button-row">
-                <button
-                  className="secondary-button"
-                  type="button"
-                  onClick={() => follow(selected)}
-                  disabled={following}
-                >
+                <Button variant="secondary" onClick={() => follow(selected)} disabled={following}>
                   <Play size={16} />
                   {isTerminalTask(selected.status) ? "Load events" : "Follow"}
-                </button>
-                <button
-                  className="secondary-button secondary-button--danger"
-                  type="button"
+                </Button>
+                <Button
+                  variant="danger"
                   onClick={() => void cancelSelected()}
                   disabled={isTerminalTask(selected.status)}
                 >
                   <Square size={16} />
                   Stop
-                </button>
+                </Button>
               </div>
               {eventsError ? <Notice title={copy.eventsErrorTitle} error={eventsError} /> : null}
               <EventTape
@@ -971,23 +950,21 @@ function PaginationBar({
     .replace("{total}", String(pageCount));
   return (
     <nav className={className} aria-label={copy.ariaLabel}>
-      <button
-        type="button"
-        className="secondary-button"
+      <Button
+        variant="secondary"
         onClick={() => onChange(pageIndex - 1)}
         disabled={pageIndex === 0}
       >
         {copy.prev}
-      </button>
+      </Button>
       <span className="soft-label">{label}</span>
-      <button
-        type="button"
-        className="secondary-button"
+      <Button
+        variant="secondary"
         onClick={() => onChange(pageIndex + 1)}
         disabled={pageIndex >= pageCount - 1}
       >
         {copy.next}
-      </button>
+      </Button>
     </nav>
   );
 }

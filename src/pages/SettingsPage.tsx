@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, Globe2, MonitorCog, PlugZap } from "lucide-react";
+import { Button } from "../components/Button";
+import { Field } from "../components/Field";
 import type { Locale, ResolvedTheme, ThemePreference } from "../i18n";
 import { translations } from "../i18n";
 import { defaultServerUrl } from "../config/connection";
@@ -86,8 +88,7 @@ export function SettingsPage({
               <h2>{copy.connectionTitle}</h2>
             </div>
           </div>
-          <label className="field">
-            <span>{copy.serverUrl}</span>
+          <Field label={copy.serverUrl}>
             <input
               aria-label="Server URL"
               value={draftUrl}
@@ -99,9 +100,8 @@ export function SettingsPage({
               spellCheck={false}
               autoComplete="off"
             />
-          </label>
-          <label className="field">
-            <span>{copy.token}</span>
+          </Field>
+          <Field label={copy.token}>
             <input
               aria-label="Token"
               value={draftToken}
@@ -113,7 +113,7 @@ export function SettingsPage({
               type="password"
               autoComplete="off"
             />
-          </label>
+          </Field>
           <div className="settings-actions">
             <span className="settings-actions__status" aria-live="polite">
               {dirty ? (
@@ -129,17 +129,12 @@ export function SettingsPage({
               ) : null}
             </span>
             <div className="settings-actions__buttons">
-              <button className="secondary-button" type="button" onClick={handleClear}>
+              <Button variant="secondary" onClick={handleClear}>
                 {copy.clearConnection}
-              </button>
-              <button
-                className="primary-button"
-                type="button"
-                onClick={handleSave}
-                disabled={!dirty}
-              >
+              </Button>
+              <Button onClick={handleSave} disabled={!dirty}>
                 {copy.save}
-              </button>
+              </Button>
             </div>
           </div>
         </article>

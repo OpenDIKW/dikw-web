@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { AlertTriangle, FileText, Image as ImageIcon, Play, X } from "lucide-react";
+import { Button } from "../../components/Button";
 import type { ImportBundleResult } from "../../utils/import-bundle";
 import { formatBytes, skippedTag, type ImportCopy } from "./format";
 
@@ -49,19 +50,14 @@ export function BundlePreview({ copy, bundle, onStart, onReset }: BundlePreviewP
           </div>
         </div>
         <div className="import-preview-head__actions">
-          <button type="button" className="secondary-button" onClick={onReset}>
+          <Button variant="secondary" onClick={onReset}>
             <X size={14} />
             {copy.clearSelection}
-          </button>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={onStart}
-            data-testid="import-start"
-          >
+          </Button>
+          <Button onClick={onStart} data-testid="import-start">
             <Play size={16} />
             {copy.start}
-          </button>
+          </Button>
         </div>
       </div>
 

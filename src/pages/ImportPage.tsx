@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pause, Upload } from "lucide-react";
 import { DikwClient, DikwClientError } from "../api/client";
+import { Button } from "../components/Button";
 import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
 import { buildImportBundle, lowerExt, type ImportBundleResult } from "../utils/import-bundle";
@@ -765,15 +766,10 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         </div>
         {running ? (
           <div>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={onCancel}
-              data-testid="import-cancel"
-            >
+            <Button variant="secondary" onClick={onCancel} data-testid="import-cancel">
               <Pause size={16} />
               {copy.cancel}
-            </button>
+            </Button>
           </div>
         ) : null}
       </header>
@@ -848,10 +844,10 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           <div>{pipeline.error.message}</div>
           {pipeline.error.code ? <div className="notice__code">{pipeline.error.code}</div> : null}
           <div className="import-error-actions">
-            <button type="button" className="primary-button" onClick={startOver}>
+            <Button onClick={startOver}>
               <Upload size={16} />
               {copy.restart}
-            </button>
+            </Button>
           </div>
         </Notice>
       ) : null}

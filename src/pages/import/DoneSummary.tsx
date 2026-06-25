@@ -1,4 +1,5 @@
 import { BookOpen, CheckCircle2, Info, Network, Upload } from "lucide-react";
+import { Button } from "../../components/Button";
 import type { PipelineState } from "../../state/import-pipeline";
 import { formatBytes, type ImportCopy } from "./format";
 
@@ -26,9 +27,8 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
           <div className="import-done-banner__body">{copy.doneBannerHeadline}</div>
         </div>
         <div className="import-done-banner__actions">
-          <button
-            type="button"
-            className="secondary-button"
+          <Button
+            variant="secondary"
             data-testid="import-done-open-wiki"
             onClick={() => {
               window.location.hash = "base";
@@ -36,10 +36,9 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
           >
             <BookOpen size={16} />
             {copy.doneOpenWiki}
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
+          </Button>
+          <Button
+            variant="secondary"
             data-testid="import-done-open-graph"
             onClick={() => {
               window.location.hash = "graph";
@@ -47,7 +46,7 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
           >
             <Network size={16} />
             {copy.doneOpenGraph}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -114,15 +113,10 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
 
       <div className="import-done-tail">
         <span className="import-done-tail__lead">{copy.doneAnotherBatch}</span>
-        <button
-          type="button"
-          className="primary-button"
-          onClick={onStartOver}
-          data-testid="import-restart"
-        >
+        <Button onClick={onStartOver} data-testid="import-restart">
           <Upload size={16} />
           {copy.restart}
-        </button>
+        </Button>
       </div>
     </>
   );

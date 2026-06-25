@@ -11,7 +11,10 @@ import {
   X,
 } from "lucide-react";
 import { DikwClient, DikwClientError } from "../api/client";
+import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
+import { Field } from "../components/Field";
+import { IconButton } from "../components/IconButton";
 import { MarkdownView } from "../components/MarkdownView";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { translations, type Locale } from "../i18n";
@@ -965,10 +968,10 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
           <h1>{copy.title}</h1>
           <p className="page-header__description">{copy.description}</p>
         </div>
-        <button className="primary-button" type="button" onClick={openNewDialog}>
+        <Button onClick={openNewDialog}>
           <Plus size={16} aria-hidden="true" />
           <span>{copy.newButton}</span>
-        </button>
+        </Button>
       </header>
 
       <section className="wiki-layout wisdom-layout">
@@ -1460,16 +1463,16 @@ function WisdomEditor({
       <div className="wisdom-editor">
         <div className="wisdom-editor__body-header wisdom-editor__section-header">
           <h3 className="wiki-backlinks__title">{copy.body}</h3>
-          <button
-            type="button"
-            className="secondary-button wisdom-editor__add-button"
+          <Button
+            variant="secondary"
+            className="wisdom-editor__add-button"
             onClick={onOpenRefPopover}
             disabled={saving}
             aria-label={copy.addWikilink}
           >
             <Plus size={14} aria-hidden="true" />
             <span>{copy.addWikilink}</span>
-          </button>
+          </Button>
         </div>
         <textarea
           ref={textareaRef}
@@ -1483,31 +1486,30 @@ function WisdomEditor({
         <div className="wisdom-editor__sources" aria-label={copy.sourcesTitle}>
           <div className="wisdom-editor__section-header">
             <h3 className="wiki-backlinks__title">{copy.sourcesTitle}</h3>
-            <button
-              type="button"
-              className="secondary-button wisdom-editor__add-button"
+            <Button
+              variant="secondary"
+              className="wisdom-editor__add-button"
               onClick={onOpenSourcesPopover}
               disabled={saving}
               aria-label={copy.addSource}
             >
               <Plus size={14} aria-hidden="true" />
               <span>{copy.addSource}</span>
-            </button>
+            </Button>
           </div>
           {draft.sources.length ? (
             <ul className="wiki-backlinks__list">
               {draft.sources.map((path) => (
                 <li className="wiki-backlinks__item" key={path}>
                   <span className="wisdom-source-path">{path}</span>
-                  <button
-                    type="button"
-                    className="icon-button wisdom-source-remove"
+                  <IconButton
+                    className="wisdom-source-remove"
                     onClick={() => onRemoveSource(path)}
-                    aria-label={copy.removeSourceAria.replace("{path}", path)}
+                    label={copy.removeSourceAria.replace("{path}", path)}
                     disabled={saving}
                   >
                     <X size={14} aria-hidden="true" />
-                  </button>
+                  </IconButton>
                 </li>
               ))}
             </ul>
@@ -1522,15 +1524,9 @@ function WisdomEditor({
             {savingMessage}
           </span>
         ) : null}
-        <button
-          type="button"
-          className="primary-button"
-          onClick={onSave}
-          disabled={saving}
-          aria-label={copy.saveAria}
-        >
+        <Button onClick={onSave} disabled={saving} aria-label={copy.saveAria}>
           {saving ? copy.saving : copy.save}
-        </button>
+        </Button>
       </div>
     </section>
   );
@@ -1597,9 +1593,9 @@ function ReferencePopover({
           <div className="wisdom-popover__title">
             <h2>{dialogLabel}</h2>
           </div>
-          <button type="button" className="icon-button" onClick={onClose} aria-label={copy.close}>
+          <IconButton onClick={onClose} label={copy.close}>
             <X size={16} aria-hidden="true" />
-          </button>
+          </IconButton>
         </div>
         <label className="wisdom-popover__search">
           <Search size={14} aria-hidden="true" />
@@ -1668,9 +1664,9 @@ function NewWisdomDialog({
       >
         <div className="wisdom-dialog__header">
           <h2>{copy.newDialogTitle}</h2>
-          <button type="button" className="icon-button" onClick={onCancel} aria-label={copy.close}>
+          <IconButton onClick={onCancel} label={copy.close}>
             <X size={16} aria-hidden="true" />
-          </button>
+          </IconButton>
         </div>
         <form
           className="wisdom-dialog__form"
@@ -1679,30 +1675,27 @@ function NewWisdomDialog({
             onConfirm();
           }}
         >
-          <label className="field">
-            <span>{copy.newTitle}</span>
+          <Field label={copy.newTitle}>
             <input
               autoFocus
               value={state.title}
               onChange={(event) => onChange({ ...state, title: event.target.value, error: null })}
             />
-          </label>
-          <label className="field">
-            <span>{copy.newSlug}</span>
+          </Field>
+          <Field label={copy.newSlug}>
             <input
               value={state.slug}
               placeholder="e.g. release-checklist"
               onChange={(event) => onChange({ ...state, slug: event.target.value, error: null })}
             />
-          </label>
-          <label className="field">
-            <span>{copy.newAuthor}</span>
+          </Field>
+          <Field label={copy.newAuthor}>
             <input
               value={state.author}
               placeholder="optional"
               onChange={(event) => onChange({ ...state, author: event.target.value, error: null })}
             />
-          </label>
+          </Field>
           <p className="soft-label wisdom-dialog__hint">
             {copy.newPathHint.replace(
               "{path}",
@@ -1717,12 +1710,10 @@ function NewWisdomDialog({
             </p>
           ) : null}
           <div className="wisdom-dialog__actions">
-            <button type="button" className="secondary-button" onClick={onCancel}>
+            <Button variant="secondary" onClick={onCancel}>
               {copy.cancel}
-            </button>
-            <button type="submit" className="primary-button">
-              {copy.create}
-            </button>
+            </Button>
+            <Button type="submit">{copy.create}</Button>
           </div>
         </form>
       </div>
@@ -1753,12 +1744,10 @@ function UnsavedDialog({
         </div>
         <p className="wisdom-dialog__body">{copy.unsavedBody}</p>
         <div className="wisdom-dialog__actions">
-          <button type="button" className="secondary-button" onClick={onCancel}>
+          <Button variant="secondary" onClick={onCancel}>
             {copy.cancel}
-          </button>
-          <button type="button" className="primary-button" onClick={onDiscard}>
-            {copy.discard}
-          </button>
+          </Button>
+          <Button onClick={onDiscard}>{copy.discard}</Button>
         </div>
       </div>
     </div>

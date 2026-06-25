@@ -16,6 +16,9 @@ import {
 } from "lucide-react";
 import type { DikwClient } from "../api/client";
 import { AgentClient } from "../api/agentClient";
+import { Button } from "../components/Button";
+import { IconButton } from "../components/IconButton";
+import { Field } from "../components/Field";
 import { EmptyState } from "../components/EmptyState";
 import { MarkdownView } from "../components/MarkdownView";
 import { Notice } from "../components/Notice";
@@ -326,14 +329,9 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
         <aside className="agent-sessions" aria-label={copy.sessionsTitle}>
           <div className="agent-sessions__header">
             <strong>{copy.sessionsTitle}</strong>
-            <button
-              className="icon-button"
-              type="button"
-              aria-label={copy.newSession}
-              onClick={createSession}
-            >
+            <IconButton label={copy.newSession} onClick={createSession}>
               <Plus size={16} />
-            </button>
+            </IconButton>
           </div>
           {loading ? <EmptyState title={copy.loadingSessions} /> : null}
           <div className="agent-session-list">
@@ -362,17 +360,12 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                       maxLength={80}
                       autoFocus
                     />
-                    <button className="icon-button" type="submit" aria-label={copy.saveTitle}>
+                    <IconButton label={copy.saveTitle} type="submit">
                       <Check size={14} />
-                    </button>
-                    <button
-                      className="icon-button"
-                      type="button"
-                      aria-label={copy.cancelRename}
-                      onClick={cancelRename}
-                    >
+                    </IconButton>
+                    <IconButton label={copy.cancelRename} onClick={cancelRename}>
                       <X size={14} />
-                    </button>
+                    </IconButton>
                   </form>
                 ) : (
                   <>
@@ -384,10 +377,9 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                       <strong>{session.title}</strong>
                       <span>{session.lastMessagePreview || copy.emptySession}</span>
                     </button>
-                    <button
-                      className="icon-button agent-session__menu-trigger"
-                      type="button"
-                      aria-label={`${session.title} options`}
+                    <IconButton
+                      label={`${session.title} options`}
+                      className="agent-session__menu-trigger"
                       aria-haspopup="menu"
                       aria-expanded={menuOpenSessionId === session.id}
                       onClick={(event) => {
@@ -398,7 +390,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                       }}
                     >
                       <MoreHorizontal size={14} />
-                    </button>
+                    </IconButton>
                     {menuOpenSessionId === session.id ? (
                       <div
                         className="agent-session-menu"
@@ -556,8 +548,7 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
           </aside>
 
           <div className="agent-composer">
-            <label className="field field--grow">
-              <span>{copy.messageLabel}</span>
+            <Field label={copy.messageLabel} grow>
               <textarea
                 value={draft}
                 rows={3}
@@ -574,21 +565,16 @@ export function ChatPage({ agentClient, locale = "en" }: ChatPageProps) {
                 placeholder={copy.messagePlaceholder}
                 disabled={running}
               />
-            </label>
-            <button
-              className="primary-button"
-              type="button"
-              onClick={sendMessage}
-              disabled={running || !draft.trim()}
-            >
+            </Field>
+            <Button onClick={sendMessage} disabled={running || !draft.trim()}>
               <Send size={16} />
               {copy.send}
-            </button>
+            </Button>
             {running ? (
-              <button className="secondary-button" type="button" onClick={stop}>
+              <Button variant="secondary" onClick={stop}>
                 <Square size={15} />
                 {copy.stop}
-              </button>
+              </Button>
             ) : null}
           </div>
         </main>
