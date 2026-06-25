@@ -9,6 +9,40 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.6] - 2026-06-25
+
+### Added
+
+- **Design-system token foundation.** `src/styles.css` gains additive token
+  groups, all documented in `DESIGN.md`: a 4px spacing grid (`--space-*`, with
+  6/10/14px half-steps), a four-step motion scale (`--dur-fast|state|popover|
+  overlay` + `--ease-standard|emphasis`), six typography roles
+  (`--type-<role>-{size,lh,ls}` across the serif/sans/mono voices), and
+  `color-mix` alpha layers (`--line-alpha`, `--overlay-hover|active`,
+  `--accent-border-hover`) for borders/hover fills that track the theme over any
+  surface. They are defined now and consumed incrementally — the additions alone
+  change no rendering.
+- **`docs/ui-refactor-plan.md`** — the phased UI/UX refactor roadmap (token
+  foundation → shared controls → badges/segmented → panels/MB-Web), learned from
+  Vercel's Geist system while keeping the warm-stone + petrol identity.
+
+### Fixed
+
+- **Destructive control text was invisible.** `--danger` was referenced by
+  `.secondary-button--danger` and the session `...` menu's delete item but never
+  defined in `src/styles.css`, so the text silently fell back to the inherited
+  body color. It is now `var(--red)` (defined once, tracks the theme through
+  `--red`), so destructive affordances actually read red in both light and dark.
+
+### Changed
+
+- **`DESIGN.md` restructured** to a Geist-informed section order — Intent Mapping
+  table, six Type Roles, a Spacing & Rhythm section, a Motion section, a formal
+  radius scale, per-component spec tables, and a new bilingual Voice & Content
+  section — reconciled to the **real** shipped values (7px control radius, sans
+  page titles, borderless pills) and kept on the "Quiet Instrument" identity.
+  `docs/ui-system.md` and `docs/ui-checklist.md` updated to match.
+
 ## [0.7.5] - 2026-06-25
 
 ### Changed

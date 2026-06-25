@@ -19,75 +19,144 @@ colors:
   signal-amber: "#8a5a14"
   signal-red: "#a8362c"
   signal-blue: "#2f6aa8"
+  # Aliases & alpha layers (track the theme via --red / --text / --accent).
+  danger: "{colors.signal-red}"
+  line-alpha: "color-mix(in srgb, {colors.graphite} 12%, transparent)"
+  line-alpha-strong: "color-mix(in srgb, {colors.graphite} 22%, transparent)"
+  overlay-hover: "color-mix(in srgb, {colors.graphite} 5%, transparent)"
+  overlay-active: "color-mix(in srgb, {colors.graphite} 9%, transparent)"
+  accent-border-hover: "color-mix(in srgb, {colors.deep-petrol} 35%, {colors.line})"
 typography:
-  display:
+  # Six roles across three voices. Each maps to --type-<role>-{size,lh,ls} in styles.css.
+  display: # Source Serif 4 — reader article H1/H2 (the one editorial voice)
     fontFamily: "Source Serif 4, ui-serif, Georgia, Source Han Serif CN, serif"
-    fontSize: "clamp(1.5rem, 2.2vw, 1.9rem)"
+    fontSize: "32px"
     fontWeight: 500
-    lineHeight: 1.2
+    lineHeight: 1.18
     letterSpacing: "-0.01em"
-  title:
+  title-page: # Inter Tight — page-header H1 (NOTE: sans, not serif)
     fontFamily: "Inter Tight, Inter, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.0625rem"
+    fontSize: "30px"
+    fontWeight: 600
+    lineHeight: 1.1
+    letterSpacing: "-0.01em"
+  title: # Inter Tight — panel / card / session headings
+    fontFamily: "Inter Tight, Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "17px"
     fontWeight: 600
     lineHeight: 1.3
-  body:
+    letterSpacing: "-0.005em"
+  body: # Inter Tight — interface text, descriptions, agent replies
     fontFamily: "Inter Tight, Inter, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "0.9375rem"
+    fontSize: "15px"
     fontWeight: 400
     lineHeight: 1.55
-  label:
+  body-sm: # Inter Tight — dense metadata / secondary UI text
+    fontFamily: "Inter Tight, Inter, ui-sans-serif, system-ui, sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.45
+  label: # JetBrains Mono UPPERCASE — field labels, table heads, IDs
     fontFamily: "JetBrains Mono, ui-monospace, SFMono-Regular, Consolas, monospace"
-    fontSize: "0.6875rem"
-    fontWeight: 500
+    fontSize: "11px"
+    fontWeight: 600
+    lineHeight: 1.2
     letterSpacing: "0.04em"
 rounded:
-  xs: "4px"
-  sm: "6px"
-  md: "8px"
-  pill: "999px"
+  xs: "4px" # chips, skeletons
+  sm: "6px" # segmented-control buttons, inline code
+  control: "7px" # buttons, inputs, selects (the default control radius)
+  md: "8px" # cards, panels, segmented track
+  pill: "999px" # status pills, avatars, dots
 spacing:
-  xs: "4px"
-  sm: "8px"
-  md: "12px"
-  lg: "16px"
-  xl: "20px"
+  # 4px base. Half-steps (-1h/-2h/-3h) record entrenched 6/10/14px usage.
+  "0": "0"
+  "1": "4px"
+  "1h": "6px"
+  "2": "8px" # inside a group
+  "2h": "10px"
+  "3": "12px"
+  "3h": "14px"
+  "4": "16px" # between groups
+  "5": "20px"
+  "6": "24px"
+  "8": "32px" # between sections (min)
+  "10": "40px" # between sections (max)
+  "12": "48px"
+motion:
+  dur-fast: "120ms" # control color/border state (the de-facto default)
+  dur-state: "140ms" # compound state changes, small transforms
+  dur-popover: "180ms" # menus, popovers, tooltips
+  dur-overlay: "240ms" # drawers, dialogs, dual-column reveal
+  ease-standard: "cubic-bezier(0.2, 0, 0, 1)" # default UI easing
+  ease-emphasis: "cubic-bezier(0.175, 0.885, 0.32, 1.1)" # slight overshoot, sparing
 components:
   button-primary:
     backgroundColor: "{colors.deep-petrol}"
     textColor: "{colors.paper-white}"
-    rounded: "{rounded.sm}"
+    border: "1px solid {colors.petrol-ink}"
+    rounded: "{rounded.control}"
     padding: "0 14px"
-    height: "36px"
+    minHeight: "36px"
   button-primary-hover:
     backgroundColor: "{colors.petrol-ink}"
-    textColor: "{colors.paper-white}"
-    rounded: "{rounded.sm}"
   button-secondary:
     backgroundColor: "{colors.paper-white}"
     textColor: "{colors.graphite}"
-    rounded: "{rounded.sm}"
+    border: "1px solid {colors.line-strong}"
+    rounded: "{rounded.control}"
     padding: "0 12px"
-    height: "36px"
+    minHeight: "36px"
+  button-secondary-hover:
+    borderColor: "{colors.accent-border-hover}"
+    backgroundColor: "{colors.stone-soft}"
+  button-danger: # modifier on secondary — recolors text only
+    textColor: "{colors.danger}"
+  button-icon:
+    width: "38px"
+    rounded: "{rounded.control}"
+    border: "1px solid {colors.line-strong}"
+    backgroundColor: "{colors.paper-white}"
   input:
     backgroundColor: "{colors.paper-white}"
     textColor: "{colors.graphite}"
-    rounded: "{rounded.sm}"
-    height: "36px"
+    border: "1px solid {colors.line-strong}"
+    rounded: "{rounded.control}"
+    minHeight: "36px"
     padding: "0 10px"
+    focusBorder: "{colors.deep-petrol}"
+    focusRing: "0 0 0 3px color-mix(in srgb, {colors.deep-petrol} 24%, transparent)"
   status-pill:
-    backgroundColor: "{colors.petrol-wash}"
-    textColor: "{colors.deep-petrol}"
+    backgroundColor: "color-mix(in srgb, <signal> 16%, transparent)"
+    textColor: "<signal>"
     rounded: "{rounded.pill}"
     padding: "4px 8px"
   segmented-control:
-    backgroundColor: "{colors.stone-soft}"
-    textColor: "{colors.slate}"
+    trackBackground: "{colors.stone-soft}"
+    trackBorder: "1px solid {colors.line}"
+    trackRounded: "{rounded.md}"
+    trackPadding: "3px"
+    buttonRounded: "{rounded.sm}"
+    activeBackground: "{colors.paper-white}"
+    activeBorder: "{colors.accent-border-hover}"
+    activeText: "{colors.petrol-ink}"
+  card:
+    backgroundColor: "{colors.paper-white}"
+    border: "1px solid {colors.line}"
     rounded: "{rounded.md}"
-    padding: "3px"
+    shadow: "0 1px 0 rgba(20,29,28,0.04)"
+    padding: "16px"
 ---
 
 # Design System: dikw-web
+
+> Tokens are the contract. This document defines the **role** each token plays —
+> which surface, which border, which text rank, which hover/active state — so
+> that styling is read off a table, never hand-picked per element. When a token
+> already exists for a job, use it; a new literal hex or off-grid pixel value is
+> almost always a mistake. The companion implementation lives in
+> `src/styles.css` (tokens) and `docs/ui-system.md` (rendering contracts); the
+> per-route pass/fail rubric is `docs/ui-checklist.md`.
 
 ## 1. Overview
 
@@ -104,9 +173,9 @@ Density is a feature, not a flaw. This is a tool for sustained, repeated,
 expert use, so it packs information tightly — but the density is earned
 through rhythm, alignment, and restraint, never through clutter. Whitespace
 is structural. Borders are hairlines, not boxes. Depth comes from a 1px
-tonal line, not from drop shadows. The serif display face on page titles and
-article headings is the one deliberate moment of editorial warmth in an
-otherwise technical, monospace-aware system.
+tonal line, not from drop shadows. The serif display face on reader article
+headings is the one deliberate moment of editorial warmth in an otherwise
+technical, monospace-aware system.
 
 This system explicitly rejects the generic SaaS dashboard (multi-color status
 walls, hero-metric blocks, heavy card grids), the AI-template look (cream-and-
@@ -119,8 +188,10 @@ Nothing here should read as "AI made that."
 - Warm-stone neutral canvas; never true white as the page background.
 - One accent (deep petrol) used on ≤10% of any screen.
 - Hairline borders and tonal layering instead of shadows.
-- Serif for titles/reading, sans for UI, mono for IDs/paths/labels.
+- Serif for reading, sans for UI and page titles, mono for IDs/paths/labels.
 - Full light + dark parity; the reader keeps a low-glare dark surface.
+- A 4px spacing grid, a tight radius scale, and a four-step motion scale —
+  documented below so density never becomes noise.
 
 ## 2. Colors
 
@@ -130,36 +201,73 @@ as decoration.
 
 ### Primary
 
-- **Deep Petrol** (`#0d5e57`): The one accent. Primary buttons, active nav
-  markers, links, focus, selected segmented-control text. Dark mode shifts it
-  brighter (`#4eb8a6`) to hold contrast on warm-dark surfaces.
-- **Petrol Ink** (`#094540`): The pressed/hover deepening of the accent and
-  the reader link color. Borders the primary button.
-- **Petrol Wash** (`#e2eeec`): The only accent tint — soft background for
-  petrol status pills and accent-soft surfaces. Used sparingly.
+- **Deep Petrol** (`#0d5e57`, `--accent`): The one accent. Primary buttons,
+  active nav markers, links, focus, selected segmented-control text. Dark mode
+  shifts it brighter (`#4eb8a6`) to hold contrast on warm-dark surfaces.
+- **Petrol Ink** (`#094540`, `--accent-strong`): The pressed/hover deepening of
+  the accent and the reader link color. Borders the primary button.
+- **Petrol Wash** (`#e2eeec`, `--accent-soft`): The only accent tint — soft
+  background for petrol status pills and accent-soft surfaces. Used sparingly.
 
 ### Neutral
 
-- **Warm Stone** (`#f5f3ee`): Page background. Never `#ffffff` — true white is
-  reserved for raised surfaces so the layering reads.
-- **Paper White** (`#ffffff`): Raised surfaces — cards, panels, sidebar,
-  inputs, the reader article pane.
-- **Stone Soft / Stone Sink** (`#faf9f5` / `#f0eee8`): Recessed and secondary
-  fills — segmented-control track, table heads, muted pills.
-- **Hairline / Line / Line Strong** (`#ebe8df` / `#e2dfd6` / `#cdc9bd`): The
-  three-step border ramp. Hairline for internal dividers, line for surface
-  edges, line-strong for interactive control strokes (inputs, secondary
-  buttons).
-- **Graphite / Slate / Ash** (`#1a1d1c` / `#6c6f6a` / `#95968f`): Text ramp —
-  body ink, muted metadata, subtle placeholder. All three hold ≥4.5:1 (body)
-  or ≥3:1 (large/meta) against their surfaces.
+- **Warm Stone** (`#f5f3ee`, `--bg`): Page background. Never `#ffffff` — true
+  white is reserved for raised surfaces so the layering reads.
+- **Paper White** (`#ffffff`, `--surface`): Raised surfaces — cards, panels,
+  sidebar, inputs, the reader article pane.
+- **Stone Soft / Stone Sink** (`#faf9f5` / `#f0eee8`, `--surface-soft` /
+  `--surface-2`): Recessed and secondary fills — segmented-control track, table
+  heads, muted pills, hover backgrounds.
+- **Hairline / Line / Line Strong** (`#ebe8df` / `#e2dfd6` / `#cdc9bd`,
+  `--hairline` / `--line` / `--line-strong`): The three-step border ramp.
+  Hairline for internal dividers, line for surface edges, line-strong for
+  interactive control strokes (inputs, secondary buttons).
+- **Graphite / Slate / Ash** (`#1a1d1c` / `#6c6f6a` / `#95968f`, `--text` /
+  `--muted` / `--subtle`): Text ramp — body ink, muted metadata, subtle
+  placeholder. **Graphite and slate** carry the AA guarantee (graphite ≥4.5:1
+  for body, slate ≥3:1 for large/meta) on both surfaces; **ash is for
+  non-essential placeholder / disabled hints only** (~3:1, under the WCAG
+  placeholder exemption) — never use it for body or metadata a reader must
+  parse. **Rank information with this ramp first** — reach for weight and size
+  before reaching for color.
 
 ### Secondary
 
 Status signals are muted, desaturated, and used **only** for state — never as
-decoration. **Signal Green** (`#2f7a4d`), **Signal Amber** (`#8a5a14`),
-**Signal Red** (`#a8362c`), **Signal Blue** (`#2f6aa8`). They render as
-`status-pill`s with a 16–18% tinted background and a matching 25%-alpha border.
+decoration. **Signal Green** (`#2f7a4d`, `--green`), **Signal Amber**
+(`#8a5a14`, `--amber`), **Signal Red** (`#a8362c`, `--red`), **Signal Blue**
+(`#2f6aa8`, `--blue`). They render as `status-pill`s with a 16–18% tinted
+background. `--danger` is an **alias of `--red`** for destructive control text;
+it is defined once and tracks the theme through `--red`.
+
+### Alpha layers
+
+Solid `--line` is for opaque surface edges. When a border, divider, or hover
+fill must layer over a **tinted or arbitrary** background and still track the
+theme, use the alpha tokens (built with `color-mix`, so no dark override is
+needed): `--line-alpha` / `--line-alpha-strong` (translucent edges),
+`--overlay-hover` / `--overlay-active` (hover/pressed fills),
+`--accent-border-hover` (the petrol-tinted interactive stroke). These exist to
+**retire scattered literals** like `#cbd8d4` / `#c5dad5` / `#9fb0aa`.
+
+### Intent Mapping (read hover/active states off this table)
+
+This is the only place state styling is decided. Each row is a job; the columns
+give the existing token for the neutral and accent context. **Never invent a
+new literal for a hover or active state — look it up here.**
+
+| Job              | Neutral (warm-stone)      | Accent (petrol)          |
+| ---------------- | ------------------------- | ------------------------ |
+| Background       | `--bg`                    | `--accent-soft`          |
+| Hover background | `--surface-soft`          | `--overlay-hover`        |
+| Active / pressed | `--surface-2`             | `--overlay-active`       |
+| Border (resting) | `--line`                  | `--accent-border-hover`  |
+| Border (hover)   | `--line-strong`           | `--accent`               |
+| Border (active)  | `--line-strong`           | `--accent-strong`        |
+| Solid fill       | `--surface` (raised)      | `--accent`               |
+| Fill (hover)     | `--surface-soft`          | `--accent-strong`        |
+| Secondary text   | `--muted` / `--subtle`    | `--accent`               |
+| Primary text     | `--text`                  | `--accent-strong`        |
 
 ### Named Rules
 
@@ -179,41 +287,78 @@ screen reads as flat white, the layering has collapsed.
 **Label / Mono Font:** JetBrains Mono (with SFMono, Sarasa Mono SC fallbacks)
 
 **Character:** A three-voice system pairing on a true contrast axis — an
-editorial serif for titles and long-form reading, a tight humanist sans for
-the interface, and a monospace for the machine layer (IDs, paths, frontmatter
-keys, uppercase labels). The serif is the only warmth; the mono is the only
-place uppercase + letter-spacing is allowed.
+editorial serif for long-form reading, a tight humanist sans for the interface
+(including page titles), and a monospace for the machine layer (IDs, paths,
+frontmatter keys, uppercase labels). The serif is the only warmth; the mono is
+the only place uppercase + letter-spacing is allowed.
 
-### Hierarchy
+### Type Roles
 
-- **Display** (Source Serif 4, 500, `clamp(1.5rem, 2.2vw, 1.9rem)`, 1.2): Page
-  titles and reader article H1/H2. The one editorial moment. Letter-spacing
-  `-0.01em`; never tighter than `-0.04em`.
-- **Title** (Inter Tight, 600, ~17px, 1.3): Panel headings, card titles,
-  session names — the UI's structural labels.
-- **Body** (Inter Tight, 400, ~15px, 1.55): Interface text, descriptions,
-  agent replies. Reader prose caps line length at 65–75ch.
-- **Label** (JetBrains Mono, 500, ~11px, `0.04em`, UPPERCASE): Field labels,
-  table heads, status posture, code labels. The **only** uppercase in the
-  system.
+Six roles collapse the 30-plus ad-hoc sizes once scattered through the
+stylesheet. Each role is one row, exposed in `styles.css` as
+`--type-<role>-size` / `--type-<role>-lh` / `--type-<role>-ls`. Reach for a
+role, not a raw pixel size.
+
+| Role           | Voice          | Size | Line-height | Tracking | Weight  | Used for                                                |
+| -------------- | -------------- | ---- | ----------- | -------- | ------- | ------------------------------------------------------- |
+| **display**    | Source Serif 4 | 32px | 1.18        | -0.01em  | 500     | Reader article H1/H2 — the one editorial voice          |
+| **title-page** | Inter Tight    | 30px | 1.1         | -0.01em  | 600     | Page-header H1 — **sans, not serif** (see note below)   |
+| **title**      | Inter Tight    | 17px | 1.3         | -0.005em | 600     | Panel / card / session headings                         |
+| **body**       | Inter Tight    | 15px | 1.55        | 0        | 400     | Interface text, descriptions, agent replies             |
+| **body-sm**    | Inter Tight    | 13px | 1.45        | 0        | 400/500 | Dense metadata, secondary UI text                       |
+| **label**      | JetBrains Mono | 11px | 1.2         | 0.04em   | 600     | Field labels, table heads, IDs — the **only** uppercase |
+
+**Note — page titles are sans, reader headings are serif.** The editorial serif
+is reserved for the **reader** (`.markdown-body h1/h2`). Workbench **page
+titles** (`.page-header h1`) are Inter Tight 30px — the `title-page` role — so
+the chrome stays technical and the serif moment stays special to reading. Reader
+prose caps line length at 65–75ch. (Data display like the 27px metric value and
+the 22px reader H2 sit outside the six text roles.)
 
 ### Named Rules
 
 **The Mono-Only-Uppercase Rule.** Uppercase text with letter-spacing is
-permitted exclusively in the JetBrains Mono label role (field labels, table
+permitted exclusively in the JetBrains Mono `label` role (field labels, table
 heads, IDs). Never set sans or serif in tracked uppercase — that is the AI
 "eyebrow" tell, and it is forbidden here.
 
-## 4. Elevation
+**The Two-Weight Rule.** Keep at most two font weights in a single view; let
+size and the gray ramp carry the rest of the hierarchy.
+
+## 4. Spacing & Rhythm
+
+Spacing rides a **4px base grid**. The scale is exposed as `--space-*`; the
+half-steps (`--space-1h` = 6px, `--space-2h` = 10px, `--space-3h` = 14px)
+exist only to record the entrenched 6/10/14px values already in the
+stylesheet — they are documentation, not new rhythm.
+
+| Token        | Value | Token        | Value |
+| ------------ | ----- | ------------ | ----- |
+| `--space-0`  | 0     | `--space-4`  | 16px  |
+| `--space-1`  | 4px   | `--space-5`  | 20px  |
+| `--space-1h` | 6px   | `--space-6`  | 24px  |
+| `--space-2`  | 8px   | `--space-8`  | 32px  |
+| `--space-2h` | 10px  | `--space-10` | 40px  |
+| `--space-3`  | 12px  | `--space-12` | 48px  |
+| `--space-3h` | 14px  |              |       |
+
+**The Three-Step Rhythm.** Space groups on a single rhythm: **8px inside a
+group** (`--space-2`), **16px between groups** (`--space-4`), **32–40px between
+major sections** (`--space-8` / `--space-10`). Card interior padding is 16px
+(`--space-4`); the hero/reader pane may take 24px (`--space-6`). For any **new**
+layout decision, snap to a whole step — never reach past `--space-2h` for a
+fresh value.
+
+## 5. Elevation
 
 This is a near-flat, hairline-first system. Depth is conveyed by a tonal
 border ramp (hairline → line → line-strong) and by warm-stone-vs-white
-surface contrast, **not** by drop shadows. The single shadow token is a 1px
-tonal line that simulates a crisp edge, not a float.
+surface contrast, **not** by drop shadows. The single shadow token (`--shadow`)
+is a 1px tonal line that simulates a crisp edge, not a float.
 
 ### Shadow Vocabulary
 
-- **Edge Line** (`box-shadow: 0 1px 0 rgba(20,29,28,0.04)` light /
+- **Edge Line** (`--shadow` = `0 1px 0 rgba(20,29,28,0.04)` light /
   `0 1px 0 rgba(0,0,0,0.4)` dark): The only elevation. Applied to cards,
   panels, and the composer to crisp their bottom edge. Reads as a precise
   hairline, never as a lifted card.
@@ -224,83 +369,188 @@ tonal line that simulates a crisp edge, not a float.
 tone, never from blur. A 24px soft drop shadow is forbidden — it was removed
 once already because it was invisible on warm stone and read as generic SaaS.
 If you reach for `box-shadow` with a blur radius > 1px, use a border instead.
+(Floating layers — popovers, the MB selection chip — are the one exception and
+already carry their own soft shadow; do not extend that treatment to cards.)
 
-## 5. Components
+## 6. Motion
 
-### Buttons
+Motion clarifies a change; it never decorates. Most interactions should feel
+instant — `0ms` is often the right answer, especially for hover fills on dense
+lists. Durations and easings are tokens:
 
-- **Shape:** Gently rounded, 6px radius (`{rounded.sm}`), 36px min-height,
-  weight 500, 120ms color transitions.
-- **Primary:** Deep-petrol fill, white text, 1px petrol-ink border, `0 14px`
-  padding. Hover deepens to petrol-ink. The only filled-accent surface.
-- **Secondary / Icon:** White surface, 1px line-strong border, graphite text.
-  Hover lifts the border and shifts to stone-soft. Icon buttons are a 38px
-  square of the same treatment. A `--danger` modifier recolors text only.
+| Token            | Value   | Use                                        |
+| ---------------- | ------- | ------------------------------------------ |
+| `--dur-fast`     | 120ms   | Control color/border state (the default)   |
+| `--dur-state`    | 140ms   | Compound state changes, small transforms   |
+| `--dur-popover`  | 180ms   | Menus, popovers, tooltips                  |
+| `--dur-overlay`  | 240ms   | Drawers, dialogs, dual-column reveal       |
+| `--ease-standard`| `cubic-bezier(0.2, 0, 0, 1)`         | Default UI easing             |
+| `--ease-emphasis`| `cubic-bezier(0.175, 0.885, 0.32, 1.1)` | Slight overshoot, sparing  |
 
-### Inputs / Fields
+**The Restraint Rules.** Use `--ease-emphasis` (the overshoot curve) only on a
+deliberate enter/select moment — the segmented-control active slide, never a
+color fade. Avoid long, looping, or attention-grabbing animation; no entrance
+choreography. Drive every transition off a `--dur-*`/`--ease-*` token and give
+every animation a `prefers-reduced-motion: reduce` fallback (the existing global
+guard already zeroes transitions under that query — keep new motion inside it).
 
-- **Style:** White surface, 1px line-strong border, 6px radius, 36px height
-  (textarea min 82px, vertical resize only).
-- **Label:** Mono, 11px, uppercase, slate — sits above the control in a 6px
-  grid gap.
-- **Focus:** Border shifts to deep petrol plus a 3px petrol-tinted ring. The
-  ring color must derive from the accent token, not a hardcoded near-petrol.
+## 7. Shapes / Radii
 
-### Chips / Status Pills
+Radii stay tight and live on one scale; keep a **single radius family per
+control group** rather than mixing rounded and sharp.
 
-- **Style:** Fully rounded pill (999px), 12px text, weight 500, `4px 8px`
-  padding, 1px transparent-to-tinted border.
-- **State:** One variant per signal (ok/info/warn/bad/muted) using a 16–18%
-  tint of the signal color on background and a 25%-alpha matching border.
-  Pills carry state, never decoration.
+| Token             | Value | Use                                                |
+| ----------------- | ----- | -------------------------------------------------- |
+| `xs`              | 4px   | Chips, skeletons                                   |
+| `sm`              | 6px   | Segmented-control buttons, inline code             |
+| `control`         | 7px   | Buttons, inputs, selects (the default control)     |
+| `md` (`--radius`) | 8px   | Cards, panels, segmented track                     |
+| `pill`            | 999px | Status pills, avatars, dots                        |
+
+Two intentional exceptions take larger radii (10–14px): **chat bubbles**
+(including the asymmetric user bubble) and **large decorative icon tiles**.
+Don't invent a new one-off radius for a standard control.
+
+## 8. Components
+
+Specs below are the **real current values** in `src/styles.css`. Where a row is
+marked _Tighten_, the spec corrects a documented-vs-shipped drift to resolve in
+the incremental token pass (see `docs/ui-refactor-plan.md`).
+
+### Button
+
+| Variant       | Background  | Text        | Border               | Radius    | Padding | Min-height |
+| ------------- | ----------- | ----------- | -------------------- | --------- | ------- | ---------- |
+| **primary**   | `--accent`  | `#ffffff`   | 1px `--accent-strong`| 7px       | `0 14px`| 36px       |
+| **secondary** | `--surface` | `--text`    | 1px `--line-strong`  | 7px       | `0 12px`| 36px       |
+| **icon**      | `--surface` | `--text`    | 1px `--line-strong`  | 7px       | 38px sq | 36px       |
+| **danger**    | _(secondary)_ | `--danger`| _(secondary)_        | _(secondary)_ | _(secondary)_ | _(secondary)_ |
+
+- Primary hover deepens to `--accent-strong`. Secondary/icon hover lifts the
+  border to `--accent-border-hover` and the fill to `--surface-soft`. Weight
+  500, transitions on `--dur-fast`.
+- **danger** is a modifier that recolors **text only** (`--danger`, now defined
+  as `var(--red)`); it does not change the fill.
+- _Tighten:_ control radius is **7px** (not the 6px earlier prose claimed); the
+  hover-border literal `#9fb0aa` should migrate to `--accent-border-hover`.
+
+### Field / Input
+
+- White surface (`--surface`), 1px `--line-strong` border, **7px** radius, 36px
+  height (input/select). Textarea min-height 82px, `resize: vertical` only,
+  10px padding; input/select padding `0 10px`.
+- **Label** uses the `label` role (mono 11px uppercase, `--muted`), sitting
+  above the control in a 6px (`--space-1h`) grid gap.
+- **Focus** shifts the border to `--accent` plus the 3px `--focus-ring`. The
+  ring derives from `--accent`, never a hardcoded near-petrol.
+
+### Badge / Status Pill
+
+- Fully rounded pill (999px), 12px / 600 text, `4px 8px` padding.
+- One variant per signal — **ok** / **info** / **bad** at a 16% tint of the
+  signal color, **warn** at 18%, **muted** on `--surface-2`. Text is the solid
+  signal color. Pills carry state, never decoration; pair the color with an
+  icon or label (never color alone).
+- _Tighten:_ the pills currently ship with **no border**. Earlier prose
+  promised a 25%-alpha border; the doc now matches reality (no border). Adding
+  matching alpha borders is a deliberate Phase-2 choice, not an assumed default.
 
 ### Segmented Control
 
-- **Style:** Stone-soft track, 8px radius, 3px inset padding, 2px gap. Buttons
-  are 28px, mono-adjacent 12px/600 slate text, transparent border.
-- **State:** Active/hover button gets a white surface, petrol-tinted border,
-  and petrol-ink text. The chosen pattern for mutually exclusive view choices.
+- Track: `--surface-soft`, 1px `--line`, 8px radius, 3px inset padding, 2px gap.
+- Button: 28px min-height, `0 10px` padding, 6px radius, transparent border,
+  `--muted` 12px / 600 text.
+- Active/hover button: `--surface` fill, `--accent-border-hover` border,
+  `--accent-strong` text. The chosen pattern for mutually exclusive view
+  choices. Optionally animate the active state with `--dur-state` +
+  `--ease-emphasis`.
 
 ### Cards / Panels
 
-- **Corner Style:** 8px radius (`{rounded.md}`).
-- **Background:** Paper white on the warm-stone page.
-- **Border:** 1px line. **Shadow:** the Edge Line token only (see Elevation).
-- **Internal Padding:** 16–20px. Never nest a card inside a card.
+- Paper white (`--surface`) on the warm-stone page, 1px `--line` border, 8px
+  (`--radius`) corners, the Edge Line shadow only.
+- Internal padding 16px (`--space-4`); the reader pane may take 24px. **Never
+  nest a card inside a card.**
+- _Tighten:_ panel title color literal `#25322f` → `--text`; the 13px
+  metric-card padding → `--space-3` (12px).
 
 ### Navigation (sidebar)
 
-- **Style:** White sidebar on warm stone, grouped routes, 232px fixed width,
-  sticky full-height. Settings pinned to the footer, never a primary route.
-- **States:** Active route uses a 2px leading petrol marker plus weight, not a
-  filled pill. Hover is a quiet stone-soft fill. Single-language per locale —
-  never bilingual chrome like `Overview / 工作台概览`.
+- White sidebar on warm stone, grouped routes, 232px fixed width, sticky
+  full-height. Settings pinned to the footer, never a primary route.
+- **Active** route uses a 2px leading petrol marker (`::before`) plus weight —
+  **not** a filled pill. **Hover** is a quiet `--surface-soft` fill. Single
+  language per locale — never bilingual chrome like `Overview / 工作台概览`.
+- _Tighten:_ collapse the duplicate base/override rules; literals `#3c4a46` /
+  `#1d2926` / `#cbd8d4` → `--muted` / `--text` / `--accent-border-hover`.
 
-## 6. Do's and Don'ts
+## 9. Voice & Content
+
+Chrome copy is part of the design. The app is **single-language per locale**
+(`en` _or_ `zh-CN`, never both); core/user content (markdown, JSON, model and
+provider names, paths) is rendered **verbatim** and never translated by the web
+layer. Rules below are tagged **[EN]**, **[ZH]**, or **[both]**.
+
+- **Casing.** **[EN]** Title Case for buttons, nav, tabs, menu items, and
+  column heads (`New Session`, `Hide Orphans`); sentence case for body, helper
+  text, and tooltips. **[ZH]** No Title Case — natural, concise phrasing
+  (`新建会话`, `隐藏孤立节点`); no full-width spacing tricks for emphasis.
+- **Actions = verb + noun.** **[both]** Name an action with a verb and a noun,
+  never a bare `Confirm` / `OK` / `确定`. **[EN]** `Delete Session`,
+  `Apply Lint`, `Run Ingest`. **[ZH]** `删除会话`, `应用整理`, `运行摄取`.
+- **Errors = what happened + what to do.** State the cause, then the remedy;
+  never a bare code. **[EN]** `Couldn't reach the core server. Check the Server
+  URL in Settings.` **[ZH]** `无法连接到核心服务,请在设置中检查服务地址。`
+- **Toasts name the thing, drop "successfully", drop the trailing period.**
+  **[EN]** `Session renamed`, `Token saved` (not `Successfully saved the
+  token.`). **[ZH]** `已重命名会话`, `已保存令牌` — prefer the `已`-prefix
+  completion form; no trailing `。` on a short toast.
+- **Empty states point to the first action.** **[EN]** `No sessions yet — start
+  one to begin.` with a primary button. **[ZH]** `暂无会话,新建一个开始。`
+- **Loading = present participle + ellipsis.** **[EN]** `Loading…`,
+  `Translating…`, `Ingesting…`. **[ZH]** `加载中…`, `翻译中…`, `摄取中…` — use
+  the `…` character and the `中` continuous form.
+- **Numerals, quotes, no filler.** Use digits in chrome (`3 sessions`). Curly
+  quotes / Chinese quotation marks per house style. **[EN]** drop `please`
+  (`Enter a token`, not `Please enter a token`); **[ZH]** omit `请` where the
+  action is obvious. Skip marketing superlatives.
+- **Single-language guard.** Never `Overview / 工作台概览`. The breadcrumb root
+  is the fixed `Workbench` / `工作台`, independent of the brand name.
+
+## 10. Do's and Don'ts
 
 ### Do:
 
+- **Do** rank information with the gray ramp (`--text` → `--muted` →
+  `--subtle`); use weight and size before reaching for color.
+- **Do** read every hover/active state off the **Intent Mapping** table (§2) —
+  never invent a new literal like `#cbd8d4`.
 - **Do** keep the page background warm stone (`#f5f3ee`); reserve `#ffffff`
   for raised surfaces.
 - **Do** spend the deep-petrol accent rarely (≤10% of a screen) and only where
   it means something — primary action, active state, link, focus.
 - **Do** separate surfaces with 1px hairline borders and surface tone; depth
   is structural, not floated.
-- **Do** keep control + card radii on the `4 / 6 / 8 / 999` scale; controls at
-  6–7px, cards at 8px, pills fully round. Larger radii (10–14px) are reserved
-  for two intentional cases only: chat bubbles (incl. the asymmetric user
-  bubble) and large decorative icon tiles. Don't invent new one-off radii for
-  standard controls.
-- **Do** confine uppercase + letter-spacing to the JetBrains Mono label role.
-- **Do** maintain WCAG AA: body ≥4.5:1, large ≥3:1, meta/controls ≥3:1, in
-  both light and dark, and give every animation a `prefers-reduced-motion`
+- **Do** snap spacing to the `--space-*` grid and radii to the `4 / 6 / 7 / 8 /
+  999` scale; controls at 7px, cards at 8px, pills fully round.
+- **Do** confine uppercase + letter-spacing to the JetBrains Mono `label` role,
+  and keep ≤2 font weights per view.
+- **Do** put a focus ring on every interactive element (`--focus-ring` for text
+  fields, `--focus-outline` elsewhere — already single-sourced), and drive
+  every transition off `--dur-*`/`--ease-*` with a `prefers-reduced-motion`
   fallback.
+- **Do** maintain WCAG AA: body ≥4.5:1, large ≥3:1, meta/controls ≥3:1, in
+  both light and dark.
 
 ### Don't:
 
-- **Don't** build generic SaaS dashboards — no multi-color status walls, no
-  hero-metric blocks (big number + small label + gradient), no heavy
-  drop-shadow card grids.
+- **Don't** signal state with color alone — pair the signal with an icon,
+  label, or shape (colorblind + WCAG).
+- **Don't** hardcode a hex or an off-grid pixel where a token exists; `--danger`,
+  the alpha set, and `--space-*` exist precisely to retire those literals.
+- **Don't** mix radii within one control family, or build generic SaaS
+  dashboards — no multi-color status walls, no hero-metric blocks (big number +
+  small label + gradient), no heavy drop-shadow card grids.
 - **Don't** reach for the AI-template look — no cream/sand background with
   serif-plus-terracotta, no tracked uppercase eyebrow above every section, no
   01/02/03 numbered scaffolding used as decoration.

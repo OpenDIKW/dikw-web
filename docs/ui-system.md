@@ -67,6 +67,17 @@ Use CSS variables for page background, surfaces, text, muted text,
 lines, accent, status colors, and shadows. New UI should consume tokens
 instead of hard-coded colors so light and dark modes stay aligned.
 
+Beyond colors, `src/styles.css` carries the full token vocabulary that
+`DESIGN.md` documents: a 4px spacing grid (`--space-*`, with 6/10/14px
+half-steps), a four-step motion scale (`--dur-fast|state|popover|overlay`
+plus `--ease-standard|emphasis`), six typography roles
+(`--type-<role>-{size,lh,ls}` across the serif/sans/mono voices), and
+alpha layers (`--line-alpha`, `--overlay-hover|active`,
+`--accent-border-hover`) for borders and hover fills that must track the
+theme over arbitrary surfaces. `--danger` is an alias of `--red` for
+destructive control text. Read every hover/active state off the **Intent
+Mapping** table in `DESIGN.md` §2 rather than inventing a new literal.
+
 The current `src/styles.css` is the baseline UI specification for future
 iterations. Keep the warm-stone neutral palette, petrol accent,
 hairline borders, restrained shadows, grouped sidebar, breadcrumb
@@ -181,6 +192,13 @@ Prefer shared local patterns over new dependencies:
 - `status-pill` for statuses and auth/token posture.
 - `field` for labeled form inputs.
 - `icon-button`, `primary-button`, and `secondary-button` for actions.
+
+These class patterns are being wrapped in shared React components
+(`cx`, `Button`, `IconButton`, `Field`) that emit the **same** DOM and
+classes, to retire hand-rolled markup duplication — see
+`docs/ui-refactor-plan.md` for the phased rollout and `DESIGN.md` §8 for
+the per-component spec (variants, sizes, states). Wrapping does not change
+the CSS; prefer the component at new call-sites.
 
 Do not add shadcn, Radix, Tailwind, or another UI framework unless a
 future plan explicitly changes that constraint.
