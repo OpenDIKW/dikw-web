@@ -20,9 +20,11 @@ import { DikwClient, DikwClientError } from "../api/client";
 import { Button } from "../components/Button";
 import { IconButton } from "../components/IconButton";
 import { EmptyState } from "../components/EmptyState";
+import { FrontmatterChip } from "../components/FrontmatterChip";
 import { MarkdownView } from "../components/MarkdownView";
 import { BilingualView, type BilingualSide } from "../components/BilingualView";
 import { Notice } from "../components/Notice";
+import { SoftLabel } from "../components/SoftLabel";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { useBilingualReader, type BilingualReader } from "../hooks/useBilingualReader";
 import { usePreviewTranslation } from "../hooks/usePreviewTranslation";
@@ -570,7 +572,7 @@ export function WikiPage({
             <div>
               <h2>{copy.directoryTitle}</h2>
             </div>
-            <span className="soft-label">{formatFileCount(basePages.length)}</span>
+            <SoftLabel>{formatFileCount(basePages.length)}</SoftLabel>
           </div>
           <label className="wiki-search">
             <Search size={15} aria-hidden="true" />
@@ -865,10 +867,10 @@ function WikiReader({
           <div className="reader-header reader-header--stacked">
             <div className="reader-header__path">{page.path}</div>
             <div className="reader-header__meta reader-header__meta--inline">
-              <span className="soft-label">{formatUnixSeconds(doc?.mtime)}</span>
-              <span className="soft-label">
+              <SoftLabel>{formatUnixSeconds(doc?.mtime)}</SoftLabel>
+              <SoftLabel>
                 {page.layer} · {formatAnchorCount(page.anchors.length)}
-              </span>
+              </SoftLabel>
             </div>
           </div>
           <WikiReaderTabs
@@ -1109,14 +1111,14 @@ function WikiInfoPanel({
       {tags.length || sources.length ? (
         <div className="wiki-info-chips" aria-label="Frontmatter chips">
           {tags.map((tag) => (
-            <span className="frontmatter-chip frontmatter-chip--tag" key={`tag-${tag}`}>
+            <FrontmatterChip variant="tag" key={`tag-${tag}`}>
               #{tag}
-            </span>
+            </FrontmatterChip>
           ))}
           {sources.map((source) => (
-            <span className="frontmatter-chip frontmatter-chip--source" key={`source-${source}`}>
+            <FrontmatterChip variant="source" key={`source-${source}`}>
               {source}
-            </span>
+            </FrontmatterChip>
           ))}
         </div>
       ) : null}
@@ -1146,9 +1148,9 @@ function WikiOutlinePanel({
       aria-label={copy.outlinePanel}
     >
       <div className="wiki-outline-summary">
-        <span className="soft-label">{headings.length} headings</span>
-        <span className="soft-label">{wikilinks.length} wikilinks</span>
-        <span className="soft-label">{formatAnchorCount(anchors)}</span>
+        <SoftLabel>{headings.length} headings</SoftLabel>
+        <SoftLabel>{wikilinks.length} wikilinks</SoftLabel>
+        <SoftLabel>{formatAnchorCount(anchors)}</SoftLabel>
       </div>
       <div className="wiki-outline-columns">
         <section>
@@ -1223,22 +1225,22 @@ function WikiBacklinksSection({
             >
               {ref.title}
             </button>
-            <span className="soft-label wiki-backlinks__layer">{ref.layer}</span>
+            <SoftLabel className="wiki-backlinks__layer">{ref.layer}</SoftLabel>
             {ref.sources.includes("linked") ? (
-              <span
-                className="soft-label wiki-backlinks__source wiki-backlinks__source--linked"
+              <SoftLabel
+                className="wiki-backlinks__source wiki-backlinks__source--linked"
                 aria-label={copy.referenceSourceLinkedAria}
               >
                 {copy.referenceSourceLinked}
-              </span>
+              </SoftLabel>
             ) : null}
             {ref.sources.includes("sourced") ? (
-              <span
-                className="soft-label wiki-backlinks__source wiki-backlinks__source--sourced"
+              <SoftLabel
+                className="wiki-backlinks__source wiki-backlinks__source--sourced"
                 aria-label={copy.referenceSourceSourcedAria}
               >
                 {copy.referenceSourceSourced}
-              </span>
+              </SoftLabel>
             ) : null}
           </li>
         ))}
@@ -1337,10 +1339,10 @@ function WikiPreviewCard({
       <div className="reader-header__path">{page.path}</div>
       <h2>{tr.title || title}</h2>
       <div className="wiki-preview-card__meta">
-        <span className="soft-label">{page.layer}</span>
-        <span className="soft-label">{formatAnchorCount(page.anchors.length)}</span>
+        <SoftLabel>{page.layer}</SoftLabel>
+        <SoftLabel>{formatAnchorCount(page.anchors.length)}</SoftLabel>
         {tr.translated ? (
-          <span className="soft-label wiki-preview-card__ai">{copy.bilingual.aiBadge}</span>
+          <SoftLabel className="wiki-preview-card__ai">{copy.bilingual.aiBadge}</SoftLabel>
         ) : null}
       </div>
       <p>{tr.summary || summary}</p>

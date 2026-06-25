@@ -1,9 +1,12 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { Button } from "./Button";
 import { cx } from "./cx";
 import { Field } from "./Field";
+import { FrontmatterChip } from "./FrontmatterChip";
 import { IconButton } from "./IconButton";
+import { SegmentedControl } from "./SegmentedControl";
+import { SoftLabel } from "./SoftLabel";
 
 describe("cx", () => {
   it("joins truthy parts and drops falsy ones", () => {
@@ -103,5 +106,94 @@ describe("Field", () => {
     expect(label).toHaveClass("field");
     expect(label).toHaveClass("field--grow");
     expect(label).toHaveClass("custom");
+  });
+});
+
+describe("SoftLabel", () => {
+  it("renders a span carrying the soft-label class with its children", () => {
+    render(<SoftLabel>3 headings</SoftLabel>);
+    const el = screen.getByText("3 headings");
+    expect(el.tagName).toBe("SPAN");
+    expect(el).toHaveClass("soft-label");
+  });
+
+  it("appends extra className and forwards rest attributes", () => {
+    render(
+      <SoftLabel className="wiki-backlinks__layer" role="status" aria-live="polite">
+        K
+      </SoftLabel>,
+    );
+    const el = screen.getByText("K");
+    expect(el).toHaveClass("soft-label");
+    expect(el).toHaveClass("wiki-backlinks__layer");
+    expect(el).toHaveAttribute("role", "status");
+    expect(el).toHaveAttribute("aria-live", "polite");
+  });
+});
+
+describe("FrontmatterChip", () => {
+  it("renders a plain chip span with its children", () => {
+    const { container } = render(
+      <FrontmatterChip>
+        <strong>status</strong>
+        active
+      </FrontmatterChip>,
+    );
+    const el = container.querySelector("span");
+    expect(el).toHaveClass("frontmatter-chip");
+    expect(el).not.toHaveClass("frontmatter-chip--tag");
+    expect(container.querySelector("strong")).toHaveTextContent("status");
+  });
+
+  it("adds the tag and source modifier classes", () => {
+    render(
+      <>
+        <FrontmatterChip variant="tag">#alpha</FrontmatterChip>
+        <FrontmatterChip variant="source">paper.pdf</FrontmatterChip>
+      </>,
+    );
+    const tag = screen.getByText("#alpha");
+    expect(tag).toHaveClass("frontmatter-chip");
+    expect(tag).toHaveClass("frontmatter-chip--tag");
+    const source = screen.getByText("paper.pdf");
+    expect(source).toHaveClass("frontmatter-chip");
+    expect(source).toHaveClass("frontmatter-chip--source");
+  });
+});
+
+describe("SegmentedControl", () => {
+  const options = [
+    { value: "system", label: "System" },
+    { value: "light", label: "Light" },
+    { value: "dark", label: "Dark" },
+  ] as const;
+
+  it("renders the labeled track with type=button options and marks the active one", () => {
+    const { container } = render(
+      <SegmentedControl
+        value="light"
+        options={options}
+        onChange={() => {}}
+        ariaLabel="Theme"
+        settings
+      />,
+    );
+    const track = container.querySelector(".segmented-control");
+    expect(track).toHaveClass("segmented-control--settings");
+    expect(track).toHaveAttribute("aria-label", "Theme");
+    const active = screen.getByRole("button", { name: "Light" });
+    expect(active).toHaveClass("is-active");
+    expect(active).toHaveAttribute("type", "button");
+    const inactive = screen.getByRole("button", { name: "System" });
+    expect(inactive).not.toHaveClass("is-active");
+  });
+
+  it("calls onChange with the clicked option value", () => {
+    const onChange = vi.fn();
+    render(
+      <SegmentedControl value="light" options={options} onChange={onChange} ariaLabel="Theme" />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Dark" }));
+    expect(onChange).toHaveBeenCalledWith("dark");
   });
 });

@@ -97,18 +97,29 @@ migrated routes.
   merge `.soft-label` / `.frontmatter-chip` CSS (which would change pixels). Its
   own phase.
 
-## Phase 2 — Badges, segmented control, literal migration
+## Phase 2 — Badges, segmented control, literal migration (this round, landed)
 
-- **`SoftLabel`** and **`FrontmatterChip`** as separate wrappers — keep
-  `StatusPill` as the already-shared status component; **do not merge** the three
-  CSS classes (they are visually distinct).
-- **`SegmentedControl`** — extract the Settings theme/locale pattern.
-  `WikiReaderTabs` and MB-Web's `.mb-seg` are too bespoke to fold in.
-- **Literal → token migration** — replace `#cbd8d4` / `#c5dad5` / `#9fb0aa` /
-  `#3c4a46` / `#1d2926` / `#25322f` with the alpha tokens and the Intent Mapping
-  ramp; consume the `--space-*` / `--type-*` tokens in the CSS rules that match
-  them; collapse the duplicate `.page-header h1` and NavItem base/override rules.
-  Verify route-by-route in light + dark.
+- **`SoftLabel`** and **`FrontmatterChip`** as separate DOM-identical wrappers —
+  `StatusPill` stays the shared status component; the three CSS classes are **not
+  merged** (visually distinct). `SoftLabel` migrates the inline `<span>` badge
+  call-sites only; three block uses of `.soft-label` on a `<p>` (Base outline
+  hint, Wisdom sources-empty + dialog hint) stay raw markup — they borrow the
+  type, they are not badges.
+- **`SegmentedControl`** — extracted the Settings theme/locale pattern as a
+  generic (`<T extends string>`) wrapper; the `.segmented-control` CSS already
+  existed. `WikiReaderTabs` and MB-Web's `.mb-seg` stay bespoke (not folded in).
+- **Literal → token migration (done):** `#cbd8d4` (nav hover border) / `#c5dad5`
+  (segmented hover border) / `#9fb0aa` (secondary/icon hover border) →
+  `--accent-border-hover`; `#3c4a46` (nav resting text) → `--muted`; `#1d2926`
+  (nav strong) / `#25322f` (panel + section title) → `--text`, per DESIGN.md's
+  Intent Mapping. The dead duplicate `.page-header h1 { font-size:25px }` rule was
+  removed (a later rule fully overrode it) and the survivor now consumes
+  `--type-title-page-*`; the now-redundant dark `color: var(--text)` overrides for
+  `.nav-item__label strong` / `.panel__title` / `.section-title` were dropped
+  (their light base now tracks the theme). Verified route-by-route in light + dark
+  against a live core (computed-style checks on every swap, clean console gate).
+- **Deferred:** the 13px metric-card padding → `--space-3` (12px) tighten — a 1px
+  layout change out of scope for this color-literal pass (DESIGN.md §Cards/Panels).
 
 ## Phase 3 — Panels, MB-Web, optional consolidation
 

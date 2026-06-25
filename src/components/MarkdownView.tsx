@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { parseMarkdownDocument, slugifyHeading, type FrontmatterMeta } from "../utils/markdown";
 import type { PageAsset } from "../types";
+import { FrontmatterChip } from "./FrontmatterChip";
 import { renderMarkdown, useMarkdownEffects, type MarkdownContext } from "./markdown-runtime";
 
 interface MarkdownViewProps {
@@ -98,20 +99,20 @@ function FrontmatterSummary({ meta }: { meta: FrontmatterMeta }) {
   return (
     <section className="frontmatter-summary" aria-label="Document metadata">
       {rows.map(([label, value]) => (
-        <span className="frontmatter-chip" key={label}>
+        <FrontmatterChip key={label}>
           <strong>{label}</strong>
           {value}
-        </span>
+        </FrontmatterChip>
       ))}
       {tags.map((tag) => (
-        <span className="frontmatter-chip frontmatter-chip--tag" key={`tag-${tag}`}>
+        <FrontmatterChip variant="tag" key={`tag-${tag}`}>
           #{tag}
-        </span>
+        </FrontmatterChip>
       ))}
       {sources.map((source) => (
-        <span className="frontmatter-chip frontmatter-chip--source" key={`source-${source}`}>
+        <FrontmatterChip variant="source" key={`source-${source}`}>
           {source}
-        </span>
+        </FrontmatterChip>
       ))}
     </section>
   );

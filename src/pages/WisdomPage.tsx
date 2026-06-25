@@ -16,6 +16,7 @@ import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Field";
 import { IconButton } from "../components/IconButton";
 import { MarkdownView } from "../components/MarkdownView";
+import { SoftLabel } from "../components/SoftLabel";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { translations, type Locale } from "../i18n";
 import { basename, formatUnixSeconds, truncateMiddle } from "../utils/format";
@@ -978,7 +979,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
         <aside className="wiki-sidebar">
           <div className="wiki-explorer__header">
             <h2>{copy.directoryTitle}</h2>
-            <span className="soft-label">{formatCount(visiblePages.length, copy.fileCount)}</span>
+            <SoftLabel>{formatCount(visiblePages.length, copy.fileCount)}</SoftLabel>
           </div>
           <button
             type="button"
@@ -1040,7 +1041,7 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
                   {selected.isPending ? copy.pendingPathHint : selected.path}
                 </div>
                 <div className="reader-header__meta reader-header__meta--inline">
-                  <span className="soft-label">{formatUnixSeconds(selected.updatedTs)}</span>
+                  <SoftLabel>{formatUnixSeconds(selected.updatedTs)}</SoftLabel>
                   <button
                     type="button"
                     className={`wisdom-star ${selected.status === "favorite" ? "is-on" : ""}`}
@@ -1408,7 +1409,7 @@ function WisdomReadAside({
                 <button type="button" className="inline-wikilink" onClick={() => onOpen(ref.path)}>
                   {ref.title}
                 </button>
-                <span className="soft-label wiki-backlinks__layer">W</span>
+                <SoftLabel className="wiki-backlinks__layer">W</SoftLabel>
               </li>
             ))}
           </ul>
@@ -1421,7 +1422,7 @@ function WisdomReadAside({
             {sources.map((path) => (
               <li className="wiki-backlinks__item" key={path}>
                 <span className="wisdom-source-path">{path}</span>
-                <span className="soft-label wiki-backlinks__layer">D</span>
+                <SoftLabel className="wiki-backlinks__layer">D</SoftLabel>
               </li>
             ))}
           </ul>
@@ -1520,9 +1521,9 @@ function WisdomEditor({
       </div>
       <div className="wisdom-edit-actions">
         {saving && savingMessage ? (
-          <span className="soft-label wisdom-edit-actions__status" role="status" aria-live="polite">
+          <SoftLabel className="wisdom-edit-actions__status" role="status" aria-live="polite">
             {savingMessage}
-          </span>
+          </SoftLabel>
         ) : null}
         <Button onClick={onSave} disabled={saving} aria-label={copy.saveAria}>
           {saving ? copy.saving : copy.save}
