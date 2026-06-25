@@ -74,6 +74,24 @@ export function ResearchWorkspace({
   const [dragging, setDragging] = useState<"left" | "right" | null>(null);
   const dragRef = useRef<{ side: "left" | "right"; startX: number; startW: number } | null>(null);
 
+  // Narrow viewports can't fit three side-by-side panels; below 900px a single
+  // panel fills the width and a tab bar switches between them, so the library
+  // (paper picker) and Q&A stay reachable instead of being display:none'd away
+  // — the #MB-Web link is a cold-open, phone-shared entry point. matchMedia is
+  // absent in jsdom, so this defaults to the desktop three-pane layout.
+  const [isNarrow, setIsNarrow] = useState(
+    () => window.matchMedia?.("(max-width: 900px)").matches ?? false,
+  );
+  const [mobilePanel, setMobilePanel] = useState<"lib" | "reader" | "qa">("lib");
+  useEffect(() => {
+    const mq = window.matchMedia?.("(max-width: 900px)");
+    if (!mq) return undefined;
+    const sync = () => setIsNarrow(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
   // ── upload state ─────────────────────────────────────────────────────────
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [libReloadKey, setLibReloadKey] = useState(0);
@@ -94,6 +112,8 @@ export function ResearchWorkspace({
   const selectPaper = useCallback(
     (p: CurrentPaper) => {
       setPaper(p);
+      // On a phone, picking a paper jumps straight to reading it.
+      setMobilePanel("reader");
       onCurrentPaperChange(p);
     },
     [onCurrentPaperChange],
@@ -193,7 +213,39 @@ export function ResearchWorkspace({
   if (!rightCollapsed) cols.push("6px", `${qaW}px`);
 
   return (
-    <section className="mb-research" style={{ gridTemplateColumns: cols.join(" ") }}>
+    <section
+      className="mb-research"
+      data-mobile={isNarrow ? mobilePanel : undefined}
+      style={{ gridTemplateColumns: cols.join(" ") }}
+    >
+      {isNarrow ? (
+        <div className="mb-mobile-tabs" role="group" aria-label="切换面板">
+          <button
+            type="button"
+            aria-pressed={mobilePanel === "lib"}
+            className={mobilePanel === "lib" ? "on" : ""}
+            onClick={() => setMobilePanel("lib")}
+          >
+            论文库
+          </button>
+          <button
+            type="button"
+            aria-pressed={mobilePanel === "reader"}
+            className={mobilePanel === "reader" ? "on" : ""}
+            onClick={() => setMobilePanel("reader")}
+          >
+            阅读
+          </button>
+          <button
+            type="button"
+            aria-pressed={mobilePanel === "qa"}
+            className={mobilePanel === "qa" ? "on" : ""}
+            onClick={() => setMobilePanel("qa")}
+          >
+            知识问答
+          </button>
+        </div>
+      ) : null}
       <input
         ref={fileInputRef}
         type="file"
@@ -215,7 +267,7 @@ export function ResearchWorkspace({
         onDismissUpload={dismissUpload}
         onRetryUpload={retryUpload}
         reloadKey={libReloadKey}
-        hidden={leftCollapsed}
+        hidden={isNarrow ? false : leftCollapsed}
       />
       {!leftCollapsed ? (
         <div
@@ -271,7 +323,7 @@ export function ResearchWorkspace({
       <QaPanel
         paper={paper}
         agentClient={agentClient}
-        hidden={rightCollapsed}
+        hidden={isNarrow ? false : rightCollapsed}
         onSaveAnswer={onSaveAnswer}
       />
 
