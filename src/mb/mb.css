@@ -15,7 +15,9 @@
   --border2: #cdc9bd;
   --text: #1a1d1c;
   --muted: #6c6f6a;
-  --faint: #95968f;
+  /* Darkened from #95968f (~2.7:1) to clear AA (~4.5:1) for the meta text that
+     uses --faint; still the faintest neutral, just readable. */
+  --faint: #767771;
   --ac: #0d5e57;
   --acb: #e2eeec;
   --act: #094540;

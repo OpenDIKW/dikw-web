@@ -125,7 +125,7 @@ export function GraphPage({
         <label className="wiki-search graph-search">
           <Search aria-hidden="true" size={15} />
           <input
-            aria-label="Graph search"
+            aria-label={copy.searchLabel}
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -136,7 +136,6 @@ export function GraphPage({
         </label>
         <label className="graph-toggle">
           <input
-            aria-label="Hide orphans"
             checked={hideOrphans}
             type="checkbox"
             onChange={(event) => {

@@ -1419,14 +1419,14 @@ describe("read console pages", () => {
     expect(await screen.findByText("4 nodes")).toBeInTheDocument();
     expect(screen.getByText("2 unresolved")).toBeInTheDocument();
 
-    await userEvent.type(screen.getByLabelText("Graph search"), "synth");
+    await userEvent.type(screen.getByLabelText("Search graph"), "synth");
 
     expect(screen.getByRole("button", { name: "Synthesis graph node" })).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Architecture graph node" }),
     ).not.toBeInTheDocument();
 
-    await userEvent.clear(screen.getByLabelText("Graph search"));
+    await userEvent.clear(screen.getByLabelText("Search graph"));
     await userEvent.click(screen.getByLabelText("Hide orphans"));
 
     expect(screen.queryByRole("button", { name: "Orphan graph node" })).not.toBeInTheDocument();

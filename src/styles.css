@@ -2487,7 +2487,20 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 @media (pointer: coarse) {
   .segmented-control button,
   .wiki-reader-tabs button,
-  .graph-zoom .icon-button {
+  .graph-zoom .icon-button,
+  .wiki-tree__item,
+  .wisdom-star,
+  .wisdom-source-remove,
+  .wisdom-editor__add-button {
+    min-height: 44px;
+  }
+  /* The composer send/stop are 28px circles inside the textarea; grow them to a
+     44px tap target on touch (overrides the fixed 28px sizing). */
+  .agent-composer > .primary-button,
+  .agent-composer > .secondary-button {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
     min-height: 44px;
   }
 }
