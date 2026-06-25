@@ -40,12 +40,20 @@ no e2e are the ones the manual pass exists for.
   `segmented-control`, `status-pill`, `field`, `*-button`). Quick check:
   `git diff` introduces no new UI dep in `package.json`; grep the diff for
   `@tailwind` / `@radix-ui` / `shadcn`.
-- [ ] **Small radii.** Cards and controls keep `border-radius ≤ 8px`. No
-  oversized/pill radii on work surfaces.
+- [ ] **Small radii.** Radii stay on the `4 / 6 / 7 / 8 / 999` scale — controls
+  7px, cards 8px, pills fully round; only chat bubbles / icon tiles take 10–14px.
+  No oversized/pill radii on work surfaces.
 - [ ] **Restrained shadows.** Shadows separate work areas, not decorate. No
   heavy drop shadows, no decorative gradients, no one-off page colors.
 - [ ] **Warm-neutral + petrol.** Light mode keeps the warm-stone neutral palette
   with the petrol accent and hairline borders; no admin-dashboard look.
+- [ ] **Token hygiene.** New hover/active states are read off the Intent Mapping
+  table (`DESIGN.md` §2), not new hardcoded hex; new spacing snaps to the
+  `--space-*` 4px grid; transitions use `--dur-*`/`--ease-*`. Quick check: `git
+  diff` adds no new `#rrggbb` literal or off-grid `px` where a token exists.
+- [ ] **Destructive controls recolor.** Danger affordances (the session row
+  `...` menu's delete, `.secondary-button--danger`) render their text in red
+  (`--red`/`--danger`), not the inherited body color, in both themes.
 
 ## Dark mode (reader)
 
@@ -123,6 +131,20 @@ no e2e are the ones the manual pass exists for.
   mono view) shows the original card, badge-free. An already-Chinese target page
   is shown as-is (no badge, no extra translate call). _e2e: `bilingual.spec.ts`
   "translates the preview card…"; unit: `WikiBilingual.test.tsx`._
+
+## Copy (voice & content)
+
+> Chrome copy follows `DESIGN.md` §9, adapted per locale. Core/user content is
+> never rewritten by the web layer.
+
+- [ ] **Actions = verb + noun.** Buttons/menu items name a verb and a noun
+  (`Delete Session` / `删除会话`), never a bare `Confirm` / `OK` / `确定`.
+- [ ] **Toasts.** Name the changed thing, drop `successfully`, drop the trailing
+  period — `Session renamed` / `已重命名会话`, not `Successfully renamed…`.
+- [ ] **Loading + empty states.** In-progress text uses the present participle +
+  `…` (`Loading…` / `加载中…`); empty states point to the first action.
+- [ ] **EN casing.** In `en`, buttons/nav/tabs are Title Case, body/helper text
+  is sentence case; `zh-CN` uses natural phrasing (no Title Case).
 
 ## Surface-specific contracts
 

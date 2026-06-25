@@ -52,6 +52,63 @@ html[data-theme="light"] {
      fields; --focus-outline is the crisp keyboard outline for other controls. */
   --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
   --focus-outline: 2px solid var(--accent);
+  /* --danger aliases --red so destructive controls (.secondary-button--danger,
+     .agent-session-menu__item--danger) actually recolor. Defined once: it tracks
+     the theme through --red, which the dark block overrides. */
+  --danger: var(--red);
+  /* Type roles — collapse ad-hoc sizes onto six roles across the three voices.
+     CSS has no compound type token, so each role is size / line-height / tracking. */
+  --type-display-size: 32px;
+  --type-display-lh: 1.18;
+  --type-display-ls: -0.01em;
+  --type-title-page-size: 30px;
+  --type-title-page-lh: 1.1;
+  --type-title-page-ls: -0.01em;
+  --type-title-size: 17px;
+  --type-title-lh: 1.3;
+  --type-title-ls: -0.005em;
+  --type-body-size: 15px;
+  --type-body-lh: 1.55;
+  --type-body-ls: 0;
+  --type-body-sm-size: 13px;
+  --type-body-sm-lh: 1.45;
+  --type-body-sm-ls: 0;
+  --type-label-size: 11px;
+  --type-label-lh: 1.2;
+  --type-label-ls: 0.04em;
+  /* Spacing — 4px base. Half-steps (-1h/-2h/-3h) record entrenched 6/10/14px
+     usage; never reach past them for a NEW layout decision. Rhythm: 8 inside a
+     group (--space-2), 16 between groups (--space-4), 32–40 between sections. */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-1h: 6px;
+  --space-2: 8px;
+  --space-2h: 10px;
+  --space-3: 12px;
+  --space-3h: 14px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  /* Motion — durations reconcile the de-facto 120/140/240ms; 100/160/180 retire.
+     --ease-emphasis is the slight-overshoot curve, reserved for deliberate
+     enter/select moments, never color fades. Pair with prefers-reduced-motion. */
+  --dur-fast: 120ms;
+  --dur-state: 140ms;
+  --dur-popover: 180ms;
+  --dur-overlay: 240ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasis: cubic-bezier(0.175, 0.885, 0.32, 1.1);
+  /* Alpha line / overlay — layer over any surface and track the theme via
+     color-mix, retiring scattered literals (#cbd8d4 / #c5dad5 / #9fb0aa /
+     rgba(255,255,255,.7)). No dark override: all derive from --text / --accent. */
+  --line-alpha: color-mix(in srgb, var(--text) 12%, transparent);
+  --line-alpha-strong: color-mix(in srgb, var(--text) 22%, transparent);
+  --overlay-hover: color-mix(in srgb, var(--text) 5%, transparent);
+  --overlay-active: color-mix(in srgb, var(--text) 9%, transparent);
+  --accent-border-hover: color-mix(in srgb, var(--accent) 35%, var(--line));
 }
 
 html[data-theme="dark"] {
