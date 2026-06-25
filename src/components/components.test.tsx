@@ -19,9 +19,15 @@ describe("shared display components", () => {
       message: "Missing page",
     });
     render(<Notice title="无法读取页面" error={error} />);
-    expect(screen.getByText("无法读取页面")).toBeInTheDocument();
+    // A post-action error must be announced — role=alert (assertive).
+    expect(screen.getByRole("alert")).toHaveTextContent("无法读取页面");
     expect(screen.getByText("404 not_found")).toBeInTheDocument();
     expect(screen.getByText("Missing page")).toBeInTheDocument();
+  });
+
+  it("announces info notices politely via role=status", () => {
+    render(<Notice tone="info" title="导入完成" />);
+    expect(screen.getByRole("status")).toHaveTextContent("导入完成");
   });
 
   it("renders empty state and metric content", () => {

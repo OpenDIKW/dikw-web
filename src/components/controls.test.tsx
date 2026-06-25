@@ -168,7 +168,7 @@ describe("SegmentedControl", () => {
     { value: "dark", label: "Dark" },
   ] as const;
 
-  it("renders the labeled track with type=button options and marks the active one", () => {
+  it("renders a labeled group of toggle buttons and exposes the active one via aria-pressed", () => {
     const { container } = render(
       <SegmentedControl
         value="light"
@@ -178,13 +178,16 @@ describe("SegmentedControl", () => {
         settings
       />,
     );
+    // The track is a named group so the aria-label is announced (a bare div
+    // drops its name); each option is a toggle button carrying aria-pressed.
     const track = container.querySelector(".segmented-control");
     expect(track).toHaveClass("segmented-control--settings");
+    expect(track).toHaveAttribute("role", "group");
     expect(track).toHaveAttribute("aria-label", "Theme");
-    const active = screen.getByRole("button", { name: "Light" });
+    const active = screen.getByRole("button", { name: "Light", pressed: true });
     expect(active).toHaveClass("is-active");
     expect(active).toHaveAttribute("type", "button");
-    const inactive = screen.getByRole("button", { name: "System" });
+    const inactive = screen.getByRole("button", { name: "System", pressed: false });
     expect(inactive).not.toHaveClass("is-active");
   });
 

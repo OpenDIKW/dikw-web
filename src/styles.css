@@ -1091,7 +1091,7 @@ textarea:focus {
 .wisdom-card p,
 .event-tape__item p {
   margin: 0;
-  color: #34423e;
+  color: var(--text);
   line-height: 1.55;
 }
 
@@ -1146,7 +1146,7 @@ textarea:focus {
   margin: 0;
   max-height: 5.2em;
   overflow: hidden;
-  color: #3f4d49;
+  color: var(--text);
   line-height: 1.45;
 }
 
@@ -2383,7 +2383,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  color: #31413d;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
@@ -2395,19 +2395,19 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #fbfdfc;
+  background: var(--surface);
 }
 
 .wiki-preview-card h2 {
   margin: 0;
-  color: #101817;
+  color: var(--text);
   font-size: 19px;
   line-height: 1.25;
 }
 
 .wiki-preview-card p {
   margin: 0;
-  color: #43524e;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -2459,7 +2459,14 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   font-weight: 600;
 }
 
-.segmented-control button:hover,
+/* Hover and selected must read differently: a hovered non-selected option gets
+   only a faint fill, while the selected one is a raised surface chip with a
+   petrol border — so selected ≠ hovered regardless of pointer position. */
+.segmented-control button:not(.is-active):hover {
+  background: var(--overlay-hover);
+  color: var(--accent-strong);
+}
+
 .segmented-control button.is-active {
   border-color: var(--accent-border-hover);
   background: var(--surface);
@@ -2570,7 +2577,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   align-items: center;
   gap: 7px;
   min-height: 34px;
-  color: #394844;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
@@ -3702,7 +3709,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .graph-force-control strong {
-  color: #273632;
+  color: var(--text);
   font-size: 11px;
   text-align: right;
 }

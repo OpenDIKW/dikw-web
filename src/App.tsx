@@ -357,6 +357,9 @@ function NavButton({
     <button
       className={`nav-item ${active ? "is-active" : ""}`}
       type="button"
+      // Active route exposes a programmatic "you are here" for screen readers,
+      // not just the visual is-active styling (ARIA APG navigation pattern).
+      aria-current={active ? "page" : undefined}
       // In the icon rail the label is visually hidden (kept for a11y), so a
       // native tooltip restores the name on hover.
       title={collapsed ? label : undefined}
