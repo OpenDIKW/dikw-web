@@ -1082,6 +1082,7 @@ body.mb-col-resizing * {
 .mb-ed-txt:focus {
   outline: 0;
   border-color: var(--ac);
+  box-shadow: 0 0 0 3px var(--acb);
 }
 .mb-empty {
   text-align: center;
@@ -1156,6 +1157,7 @@ body.mb-col-resizing * {
 .mb-pop textarea:focus {
   outline: 0;
   border-color: var(--ac);
+  box-shadow: 0 0 0 3px var(--acb);
 }
 .mb-pop-meta {
   display: flex;
