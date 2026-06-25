@@ -115,6 +115,7 @@ export const translations = {
         listErrorTitle: "Could not read wiki pages",
         pageErrorTitle: "Could not read page",
         directoryTitle: "Directory",
+        searchLabel: "Filter",
         searchPlaceholder: "Search files...",
         clearSearch: "Clear directory search",
         resizeDirectory: "Resize directory panel",
@@ -161,6 +162,7 @@ export const translations = {
       graph: {
         title: "Graph",
         refresh: "Refresh graph",
+        searchLabel: "Search graph",
         searchPlaceholder: "Search graph...",
         hideOrphans: "Hide orphans",
         openInWiki: "Open in Base",
@@ -549,6 +551,7 @@ export const translations = {
         listErrorTitle: "无法读取 wiki pages",
         pageErrorTitle: "无法读取页面",
         directoryTitle: "目录",
+        searchLabel: "筛选",
         searchPlaceholder: "搜索文件...",
         clearSearch: "清空目录搜索",
         resizeDirectory: "调整目录宽度",
@@ -595,6 +598,7 @@ export const translations = {
       graph: {
         title: "知识图谱",
         refresh: "刷新图谱",
+        searchLabel: "搜索图谱",
         searchPlaceholder: "搜索图谱...",
         hideOrphans: "隐藏孤立节点",
         openInWiki: "在知识库打开",

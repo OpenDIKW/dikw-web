@@ -90,7 +90,7 @@ test("renders a nonblank Pixi graph canvas", async ({ page }) => {
   await expect(page.locator('.graph-pixi-mount[data-ready="true"]')).toBeVisible({
     timeout: 15000,
   });
-  await page.getByLabel("Graph search").focus();
+  await page.getByLabel("Search graph").focus();
 
   const canvasContract = await page.evaluate(() => {
     const stage = document.querySelector<HTMLElement>(".graph-pixi-stage");

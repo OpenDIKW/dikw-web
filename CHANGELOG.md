@@ -9,6 +9,25 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.10] - 2026-06-25
+
+### Fixed
+
+- **Accessibility round 2 (from a hardened, anti-hallucination `/impeccable
+  audit`).** With the earlier rounds' fixes confirmed in place, the audit
+  surfaced genuinely new items:
+  - **Label-in-Name (WCAG 2.5.3).** Removed hardcoded English `aria-label`s that
+    overrode the localized visible label on inputs already inside a `<label>` /
+    `Field` (Graph "Hide orphans", Settings Server URL / Token), and localized
+    the two search inputs (Base directory, Graph) via a new `searchLabel` copy
+    key — so the accessible name now matches the visible/zh-CN label instead of
+    announcing English.
+  - **Touch targets.** Extended the `@media (pointer: coarse)` 44px block to the
+    chat composer send/stop buttons, Base directory-tree rows, and Wisdom editor
+    controls (were 26–28px on touch).
+  - **MB-Web `--faint`.** Darkened the light-mode token from `#95968f` (~2.7:1)
+    to `#767771` (~4.5:1) so the metadata text it colors clears AA.
+
 ## [0.7.9] - 2026-06-25
 
 ### Fixed

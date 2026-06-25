@@ -91,7 +91,6 @@ export function SettingsPage({
           </div>
           <Field label={copy.serverUrl}>
             <input
-              aria-label="Server URL"
               value={draftUrl}
               onChange={(event) => {
                 setDraftUrl(event.target.value);
@@ -104,7 +103,6 @@ export function SettingsPage({
           </Field>
           <Field label={copy.token}>
             <input
-              aria-label="Token"
               value={draftToken}
               onChange={(event) => {
                 setDraftToken(event.target.value);

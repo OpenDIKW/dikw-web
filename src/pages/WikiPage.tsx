@@ -577,7 +577,7 @@ export function WikiPage({
           <label className="wiki-search">
             <Search size={15} aria-hidden="true" />
             <input
-              aria-label="Filter"
+              aria-label={copy.searchLabel}
               value={filter}
               onChange={(event) => setFilter(event.target.value)}
               placeholder={copy.searchPlaceholder}
