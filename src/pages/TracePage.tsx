@@ -103,6 +103,7 @@ export function TracePage({ agentClient, locale = "en" }: TracePageProps) {
                 <button
                   className={`trace-session ${activeId === session.id ? "is-active" : ""}`}
                   type="button"
+                  aria-current={activeId === session.id ? "true" : undefined}
                   key={session.id}
                   onClick={() => selectSession(session.id)}
                 >

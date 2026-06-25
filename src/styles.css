@@ -276,7 +276,7 @@ button:disabled {
 
 .nav-item svg {
   flex: 0 0 auto;
-  color: #53615d;
+  color: var(--muted);
 }
 
 .nav-item__label {
@@ -654,14 +654,18 @@ textarea:focus {
   white-space: nowrap;
 }
 
+/* Pill text mixes the signal color toward --text: in light that darkens it
+   (passing 4.5:1 on the tint), in dark it lightens — raising contrast against
+   the tinted background in both themes. ok #2f7a4d / info #2f6aa8 were just
+   under AA at 12px/600 on their own 16% tint. */
 .status-pill--ok {
   background: color-mix(in srgb, var(--green) 16%, transparent);
-  color: var(--green);
+  color: color-mix(in srgb, var(--green) 80%, var(--text));
 }
 
 .status-pill--info {
   background: color-mix(in srgb, var(--blue) 16%, transparent);
-  color: var(--blue);
+  color: color-mix(in srgb, var(--blue) 80%, var(--text));
 }
 
 .status-pill--warn {
@@ -1152,7 +1156,7 @@ textarea:focus {
 
 .wiki-list__item:hover,
 .wiki-list__item.is-selected {
-  border-color: #b9d9d3;
+  border-color: var(--accent-border-hover);
   background: var(--accent-soft);
 }
 
@@ -2477,6 +2481,17 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   width: fit-content;
 }
 
+/* Touch devices enlarge the compact toggles that are mouse-comfortable but
+   finger-fiddly to a 44px tap target (WCAG 2.5.5). Fine pointers (desktop
+   mouse) keep the dense sizing. */
+@media (pointer: coarse) {
+  .segmented-control button,
+  .wiki-reader-tabs button,
+  .graph-zoom .icon-button {
+    min-height: 44px;
+  }
+}
+
 .settings-page {
   max-width: 1060px;
 }
@@ -3773,7 +3788,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .wisdom-list__item:hover,
 .wisdom-list__item.is-selected {
-  border-color: #b9d9d3;
+  border-color: var(--accent-border-hover);
   background: var(--accent-soft);
 }
 
@@ -3869,7 +3884,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .task-list__item:hover,
 .task-list__item.is-selected {
-  border-color: #b9d9d3;
+  border-color: var(--accent-border-hover);
   background: var(--accent-soft);
 }
 
@@ -5810,8 +5825,19 @@ html[data-theme="dark"] .overview-grid > .metric-card {
   box-shadow: none;
 }
 
+/* Hide the composer's field label visually but keep it in the a11y tree
+   (display:none would strip it, leaving the textarea named only by its
+   placeholder, which vanishes on input). Mirrors the .sr-only utility. */
 .agent-composer .field > span {
-  display: none;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .agent-composer textarea {
@@ -6882,7 +6908,7 @@ html[data-theme="dark"] .graph-pixi-stage {
   flex: none;
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--subtle);
+  color: var(--muted);
   white-space: nowrap;
 }
 
@@ -6993,7 +7019,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 .trace-span-time {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: var(--subtle);
+  color: var(--muted);
   white-space: nowrap;
 }
 
