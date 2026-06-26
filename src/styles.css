@@ -411,6 +411,18 @@ button:disabled {
   gap: 16px;
 }
 
+.page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.page-header__meta {
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
 .page-header h1,
 .reader-header h2,
 .task-detail__header h2,
@@ -4984,6 +4996,9 @@ html[data-theme="dark"] .brand__mark {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0;
+  /* Reset the UA <dl> block margin (the strip is a <dl> now) so the page-stack
+     grid gap is the only spacing — same as the sibling .detail-list dl. */
+  margin: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
@@ -5021,6 +5036,69 @@ html[data-theme="dark"] .brand__mark {
 .metric-card__detail {
   margin-top: 10px;
   align-self: end;
+}
+
+/* MetricCard renders bare <dt>/<dd> (it lives inside a <dl>); kill the UA dd
+   inline indent so values stay flush wherever the card is used (block margins
+   above are unchanged). */
+.metric-card dt,
+.metric-card dd {
+  margin-inline: 0;
+}
+
+/* Clickable metric → quiet stretched link covering the whole cell (no button
+   chrome): value keeps the ink color, a subtle hover tint signals it acts. */
+.metric-card--link {
+  position: relative;
+}
+.metric-card__link {
+  color: inherit;
+  text-decoration: none;
+}
+.metric-card__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.metric-card--link:hover {
+  background: var(--surface-soft);
+}
+.metric-card__link:focus-visible {
+  outline: none;
+}
+.metric-card__link:focus-visible::after {
+  outline: var(--focus-outline);
+  outline-offset: -2px;
+}
+
+/* Loading skeletons: value + detail placeholders that hold the strip/panel
+   height so real data swaps in without a layout pop-in. Pulses opacity only. */
+.metric-skeleton {
+  display: block;
+  width: 3.25rem;
+  height: 1.5rem;
+  border-radius: 4px;
+  background: var(--surface-2);
+  animation: metric-skeleton-pulse 1.4s var(--ease-standard) infinite;
+}
+.metric-card__detail .metric-skeleton,
+.detail-list .metric-skeleton {
+  width: 6rem;
+  height: 0.8rem;
+}
+@keyframes metric-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .metric-skeleton {
+    animation: none;
+  }
 }
 
 /* When a metric value is a pill (e.g. server health), align it like a value */

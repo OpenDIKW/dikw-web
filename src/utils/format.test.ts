@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatClockTime,
   formatDuration,
   formatNumber,
   formatPercent,
@@ -22,6 +23,11 @@ describe("format helpers", () => {
     expect(formatDuration("2026-05-05T09:00:00Z", "2026-05-05T09:01:04Z")).toBe("1m 4s");
     expect(formatDuration(null, "2026-05-05T09:01:04Z")).toBe("-");
     expect(formatDuration("bad", "2026-05-05T09:01:04Z")).toBe("-");
+  });
+
+  it("formats a wall-clock time for the freshness stamp", () => {
+    expect(formatClockTime(new Date(2026, 5, 26, 20, 41))).toBe("20:41");
+    expect(formatClockTime(new Date(2026, 5, 26, 9, 5))).toBe("09:05");
   });
 
   it("maps statuses and truncates long identifiers", () => {

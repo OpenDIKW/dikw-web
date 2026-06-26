@@ -35,6 +35,7 @@ export const translations = {
       overview: {
         title: "Overview",
         refresh: "Refresh overview",
+        updated: "Updated",
         errorTitle: "Could not read dikw-core status",
       },
       chat: {
@@ -473,6 +474,7 @@ export const translations = {
       overview: {
         title: "工作台概览",
         refresh: "刷新概览",
+        updated: "更新于",
         errorTitle: "无法读取 dikw-core 状态",
       },
       chat: {
