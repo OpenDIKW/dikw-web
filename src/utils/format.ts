@@ -31,6 +31,15 @@ export function formatUnixSeconds(value: number | null | undefined): string {
   }).format(new Date(value * 1000));
 }
 
+/** Wall-clock `HH:MM` (24-hour) for a "last updated" freshness stamp. */
+export function formatClockTime(value: Date): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(value);
+}
+
 export function formatIso(value: string | null | undefined): string {
   if (!value) {
     return "-";

@@ -63,7 +63,7 @@ describe("read console pages", () => {
     expect(
       screen.getByText((_, element) => element?.textContent === "anthropic_compat · MiniMax-M2.7"),
     ).toBeInTheDocument();
-    const wisdomCard = screen.getByText("Wisdom").closest("section") as HTMLElement;
+    const wisdomCard = screen.getByText("Wisdom").closest(".metric-card") as HTMLElement;
     expect(within(wisdomCard).getByText("4")).toBeInTheDocument();
     // The Wisdom card carries a caption row like every other metric so its
     // number sits on the same baseline (no collapsed third grid row).

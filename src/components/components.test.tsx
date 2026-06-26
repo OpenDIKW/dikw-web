@@ -34,7 +34,10 @@ describe("shared display components", () => {
     render(
       <>
         <EmptyState title="暂无认知条目" detail="Try another filter" />
-        <MetricCard label="Information" value="31" detail="31 embeddings" />
+        {/* MetricCard emits <dt>/<dd>; it lives inside a <dl> (the overview strip). */}
+        <dl>
+          <MetricCard label="Information" value="31" detail="31 embeddings" />
+        </dl>
       </>,
     );
     expect(screen.getByText("暂无认知条目")).toBeInTheDocument();

@@ -9,6 +9,27 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.12] - 2026-06-26
+
+### Added
+
+- **Overview: loading skeletons, a freshness stamp, and clickable metrics.** While
+  the first `/v1/health|status|info` load is in flight the metric strip and the
+  Runtime/Providers panels now render skeleton placeholders (locking the layout
+  height so data swaps in without a pop-in) instead of misleading zeros; the
+  header carries an `Updated HH:MM` / `更新于 HH:MM` freshness stamp; and the Data,
+  Knowledge, and Wisdom metrics link to `#base`, `#graph`, and `#wisdom`
+  respectively (a quiet stretched link — no button chrome). The Refresh button
+  spins and marks `aria-busy` while loading but stays clickable, so a stalled
+  request can still be retried.
+
+### Changed
+
+- **Overview metric strip is now a semantic `<dl>`.** Each metric renders as a
+  `<dt>` label + `<dd>` value, so a screen reader announces term/value pairs
+  instead of a flat text stream (matching the Runtime/Providers panels). A failed
+  initial load now shows only the error notice rather than a half-rendered strip.
+
 ## [0.7.11] - 2026-06-26
 
 ### Changed
