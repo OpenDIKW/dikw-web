@@ -2440,7 +2440,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .wiki-preview-card h2 {
   margin: 0;
   color: var(--text);
-  font-size: 19px;
+  font-size: var(--type-title-size);
   line-height: 1.25;
 }
 
@@ -3558,7 +3558,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .import-done-banner__headline {
-  font-size: 20px;
+  font-size: var(--type-title-size);
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--text);
@@ -4568,7 +4568,7 @@ html[data-theme="dark"] .markdown-body blockquote {
   }
 
   .metric-card__value {
-    font-size: 24px;
+    font-size: 22px;
   }
 }
 
@@ -5174,7 +5174,7 @@ html[data-theme="dark"] .brand__mark {
     border-bottom: 0;
   }
   .overview-grid > .metric-card .metric-card__value {
-    font-size: 26px;
+    font-size: 22px;
   }
 }
 
@@ -6622,7 +6622,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 
 .wisdom-popover__title h2 {
   margin: 0;
-  font-size: 15.5px;
+  font-size: var(--type-body-size);
   line-height: 1.2;
 }
 

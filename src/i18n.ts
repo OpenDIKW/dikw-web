@@ -867,7 +867,7 @@ export const translations = {
       unsavedChanges: "有未保存的更改",
       saved: "已保存",
       appearanceTitle: "外观",
-      appearanceDetail: "System 会跟随操作系统偏好。",
+      appearanceDetail: "「跟随系统」会随操作系统的明暗偏好自动切换。",
       system: "跟随系统",
       light: "浅色",
       dark: "深色",

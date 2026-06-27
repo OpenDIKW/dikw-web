@@ -9,6 +9,30 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-06-27
+
+### Fixed
+
+- **Settings appearance copy no longer mixes languages.** The zh-CN 外观 subtitle
+  read "System 会跟随操作系统偏好" — the English enum label `System` inside Chinese
+  chrome, breaking the single-language-chrome rule. Now "「跟随系统」会随操作系统的明暗
+  偏好自动切换。".
+- **Editorial / responsive heading sizes snapped onto the role ladder.** The tail the
+  0.8.1 small-text pass left — `.wiki-preview-card h2` (19 → title 17),
+  `.import-done-banner__headline` (20 → title 17), `.wisdom-popover__title h2`
+  (15.5 → body 15), and the responsive `.metric-card__value` downscales (24 / 26 → 22,
+  the reader-h2 editorial step) — is now on the ladder.
+
+### Changed
+
+- **MB-Web type migrated onto the role tokens.** `src/mb/mb.css` dropped its
+  self-contained half-step scale (11.5 / 12.5 / 13.5 / 14.5 …); 59 of its 60
+  `font-size` declarations now resolve to `--type-*` (label / body-sm / body / title)
+  by nearest role, made available by the app-wide `styles.css` import. The one kept
+  literal is `.mb-r-title` (22px), the paper-reader title. MB-Web radii/colors remain a tracked
+  follow-up (DESIGN.md §3). Verified in the browser across the library, reader, and
+  notes views.
+
 ## [0.8.1] - 2026-06-27
 
 ### Fixed

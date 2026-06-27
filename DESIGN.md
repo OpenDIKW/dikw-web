@@ -309,12 +309,13 @@ no stray 14 / 16 sitting beside `body` (15) / `title` (17). `body-sm` is the hom
 for *all* dense machine metadata — IDs, paths, durations, pills, table cells,
 hints, segmented controls — that previously drifted to an undocumented 12px. The
 `no UI text renders off the role scale` e2e invariant guards this band across the
-workbench routes (a passive, default-viewport sweep). A few **editorial /
-responsive heading sizes outside the small-text band are a pre-existing tail not
-yet on the ladder** — `.wiki-preview-card h2` (19), `.import-done-banner__headline`
-(20), `.wisdom-popover__title h2` (15.5), and the responsive `.metric-card__value`
-downscales (24 / 26) — surfaced only in hover popovers, success banners, or at
-narrow breakpoints. They are a tracked follow-up, kept out of this pass.
+workbench routes (a passive, default-viewport sweep). The editorial / responsive
+heading sizes that lived outside the small-text band are now on the ladder too:
+`.wiki-preview-card h2` (19 → title 17), `.import-done-banner__headline` (20 →
+title 17), `.wisdom-popover__title h2` (15.5 → body 15), and the responsive
+`.metric-card__value` downscales (24 / 26 → 22, the reader-h2 editorial step). The
+only deliberate off-role size left is em-relative notation (inline code, KaTeX) and
+the MB-Web paper title (see the subsystem note below).
 
 The **cascade base** is the body role: `body` sets `font-size:
 var(--type-body-size)` (15px), so any unsized text — and every `font: inherit`
@@ -354,10 +355,14 @@ context), and **KaTeX** math sub/superscripts and layout struts size themselves
 relative to the formula. Everything else is on-ladder.
 
 **Subsystem boundary — MB-Web.** The focused 论文 reader (`src/mb/mb.css`,
-`.mb-`-prefixed) still carries its own self-contained half-step scale
-(11.5 / 12.5 / 13.5 / 14.5 …) and does **not** yet consume these `--type-*`
-tokens. Migrating it onto the role ladder is a tracked follow-up, kept out of the
-workbench consolidation so each can be visually verified on its own surfaces.
+`.mb-`-prefixed) now consumes the `--type-*` role tokens for **type**: its former
+half-step scale (11.5 / 12.5 / 13.5 / 14.5 …) collapsed onto label / body-sm / body
+/ title by nearest role, and the global `styles.css` (imported app-wide in
+`main.tsx`) makes the tokens available inside the MB-Web tree. The one deliberate
+literal is `.mb-r-title` (22px) — the paper-reader title, the reader-h2 editorial
+step, kept compact rather than the workbench reader's 32. MB-Web's **radii and
+colors** are still off the documented scale (a separate `detect.mjs` finding) and
+remain a tracked follow-up; only type was migrated here.
 
 **The agent surface rides the roles.** Assistant and user messages use the body
 role (15px) for prose, the editorial serif for the three markdown heading levels
