@@ -71,7 +71,12 @@ test("the three type voices resolve to the IBM Plex superfamily", async ({ page 
 async function sweepText(page: Page, kind: "tracked-uppercase" | "below-floor") {
   return page.evaluate((k) => {
     const breaks = (cs: CSSStyleDeclaration) => {
-      if (k === "below-floor") return parseFloat(cs.fontSize) < 11;
+      if (k === "below-floor") {
+        // `font-size: 0` is a deliberate icon-button label-collapse (e.g. the chat
+        // composer Send button), not a legibility floor breach — exclude it.
+        const fs = parseFloat(cs.fontSize);
+        return fs > 0 && fs < 11;
+      }
       // tracked-uppercase: uppercase + real letter-spacing, in a non-mono voice
       return (
         cs.textTransform === "uppercase" &&
@@ -103,26 +108,37 @@ async function sweepText(page: Page, kind: "tracked-uppercase" | "below-floor") 
   }, kind);
 }
 
+// Routes the invariants sweep — chosen to cover the surfaces this scale pass
+// actually touched (global chrome, reader, import, chat), not just #overview.
+const SWEEP_ROUTES = ["#overview", "#base", "#import", "#chat"] as const;
+
+async function gotoAndSettle(page: Page, hash: string) {
+  await page.goto(`/${hash}`);
+  // The sidebar nav renders on every workbench route — a reliable cross-route
+  // "shell is up" signal without coupling to a per-route heading.
+  await expect(page.locator(".nav-item").first()).toBeVisible();
+}
+
 // The Mono-Only-Uppercase Rule (DESIGN.md §3): tracked uppercase is permitted only
 // in the IBM Plex Mono label voice. This invariant catches ANY sans/serif element
 // that renders uppercase + letter-spacing — far more durable than per-selector
 // literals, and exactly the AI "eyebrow" tell the rule forbids.
 test("no sans/serif element renders tracked uppercase (Mono-Only-Uppercase)", async ({ page }) => {
-  await page.goto("/#overview");
-  await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
-
-  const offenders = await sweepText(page, "tracked-uppercase");
-  expect(offenders, JSON.stringify(offenders, null, 2)).toHaveLength(0);
+  for (const route of SWEEP_ROUTES) {
+    await gotoAndSettle(page, route);
+    const offenders = await sweepText(page, "tracked-uppercase");
+    expect(offenders, `${route}: ${JSON.stringify(offenders, null, 2)}`).toHaveLength(0);
+  }
 });
 
 // The 11px floor (DESIGN.md §3): nothing renders below the label size, for
 // low-vision legibility. Catches a reintroduced 10.5px label.
 test("no rendered text drops below the 11px floor", async ({ page }) => {
-  await page.goto("/#overview");
-  await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
-
-  const tooSmall = await sweepText(page, "below-floor");
-  expect(tooSmall, JSON.stringify(tooSmall, null, 2)).toHaveLength(0);
+  for (const route of SWEEP_ROUTES) {
+    await gotoAndSettle(page, route);
+    const tooSmall = await sweepText(page, "below-floor");
+    expect(tooSmall, `${route}: ${JSON.stringify(tooSmall, null, 2)}`).toHaveLength(0);
+  }
 });
 
 // Panel titles ride the `title` role token (17px), not the old off-scale 14px.
