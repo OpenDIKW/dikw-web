@@ -181,6 +181,132 @@ test("no UI text renders off the role scale", async ({ page }) => {
   }
 });
 
+// Type-system contracts for surfaces the passive sweeps can't reach. The
+// invariant sweeps above only see what renders on a default-viewport, no-auth,
+// no-interaction load — so the frontmatter info-grid (a tab behind a page read),
+// the wikilink preview card (hover-gated), the bilingual column heads + import
+// step markers + #trace duration (state-gated) all slip past them while their
+// CSS still drifts. This guard injects each selector's minimal DOM so the
+// stylesheet's own rule is asserted directly, independent of app data.
+test("type-system rules hold on sweep-unreachable surfaces (workbench)", async ({ page }) => {
+  await page.goto("/#overview");
+  await expect(page.locator(".nav-item").first()).toBeVisible();
+
+  const probes = await page.evaluate(() => {
+    const cases: Array<{ id: string; html: string; target: string }> = [
+      // Hero metric value: the documented hero-number is 27 (DESIGN.md §3), not
+      // the 30 a token-migration override had silently pinned.
+      {
+        id: "metricValue",
+        html: `<div class="metric-card__value">42</div>`,
+        target: ".metric-card__value",
+      },
+      // Frontmatter field label — every other field dt is the mono label voice.
+      {
+        id: "infoDt",
+        html: `<dl class="wiki-info-grid"><dt>layer</dt><dd>x</dd></dl>`,
+        target: ".wiki-info-grid dt",
+      },
+      // Wikilink preview eyebrow — an uppercase label, so Mono-Only-Uppercase.
+      {
+        id: "previewHeader",
+        html: `<div class="wiki-preview__header">preview</div>`,
+        target: ".wiki-preview__header",
+      },
+      // Bilingual column head: mono has no 600 face, so 600 was a dead no-op.
+      {
+        id: "biColhead",
+        html: `<div class="bi-colhead"><span>Source</span></div>`,
+        target: ".bi-colhead span",
+      },
+      {
+        id: "importMarker",
+        html: `<div class="import-step__marker">1</div>`,
+        target: ".import-step__marker",
+      },
+      {
+        id: "traceDur",
+        html: `<div class="trace-invocation__dur">5ms</div>`,
+        target: ".trace-invocation__dur",
+      },
+      // User markdown table headers must render verbatim, not force-uppercased.
+      {
+        id: "tableTh",
+        html: `<div class="markdown-table-wrap"><table><thead><tr><th>Name</th></tr></thead></table></div>`,
+        target: ".markdown-table-wrap th",
+      },
+      // Dialog H2 must ride the title role (sans 600), not inherit the UA bold 700.
+      {
+        id: "wisdomDialogH2",
+        html: `<div class="wisdom-dialog__header"><h2>Title</h2></div>`,
+        target: ".wisdom-dialog__header h2",
+      },
+      // Chart caption must land on the role ladder (body-sm), not an off-scale em.
+      {
+        id: "chartCaption",
+        html: `<figure class="markdown-chart"><figcaption class="markdown-chart__caption">cap</figcaption></figure>`,
+        target: ".markdown-chart__caption",
+      },
+    ];
+    const out: Record<string, { ff: string; fw: string; tt: string; fs: string }> = {};
+    for (const c of cases) {
+      const holder = document.createElement("div");
+      holder.innerHTML = c.html;
+      document.body.appendChild(holder);
+      const el = holder.querySelector(c.target)!;
+      const cs = getComputedStyle(el);
+      out[c.id] = { ff: cs.fontFamily, fw: cs.fontWeight, tt: cs.textTransform, fs: cs.fontSize };
+      holder.remove();
+    }
+    const bodySm = getComputedStyle(document.documentElement)
+      .getPropertyValue("--type-body-sm-size")
+      .trim();
+    return { out, bodySm };
+  });
+
+  const { out, bodySm } = probes;
+  // A — hero metric is the documented 27px, not the drifted 30px. (The 22px
+  // override lives at ≤640px, so this holds at the runner's default wide
+  // viewport — the surface this guard targets.)
+  expect(out.metricValue.fs).toBe("27px");
+  // B/C — uppercase eyebrows render in the mono voice (Mono-Only-Uppercase).
+  expect(out.infoDt.ff).toContain("IBM Plex Mono");
+  expect(out.previewHeader.ff).toContain("IBM Plex Mono");
+  expect(out.previewHeader.fw).toBe("500");
+  // D/E/F — mono labels declare a loaded weight (500), not the no-op 600.
+  expect(out.biColhead.fw).toBe("500");
+  expect(out.importMarker.fw).toBe("500");
+  expect(out.traceDur.fw).toBe("500");
+  // G — user table headers are not transformed (content fidelity).
+  expect(out.tableTh.tt).toBe("none");
+  // I — dialog H2 rides the title role weight (600), not UA bold.
+  expect(out.wisdomDialogH2.fw).toBe("600");
+  // J — chart caption is on the role ladder.
+  expect(out.chartCaption.fs).toBe(bodySm);
+});
+
+// The MB-Web bilingual column heads are the twin of the workbench `.bi-colhead`
+// (which is mono): they must use the same mono uppercase label voice, not a
+// sans-uppercase "eyebrow". mb.css only loads under the #MB-Web app.
+test("MB-Web column labels use the mono uppercase voice", async ({ page }) => {
+  await page.goto("/#MB-Web");
+  // mb.css applies to a bare `.mb-lab`; build one so the rule is asserted without
+  // needing a paper open in bilingual mode.
+  const lab = await page.evaluate(() => {
+    const el = document.createElement("div");
+    el.className = "mb-lab";
+    el.textContent = "EN · 原文";
+    document.body.appendChild(el);
+    const cs = getComputedStyle(el);
+    const r = { ff: cs.fontFamily, ls: cs.letterSpacing, fs: cs.fontSize };
+    el.remove();
+    return r;
+  });
+  expect(lab.ff).toContain("IBM Plex Mono");
+  // 0.04em on the 11px label = 0.44px (the system label tracking), not 0.06em.
+  expect(parseFloat(lab.ls)).toBeCloseTo(0.44, 1);
+});
+
 // Panel titles ride the `title` role token (17px), not the old off-scale 14px.
 // Asserts the mechanism (the token) so a deliberate retune doesn't false-fail.
 test("panel titles ride the title-role token", async ({ page }) => {

@@ -478,11 +478,13 @@ body.mb-col-resizing * {
 .mb-lab {
   font-size: var(--type-label-size);
   color: var(--faint);
-  letter-spacing: 0.06em;
+  /* Mono uppercase label voice — the twin of the workbench `.bi-colhead span`,
+     not a sans-uppercase eyebrow. 0.04em is the shared label tracking. */
+  letter-spacing: 0.04em;
   margin: 0 0 2px;
   text-transform: uppercase;
   padding: 0 9px;
-  font-family: var(--sans);
+  font-family: var(--font-mono);
 }
 .mb-bp {
   margin: 0;
