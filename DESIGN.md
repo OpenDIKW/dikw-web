@@ -282,15 +282,19 @@ screen reads as flat white, the layering has collapsed.
 
 ## 3. Typography
 
-**Display Font:** Source Serif 4 (with Georgia, Source Han Serif CN fallbacks)
-**Body / UI Font:** Inter Tight (with Inter, system-ui fallbacks)
-**Label / Mono Font:** JetBrains Mono (with SFMono, Sarasa Mono SC fallbacks)
+**Reading / Serif:** IBM Plex Serif (with Georgia, Source Han Serif CN fallbacks)
+**Body / UI Sans:** IBM Plex Sans (with system-ui, -apple-system fallbacks)
+**Label / Mono:** IBM Plex Mono (with SFMono, Sarasa Mono SC fallbacks)
 
-**Character:** A three-voice system pairing on a true contrast axis — an
-editorial serif for long-form reading, a tight humanist sans for the interface
-(including page titles), and a monospace for the machine layer (IDs, paths,
-frontmatter keys, uppercase labels). The serif is the only warmth; the mono is
-the only place uppercase + letter-spacing is allowed.
+**Character:** One superfamily, three voices. IBM Plex Sans / Serif / Mono share
+a single family's DNA, so the contrast that separates the voices is **role**, not
+foundry — an editorial serif for long-form reading, a humanist sans for the
+interface (including page titles), and a monospace for the machine layer (IDs,
+paths, frontmatter keys, uppercase labels). Coordination is the point: the three
+read as siblings, not three downloads. CJK glyphs fall through to the system fonts
+(PingFang / Songti / YaHei) since Plex covers Latin only. Fonts load from Google
+Fonts (external — outside the bundle budget). The serif is the only warmth; the
+mono is the only place uppercase + letter-spacing is allowed.
 
 ### Type Roles
 
@@ -306,29 +310,49 @@ control (buttons, inputs, selects) — rides the scale instead of the browser's
 
 | Role           | Voice          | Size | Line-height | Tracking | Weight  | Used for                                                |
 | -------------- | -------------- | ---- | ----------- | -------- | ------- | ------------------------------------------------------- |
-| **display**    | Source Serif 4 | 32px | 1.18        | -0.01em  | 500     | Reader article H1/H2 — the one editorial voice          |
-| **title-page** | Inter Tight    | 30px | 1.1         | -0.01em  | 600     | Page-header H1 — **sans, not serif** (see note below)   |
-| **title**      | Inter Tight    | 17px | 1.3         | -0.005em | 600     | Panel / card / session headings                         |
-| **body**       | Inter Tight    | 15px | 1.55        | 0        | 400     | Interface text, descriptions, agent replies             |
-| **body-sm**    | Inter Tight    | 13px | 1.45        | 0        | 400/500 | Dense metadata, secondary UI text                       |
-| **label**      | JetBrains Mono | 11px | 1.2         | 0.04em   | 600     | Field labels, table heads, IDs — the **only** uppercase |
+| **display**    | IBM Plex Serif | 32px | 1.18        | -0.01em  | 600     | Reader article H1 / fallback title — the editorial voice |
+| **title-page** | IBM Plex Sans  | 30px | 1.1         | -0.01em  | 600     | Page-header H1 — **sans, not serif** (see note below)   |
+| **title**      | IBM Plex Sans  | 17px | 1.3         | -0.005em | 600     | Panel / card / session / detail headings                |
+| **body**       | IBM Plex Sans  | 15px | 1.55        | 0        | 400     | Interface text, descriptions, agent replies             |
+| **body-sm**    | IBM Plex Sans  | 13px | 1.45        | 0        | 400/500 | Dense metadata, secondary UI text                       |
+| **label**      | IBM Plex Mono  | 11px | 1.2         | 0.04em   | 500     | Field labels, table heads, IDs — the **only** uppercase |
 
-**Note — page titles are sans, reader headings are serif.** The editorial serif
-is reserved for the **reader** (`.markdown-body h1/h2`). Workbench **page
-titles** (`.page-header h1`) are Inter Tight 30px — the `title-page` role — so
-the chrome stays technical and the serif moment stays special to reading. Reader
-prose caps line length at 65–75ch. (Data display like the 27px metric value and
-the 22px reader H2 sit outside the six text roles.)
+**Where the serif appears (and where it does not).** The editorial serif is used
+in exactly three places: (1) the **document reader** prose — `.markdown-body
+h1/h2/h3`, the fallback title, and the reader-header title; (2) the **assistant
+reply** prose — the agent markdown headings; and (3) the two **stat-number** tiers
+(the 27px hero metric value, the 18px summary stat). Everything else is sans:
+workbench **page titles** (`.page-header h1`, the `title-page` role) and **every
+panel / card / detail heading** (the `title` role, 17px) — including the task,
+wisdom, and graph detail H2s, which previously sprawled serif across ~8 ad-hoc
+sizes. Keeping the serif to reading + numbers is what makes the reading moment
+special and the chrome read as one sans family. Reader prose caps line length at
+65–75ch.
+
+**Editorial serif sub-scale.** The serif voice spans five deliberate steps that
+sit alongside (not inside) the six text roles, since titling and numerals are not
+body text: reader-display **32**, reader-h2 **22**, reader-h3 **17**, hero-number
+**27**, stat-number **18** — all weight 600.
+
+**The agent surface rides the roles.** Assistant and user messages use the body
+role (15px) for prose, the editorial serif for the three markdown heading levels
+(17 / 15 / 13, weight 600), body-sm mono for code, and the 11px mono label for the
+role chip — no private chat sub-scale.
 
 ### Named Rules
 
 **The Mono-Only-Uppercase Rule.** Uppercase text with letter-spacing is
-permitted exclusively in the JetBrains Mono `label` role (field labels, table
+permitted exclusively in the IBM Plex Mono `label` role (field labels, table
 heads, IDs). Never set sans or serif in tracked uppercase — that is the AI
-"eyebrow" tell, and it is forbidden here.
+"eyebrow" tell, and it is forbidden here. Every mono label shares **one tracking,
+`0.04em`** (`--type-label-ls`) — not the 0.02 / 0.03 / 0.08 / 0.1 spread it grew
+into — and the **floor is 11px**: nothing renders smaller (low-vision legibility).
 
-**The Two-Weight Rule.** Keep at most two font weights in a single view; let
-size and the gray ramp carry the rest of the hierarchy.
+**The Two-Weight Rule.** Keep at most two font weights in a single view; let size
+and the gray ramp carry the rest of the hierarchy. Note: markdown `strong`/`b` is
+pinned to weight 600, because the UA default `font-weight: bolder` is *relative*
+and compounds to 900 inside an already-bold context (a fifth weight, and past IBM
+Plex's Bold ceiling).
 
 ## 4. Spacing & Rhythm
 

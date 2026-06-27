@@ -30,9 +30,9 @@
   --radius: 8px;
   --radius-lg: 12px;
   --sans:
-    "Inter Tight", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei",
-    sans-serif;
-  --serif: "Source Serif 4", Georgia, "Songti SC", serif;
+    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --serif: "IBM Plex Serif", Georgia, "Songti SC", serif;
 
   position: fixed;
   inset: 0;
