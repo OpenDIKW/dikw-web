@@ -1895,9 +1895,16 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   }
 }
 
-/* Paragraph-aligned dual columns. */
+/* Paragraph-aligned dual columns. The dual view is two reading measures side by
+   side, so it must override the single-column 72ch cap it inherits from
+   `.markdown-body` — otherwise both columns crush into one measure on the left
+   and leave the pane's right half empty. Fill the reader pane on normal widths;
+   past two measures, cap and center so columns never run past a comfortable
+   line length on an ultra-wide monitor. */
 .bilingual-cols {
   position: relative;
+  max-width: calc(72ch * 2 + 40px);
+  margin-inline: auto;
 }
 .bilingual-cols::before {
   content: "";

@@ -28,38 +28,38 @@ colors:
   accent-border-hover: "color-mix(in srgb, {colors.deep-petrol} 35%, {colors.line})"
 typography:
   # Six roles across three voices. Each maps to --type-<role>-{size,lh,ls} in styles.css.
-  display: # Source Serif 4 — reader article H1/H2 (the one editorial voice)
-    fontFamily: "Source Serif 4, ui-serif, Georgia, Source Han Serif CN, serif"
+  display: # IBM Plex Serif — reader article H1/H2 (the one editorial voice)
+    fontFamily: "IBM Plex Serif, ui-serif, Georgia, Songti SC, Source Han Serif CN, serif"
     fontSize: "32px"
-    fontWeight: 500
+    fontWeight: 600
     lineHeight: 1.18
     letterSpacing: "-0.01em"
-  title-page: # Inter Tight — page-header H1 (NOTE: sans, not serif)
-    fontFamily: "Inter Tight, Inter, ui-sans-serif, system-ui, sans-serif"
+  title-page: # IBM Plex Sans — page-header H1 (NOTE: sans, not serif)
+    fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, PingFang SC, Microsoft YaHei, sans-serif"
     fontSize: "30px"
     fontWeight: 600
     lineHeight: 1.1
     letterSpacing: "-0.01em"
-  title: # Inter Tight — panel / card / session headings
-    fontFamily: "Inter Tight, Inter, ui-sans-serif, system-ui, sans-serif"
+  title: # IBM Plex Sans — panel / card / session headings
+    fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, PingFang SC, Microsoft YaHei, sans-serif"
     fontSize: "17px"
     fontWeight: 600
     lineHeight: 1.3
     letterSpacing: "-0.005em"
-  body: # Inter Tight — interface text, descriptions, agent replies
-    fontFamily: "Inter Tight, Inter, ui-sans-serif, system-ui, sans-serif"
+  body: # IBM Plex Sans — interface text, descriptions, agent replies
+    fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, PingFang SC, Microsoft YaHei, sans-serif"
     fontSize: "15px"
     fontWeight: 400
     lineHeight: 1.55
-  body-sm: # Inter Tight — dense metadata / secondary UI text
-    fontFamily: "Inter Tight, Inter, ui-sans-serif, system-ui, sans-serif"
+  body-sm: # IBM Plex Sans — dense metadata / secondary UI text
+    fontFamily: "IBM Plex Sans, ui-sans-serif, system-ui, PingFang SC, Microsoft YaHei, sans-serif"
     fontSize: "13px"
     fontWeight: 400
     lineHeight: 1.45
-  label: # JetBrains Mono UPPERCASE — field labels, table heads, IDs
-    fontFamily: "JetBrains Mono, ui-monospace, SFMono-Regular, Consolas, monospace"
+  label: # IBM Plex Mono UPPERCASE — field labels, table heads, IDs
+    fontFamily: "IBM Plex Mono, ui-monospace, SFMono-Regular, Consolas, Sarasa Mono SC, monospace"
     fontSize: "11px"
-    fontWeight: 600
+    fontWeight: 500
     lineHeight: 1.2
     letterSpacing: "0.04em"
 rounded:
@@ -361,8 +361,15 @@ half-step scale (11.5 / 12.5 / 13.5 / 14.5 …) collapsed onto label / body-sm /
 `main.tsx`) makes the tokens available inside the MB-Web tree. The one deliberate
 literal is `.mb-r-title` (22px) — the paper-reader title, the reader-h2 editorial
 step, kept compact rather than the workbench reader's 32. MB-Web's **radii and
-colors** are still off the documented scale (a separate `detect.mjs` finding) and
-remain a tracked follow-up; only type was migrated here.
+colors now ride the shared tokens too**: every differently-named local token
+(`--ac` / `--acb` / `--border` / …) aliases its `styles.css` equivalent and the
+same-named ones (`--bg` / `--surface` / `--text` / …) inherit the global light +
+dark values, so the parallel dark block is gone; its former off-scale radii
+snapped to the `4 / 6 / 7 / 8 / 999` scale (cards 8px, the badge / chip / filter /
+toast / sync pills fully round). The few genuinely MB-specific literals with no
+shared equivalent stay named and local: the answer-blue pair (`--ans-*`), the
+on-accent foreground (`--acfg`), the AA-darkened `--faint`, the hover wash
+(`--hover-bp`), and the note highlighter (`--mb-mark` / `--mb-mark-staged`).
 
 **The agent surface rides the roles.** Assistant and user messages use the body
 role (15px) for prose, the editorial serif for the three markdown heading levels
@@ -601,7 +608,7 @@ layer. Rules below are tagged **[EN]**, **[ZH]**, or **[both]**.
   is structural, not floated.
 - **Do** snap spacing to the `--space-*` grid and radii to the `4 / 6 / 7 / 8 /
   999` scale; controls at 7px, cards at 8px, pills fully round.
-- **Do** confine uppercase + letter-spacing to the JetBrains Mono `label` role,
+- **Do** confine uppercase + letter-spacing to the IBM Plex Mono `label` role,
   and keep ≤2 font weights per view.
 - **Do** put a focus ring on every interactive element (`--focus-ring` for text
   fields, `--focus-outline` elsewhere — already single-sourced), and drive

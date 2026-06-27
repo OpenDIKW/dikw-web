@@ -9,6 +9,38 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-06-27
+
+### Fixed
+
+- **AI-translate dual columns fill the reader pane.** The bilingual view's root
+  inherits `.markdown-body`'s single-column `max-width: 72ch`, so the source /
+  translation columns crushed into one measure on the left and left the pane's
+  right half empty. `.bilingual-cols` now overrides that cap — it fills the reader
+  width (each column gets its own measure) and, past two measures on an ultra-wide
+  pane, caps and centers. _e2e guard: `bilingual.spec.ts` "dual-column view fills
+  the reader pane…"._
+- **DESIGN.md typography frontmatter matched to the implementation.** The
+  machine-readable `typography:` block still named the pre-v0.8.0 families (Source
+  Serif 4 / Inter Tight / JetBrains Mono) and carried swapped weights (display 500,
+  label 600) — contradicting the shipped IBM Plex superfamily and the §3 prose
+  table (display 600, label 500). Frontmatter families, weights, and the stray
+  §3 "JetBrains Mono" mention now read IBM Plex.
+
+### Changed
+
+- **MB-Web radii and colors consolidated onto the shared tokens.** `src/mb/mb.css`
+  kept a parallel light + dark palette whose values already duplicated the
+  workbench tokens. Differently-named locals (`--ac` / `--acb` / `--border` / …)
+  now alias their `styles.css` equivalent and same-named ones (`--bg` / `--surface`
+  / `--text` / …) inherit the global values, so the parallel dark block is gone;
+  the off-scale radii snapped to the `4 / 6 / 7 / 8 / 999` scale (cards 8px; the
+  badge / chip / filter / toast / sync pills fully round); the note highlighter
+  yellows became named `--mb-mark` / `--mb-mark-staged` tokens. Only the few
+  genuinely MB-specific literals with no shared equivalent (answer-blue, on-accent
+  foreground, AA-darkened faint, hover wash) stay local. Zero-visual-change for
+  colors; verified in the browser across library, reader, and notes in light + dark.
+
 ## [0.8.2] - 2026-06-27
 
 ### Fixed

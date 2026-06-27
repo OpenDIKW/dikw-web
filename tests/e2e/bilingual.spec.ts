@@ -109,6 +109,28 @@ test("translates the preview card when a translated-column wikilink is clicked",
   await expect(page.locator(".wiki-preview-card__ai")).toHaveCount(0);
 });
 
+test("dual-column view fills the reader pane, not the single-column measure", async ({ page }) => {
+  // The dual view must use the full reader width — each column gets its own
+  // reading measure — instead of inheriting `.markdown-body`'s single-column
+  // 72ch cap, which left-hugged the pane and left the right half empty
+  // (the pre-0.8.3 layout bug). Pin a wide pane (under the 2-measure cap, so it
+  // fills rather than centering) and assert the columns span nearly all of it.
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/#base");
+  const reader = page.getByRole("main", { name: "Wiki reader" });
+  await expect(reader.getByText(/Layered DIKW notes/)).toBeVisible();
+
+  await page.getByRole("switch", { name: TOGGLE }).click();
+  const cols = page.locator(".bilingual-cols");
+  await expect(cols).toBeVisible();
+
+  const ratio = await cols.evaluate((el) => {
+    const parent = el.parentElement as HTMLElement;
+    return el.getBoundingClientRect().width / parent.getBoundingClientRect().width;
+  });
+  expect(ratio).toBeGreaterThan(0.95);
+});
+
 test("keeps the dual-column view readable in dark mode", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("dikw-web.theme", "dark");

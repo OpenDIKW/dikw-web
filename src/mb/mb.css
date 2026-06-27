@@ -5,34 +5,35 @@
  * panel splitters.
  */
 .mb-app {
-  /* Aligned to the workbench warm-stone + petrol identity (One Indicator Rule):
-     MB-Web shares the same neutrals and accent as src/styles.css, not its own
-     green palette. --ans-* (answer blue) stays a distinct functional semantic. */
-  --bg: #f5f3ee;
-  --surface: #ffffff;
-  --surface2: #f0eee8;
-  --border: #e2dfd6;
-  --border2: #cdc9bd;
-  --text: #1a1d1c;
-  --muted: #6c6f6a;
-  /* Darkened from #95968f (~2.7:1) to clear AA (~4.5:1) for the meta text that
-     uses --faint; still the faintest neutral, just readable. */
+  /* MB-Web rides the workbench design tokens (src/styles.css) directly — its
+     neutrals, accent, radius and font voices ARE the shared, theme-aware tokens,
+     not a parallel palette. Same-named tokens (--bg / --surface / --text /
+     --muted / --danger / --radius) inherit the global :root and dark values;
+     differently-named ones alias the shared token so they track the theme with
+     no parallel dark block to maintain. Only the genuinely MB-specific semantics
+     stay literal — the answer-blue pair, the on-accent foreground, the
+     AA-darkened faint, the hover wash, and the note highlighter — none of which
+     has a shared equivalent. */
+  --surface2: var(--surface-2);
+  --border: var(--line);
+  --border2: var(--line-strong);
+  --ac: var(--accent);
+  --acb: var(--accent-soft);
+  --act: var(--accent-strong);
+  --anno-bg: var(--accent-soft);
+  /* Darkened from #95968f (~2.7:1) to clear AA (~4.5:1) for --faint meta text. */
   --faint: #767771;
-  --ac: #0d5e57;
-  --acb: #e2eeec;
-  --act: #094540;
   --acfg: #ffffff;
   --hover-bp: #faf9f5;
-  --anno-bg: #e2eeec;
   --ans-bg: #e6f1fb;
   --ans-tx: #0c447c;
-  --danger: #a8362c;
-  --radius: 8px;
-  --radius-lg: 12px;
-  --sans:
-    "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  --serif: "IBM Plex Serif", Georgia, "Songti SC", serif;
+  /* Note highlighter: live selection (yellow) + staged range (warmer amber).
+     Theme-agnostic — always dark text on a bright mark, on both light and dark
+     reader/chat surfaces. */
+  --mb-mark: #fef08a;
+  --mb-mark-staged: #fcd34d;
+  --sans: var(--font-ui);
+  --serif: var(--font-serif);
 
   position: fixed;
   inset: 0;
@@ -47,23 +48,13 @@
   overflow: hidden;
 }
 html[data-theme="dark"] .mb-app {
-  --bg: #14140f;
-  --surface: #1b1b15;
-  --surface2: #25241d;
-  --border: #2f2d24;
-  --border2: #4e4a3c;
-  --text: #f0eee7;
-  --muted: #b0aca0;
+  /* Only the MB-specific literals need a dark value; every shared-token alias
+     and same-named token tracks the global dark block automatically. */
   --faint: #87826f;
-  --ac: #4eb8a6;
-  --acb: #142a26;
-  --act: #92e3d4;
   --acfg: #06231f;
   --hover-bp: #1f1e17;
-  --anno-bg: #142a26;
   --ans-bg: #12304e;
   --ans-tx: #b5d4f4;
-  --danger: #ef7f75;
 }
 .mb-app *,
 .mb-app *::before,
@@ -137,7 +128,7 @@ html[data-theme="dark"] .mb-app {
   background: var(--acb);
   color: var(--act);
   font-size: var(--type-label-size);
-  border-radius: 20px;
+  border-radius: 999px;
   padding: 0 6px;
   min-width: 16px;
   text-align: center;
@@ -572,7 +563,7 @@ body.mb-col-resizing * {
   font-size: var(--type-label-size);
   background: var(--acb);
   color: var(--act);
-  border-radius: 12px;
+  border-radius: 999px;
   padding: 1px 8px;
 }
 .mb-reader-empty {
@@ -827,7 +818,7 @@ body.mb-col-resizing * {
 .mb-f {
   font-size: var(--type-body-sm-size);
   padding: 5px 13px;
-  border-radius: 20px;
+  border-radius: 999px;
   border: 0.5px solid var(--border2);
   background: transparent;
   color: var(--muted);
@@ -842,7 +833,7 @@ body.mb-col-resizing * {
 .mb-note {
   background: var(--surface);
   border: 0.5px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   padding: 16px 18px;
   margin-bottom: 12px;
 }
@@ -861,7 +852,7 @@ body.mb-col-resizing * {
   color: var(--text);
   background: var(--surface);
   border: 0.5px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   padding: 14px 16px;
   cursor: pointer;
   display: flex;
@@ -1101,7 +1092,7 @@ body.mb-col-resizing * {
   background: var(--ac);
   color: var(--acfg);
   border: 0;
-  border-radius: 22px;
+  border-radius: 999px;
   font-size: var(--type-body-sm-size);
   padding: 7px 14px;
   cursor: pointer;
@@ -1117,7 +1108,7 @@ body.mb-col-resizing * {
   width: 300px;
   background: var(--surface);
   border: 0.5px solid var(--border2);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   padding: 15px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
 }
@@ -1229,7 +1220,7 @@ body.mb-col-resizing * {
   width: min(380px, 100%);
   background: var(--surface);
   border: 0.5px solid var(--border2);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
   padding: 18px 18px 16px;
 }
@@ -1276,7 +1267,7 @@ body.mb-col-resizing * {
   color: var(--acfg);
   font-size: var(--type-body-sm-size);
   padding: 9px 16px;
-  border-radius: 24px;
+  border-radius: 999px;
   display: flex;
   align-items: center;
   gap: 7px;
@@ -1292,7 +1283,7 @@ body.mb-col-resizing * {
   border: 0.5px solid var(--border);
   background: var(--surface2);
   color: var(--muted);
-  border-radius: 20px;
+  border-radius: 999px;
   padding: 2px 9px;
   cursor: default;
 }
@@ -1347,12 +1338,12 @@ body.mb-col-resizing * {
    paragraph-hover highlight and the user sees exactly what will be saved. */
 .mb-reader ::selection,
 .mb-msgs ::selection {
-  background: #fef08a;
+  background: var(--mb-mark);
   color: #1a1a1a;
 }
 .mb-reader ::-moz-selection,
 .mb-msgs ::-moz-selection {
-  background: #fef08a;
+  background: var(--mb-mark);
   color: #1a1a1a;
 }
 /* "Staged" highlight: once text is selected we register its range as a CSS
@@ -1360,7 +1351,7 @@ body.mb-col-resizing * {
    marked — in a slightly warmer amber than the live selection — while the user
    moves to the chip/popover, even after the native selection is gone. */
 ::highlight(mb-staged) {
-  background: #fcd34d;
+  background: var(--mb-mark-staged);
   color: #1a1a1a;
 }
 
