@@ -86,9 +86,11 @@ async function sweepText(page: Page, kind: "tracked-uppercase" | "below-floor" |
         const fs = parseFloat(cs.fontSize);
         if (!(fs > 0)) return false;
         // Relative/notation contexts are intentionally em-scaled, not bound to the
-        // UI role ladder: inline/block code (0.92em) and KaTeX math sub/superscripts
-        // + struts. Exempt the elements and any descendants.
-        if (el.closest("code, pre, kbd, samp, .katex, .katex-display")) return false;
+        // UI role ladder: inline/block code (0.92em), KaTeX math sub/superscripts +
+        // struts, and the missing-asset placeholder (0.9em). Exempt the elements and
+        // any descendants.
+        if (el.closest("code, pre, kbd, samp, .katex, .katex-display, .md-broken-image"))
+          return false;
         return !SCALE.some((s) => Math.abs(s - fs) < 0.5);
       }
       // tracked-uppercase: uppercase + real letter-spacing, in a non-mono voice
@@ -164,9 +166,14 @@ test("no rendered text drops below the 11px floor", async ({ page }) => {
 });
 
 // Scale-adherence invariant (DESIGN.md §3): every rendered UI text leaf must land
-// on the role/editorial ladder {11,13,15,17,18,22,27,30,32}. Catches a reintroduced
-// off-scale size (12/14/16) — the drift the post-v0.8.0 consolidation removed. Code
-// and KaTeX math are em-relative notation, deliberately exempt.
+// on the role/editorial ladder {11,13,15,17,18,22,27,30,32}. Primarily guards the
+// small-text band (11–17) — it catches a reintroduced off-scale size (12/14/16),
+// the drift the post-v0.8.0 consolidation removed. Code, KaTeX math and the
+// missing-asset placeholder are em-relative notation, deliberately exempt. NOTE:
+// this is a passive, default-viewport sweep — it does not open modals/popovers or
+// exercise @media breakpoints, so a few pre-existing editorial/responsive heading
+// sizes (preview-card 19, done-banner 20, wisdom-popover 15.5, responsive metric
+// 24/26) are out of its reach and out of this pass; see DESIGN.md §3.
 test("no UI text renders off the role scale", async ({ page }) => {
   for (const route of SWEEP_ROUTES) {
     await gotoAndSettle(page, route);

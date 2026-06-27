@@ -303,13 +303,18 @@ stylesheet. Each role is one row, exposed in `styles.css` as
 `--type-<role>-size` / `--type-<role>-lh` / `--type-<role>-ls`. Reach for a
 role, not a raw pixel size.
 
-The **small-text ladder is closed**: every secondary UI element lands on
+The **small-text band (11–17) is closed**: every secondary UI element lands on
 `body-sm` (13) or `label` (11) — there is no 12px tier crammed between them, and
 no stray 14 / 16 sitting beside `body` (15) / `title` (17). `body-sm` is the home
 for *all* dense machine metadata — IDs, paths, durations, pills, table cells,
 hints, segmented controls — that previously drifted to an undocumented 12px. The
-`no UI text renders off the role scale` e2e invariant guards this across the
-workbench routes.
+`no UI text renders off the role scale` e2e invariant guards this band across the
+workbench routes (a passive, default-viewport sweep). A few **editorial /
+responsive heading sizes outside the small-text band are a pre-existing tail not
+yet on the ladder** — `.wiki-preview-card h2` (19), `.import-done-banner__headline`
+(20), `.wisdom-popover__title h2` (15.5), and the responsive `.metric-card__value`
+downscales (24 / 26) — surfaced only in hover popovers, success banners, or at
+narrow breakpoints. They are a tracked follow-up, kept out of this pass.
 
 The **cascade base** is the body role: `body` sets `font-size:
 var(--type-body-size)` (15px), so any unsized text — and every `font: inherit`

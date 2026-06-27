@@ -22,9 +22,11 @@ file format introduced in `[0.0.1.0]` was dropped.
   `.settings-panel__header h2` (16 → title, matching every other panel title), the
   import section-head titles + `.section-title` (14 → body), `.answer-text`
   (16 → body), and the reader markdown table header/cell inversion (th 12 / td 14 →
-  both body-sm). Every workbench route now lands on the
-  `{11, 13, 15, 17, 18, 22, 27, 30, 32}` role/editorial ladder — a clean
-  11 / 13 / 15 / 17 small-text run with no 12px tier.
+  both body-sm). The **small-text band (11–17)** on every workbench route now lands
+  on the `{11, 13, 15, 17}` run — no 12px tier, no stray 14 / 16. A few editorial /
+  responsive heading sizes outside that band (preview-card 19, done-banner 20,
+  wisdom-popover 15.5, responsive metric 24 / 26) are a pre-existing tail and a
+  tracked follow-up (DESIGN.md §3).
 - Inline / block code (`0.92em`) and KaTeX math are documented as deliberate
   em-relative **off-ladder exemptions**; a new `no UI text renders off the role
   scale` e2e invariant guards the ladder across
