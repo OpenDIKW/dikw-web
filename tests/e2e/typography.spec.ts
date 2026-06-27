@@ -171,9 +171,8 @@ test("no rendered text drops below the 11px floor", async ({ page }) => {
 // the drift the post-v0.8.0 consolidation removed. Code, KaTeX math and the
 // missing-asset placeholder are em-relative notation, deliberately exempt. NOTE:
 // this is a passive, default-viewport sweep — it does not open modals/popovers or
-// exercise @media breakpoints, so a few pre-existing editorial/responsive heading
-// sizes (preview-card 19, done-banner 20, wisdom-popover 15.5, responsive metric
-// 24/26) are out of its reach and out of this pass; see DESIGN.md §3.
+// exercise @media breakpoints, so any size that surfaces only there is out of its
+// reach (see DESIGN.md §3).
 test("no UI text renders off the role scale", async ({ page }) => {
   for (const route of SWEEP_ROUTES) {
     await gotoAndSettle(page, route);

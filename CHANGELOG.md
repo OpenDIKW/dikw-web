@@ -26,10 +26,10 @@ file format introduced in `[0.0.1.0]` was dropped.
 ### Changed
 
 - **MB-Web type migrated onto the role tokens.** `src/mb/mb.css` dropped its
-  self-contained half-step scale (11.5 / 12.5 / 13.5 / 14.5 …); all 60 `font-size`
-  declarations now resolve to `--type-*` (label / body-sm / body / title) by nearest
-  role, made available by the app-wide `styles.css` import. The one kept literal is
-  `.mb-r-title` (22px), the paper-reader title. MB-Web radii/colors remain a tracked
+  self-contained half-step scale (11.5 / 12.5 / 13.5 / 14.5 …); 59 of its 60
+  `font-size` declarations now resolve to `--type-*` (label / body-sm / body / title)
+  by nearest role, made available by the app-wide `styles.css` import. The one kept
+  literal is `.mb-r-title` (22px), the paper-reader title. MB-Web radii/colors remain a tracked
   follow-up (DESIGN.md §3). Verified in the browser across the library, reader, and
   notes views.
 
