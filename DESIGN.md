@@ -348,6 +348,15 @@ sit alongside (not inside) the six text roles, since titling and numerals are no
 body text: reader-display **32**, reader-h2 **22**, reader-h3 **17**, hero-number
 **27**, stat-number **18** — all weight 600.
 
+**Table heads vs. user tables.** The label role's "table heads" are the
+workbench's own data-table column labels (`.result-table__head`,
+`.metrics-table__head`) — chrome, so mono uppercase. The Markdown reader's table
+headers (`.markdown-table-wrap th`) are **user-authored content** and render
+verbatim — sans `body-sm`, never force-uppercased — so a header like `pH` or
+`mRNA` is not mangled; the header row stays distinct by weight + surface, not
+case. (Mono labels are weight **500** throughout: the family ships only 400/500,
+so a `font-weight: 600` on a mono label is a silent no-op — don't reintroduce it.)
+
 **Off-ladder exemptions.** Two contexts are em-relative *notation*, not UI text,
 and intentionally sit off the role ladder (the scale + floor guards skip them):
 inline / block **code** is `0.92em` of its surrounding prose (so it scales with

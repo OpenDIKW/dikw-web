@@ -1926,7 +1926,9 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   padding: 0 4px 6px;
   color: var(--reader-muted);
   font-size: 11px;
-  font-weight: 600;
+  /* Mono ships 400/500 only — 500 is the canonical label weight; 600 was a
+     no-op that silently rendered as 500. */
+  font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   font-family: var(--font-mono);
@@ -2106,10 +2108,9 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .wiki-info-grid dt {
+  /* Mono uppercase label voice comes from the shared eyebrow block below; this
+     rule only sets the muted color. */
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
 }
 
 .wiki-info-grid dd {
@@ -2275,7 +2276,9 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   color: var(--reader-muted);
   font-size: var(--type-body-sm-size);
   font-weight: 600;
-  text-transform: uppercase;
+  /* User markdown table headers render verbatim — no force-uppercase (that both
+     altered authored content and read as a sans "eyebrow"). Weight + muted color
+     + table-bg keep the header row distinct. */
 }
 
 .markdown-table-wrap tr:last-child td {
@@ -2376,7 +2379,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .markdown-chart__caption {
   margin-top: 8px;
-  font-size: 0.85em;
+  font-size: var(--type-body-sm-size);
   color: var(--reader-text);
   opacity: 0.75;
 }
@@ -2436,8 +2439,10 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   justify-content: space-between;
   gap: 8px;
   color: var(--muted);
+  font-family: var(--font-mono);
   font-size: var(--type-label-size);
-  font-weight: 600;
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
@@ -2938,7 +2943,8 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   border: 1px solid var(--line-strong);
   color: var(--muted);
   font-size: 11px;
-  font-weight: 600;
+  /* Mono ships 400/500 only — 600 was a no-op rendering as 500. */
+  font-weight: 500;
   font-family: var(--font-mono);
 }
 
@@ -4622,6 +4628,7 @@ html[data-theme="dark"] .markdown-body blockquote {
 .compact-dl dt,
 .task-summary-grid dt,
 .summary-metric dt,
+.wiki-info-grid dt,
 .field span,
 .result-table__head,
 .metrics-table__head,
@@ -5076,7 +5083,8 @@ html[data-theme="dark"] .brand__mark {
 }
 .metric-card__value {
   margin-top: 12px;
-  font-size: 30px;
+  /* Size is the 27px hero-number role from the base rule (DESIGN.md §3) — this
+     block only owns the grid placement, not a competing size. */
   line-height: 1;
   align-self: end;
 }
@@ -6624,7 +6632,12 @@ html[data-theme="dark"] .graph-pixi-stage {
 
 .wisdom-dialog__header h2 {
   margin: 0;
-  font-size: 17px;
+  /* Title role (sans 600) — tokenized so it doesn't inherit the UA bold 700 and
+     matches its sibling `.wisdom-card h2`. */
+  font-size: var(--type-title-size);
+  font-weight: 600;
+  line-height: var(--type-title-lh);
+  letter-spacing: var(--type-title-ls);
 }
 
 .wisdom-popover__title {
@@ -7051,7 +7064,8 @@ html[data-theme="dark"] .graph-pixi-stage {
   font-family: var(--font-mono);
   font-size: var(--type-body-sm-size);
   color: var(--accent-strong);
-  font-weight: 600;
+  /* Mono ships 400/500 only — 600 was a no-op rendering as 500. */
+  font-weight: 500;
   white-space: nowrap;
 }
 

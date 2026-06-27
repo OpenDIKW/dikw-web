@@ -9,6 +9,41 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-06-27
+
+### Fixed
+
+- **Hero metric value is the documented 27px, not a drifted 30px.** A
+  token-migration override silently pinned `.metric-card__value` to 30px over the
+  27px base rule, contradicting DESIGN.md §3 (which documents the hero-number as
+  27px twice). Dropped the override so the documented size ships.
+- **Three sans-uppercase "eyebrows" now use the mono label voice
+  (Mono-Only-Uppercase).** `.wiki-info-grid dt` (every sibling field label was
+  already mono), `.wiki-preview__header`, and MB-Web's `.mb-lab` bilingual column
+  header (the twin of the workbench's mono `.bi-colhead span`) were sans uppercase
+  — the exact AI "eyebrow" tell the type system forbids. Routed onto the mono
+  label role at the shared 0.04em tracking.
+- **Three mono labels declared a `font-weight: 600` no-op.** IBM Plex Mono ships
+  only 400/500, so `600` silently rendered as 500 and diverged from the canonical
+  label weight: `.bi-colhead span`, `.import-step__marker`, `.trace-invocation__dur`
+  now declare 500 (no visual change — they already rendered at 500).
+- **User Markdown table headers render verbatim.** `.markdown-table-wrap th` no
+  longer force-uppercases the author's header row (a content-fidelity breach — a
+  header like `pH`/`mRNA` was mangled — and a sans-eyebrow tell). The row stays
+  distinct by weight + surface, not case. The label role's "table heads" remain
+  the workbench's own data-table column labels (mono uppercase); DESIGN.md §3 now
+  spells out the distinction.
+- **`.wisdom-dialog__header h2` rides the title role.** It was an untokenized
+  `font-size: 17px` that inherited the UA bold 700; now sans 600 with the title
+  tracking, byte-for-byte parity with its sibling `.wisdom-card h2`.
+- **`.markdown-chart__caption` is on the role ladder** (`body-sm` 13px), not an
+  off-scale `0.85em`.
+
+  _e2e guards: `typography.spec.ts` "type-system rules hold on sweep-unreachable
+  surfaces (workbench)" + "MB-Web column labels use the mono uppercase voice" —
+  these inject the auth/hover/MB/state-gated surfaces the passive invariant sweeps
+  can't render, so the rules are now guarded there too._
+
 ## [0.8.3] - 2026-06-27
 
 ### Fixed
