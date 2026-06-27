@@ -33,6 +33,8 @@ file format introduced in `[0.0.1.0]` was dropped.
   follow-up (DESIGN.md §3). Verified in the browser across the library, reader, and
   notes views.
 
+## [0.8.1] - 2026-06-27
+
 ### Fixed
 
 - **Small-text ladder closed (post-v0.8.0 scale consolidation).** A residual 12px
