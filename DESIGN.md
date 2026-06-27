@@ -299,6 +299,11 @@ stylesheet. Each role is one row, exposed in `styles.css` as
 `--type-<role>-size` / `--type-<role>-lh` / `--type-<role>-ls`. Reach for a
 role, not a raw pixel size.
 
+The **cascade base** is the body role: `body` sets `font-size:
+var(--type-body-size)` (15px), so any unsized text — and every `font: inherit`
+control (buttons, inputs, selects) — rides the scale instead of the browser's
+16px default.
+
 | Role           | Voice          | Size | Line-height | Tracking | Weight  | Used for                                                |
 | -------------- | -------------- | ---- | ----------- | -------- | ------- | ------------------------------------------------------- |
 | **display**    | Source Serif 4 | 32px | 1.18        | -0.01em  | 500     | Reader article H1/H2 — the one editorial voice          |
