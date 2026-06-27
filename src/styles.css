@@ -2046,6 +2046,12 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 /* Narrow screens: collapse the two columns into a stacked single column. */
 @media (max-width: 1100px) {
+  /* Stacked = a single column again, so restore the single-column reading
+     measure — the two-measure cap above is only for the side-by-side layout and
+     would let a stacked paragraph run far past a comfortable line length. */
+  .bilingual-cols {
+    max-width: 72ch;
+  }
   .bilingual-cols::before {
     display: none;
   }

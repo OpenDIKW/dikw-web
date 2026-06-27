@@ -131,6 +131,27 @@ test("dual-column view fills the reader pane, not the single-column measure", as
   expect(ratio).toBeGreaterThan(0.95);
 });
 
+test("dual view restores the single-column measure when columns stack (narrow)", async ({
+  page,
+}) => {
+  // Below 1100px the pairs collapse to one stacked column, so the two-measure
+  // cap must revert to the single-column 72ch — otherwise a stacked paragraph
+  // runs the full panel width, wider than the mono reader (the Codex P2 catch).
+  // Assert the resolved max-width itself (independent of panel width): ~72ch
+  // (≈648px) after the fix, vs the 2-measure ~1336px without it.
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await page.goto("/#base");
+  const reader = page.getByRole("main", { name: "Wiki reader" });
+  await expect(reader.getByText(/Layered DIKW notes/)).toBeVisible();
+
+  await page.getByRole("switch", { name: TOGGLE }).click();
+  const cols = page.locator(".bilingual-cols");
+  await expect(cols).toBeVisible();
+
+  const maxWidthPx = await cols.evaluate((el) => parseFloat(getComputedStyle(el).maxWidth));
+  expect(maxWidthPx).toBeLessThan(800);
+});
+
 test("keeps the dual-column view readable in dark mode", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("dikw-web.theme", "dark");

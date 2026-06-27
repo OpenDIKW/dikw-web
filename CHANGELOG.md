@@ -18,8 +18,11 @@ file format introduced in `[0.0.1.0]` was dropped.
   translation columns crushed into one measure on the left and left the pane's
   right half empty. `.bilingual-cols` now overrides that cap — it fills the reader
   width (each column gets its own measure) and, past two measures on an ultra-wide
-  pane, caps and centers. _e2e guard: `bilingual.spec.ts` "dual-column view fills
-  the reader pane…"._
+  pane, caps and centers. Below 1100px, where the pairs collapse to one stacked
+  column, the cap reverts to the single-column 72ch so a stacked paragraph never
+  runs past a comfortable line length. _e2e guards: `bilingual.spec.ts`
+  "dual-column view fills the reader pane…" + "…restores the single-column measure
+  when columns stack…"._
 - **DESIGN.md typography frontmatter matched to the implementation.** The
   machine-readable `typography:` block still named the pre-v0.8.0 families (Source
   Serif 4 / Inter Tight / JetBrains Mono) and carried swapped weights (display 500,
