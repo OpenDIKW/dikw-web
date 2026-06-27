@@ -9,6 +9,47 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-27
+
+### Changed
+
+- **Typeface system → IBM Plex superfamily.** The three voices are now IBM Plex
+  Sans (UI), IBM Plex Serif (reading), and IBM Plex Mono (machine), replacing
+  Inter Tight / Source Serif 4 / JetBrains Mono. One superfamily means the voices
+  share a single design DNA — coordination by role, not by foundry — escaping the
+  ubiquitous Inter default. CJK still falls through to the system fonts; fonts load
+  from Google Fonts (external, outside the bundle budget). `mb.css` (MB-Web) tracks
+  the same swap.
+
+### Fixed
+
+- **Serif sprawl reined in (DESIGN.md §3 made honest).** The serif had crept onto
+  metric values, every detail H2, and explorer headers across ~8 ad-hoc sizes while
+  §3 still claimed it was "reserved for the reader." Serif is now used in exactly
+  three places — the document reader prose, the assistant reply prose, and the two
+  stat-number tiers (27px hero, 18px stat). Every panel / card / detail heading
+  reverts to the sans `title` role (17px). §3 documents the real policy + the
+  editorial serif sub-scale (32 / 22 / 17 / 27 / 18).
+- **Off-scale chrome + the chat sub-scale snapped onto the six roles.** The topbar
+  breadcrumb (12.5px) and connection chip (11.5px) → body-sm; panel titles
+  (14px) → title (17px); the assistant/agent surface (body 14, headings 19/16.5/14.5,
+  code 12.5, blockquote 13.5, role 10.5) folds onto body / serif title-body-bodysm /
+  body-sm mono / 11px label — no private sub-scale. The ~15 distinct font sizes
+  collapse toward the role set.
+- **Named-rule violations cleared.** `trace-pane__title`, `wiki-backlinks` headers,
+  `import-eyebrow`, table captions, and the agent role chip were sans tracked-uppercase
+  (the AI "eyebrow" tell) — all moved to the IBM Plex Mono label voice. The reader
+  header path now renders mono (Mono-for-paths). Every mono label shares one tracking
+  (`0.04em`), retiring the 0.02 / 0.03 / 0.08 / 0.1 spread.
+- **Two-Weight Rule restored on `#trace`.** Markdown `strong`/`b` is pinned to weight
+  600; the UA default `font-weight: bolder` is relative and was compounding to 900
+  (a fifth weight, past IBM Plex's Bold ceiling) inside already-bold content.
+- **11px low-vision floor enforced.** The 10.5px mono labels (agent role chip, graph
+  legend, lint fix label, …) move up to 11px; nothing renders smaller. New
+  `tests/e2e/typography.spec.ts` invariants guard the floor, the Mono-Only-Uppercase
+  rule, the three Plex voices, and the panel-title token. Surfaced by the
+  `/impeccable critique` typography pass.
+
 ## [0.7.13] - 2026-06-27
 
 ### Fixed

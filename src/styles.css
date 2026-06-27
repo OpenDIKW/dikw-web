@@ -3,14 +3,14 @@ html[data-theme="light"] {
   color-scheme: light;
   /* PR1: Fonts — UI sans, editorial serif for titles, mono for IDs/paths */
   --font-ui:
-    "Inter Tight", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans CN", "Noto Sans CJK SC",
     sans-serif;
   --font-serif:
-    "Source Serif 4", ui-serif, Georgia, "Songti SC", "Source Han Serif CN", "Noto Serif CJK SC",
+    "IBM Plex Serif", ui-serif, Georgia, "Songti SC", "Source Han Serif CN", "Noto Serif CJK SC",
     serif;
   --font-mono:
-    "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", "Sarasa Mono SC",
+    "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", "Sarasa Mono SC",
     "Microsoft YaHei Mono", monospace;
   font-family: var(--font-ui);
   font-synthesis: none;
@@ -468,7 +468,8 @@ button:disabled {
   gap: 8px;
   margin-bottom: 14px;
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--type-title-size);
+  letter-spacing: var(--type-title-ls);
   font-weight: 600;
 }
 
@@ -962,8 +963,10 @@ textarea:focus {
 .agent-message__role {
   margin-bottom: 5px;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
@@ -993,8 +996,10 @@ textarea:focus {
 
 .agent-context__heading {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
@@ -1288,7 +1293,6 @@ body.is-col-resizing {
 .wiki-explorer__header h2 {
   margin: 2px 0 0;
   color: var(--text);
-  font-size: 15px;
   line-height: 1.25;
 }
 
@@ -1471,7 +1475,8 @@ body.is-col-resizing {
 .reader-header__path {
   margin-bottom: 4px;
   color: var(--reader-muted);
-  font-size: 12px;
+  font-family: var(--font-mono);
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
   overflow-wrap: anywhere;
 }
@@ -1509,9 +1514,9 @@ body.is-col-resizing {
 .markdown-fallback-title {
   margin: 0 0 18px;
   color: var(--reader-heading);
-  font-size: 31px;
-  line-height: 1.16;
-  letter-spacing: 0;
+  font-size: var(--type-display-size);
+  line-height: var(--type-display-lh);
+  letter-spacing: var(--type-display-ls);
 }
 
 .frontmatter-summary {
@@ -1572,8 +1577,8 @@ body.is-col-resizing {
 }
 
 .markdown-body h1 {
-  font-size: 31px;
-  letter-spacing: 0;
+  font-size: var(--type-display-size);
+  letter-spacing: var(--type-display-ls);
 }
 
 .markdown-body h1:first-child,
@@ -1588,11 +1593,20 @@ body.is-col-resizing {
 }
 
 .markdown-body h3 {
-  font-size: 18px;
+  font-size: var(--type-title-size);
 }
 
 .markdown-body p {
   margin: 0.7em 0;
+}
+
+/* Pin markdown emphasis to a concrete weight. The UA default
+   `strong { font-weight: bolder }` is relative — inside an already-bold (700)
+   context it compounds to 900, a 5th weight that breaks the Two-Weight Rule
+   (and exceeds IBM Plex's Bold ceiling). 600 is the system's emphasis weight. */
+.markdown-body strong,
+.markdown-body b {
+  font-weight: 600;
 }
 
 .markdown-body a,
@@ -1834,7 +1848,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   border: 1px solid var(--reader-border);
   border-radius: var(--radius);
   background: color-mix(in srgb, var(--accent-soft) 60%, var(--reader-bg));
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   color: var(--reader-text);
 }
 .bi-statusbar--error {
@@ -1859,7 +1873,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   background: transparent;
   color: var(--reader-link);
   font: inherit;
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
   cursor: pointer;
 }
@@ -2143,9 +2157,10 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .wiki-backlinks__title {
   margin: 0 0 12px;
   color: var(--reader-muted, var(--text-2));
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
@@ -2164,14 +2179,17 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .wiki-backlinks__layer {
+  font-family: var(--font-mono);
   text-transform: uppercase;
-  font-size: 11px;
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-ls);
 }
 
 .wiki-backlinks__source {
+  font-family: var(--font-mono);
   text-transform: uppercase;
-  font-size: 11px;
-  letter-spacing: 0.04em;
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-ls);
 }
 
 .wiki-backlinks__source--linked {
@@ -2222,11 +2240,12 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   padding: 10px 12px;
   border-bottom: 1px solid var(--reader-border);
   color: var(--reader-muted);
-  font-size: 12px;
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  font-weight: 500;
   text-align: left;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--type-label-ls);
 }
 
 .markdown-table-wrap th,
@@ -2580,7 +2599,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
    commit. Kept in the muted/accent palette (not a loud warning colour). */
 .settings-actions__status {
   min-height: 20px;
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
 }
 
@@ -2756,9 +2775,10 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .import-eyebrow {
   margin-bottom: 8px;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
@@ -2813,9 +2833,8 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   border-radius: 4px;
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--type-label-size);
   font-weight: 500;
-  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
@@ -2923,7 +2942,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .import-step__label {
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
   color: var(--muted);
   overflow: hidden;
@@ -3169,7 +3188,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   display: flex;
   justify-content: space-between;
   margin-bottom: 6px;
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 .import-active-stage__progress-row-label {
@@ -3204,7 +3223,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .import-active-stage__placeholder {
   padding: 8px 0 2px;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 /* completed pills row */
@@ -3300,14 +3319,14 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .import-resume-banner__title {
   color: var(--blue);
-  font-size: 13.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
 }
 
 .import-resume-banner__detail {
   margin-top: 2px;
   color: var(--text);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 .import-resume-banner__task-id {
@@ -3394,7 +3413,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   border: 1px solid var(--line);
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
 }
 
@@ -3412,7 +3431,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .import-lint-group__count {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 .import-lint-list {
@@ -3475,7 +3494,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .import-lint-card__rationale {
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   color: var(--muted);
   line-height: 1.55;
 }
@@ -3490,9 +3509,10 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .import-lint-card__fix-label {
   color: var(--muted);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
   margin-bottom: 4px;
 }
@@ -3546,7 +3566,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .import-done-banner__body {
   margin-top: 4px;
-  font-size: 13.5px;
+  font-size: var(--type-body-sm-size);
   color: color-mix(in srgb, var(--accent-strong) 80%, var(--text));
 }
 
@@ -3584,7 +3604,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .import-done-card__stats dt {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 .import-done-card__stats dd {
@@ -3599,7 +3619,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   padding-top: 12px;
   border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 .import-done-tail {
@@ -3769,8 +3789,10 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .graph-detail h2 {
   margin: 0;
   color: var(--text);
-  font-size: 21px;
-  line-height: 1.25;
+  font-size: var(--type-title-size);
+  font-weight: 600;
+  letter-spacing: var(--type-title-ls);
+  line-height: var(--type-title-lh);
 }
 
 .graph-detail__section {
@@ -3878,8 +3900,10 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .wisdom-card h2 {
-  font-size: 18px;
-  line-height: 1.3;
+  font-size: var(--type-title-size);
+  font-weight: 600;
+  letter-spacing: var(--type-title-ls);
+  line-height: var(--type-title-lh);
 }
 
 .tasks-layout {
@@ -4555,22 +4579,28 @@ html[data-theme="dark"] .markdown-body blockquote {
    ─ Status pills lose 800 weight, gain hairline edge
    ============================================================ */
 
-/* Editorial serif on display titles + big numbers. Page H1s are deliberately
-   excluded — they use the UI sans family (see the `.page-header h1` rule below)
-   so page chrome reads as one type family rather than serif-title-over-sans. */
+/* The editorial serif is used in exactly three places: the document reader prose
+   (`.markdown-body h1/h2`, fallback + reader-header title), the assistant reply
+   prose (agent markdown headings), and the two stat-number tiers (27 hero metric
+   value, 18 summary stat). Page H1s and all panel/card/detail headings stay sans
+   (title role) so the serif moment stays special to reading. See DESIGN.md §3. */
 .metric-card__value,
 .markdown-body h1,
 .markdown-body h2,
 .markdown-fallback-title,
 .reader-header h2,
-.task-detail__header h2,
-.wisdom-card h2,
-.wisdom-detail h2,
-.graph-detail h2,
 .summary-metric dd {
   font-family: var(--font-serif);
   font-weight: 600;
   letter-spacing: -0.005em;
+}
+
+/* Panel / card / detail headings — sans, title role (reverted from serif sprawl). */
+.task-detail__header h2,
+.wisdom-detail h2 {
+  font-size: var(--type-title-size);
+  font-weight: 600;
+  letter-spacing: var(--type-title-ls);
 }
 
 /* Mono uppercase on all eyebrow labels */
@@ -4665,7 +4695,7 @@ html[data-theme="dark"] .markdown-body blockquote {
 .frontmatter-chip {
   border-radius: 4px;
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 /* Agent: user bubble flips to solid accent for clearer turn-taking */
@@ -4743,7 +4773,7 @@ html[data-theme="dark"] .markdown-body blockquote {
   transform-origin: 50% 30%;
 }
 .brand strong {
-  font-size: 13.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
   letter-spacing: -0.005em;
 }
@@ -4895,7 +4925,7 @@ html[data-theme="dark"] .markdown-body blockquote {
   gap: 8px;
   min-width: 0;
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   color: var(--muted);
   overflow: hidden;
 }
@@ -4924,7 +4954,7 @@ html[data-theme="dark"] .markdown-body blockquote {
   border-radius: 999px;
   background: var(--surface-soft);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--type-body-sm-size);
   color: var(--muted);
   max-width: 460px;
 }
@@ -5161,7 +5191,7 @@ html[data-theme="dark"] .brand__mark {
 }
 .wiki-tree__item--folder {
   font-weight: 500;
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   letter-spacing: 0.01em;
 }
 .wiki-tree__item--file strong {
@@ -5194,18 +5224,17 @@ html[data-theme="dark"] .brand__mark {
   color: var(--accent);
 }
 
-/* Explorer header chrome — match the rest of the system */
+/* Explorer header chrome — sans title role, like every other panel heading. */
 .wiki-explorer__header h2 {
-  font-family: var(--font-serif);
   font-weight: 600;
-  letter-spacing: -0.005em;
-  font-size: 15px;
+  letter-spacing: var(--type-title-ls);
+  font-size: var(--type-title-size);
 }
 .soft-label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--type-label-size);
   font-weight: 500;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
@@ -5251,8 +5280,8 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 /* Assistant bubble can now host real markdown — give it a sensible
    inner type ramp without inheriting the full reader chrome */
 .agent-message--assistant .markdown-view {
-  font-size: 14px;
-  line-height: 1.7;
+  font-size: var(--type-body-size);
+  line-height: 1.6;
   color: var(--text);
   max-width: none;
   margin: 0;
@@ -5278,13 +5307,13 @@ html[data-theme="dark"] .overview-grid > .metric-card {
   padding-bottom: 0;
 }
 .agent-message--assistant .markdown-body h1 {
-  font-size: 19px;
+  font-size: var(--type-title-size);
 }
 .agent-message--assistant .markdown-body h2 {
-  font-size: 16.5px;
+  font-size: var(--type-body-size);
 }
 .agent-message--assistant .markdown-body h3 {
-  font-size: 14.5px;
+  font-size: var(--type-body-sm-size);
 }
 .agent-message--assistant .markdown-body ul,
 .agent-message--assistant .markdown-body ol {
@@ -5296,7 +5325,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 }
 .agent-message--assistant .markdown-body code {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   padding: 1px 5px;
   border-radius: 4px;
   background: var(--surface-2);
@@ -5309,13 +5338,13 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 }
 .agent-message--assistant .markdown-body pre {
   padding: 10px 12px;
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   line-height: 1.55;
 }
 .agent-message--assistant .markdown-body blockquote {
   margin: 0.6em 0;
   padding: 6px 12px;
-  font-size: 13.5px;
+  font-size: var(--type-body-sm-size);
   color: var(--muted);
   background: var(--surface-2);
   border-left: 3px solid var(--accent-line, var(--accent));
@@ -5326,7 +5355,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 }
 .agent-message--assistant .markdown-table-wrap {
   margin: 8px 0;
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
 }
 .agent-message--assistant .markdown-table-wrap th,
 .agent-message--assistant .markdown-table-wrap td {
@@ -5365,7 +5394,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 }
 .tool-call__name {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5620,7 +5649,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
   display: block;
   overflow: hidden;
   color: inherit;
-  font-size: 13.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
   letter-spacing: 0;
   text-overflow: ellipsis;
@@ -5633,7 +5662,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 
 .agent-session span {
   color: var(--muted);
-  font-size: 11.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 .agent-session__rename {
@@ -5742,9 +5771,9 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 .agent-sessions__header strong {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
@@ -5785,7 +5814,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
   background: var(--accent);
   box-shadow: 0 1px 0 color-mix(in srgb, var(--accent-strong) 35%, transparent);
   color: #f6f4ee;
-  font-size: 14px;
+  font-size: var(--type-body-size);
   line-height: 1.55;
 }
 
@@ -5803,9 +5832,9 @@ html[data-theme="dark"] .overview-grid > .metric-card {
   margin-bottom: 6px;
   padding-left: 1px;
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
@@ -5857,7 +5886,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 }
 
 .agent-message--assistant .markdown-body {
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .agent-message-list .empty-state {
@@ -5875,14 +5904,14 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 
 .agent-message-list .empty-state__title {
   color: var(--text);
-  font-family: var(--font-serif);
-  font-size: 19px;
+  font-size: var(--type-title-size);
+  letter-spacing: var(--type-title-ls);
   font-weight: 600;
 }
 
 .agent-message-list .empty-state__detail {
   max-width: 38ch;
-  font-size: 13.5px;
+  font-size: var(--type-body-sm-size);
   line-height: 1.55;
 }
 
@@ -5941,7 +5970,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
   background: transparent;
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: 14px;
+  font-size: var(--type-body-size);
   line-height: 1.5;
   resize: none;
 }
@@ -6039,9 +6068,9 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 .agent-context .panel__title,
 .agent-context .citation-item__meta {
   font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
@@ -6071,7 +6100,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
   margin: 4px 0 0;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
   letter-spacing: 0;
   line-height: 1.4;
@@ -6088,7 +6117,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
   margin-top: 6px;
   color: var(--text);
   font-family: var(--font-ui);
-  font-size: 13.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
   line-height: 1.45;
 }
@@ -6096,7 +6125,7 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 .agent-context .citation-item p + p {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   font-weight: 400;
   line-height: 1.5;
 }
@@ -6122,9 +6151,9 @@ html[data-theme="dark"] .overview-grid > .metric-card {
   gap: 5px;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
@@ -6193,19 +6222,13 @@ html[data-theme="dark"] .overview-grid > .metric-card {
 
 .graph-force-control {
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.08em;
+  font-size: var(--type-label-size);
+  letter-spacing: var(--type-label-ls);
   text-transform: uppercase;
 }
 
 .graph-force-control input {
   height: 18px;
-}
-
-.graph-detail h2 {
-  font-family: var(--font-serif);
-  font-size: 20px;
-  font-weight: 600;
 }
 
 html[data-theme="dark"] .graph-legend {
@@ -6442,7 +6465,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 
 .wisdom-source-path {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   color: var(--reader-text, var(--text));
   overflow-wrap: anywhere;
 }
@@ -6476,7 +6499,7 @@ html[data-theme="dark"] .graph-pixi-stage {
   background: transparent;
   color: var(--reader-text, var(--text));
   font-family: var(--font-mono);
-  font-size: 13.5px;
+  font-size: var(--type-body-sm-size);
   line-height: 1.65;
   resize: vertical;
 }
@@ -6512,7 +6535,7 @@ html[data-theme="dark"] .graph-pixi-stage {
   border: 1px solid transparent;
   background: transparent;
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 .wisdom-editor__add-button:hover {
@@ -6675,9 +6698,9 @@ html[data-theme="dark"] .graph-pixi-stage {
   background: var(--surface-2);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
 }
 
 .wisdom-popover__item-layer--k {
@@ -6696,18 +6719,18 @@ html[data-theme="dark"] .graph-pixi-stage {
 }
 
 .wisdom-popover__item strong {
-  font-size: 13.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 .wisdom-popover__item small {
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--type-body-sm-size);
 }
 
 .wisdom-popover__item span {
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: var(--type-body-sm-size);
   line-height: 1.45;
 }
 
@@ -6739,7 +6762,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 .wisdom-dialog__body {
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--type-body-size);
   line-height: 1.55;
 }
 
@@ -6878,7 +6901,13 @@ html[data-theme="dark"] .graph-pixi-stage {
   padding: 12px;
   border-bottom: 1px solid var(--line);
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--type-body-size);
+}
+
+/* Pin the label weight — a bare <strong> would take the UA `bolder`, which from
+   the header's 600 compounds to 900 (Two-Weight Rule, past Plex's Bold ceiling). */
+.trace-sessions__header strong {
+  font-weight: 600;
 }
 
 .trace-session-list {
@@ -6953,10 +6982,11 @@ html[data-theme="dark"] .graph-pixi-stage {
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-label-ls);
 }
 
 .trace-message-list,
@@ -7150,10 +7180,11 @@ html[data-theme="dark"] .graph-pixi-stage {
 .trace-span-detail__title {
   margin-bottom: 8px;
   color: var(--muted);
-  font-size: 11px;
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: var(--type-label-ls);
 }
 
 .trace-attr-list {
