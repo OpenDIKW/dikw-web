@@ -152,6 +152,10 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  /* Base the cascade on the body type role (15px) so unsized text and
+     `font: inherit` controls (buttons/inputs/selects) ride the six-role scale
+     instead of the 16px UA default. Line-height stays per-element. */
+  font-size: var(--type-body-size);
   background: var(--bg);
   color: var(--text);
 }

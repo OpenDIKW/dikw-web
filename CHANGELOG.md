@@ -9,6 +9,21 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.7.13] - 2026-06-27
+
+### Fixed
+
+- **Typography: the cascade base is now the body type role (15px), not the 16px
+  UA default.** `body` had no `font-size`, so every unsized element — and every
+  `font: inherit` control (buttons, inputs, selects), the Overview/Settings panel
+  `<dd>` values, and empty-state titles — silently rendered at the browser's 16px
+  default, bypassing the six-role scale (which puts body at 15px). Setting `body {
+  font-size: var(--type-body-size) }` pulls all of it onto the scale. UA-default
+  headings sized by `1.5em` shift proportionally (~6%; e.g. the task-detail H2
+  24→22.5px, toward the 22px reader-H2 role) — a deliberate, benign consequence.
+  A new `tests/e2e/typography.spec.ts` guards the base against regression. Surfaced
+  by the `/impeccable critique` typography pass.
+
 ## [0.7.12] - 2026-06-26
 
 ### Added
