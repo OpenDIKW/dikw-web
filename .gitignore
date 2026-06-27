@@ -21,3 +21,6 @@ vite*.log
 # impeccable design-skill detector cache (transient; the design system itself
 # lives in DESIGN.md + .impeccable/design.json, which ARE tracked).
 .impeccable/hook.cache.json
+
+# impeccable critique snapshots (local evaluation history, per-run)
+.impeccable/critique/

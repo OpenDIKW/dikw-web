@@ -109,6 +109,49 @@ test("translates the preview card when a translated-column wikilink is clicked",
   await expect(page.locator(".wiki-preview-card__ai")).toHaveCount(0);
 });
 
+test("dual-column view fills the reader pane, not the single-column measure", async ({ page }) => {
+  // The dual view must use the full reader width — each column gets its own
+  // reading measure — instead of inheriting `.markdown-body`'s single-column
+  // 72ch cap, which left-hugged the pane and left the right half empty
+  // (the pre-0.8.3 layout bug). Pin a wide pane (under the 2-measure cap, so it
+  // fills rather than centering) and assert the columns span nearly all of it.
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto("/#base");
+  const reader = page.getByRole("main", { name: "Wiki reader" });
+  await expect(reader.getByText(/Layered DIKW notes/)).toBeVisible();
+
+  await page.getByRole("switch", { name: TOGGLE }).click();
+  const cols = page.locator(".bilingual-cols");
+  await expect(cols).toBeVisible();
+
+  const ratio = await cols.evaluate((el) => {
+    const parent = el.parentElement as HTMLElement;
+    return el.getBoundingClientRect().width / parent.getBoundingClientRect().width;
+  });
+  expect(ratio).toBeGreaterThan(0.95);
+});
+
+test("dual view restores the single-column measure when columns stack (narrow)", async ({
+  page,
+}) => {
+  // Below 1100px the pairs collapse to one stacked column, so the two-measure
+  // cap must revert to the single-column 72ch — otherwise a stacked paragraph
+  // runs the full panel width, wider than the mono reader (the Codex P2 catch).
+  // Assert the resolved max-width itself (independent of panel width): ~72ch
+  // (≈648px) after the fix, vs the 2-measure ~1336px without it.
+  await page.setViewportSize({ width: 1000, height: 900 });
+  await page.goto("/#base");
+  const reader = page.getByRole("main", { name: "Wiki reader" });
+  await expect(reader.getByText(/Layered DIKW notes/)).toBeVisible();
+
+  await page.getByRole("switch", { name: TOGGLE }).click();
+  const cols = page.locator(".bilingual-cols");
+  await expect(cols).toBeVisible();
+
+  const maxWidthPx = await cols.evaluate((el) => parseFloat(getComputedStyle(el).maxWidth));
+  expect(maxWidthPx).toBeLessThan(800);
+});
+
 test("keeps the dual-column view readable in dark mode", async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem("dikw-web.theme", "dark");

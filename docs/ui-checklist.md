@@ -98,8 +98,15 @@ no e2e are the ones the manual pass exists for.
 ## Bilingual reader (`#base` EN→中)
 
 > On an English Base page with the translator enabled, toggle **AI 翻译** and
-> watch the dual column fill. These guard the two regressions found in review.
+> watch the dual column fill. These guard the layout and translation regressions
+> found in review.
 
+- [ ] **Dual columns fill the reader pane.** The source / translation columns
+  span the full reader width with the centered hairline between them — not capped
+  at the single-column 72ch measure that left-hugged the pane and emptied the
+  right half (the 0.8.3 layout fix). On an ultra-wide pane the pair caps at two
+  reading measures and centers. _e2e: `bilingual.spec.ts` "dual-column view fills
+  the reader pane…"._
 - [ ] **Figures render once, centered.** A standalone image / figure (`![[…]]`
   or `![](…)` on its own line) appears **once**, centered across both columns —
   never duplicated in the left and right column. (Captions, being prose, are a
