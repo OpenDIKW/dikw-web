@@ -303,6 +303,19 @@ stylesheet. Each role is one row, exposed in `styles.css` as
 `--type-<role>-size` / `--type-<role>-lh` / `--type-<role>-ls`. Reach for a
 role, not a raw pixel size.
 
+The **small-text band (11–17) is closed**: every secondary UI element lands on
+`body-sm` (13) or `label` (11) — there is no 12px tier crammed between them, and
+no stray 14 / 16 sitting beside `body` (15) / `title` (17). `body-sm` is the home
+for *all* dense machine metadata — IDs, paths, durations, pills, table cells,
+hints, segmented controls — that previously drifted to an undocumented 12px. The
+`no UI text renders off the role scale` e2e invariant guards this band across the
+workbench routes (a passive, default-viewport sweep). A few **editorial /
+responsive heading sizes outside the small-text band are a pre-existing tail not
+yet on the ladder** — `.wiki-preview-card h2` (19), `.import-done-banner__headline`
+(20), `.wisdom-popover__title h2` (15.5), and the responsive `.metric-card__value`
+downscales (24 / 26) — surfaced only in hover popovers, success banners, or at
+narrow breakpoints. They are a tracked follow-up, kept out of this pass.
+
 The **cascade base** is the body role: `body` sets `font-size:
 var(--type-body-size)` (15px), so any unsized text — and every `font: inherit`
 control (buttons, inputs, selects) — rides the scale instead of the browser's
@@ -333,6 +346,18 @@ special and the chrome read as one sans family. Reader prose caps line length at
 sit alongside (not inside) the six text roles, since titling and numerals are not
 body text: reader-display **32**, reader-h2 **22**, reader-h3 **17**, hero-number
 **27**, stat-number **18** — all weight 600.
+
+**Off-ladder exemptions.** Two contexts are em-relative *notation*, not UI text,
+and intentionally sit off the role ladder (the scale + floor guards skip them):
+inline / block **code** is `0.92em` of its surrounding prose (so it scales with
+context), and **KaTeX** math sub/superscripts and layout struts size themselves
+relative to the formula. Everything else is on-ladder.
+
+**Subsystem boundary — MB-Web.** The focused 论文 reader (`src/mb/mb.css`,
+`.mb-`-prefixed) still carries its own self-contained half-step scale
+(11.5 / 12.5 / 13.5 / 14.5 …) and does **not** yet consume these `--type-*`
+tokens. Migrating it onto the role ladder is a tracked follow-up, kept out of the
+workbench consolidation so each can be visually verified on its own surfaces.
 
 **The agent surface rides the roles.** Assistant and user messages use the body
 role (15px) for prose, the editorial serif for the three markdown heading levels

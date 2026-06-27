@@ -68,14 +68,30 @@ test("the three type voices resolve to the IBM Plex superfamily", async ({ page 
 // Sweeps every rendered leaf text element and returns the info for any that breaks
 // the named invariant — empty array means the page complies. The predicate is a
 // fixed discriminator (not interpolated code) so it runs safely in the page.
-async function sweepText(page: Page, kind: "tracked-uppercase" | "below-floor") {
+async function sweepText(page: Page, kind: "tracked-uppercase" | "below-floor" | "off-scale") {
   return page.evaluate((k) => {
-    const breaks = (cs: CSSStyleDeclaration) => {
+    // The role + editorial sub-scale (DESIGN.md §3): label 11 / body-sm 13 /
+    // body 15 / title 17 / stat 18 / reader-h2 22 / hero 27 / title-page 30 /
+    // display 32. Every UI text size must land on one of these; 12/14/16 are the
+    // off-scale drift this guard forbids.
+    const SCALE = [11, 13, 15, 17, 18, 22, 27, 30, 32];
+    const breaks = (cs: CSSStyleDeclaration, el: HTMLElement) => {
       if (k === "below-floor") {
         // `font-size: 0` is a deliberate icon-button label-collapse (e.g. the chat
         // composer Send button), not a legibility floor breach — exclude it.
         const fs = parseFloat(cs.fontSize);
         return fs > 0 && fs < 11;
+      }
+      if (k === "off-scale") {
+        const fs = parseFloat(cs.fontSize);
+        if (!(fs > 0)) return false;
+        // Relative/notation contexts are intentionally em-scaled, not bound to the
+        // UI role ladder: inline/block code (0.92em), KaTeX math sub/superscripts +
+        // struts, and the missing-asset placeholder (0.9em). Exempt the elements and
+        // any descendants.
+        if (el.closest("code, pre, kbd, samp, .katex, .katex-display, .md-broken-image"))
+          return false;
+        return !SCALE.some((s) => Math.abs(s - fs) < 0.5);
       }
       // tracked-uppercase: uppercase + real letter-spacing, in a non-mono voice
       return (
@@ -93,7 +109,7 @@ async function sweepText(page: Page, kind: "tracked-uppercase" | "below-floor") 
       const r = el.getBoundingClientRect();
       if (r.width === 0 || r.height === 0) continue; // actually rendered
       const cs = getComputedStyle(el);
-      if (breaks(cs)) {
+      if (breaks(cs, el)) {
         out.push({
           tag: el.tagName.toLowerCase(),
           cls: el.className.toString().slice(0, 48),
@@ -110,7 +126,15 @@ async function sweepText(page: Page, kind: "tracked-uppercase" | "below-floor") 
 
 // Routes the invariants sweep — chosen to cover the surfaces this scale pass
 // actually touched (global chrome, reader, import, chat), not just #overview.
-const SWEEP_ROUTES = ["#overview", "#base", "#import", "#chat"] as const;
+const SWEEP_ROUTES = [
+  "#overview",
+  "#base",
+  "#import",
+  "#chat",
+  "#settings",
+  "#tasks",
+  "#wisdom",
+] as const;
 
 async function gotoAndSettle(page: Page, hash: string) {
   await page.goto(`/${hash}`);
@@ -138,6 +162,23 @@ test("no rendered text drops below the 11px floor", async ({ page }) => {
     await gotoAndSettle(page, route);
     const tooSmall = await sweepText(page, "below-floor");
     expect(tooSmall, `${route}: ${JSON.stringify(tooSmall, null, 2)}`).toHaveLength(0);
+  }
+});
+
+// Scale-adherence invariant (DESIGN.md §3): every rendered UI text leaf must land
+// on the role/editorial ladder {11,13,15,17,18,22,27,30,32}. Primarily guards the
+// small-text band (11–17) — it catches a reintroduced off-scale size (12/14/16),
+// the drift the post-v0.8.0 consolidation removed. Code, KaTeX math and the
+// missing-asset placeholder are em-relative notation, deliberately exempt. NOTE:
+// this is a passive, default-viewport sweep — it does not open modals/popovers or
+// exercise @media breakpoints, so a few pre-existing editorial/responsive heading
+// sizes (preview-card 19, done-banner 20, wisdom-popover 15.5, responsive metric
+// 24/26) are out of its reach and out of this pass; see DESIGN.md §3.
+test("no UI text renders off the role scale", async ({ page }) => {
+  for (const route of SWEEP_ROUTES) {
+    await gotoAndSettle(page, route);
+    const offenders = await sweepText(page, "off-scale");
+    expect(offenders, `${route}: ${JSON.stringify(offenders, null, 2)}`).toHaveLength(0);
   }
 });
 
