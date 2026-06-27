@@ -242,7 +242,7 @@ button:disabled {
 .brand span {
   margin-top: 2px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
 }
 
 .nav-list {
@@ -372,7 +372,7 @@ button:disabled {
   border-radius: 999px;
   background: var(--surface-soft);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
 }
 
@@ -442,7 +442,7 @@ button:disabled {
   max-width: 640px;
   margin: 8px 0 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: var(--type-body-sm-size);
   line-height: 1.55;
 }
 
@@ -666,7 +666,7 @@ textarea:focus {
   max-width: 100%;
   padding: 4px 8px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -735,7 +735,7 @@ textarea:focus {
 
 .notice__code {
   margin-bottom: 3px;
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
 }
 
@@ -800,7 +800,7 @@ textarea:focus {
 
 .answer-text {
   color: #111817;
-  font-size: 16px;
+  font-size: var(--type-body-size);
   line-height: 1.72;
   white-space: pre-wrap;
 }
@@ -892,7 +892,7 @@ textarea:focus {
 
 .agent-session span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1024,7 +1024,7 @@ textarea:focus {
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
   overflow-wrap: anywhere;
 }
@@ -1100,7 +1100,7 @@ textarea:focus {
   flex-wrap: wrap;
   gap: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
 }
 
@@ -1162,7 +1162,7 @@ textarea:focus {
 .result-table__head,
 .metrics-table__head {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-label-size);
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -1192,7 +1192,7 @@ textarea:focus {
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
 }
 
@@ -1425,7 +1425,7 @@ body.is-col-resizing {
 .wiki-tree__item small {
   margin-top: 1px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
 }
 
@@ -1539,7 +1539,7 @@ body.is-col-resizing {
   border-radius: 6px;
   background: var(--surface-2);
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -1675,7 +1675,7 @@ body.is-col-resizing {
   padding: 6px 10px;
   border-bottom: 1px solid var(--reader-border);
   color: #a8c9c2;
-  font-size: 12px;
+  font-size: var(--type-label-size);
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -2144,7 +2144,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .wiki-outline-list h3 {
   margin: 0;
   color: var(--reader-text);
-  font-size: 14px;
+  font-size: var(--type-body-sm-size);
 }
 
 .wiki-backlinks {
@@ -2233,7 +2233,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .markdown-table-wrap table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: var(--type-body-sm-size);
 }
 
 .markdown-table-wrap caption {
@@ -2260,7 +2260,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .markdown-table-wrap th {
   background: var(--reader-table-bg);
   color: var(--reader-muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -2423,7 +2423,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   justify-content: space-between;
   gap: 8px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-label-size);
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -2494,7 +2494,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   border-radius: 6px;
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
 }
 
@@ -2576,7 +2576,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .settings-panel__header h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--type-title-size);
   line-height: 1.3;
 }
 
@@ -2641,7 +2641,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   gap: 7px;
   min-height: 34px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -2729,7 +2729,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .import-preview-head__title {
-  font-size: 14px;
+  font-size: var(--type-body-size);
   font-weight: 600;
   color: var(--text);
 }
@@ -2822,7 +2822,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
 }
 
 .import-file-row__tag {
@@ -2854,7 +2854,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   border-top: 1px solid var(--hairline);
   background: var(--surface-soft);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
 }
 
 /* pipeline */
@@ -2867,7 +2867,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .import-pipeline-head__title {
-  font-size: 14px;
+  font-size: var(--type-body-size);
   font-weight: 600;
   color: var(--text);
 }
@@ -2888,7 +2888,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
   color: var(--accent-strong);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -3038,7 +3038,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .conversion-hint {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--muted);
 }
 
@@ -3092,7 +3092,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .conversion-row__meta {
   margin-left: auto;
   flex: none;
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-family: var(--font-mono);
   color: var(--muted);
   white-space: nowrap;
@@ -3130,7 +3130,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .conversion-row__error {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--red);
 }
 
@@ -3243,7 +3243,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   border: 1px solid var(--line);
   background: var(--surface-2);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
 }
 
@@ -3481,7 +3481,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .import-lint-card__path {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--accent-strong);
   margin-bottom: 4px;
   overflow-wrap: anywhere;
@@ -3503,7 +3503,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   border-left: 1px solid var(--line);
   padding-left: 14px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--text);
 }
 
@@ -3590,7 +3590,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 .import-done-card .import-done-card__title {
-  font-size: 14px;
+  font-size: var(--type-body-size);
   font-weight: 600;
   margin-bottom: 12px;
   color: var(--text);
@@ -3638,7 +3638,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .import-done-tail .primary-button {
   min-height: 38px;
   padding: 0 18px;
-  font-size: 14px;
+  font-size: var(--type-body-size);
 }
 
 /* failure / cancelled retry actions */
@@ -3761,7 +3761,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   gap: 8px;
   min-width: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
 }
 
@@ -3804,7 +3804,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .graph-detail__section strong {
   color: var(--text);
-  font-size: 12px;
+  font-size: var(--type-label-size);
   text-transform: uppercase;
 }
 
@@ -3872,7 +3872,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   justify-content: flex-start;
   flex-wrap: wrap;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
 }
 
@@ -3953,14 +3953,14 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   overflow: hidden;
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .task-list__meta {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
 }
 
 .event-tape__pagination {
@@ -4017,7 +4017,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .summary-metric dt {
   margin-bottom: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-label-size);
   font-weight: 600;
   text-transform: uppercase;
 }
@@ -4061,7 +4061,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   justify-content: space-between;
   gap: 10px;
   color: var(--text);
-  font-size: 14px;
+  font-size: var(--type-body-size);
   font-weight: 600;
 }
 
@@ -4120,7 +4120,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 .file-error-card__title span {
   color: var(--amber);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 600;
 }
 
@@ -4233,7 +4233,7 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 .event-progress-heading span {
   overflow: hidden;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5137,10 +5137,10 @@ html[data-theme="dark"] .brand__mark {
 
 /* When a metric value is a pill (e.g. server health), align it like a value */
 .overview-grid > .metric-card .metric-card__value .status-pill {
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
 }
 .overview-grid > .metric-card:has(.status-pill) .metric-card__value {
-  font-size: 14px;
+  font-size: var(--type-body-sm-size);
   font-family: var(--font-ui);
   font-weight: 500;
   letter-spacing: 0;
@@ -6368,7 +6368,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 
 .wiki-outline-hint {
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--reader-muted);
 }
 
@@ -6749,7 +6749,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 .wisdom-dialog__hint {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   overflow-wrap: anywhere;
 }
 
@@ -6833,7 +6833,7 @@ html[data-theme="dark"] .graph-pixi-stage {
   border-radius: 999px;
   background: var(--surface);
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   font-weight: 500;
   cursor: pointer;
   transition:
@@ -6951,7 +6951,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 
 .trace-session span {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7018,7 +7018,7 @@ html[data-theme="dark"] .graph-pixi-stage {
   flex: 1;
   min-width: 0;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -7028,7 +7028,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 .trace-invocation__time {
   flex: none;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -7036,7 +7036,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 .trace-invocation__dur {
   flex: none;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--accent-strong);
   font-weight: 600;
   white-space: nowrap;
@@ -7099,7 +7099,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 
 .trace-span-name {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -7146,7 +7146,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 
 .trace-span-row__dur {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -7201,14 +7201,14 @@ html[data-theme="dark"] .graph-pixi-stage {
 
 .trace-attr dt {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--muted);
 }
 
 .trace-attr dd {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
   color: var(--text);
   overflow-wrap: anywhere;
 }
@@ -7216,7 +7216,7 @@ html[data-theme="dark"] .graph-pixi-stage {
 .trace-span-detail__empty {
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--type-body-sm-size);
 }
 
 @media (max-width: 1080px) {

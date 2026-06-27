@@ -9,6 +9,32 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-06-27
+
+### Fixed
+
+- **Small-text ladder closed (post-v0.8.0 scale consolidation).** A residual 12px
+  tier crammed between `label` (11) and `body-sm` (13), plus stray 14 / 16 sizes
+  beside `body` (15) / `title` (17), survived the v0.8.0 pass. All 46 `12px` sites
+  now snap to `body-sm` (dense metadata — IDs, paths, durations, pills, table cells,
+  hints, segmented controls) or `label` (the uppercase label voice). The off-scale
+  outliers resolve too: `.page-header__description` (14 → body-sm),
+  `.settings-panel__header h2` (16 → title, matching every other panel title), the
+  import section-head titles + `.section-title` (14 → body), `.answer-text`
+  (16 → body), and the reader markdown table header/cell inversion (th 12 / td 14 →
+  both body-sm). Every workbench route now lands on the
+  `{11, 13, 15, 17, 18, 22, 27, 30, 32}` role/editorial ladder — a clean
+  11 / 13 / 15 / 17 small-text run with no 12px tier.
+- Inline / block code (`0.92em`) and KaTeX math are documented as deliberate
+  em-relative **off-ladder exemptions**; a new `no UI text renders off the role
+  scale` e2e invariant guards the ladder across
+  overview / base / import / chat / settings / tasks / wisdom.
+
+### Notes
+
+- MB-Web (`src/mb/mb.css`) keeps its own half-step subsystem scale for now;
+  migrating it onto the `--type-*` role tokens is a tracked follow-up (DESIGN.md §3).
+
 ## [0.8.0] - 2026-06-27
 
 ### Changed
