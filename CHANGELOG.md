@@ -21,12 +21,15 @@ file format introduced in `[0.0.1.0]` was dropped.
   browser sent (`http://127.0.0.1:8765`), where nothing listens, so every agent
   tool (`retrieve_knowledge`, `dikw_health`, …) returned `fetch failed` and the
   chat could not read the knowledge base. The sidecar now **mirrors the Vite
-  `/v1` proxy**: `applyDevProxyTarget` (`server/agent/http.ts`) routes the default
-  core URL to `VITE_DIKW_PROXY_TARGET` when it is set. Dev-only — the env var is
-  never present in the standalone production sidecar (no-op there, and for a
-  custom directly-reachable `serverUrl`). _Unit guards: `server/agent/http.test.ts`
-  "applyDevProxyTarget…" + "routes a default-URL message through
-  VITE_DIKW_PROXY_TARGET…"._
+  `/v1` proxy**: `agentSidecarPlugin` injects the Vite-resolved
+  `VITE_DIKW_PROXY_TARGET` (honoring `.env.local`, not just a shell export, and
+  warning on a malformed value) and `applyDevProxyTarget` (`server/agent/http.ts`)
+  routes the default core URL to it. **Dev-only by construction** — the standalone
+  production sidecar injects no target, so it always dials the configured
+  `Server URL` verbatim; a custom, directly-reachable `serverUrl` is also left
+  untouched. _Unit guards: `server/agent/http.test.ts` "applyDevProxyTarget…" +
+  the injected-target handler test; `server/agent/vitePlugin.test.ts`
+  "resolveDevProxyTarget…"._
 
 ### Changed
 

@@ -210,7 +210,13 @@ with its own LLM credentials. LLM keys are sidecar-only and must not be
 sent to the browser, stored in Settings, or persisted in session files.
 The core URL and optional core bearer token are request-scoped Agent
 inputs; if `coreUrl` is missing, the sidecar rejects the request instead
-of falling back to `.env.local`.
+of falling back to `.env.local`. **Dev-only:** when the Vite `/v1` proxy is
+pointed at a non-default core (`VITE_DIKW_PROXY_TARGET`, used by
+browser-verify / `live:verify`), the sidecar mirrors that proxy — a
+browser-sent **default** `Server URL` is routed to the same target so the
+agent reaches the same core the browser's proxied reads do (see
+[`agent.md`](agent.md) and `applyDevProxyTarget`). The standalone production
+sidecar never sets this and always dials the `Server URL` verbatim.
 
 The canonical browser route is `#chat`. Legacy `#query` hashes redirect
 to `#chat` for compatibility only. Session titles are stored by the

@@ -109,6 +109,19 @@ the current Settings `Server URL` with each Agent message and maintenance
 confirmation. If `coreUrl` is missing, `/agent/*` returns `400
 invalid_request`.
 
+**Dev-only exception — the dev `/v1` proxy mirror.** dikw-core has no
+CORS, so during browser-verify / `live:verify` the browser keeps its
+Settings `Server URL` at the **default** and routes `/v1` reads through
+the same-origin Vite proxy (`VITE_DIKW_PROXY_TARGET` → the real,
+dynamically-ported core). The sidecar's `/agent` calls run server-side and
+bypass that proxy, so `agentSidecarPlugin` mirrors it: a browser-sent
+**default** core URL is routed to the same target (`applyDevProxyTarget`).
+This is purely a routing override (not a credential — distinct from the
+"no `VITE_*`" rule above), resolved from Vite's own env (so it honors
+`.env.local`). The standalone production sidecar never injects a target, so
+it always dials the Settings `Server URL` verbatim. A non-default custom
+`Server URL` is left untouched.
+
 ## Session Storage
 
 Sessions persist to **local SQLite** via ADK's `DatabaseSessionService`,

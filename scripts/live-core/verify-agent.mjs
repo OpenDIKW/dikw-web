@@ -27,9 +27,13 @@
 // OTLP-exported spans are unaffected). We still assert the traces endpoint
 // returns its documented shape.
 //
-// Requires the dikw-web dev server running (DIKW_LIVE_WEB_URL) and the sidecar's
-// own LLM key (DIKW_AGENT_API_KEY, from .env.local). Missing key ⇒ SKIP (not a
-// failure). See docs/integration-verification.md.
+// Requires the dikw-web dev server running (DIKW_LIVE_WEB_URL) with its Vite
+// `/v1` proxy pointed at the live core (VITE_DIKW_PROXY_TARGET) — i.e. the
+// `live:verify` / browser-verify setup, since we send the default core URL and
+// rely on the sidecar mirroring that proxy. It also needs the sidecar's own LLM
+// key (DIKW_AGENT_API_KEY, from .env.local). Missing key ⇒ SKIP (not a failure).
+// `run.mjs` wires both up; running it against a plain `npm run dev` won't reach
+// core. See docs/integration-verification.md.
 
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";

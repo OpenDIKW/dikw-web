@@ -24,25 +24,26 @@ describe("maintenanceEndpoint", () => {
 });
 
 describe("applyDevProxyTarget (dev sidecar mirrors the Vite /v1 proxy)", () => {
-  const original = process.env.VITE_DIKW_PROXY_TARGET;
-  afterEach(() => {
-    if (original === undefined) delete process.env.VITE_DIKW_PROXY_TARGET;
-    else process.env.VITE_DIKW_PROXY_TARGET = original;
-  });
-
   it("returns the core URL unchanged when no proxy target is configured", () => {
-    delete process.env.VITE_DIKW_PROXY_TARGET;
-    expect(applyDevProxyTarget("http://127.0.0.1:8765")).toBe("http://127.0.0.1:8765");
+    expect(applyDevProxyTarget("http://127.0.0.1:8765", undefined)).toBe("http://127.0.0.1:8765");
   });
 
   it("rewrites the default core URL to the proxy target (browser keeps serverUrl at the default to use the same-origin proxy)", () => {
-    process.env.VITE_DIKW_PROXY_TARGET = "http://127.0.0.1:57609";
-    expect(applyDevProxyTarget("http://127.0.0.1:8765")).toBe("http://127.0.0.1:57609");
+    expect(applyDevProxyTarget("http://127.0.0.1:8765", "http://127.0.0.1:57609")).toBe(
+      "http://127.0.0.1:57609",
+    );
   });
 
   it("leaves a non-default core URL untouched (a custom serverUrl is reached directly, not via the proxy)", () => {
-    process.env.VITE_DIKW_PROXY_TARGET = "http://127.0.0.1:57609";
-    expect(applyDevProxyTarget("https://core.example.com")).toBe("https://core.example.com");
+    expect(applyDevProxyTarget("https://core.example.com", "http://127.0.0.1:57609")).toBe(
+      "https://core.example.com",
+    );
+  });
+
+  it("falls back to the unrewritten core URL when the proxy target is malformed", () => {
+    expect(applyDevProxyTarget("http://127.0.0.1:8765", "127.0.0.1:57609")).toBe(
+      "http://127.0.0.1:8765",
+    );
   });
 });
 
@@ -212,37 +213,32 @@ describe("agent HTTP sidecar", () => {
     expect(await (await fetch(`${baseUrl}/sessions`)).json()).toEqual([]);
   });
 
-  it("routes a default-URL message through VITE_DIKW_PROXY_TARGET so the dev sidecar reaches the live core", async () => {
-    const original = process.env.VITE_DIKW_PROXY_TARGET;
-    process.env.VITE_DIKW_PROXY_TARGET = "http://127.0.0.1:57609";
-    try {
-      const { store } = makeStore();
-      const runInputs: Array<{ coreUrl?: string }> = [];
-      const runner: AgentRunner = {
-        async runMessage({ sessionId, coreUrl, onEvent }) {
-          runInputs.push({ coreUrl });
-          await onEvent({ type: "agent_end", sessionId });
-        },
-      };
-      const baseUrl = await listen(createAgentHandler({ store, runner }));
+  it("routes a default-URL message through the injected dev proxy target so the sidecar reaches the live core", async () => {
+    const { store } = makeStore();
+    const runInputs: Array<{ coreUrl?: string }> = [];
+    const runner: AgentRunner = {
+      async runMessage({ sessionId, coreUrl, onEvent }) {
+        runInputs.push({ coreUrl });
+        await onEvent({ type: "agent_end", sessionId });
+      },
+    };
+    const baseUrl = await listen(
+      createAgentHandler({ store, runner, devProxyTarget: "http://127.0.0.1:57609" }),
+    );
 
-      const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
-        id: string;
-      };
-      // The browser sends the DEFAULT core URL (its /v1 reads ride the same-origin
-      // Vite proxy); the sidecar must mirror that proxy and reach the live core.
-      const stream = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: "hi", coreUrl: "http://127.0.0.1:8765", token: "t" }),
-      });
-      await stream.text(); // drain so runMessage has run
+    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
+      id: string;
+    };
+    // The browser sends the DEFAULT core URL (its /v1 reads ride the same-origin
+    // Vite proxy); the sidecar must mirror that proxy and reach the live core.
+    const stream = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "hi", coreUrl: "http://127.0.0.1:8765", token: "t" }),
+    });
+    await stream.text(); // drain so runMessage has run
 
-      expect(runInputs).toEqual([{ coreUrl: "http://127.0.0.1:57609" }]);
-    } finally {
-      if (original === undefined) delete process.env.VITE_DIKW_PROXY_TARGET;
-      else process.env.VITE_DIKW_PROXY_TARGET = original;
-    }
+    expect(runInputs).toEqual([{ coreUrl: "http://127.0.0.1:57609" }]);
   });
 
   it("confirms a maintenance proposal by firing the core endpoint and recording the task id", async () => {
