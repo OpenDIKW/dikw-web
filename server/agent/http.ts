@@ -9,6 +9,7 @@ import { AdkAgentRunner } from "./adkRunner.js";
 import { SpanStore } from "./spanStore.js";
 import { initAgentTelemetry } from "./telemetry.js";
 import { createLogger } from "../shared/logger.js";
+import { defaultServerUrl } from "../../src/config/connection.js";
 import type { AgentRunner } from "./runtime.js";
 import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types.js";
 
@@ -20,6 +21,13 @@ export interface AgentHandlerOptions {
   runner?: AgentRunner;
   spanStore?: SpanStore;
   sessionsDir?: string;
+  /**
+   * Dev-only: the Vite `/v1` proxy target (`VITE_DIKW_PROXY_TARGET`), injected by
+   * `agentSidecarPlugin` so the sidecar mirrors that proxy for its outbound core
+   * calls (see `applyDevProxyTarget`). The standalone production sidecar never
+   * sets this, so the rewrite is impossible in prod by construction.
+   */
+  devProxyTarget?: string;
 }
 
 export function resolveSessionsDir(cwd: string, override?: string): string {
@@ -32,7 +40,7 @@ export function resolveSessionsDir(cwd: string, override?: string): string {
 
 export async function createDefaultAgentHandler(
   cwd = process.cwd(),
-  options: { sessionsDir?: string } = {},
+  options: { sessionsDir?: string; devProxyTarget?: string } = {},
 ) {
   const config = await loadAgentConfig({ cwd });
   const dir = resolveSessionsDir(cwd, options.sessionsDir);
@@ -47,11 +55,17 @@ export async function createDefaultAgentHandler(
   // registers the provider, and #trace reads from this same store.
   const spanStore = initAgentTelemetry();
   const runner = new AdkAgentRunner({ config, store, sessionService });
-  return createAgentHandler({ cwd, store, runner, spanStore });
+  return createAgentHandler({
+    cwd,
+    store,
+    runner,
+    spanStore,
+    devProxyTarget: options.devProxyTarget,
+  });
 }
 
 export function createAgentHandler(options: AgentHandlerOptions = {}) {
-  const { store, runner, spanStore } = options;
+  const { store, runner, spanStore, devProxyTarget } = options;
   if (!store || !runner) {
     throw new Error(
       "createAgentHandler requires both store and runner (use createDefaultAgentHandler)",
@@ -115,7 +129,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         if (!isRecord(body) || typeof body.message !== "string" || !body.message.trim()) {
           return errorJson(res, 400, "invalid_request", "message is required");
         }
-        const connection = readCoreConnection(body);
+        const connection = readCoreConnection(body, devProxyTarget);
         if ("error" in connection) {
           return errorJson(res, 400, "invalid_request", connection.error);
         }
@@ -155,7 +169,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         }
         if (parts[4] === "confirm") {
           const body = await readJsonBody(req);
-          const connection = readCoreConnection(body);
+          const connection = readCoreConnection(body, devProxyTarget);
           if ("error" in connection) {
             return errorJson(res, 400, "invalid_request", connection.error);
           }
@@ -232,7 +246,10 @@ async function runMaintenanceProposal(
   return (await response.json()) as { task_id?: string };
 }
 
-function readCoreConnection(body: unknown): CoreConnection | { error: string } {
+function readCoreConnection(
+  body: unknown,
+  devProxyTarget?: string,
+): CoreConnection | { error: string } {
   if (!isRecord(body) || typeof body.coreUrl !== "string" || !body.coreUrl.trim()) {
     return { error: "coreUrl is required" };
   }
@@ -242,11 +259,45 @@ function readCoreConnection(body: unknown): CoreConnection | { error: string } {
       return { error: "coreUrl must be an absolute http(s) URL" };
     }
     return {
-      coreUrl: url.toString().replace(/\/$/, ""),
+      coreUrl: applyDevProxyTarget(url.toString().replace(/\/$/, ""), devProxyTarget),
       ...(typeof body.token === "string" && body.token ? { token: body.token } : {}),
     };
   } catch {
     return { error: "coreUrl must be an absolute http(s) URL" };
+  }
+}
+
+/**
+ * Mirror the dev Vite `/v1` proxy (vite.config.ts) for the sidecar's outbound
+ * core calls. The browser keeps `serverUrl` at the default so its cross-origin
+ * `/v1` reads ride the same-origin proxy (dikw-core has no CORS). The sidecar's
+ * `/agent` calls run server-side and bypass that proxy, so when the browser
+ * sends the *default* core URL and a dev proxy target is configured, route to
+ * the same target the proxy uses — otherwise the sidecar would dial the unused
+ * default port and every core tool would fail with `fetch failed`.
+ *
+ * `devProxyTarget` is injected by `agentSidecarPlugin` (dev only), resolved from
+ * Vite's own env (so it honors `.env.local`, not just `process.env`). The
+ * standalone production sidecar passes nothing, so the rewrite is impossible in
+ * prod by construction — not merely "the env var happens to be unset". A
+ * non-default (custom, directly-reachable) `serverUrl` is also left untouched.
+ */
+export function applyDevProxyTarget(coreUrl: string, devProxyTarget?: string): string {
+  const target = devProxyTarget?.trim();
+  if (!target) return coreUrl;
+  let normalized: string;
+  try {
+    normalized = new URL(coreUrl).toString().replace(/\/$/, "");
+  } catch {
+    return coreUrl;
+  }
+  if (normalized !== defaultServerUrl) return coreUrl;
+  try {
+    return new URL(target).toString().replace(/\/$/, "");
+  } catch {
+    // Malformed target (e.g. missing scheme). agentSidecarPlugin warns about
+    // this at startup; here we safely fall through to the unrewritten URL.
+    return coreUrl;
   }
 }
 

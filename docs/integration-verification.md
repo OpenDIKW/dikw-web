@@ -25,8 +25,8 @@ providers (slow, costs tokens, depends on upstream availability). The default
 │ vite dev  host:<dynamic>  VITE_DIKW_PROXY_TARGET=<core>               │
 │   • browser read-route e2e: serverUrl=default → same-origin /v1 →     │
 │     Vite proxy → core  (core has no CORS, so reads must be proxied)   │
-│   • agent check: Node POSTs /agent with the REAL core URL (server-    │
-│     side, no CORS) and inspects the agent's observable event stream   │
+│   • agent check: Node POSTs /agent with the DEFAULT core URL (like    │
+│     the browser); sidecar mirrors the proxy → core, asserts success   │
 │ Node: seed-core.mts (write pipeline) + smoke-core.mjs (read contract) │
 └───────────────────────────────────────────────────────────────────────┘
 ```
@@ -80,8 +80,15 @@ Run a second core version in parallel:
 4. **Agent↔core** (`scripts/live-core/verify-agent.mjs`) — drives one real chat
    turn through the sidecar and asserts, from the `AgentStreamEvent` tool_event
    stream (the curated tool surface the chat right-rail + `#trace` tool list
-   show), that the agent invoked a **core-backed tool** (`retrieve_knowledge` /
-   `read_page` / …) — proof it actually reached core. The in-memory trace
+   show), that a **core-backed tool** (`retrieve_knowledge` / `read_page` / …)
+   reached `status:"succeeded"` — proof the turn round-tripped to core. The turn
+   sends the **default** core URL, exactly like the browser (which keeps
+   `serverUrl` default and rides the same-origin proxy), so it exercises the
+   sidecar's `applyDevProxyTarget` dev-proxy mirroring — sending the real core
+   URL would dial core directly and mask the "fetch failed" chat bug. The
+   success status matters: a `fetch failed` call still emits a tool_event, so
+   asserting mere *invocation* would pass against a sidecar that never reached
+   core. The in-memory trace
    waterfall (`GET /agent/sessions/{id}/traces`) is reported as a bonus when
    present, but not required: under `vite dev` ADK binds its OTel tracer at
    module load, before the sidecar registers its span processor, so the dev
