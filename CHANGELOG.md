@@ -9,6 +9,36 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.5] - 2026-06-28
+
+### Fixed
+
+- **Chat agent tool calls fail (`fetch failed`) in a proxied dev/live setup.**
+  dikw-core has no CORS, so the browser keeps `serverUrl` at the default and
+  routes its `/v1` reads through the same-origin Vite proxy (`VITE_DIKW_PROXY_TARGET`
+  → the real, dynamically-ported core). But the sidecar's `/agent` core calls run
+  server-side and **bypassed** that proxy — they dialed the default port the
+  browser sent (`http://127.0.0.1:8765`), where nothing listens, so every agent
+  tool (`retrieve_knowledge`, `dikw_health`, …) returned `fetch failed` and the
+  chat could not read the knowledge base. The sidecar now **mirrors the Vite
+  `/v1` proxy**: `applyDevProxyTarget` (`server/agent/http.ts`) routes the default
+  core URL to `VITE_DIKW_PROXY_TARGET` when it is set. Dev-only — the env var is
+  never present in the standalone production sidecar (no-op there, and for a
+  custom directly-reachable `serverUrl`). _Unit guards: `server/agent/http.test.ts`
+  "applyDevProxyTarget…" + "routes a default-URL message through
+  VITE_DIKW_PROXY_TARGET…"._
+
+### Changed
+
+- **`live:verify` agent↔core check now reproduces the real browser path.**
+  `scripts/live-core/verify-agent.mjs` previously POSTed `/agent` with the live
+  core's *real* dynamic URL, bypassing the proxy the browser depends on — so it
+  passed even while the actual chat was broken. It now sends the **default** core
+  URL (like the browser) and asserts a core tool reached `status:"succeeded"`
+  (not merely that one was *invoked* — a `fetch failed` call still emits a
+  tool_event). This catches the bug above: it fails against a sidecar that can't
+  reach core and passes once the proxy is mirrored.
+
 ## [0.8.4] - 2026-06-27
 
 ### Fixed

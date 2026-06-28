@@ -9,6 +9,7 @@ import { AdkAgentRunner } from "./adkRunner.js";
 import { SpanStore } from "./spanStore.js";
 import { initAgentTelemetry } from "./telemetry.js";
 import { createLogger } from "../shared/logger.js";
+import { defaultServerUrl } from "../../src/config/connection.js";
 import type { AgentRunner } from "./runtime.js";
 import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types.js";
 
@@ -242,11 +243,41 @@ function readCoreConnection(body: unknown): CoreConnection | { error: string } {
       return { error: "coreUrl must be an absolute http(s) URL" };
     }
     return {
-      coreUrl: url.toString().replace(/\/$/, ""),
+      coreUrl: applyDevProxyTarget(url.toString().replace(/\/$/, "")),
       ...(typeof body.token === "string" && body.token ? { token: body.token } : {}),
     };
   } catch {
     return { error: "coreUrl must be an absolute http(s) URL" };
+  }
+}
+
+/**
+ * Mirror the dev Vite `/v1` proxy (vite.config.ts) for the sidecar's outbound
+ * core calls. The browser keeps `serverUrl` at the default so its cross-origin
+ * `/v1` reads ride the same-origin proxy (dikw-core has no CORS). The sidecar's
+ * `/agent` calls run server-side and bypass that proxy, so when the browser
+ * sends the *default* core URL and `VITE_DIKW_PROXY_TARGET` is configured (set
+ * by `live:verify` / a manual `VITE_DIKW_PROXY_TARGET=… npm run dev`), route to
+ * the same target the proxy uses — otherwise the sidecar would dial the unused
+ * default port and every core tool would fail with `fetch failed`.
+ *
+ * Dev-only: the env var is never set in the standalone production sidecar, so
+ * this is a no-op there (and for a custom, directly-reachable serverUrl).
+ */
+export function applyDevProxyTarget(coreUrl: string): string {
+  const proxyTarget = process.env.VITE_DIKW_PROXY_TARGET?.trim();
+  if (!proxyTarget) return coreUrl;
+  let normalized: string;
+  try {
+    normalized = new URL(coreUrl).toString().replace(/\/$/, "");
+  } catch {
+    return coreUrl;
+  }
+  if (normalized !== defaultServerUrl) return coreUrl;
+  try {
+    return new URL(proxyTarget).toString().replace(/\/$/, "");
+  } catch {
+    return coreUrl;
   }
 }
 
