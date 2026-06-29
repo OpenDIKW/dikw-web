@@ -16,7 +16,7 @@
 ![Google ADK](https://img.shields.io/badge/Agent-Google%20ADK-4285F4?logo=google&logoColor=white)
 ![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-instrumented-425CC7?logo=opentelemetry&logoColor=white)
 
-**[Quick start](#quick-start) · [Commands](#commands-windows-powershell) · [Architecture](#architecture-in-one-diagram) · [Routes](#routes) · [Branding](#branding-white-label) · [Deployment](#deployment) · [Docs](#where-canonical-docs-live)**
+**[Quick start](#quick-start) · [Commands](#commands) · [Architecture](#architecture-in-one-diagram) · [Routes](#routes) · [Branding](#branding-white-label) · [Deployment](#deployment) · [Docs](#where-canonical-docs-live)**
 
 </div>
 
@@ -38,80 +38,107 @@ the Wisdom editor, the Tasks maintenance ops); see `CLAUDE.md` → "Routes and c
 
 ## Quick start
 
-```powershell
+```sh
 # install
-npm.cmd install
+npm install
 
 # dev server (fixed at http://127.0.0.1:4321)
-npm.cmd run dev
+npm run dev
 
 # point Settings → Server URL at your local dikw-core (default http://127.0.0.1:8765)
 ```
 
+> **Shell convention:** the examples in this README use plain `npm`, which works on
+> **macOS / Linux**. On **Windows PowerShell**, call `npm.cmd` instead (e.g.
+> `npm.cmd run dev`) — `CLAUDE.md` standardizes on the `.cmd` form for that shell.
+
 When the visible Server URL is the default, browser `/v1` calls go through
 the Vite proxy to avoid CORS; any other URL is requested directly.
 
-## Commands (Windows PowerShell)
+## Commands
+
+macOS / Linux use `npm`; Windows PowerShell uses `npm.cmd` (see the shell
+convention above). Commands themselves are identical across platforms.
 
 | Command | What it does |
 |---|---|
-| `npm.cmd run dev` | Vite dev server on `127.0.0.1:4321` (`--strictPort`) |
-| `npm.cmd run typecheck` | `tsc --noEmit` |
-| `npm.cmd run lint` | ESLint flat config, `--max-warnings 0` (hook deps, unused symbols, no browser `console`) |
-| `npm.cmd run format` / `format:check` | Prettier across code (`.ts/.tsx/.js/.mjs/.css/.json`; markdown excluded) |
-| `npm.cmd run test` | Vitest once (unit + component + server) |
-| `npm.cmd run test:watch` | Vitest watch mode |
-| `npm.cmd run test:coverage` | Vitest with coverage thresholds (60 / 45 / 55 / 60) |
-| `npm.cmd run test:e2e` | Playwright (Chromium); auto-starts dev server if needed |
-| `npm.cmd run build` | `tsc --noEmit` + `vite build` (browser to `dist/`) + `build:server` (esbuild to `dist-server/standalone.mjs`) |
-| `npm.cmd run verify` | Full gate: lint + format:check + typecheck + coverage + build + e2e |
-| `npm.cmd run live:verify` | Live integration: boot a **real `dikw-core`** (GHCR image + Postgres, dynamic ports), seed the write pipeline, then run read smoke + a `live` Playwright project + an agent↔core check against it. Needs Docker + `.env.core` (copy `.env.core.example`). Not part of `verify`. See [`docs/integration-verification.md`](docs/integration-verification.md) |
+| `npm run dev` | Vite dev server on `127.0.0.1:4321` (`--strictPort`) |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint flat config, `--max-warnings 0` (hook deps, unused symbols, no browser `console`) |
+| `npm run format` / `format:check` | Prettier across code (`.ts/.tsx/.js/.mjs/.css/.json`; markdown excluded) |
+| `npm run test` | Vitest once (unit + component + server) |
+| `npm run test:watch` | Vitest watch mode |
+| `npm run test:coverage` | Vitest with coverage thresholds (60 / 45 / 55 / 60) |
+| `npm run test:e2e` | Playwright (Chromium); auto-starts dev server if needed |
+| `npm run build` | `tsc --noEmit` + `vite build` (browser to `dist/`) + `build:server` (esbuild to `dist-server/standalone.mjs`) |
+| `npm run verify` | Full gate: lint + format:check + typecheck + coverage + build + e2e |
+| `npm run check:bundle` | gzip bundle budget (entry JS / total JS / CSS) against `dist/`; runs in CI after `verify` |
+| `npm run smoke:core` | Live `/v1` contract smoke against a reachable `dikw-core` (not a CI gate; run after a core bump or before a demo) |
+| `npm run live:verify` | Live integration: boot a **real `dikw-core`** (GHCR image + Postgres, dynamic ports), seed the write pipeline, then run read smoke + a `live` Playwright project + an agent↔core check against it. Needs Docker + `.env.core` (copy `.env.core.example`). Not part of `verify`. See [`docs/integration-verification.md`](docs/integration-verification.md) |
 
 Single-file iteration:
 
-```powershell
+```sh
 npx vitest run src/components/MarkdownView.test.tsx
 npx playwright test tests/e2e/wiki.spec.ts
 ```
 
-If `npm.cmd run dev` fails in the Codex sandbox with `Cannot read
-directory "../../.."`, fall back to:
+If `npm run dev` fails in the Codex sandbox with `Cannot read
+directory "../../.."`, fall back to (use `/` paths on macOS / Linux, `\` on Windows):
 
-```powershell
+```sh
+# macOS / Linux
+node node_modules/vite/bin/vite.js --host 127.0.0.1 --port 4321 --strictPort --configLoader runner
+
+# Windows PowerShell
 node node_modules\vite\bin\vite.js --host 127.0.0.1 --port 4321 --strictPort --configLoader runner
 ```
 
 ## Architecture in one diagram
 
+```mermaid
+flowchart LR
+    subgraph browser["Browser · React 19 · hand-rolled CSS tokens"]
+        wb["Workbench<br/>#chat · #base · #graph · …"]
+        mb["论文知识库<br/>#MB-Web"]
+    end
+
+    subgraph sidecar["Node sidecar · Vite middleware (dev) / standalone.mjs (prod)"]
+        agent["/agent/*<br/>Google ADK + MiniMaxLlm"]
+        web["/web/*<br/>mineru convert · LLM translate"]
+    end
+
+    core[("dikw-core · /v1")]
+    llm["MiniMax-M3<br/>Anthropic-compatible"]
+    webtools["web_search · Tavily<br/>web_fetch · Jina"]
+    convsvc["mineru.net<br/>MiniMax translate"]
+
+    browser -->|"/v1/* · Vite proxy (default URL) or direct fetch (custom URL)"| core
+    browser -->|"/agent/* · same-origin"| agent
+    browser -->|"/web/* · same-origin"| web
+
+    agent --> llm
+    agent -->|"retrieval / page / wisdom tools"| core
+    agent -.->|"optional"| webtools
+    web --> convsvc
 ```
-browser (React 19, hand-rolled CSS tokens)
-   │
-   ├─── same-origin /v1/*   ──▶ Vite proxy ──▶ dikw-core (default core)
-   │                        ──▶ direct fetch ──▶ dikw-core (custom URL)
-   │
-   ├─── same-origin /agent/* ──▶ Google ADK sidecar (Node middleware in Vite)
-   │                                  └─── MiniMax-M3 via MiniMaxLlm (Anthropic-compatible)
-   │                                  └─── calls back into dikw-core as tools
-   │                                  └─── optional web_search (Tavily) / web_fetch (Jina)
-   │
-   └─── same-origin /web/*   ──▶ same sidecar process (server/web/)
-                                      └─── /mineru/convert (PDF/Office → job id; detached convert via mineru.net)
-                                      └─── /mineru/jobs/<id>[/result|/cancel] (poll / fetch result / cancel)
-                                      └─── /mineru/health  (drives Import UI degradation)
-                                      └─── /translate/submit (markdown blocks → job id; detached MiniMax translate)
-                                      └─── /translate/jobs/<id>[/result|/cancel] (poll / block-aligned JSON / cancel)
-                                      └─── /translate/health  (gates the Base reader AI 翻译 entry)
-```
+
+The `/web/*` family is **job + poll**: `convert` / `translate` `submit`
+returns a job id immediately, then the browser polls `…/jobs/<id>` and
+fetches `…/jobs/<id>/result` (with `…/cancel` to abort); `…/health`
+endpoints drive Import's format degradation and gate the Base reader's
+AI 翻译 entry. See `CLAUDE.md` for the full wire shapes.
 
 Two source trees share a single sidecar process (mounted into the Vite
 dev server as middleware, and into `dist-server/standalone.mjs` for prod):
 
 1. **Browser app** in `src/` — React 19 + TypeScript, no UI framework.
    Hand-rolled CSS token system in `src/styles.css`.
-2. **Sidecar** in `server/agent/` + `server/web/` — `/agent/*` mounted by
-   `agentSidecarPlugin()` (Google ADK chat), `/web/*` mounted by
-   `webApiPlugin()` (browser helpers, currently mineru conversion). Both
-   live in `vite.config.ts`. Sessions persist to local SQLite in
+2. **Sidecar** in `server/agent/` + `server/web/` + `server/shared/` —
+   `/agent/*` mounted by `agentSidecarPlugin()` (Google ADK chat), `/web/*`
+   mounted by `webApiPlugin()` (browser helpers: mineru conversion + on-demand
+   LLM translation). Both plugins are defined under `server/*/vitePlugin.ts`
+   and registered in `vite.config.ts`. Sessions persist to local SQLite in
    `.agent-sessions/agent.sqlite` (gitignored).
 
 ## Routes
@@ -131,7 +158,8 @@ Hash-based. Settings owns connection state.
 
 ## Markdown reader
 
-`src/components/MarkdownView.tsx` renders source and wiki markdown bodies.
+`src/components/MarkdownView.tsx` renders source- and knowledge-layer
+markdown bodies (the shared renderer also backs the bilingual dual column).
 Supports:
 
 - Pipe tables, sanitized raw HTML tables (narrow allow-list).
@@ -232,9 +260,9 @@ For production, build and run as a single self-contained Node service that
 serves the SPA plus the same-origin `/agent/*` sidecar. LLM credentials are
 injected via env; users still pick the external dikw-core URL in Settings.
 
-```powershell
-npm.cmd run build   # produces dist/ and dist-server/
-npm.cmd start       # node dist-server/standalone.mjs
+```sh
+npm run build   # produces dist/ and dist-server/
+npm start       # node dist-server/standalone.mjs
 ```
 
 A Docker image is the recommended deployment form. See
@@ -274,11 +302,19 @@ Jaeger + Prometheus + Loki + Grafana) — and the full env reference are in
 ```
 src/
   api/             DikwClient + AgentClient + NDJSON helpers
-  components/      MarkdownView, GraphCanvas, shared UI pieces
-  pages/           one file per top-level route (Wiki, Graph, Chat, …)
-  utils/           pure helpers (chart-spec, markdown frontmatter, graph adapters, format)
+  components/      MarkdownView, GraphCanvas, BilingualView, shared UI pieces
+  pages/           one file per workbench route (Chat, Graph, Wiki/Base, Overview, Tasks, Settings, Trace, …)
+  mb/              the #MB-Web 论文知识库 front-end (MbApp + mb.css)
+  config/          branding + telemetry runtime config, connection keys
+  hooks/           useAsyncResource, useBilingualReader, usePreviewTranslation
+  state/           import-pipeline + wisdom-write client state
+  telemetry/       browser RUM bootstrap (initBrowserOtel)
+  utils/           pure helpers (chart-spec, frontmatter, graph adapters, kebab names, format)
   styles.css       hand-rolled token system — the UI baseline
-server/agent/      ADK agent sidecar, MiniMaxLlm, tools, sqlite session storage
+server/
+  agent/           ADK agent sidecar, MiniMaxLlm, tools, sqlite sessions, OTel
+  web/             /web/* helpers — mineru convert + LLM translate (job + poll)
+  shared/          logger, metrics, env, withServerSpan (cross-sidecar)
 tests/e2e/         Playwright specs + mockApi fixtures
 docs/              canonical product/contract notes (see above)
 ```
