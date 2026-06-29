@@ -22,6 +22,7 @@ interface GraphPalette {
 }
 
 interface PixiEngine {
+  readonly canvas: HTMLCanvasElement;
   render(graph: PositionedGalaxyGraph, state: RenderState): void;
   resize(width: number, height: number): void;
   destroy(): void;
@@ -79,6 +80,12 @@ export function GraphCanvas({
           return;
         }
         engineRef.current = engine;
+        // Attach only the active engine's canvas. StrictMode's dev double-invoke
+        // runs two createPixiGraphEngine() inits concurrently; doing the mount
+        // attach here (inside the active guard) — not inside the async factory —
+        // keeps a slower-resolving stale init from clobbering the live canvas and
+        // then emptying the mount when its destroy() fires.
+        mount.replaceChildren(engine.canvas);
         engine.resize(size.width, size.height);
         setPixiReady(true);
       })
@@ -158,7 +165,6 @@ async function createPixiGraphEngine(mount: HTMLElement): Promise<PixiEngine> {
     resolution: Math.min(window.devicePixelRatio || 1, 2),
     powerPreference: "high-performance",
   });
-  mount.replaceChildren(app.canvas);
   return new PixiGraphEngine(app, pixi);
 }
 
@@ -192,6 +198,10 @@ class PixiGraphEngine implements PixiEngine {
     this.world.addChild(this.labelLayer);
     this.app.stage.addChild(this.world);
     this.installCamera();
+  }
+
+  get canvas(): HTMLCanvasElement {
+    return this.app.canvas as HTMLCanvasElement;
   }
 
   render(graph: PositionedGalaxyGraph, state: RenderState): void {

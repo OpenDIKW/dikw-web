@@ -128,7 +128,9 @@ test("dark Wiki reader keeps details and Mermaid diagrams on reader surfaces", a
   await page.getByLabel("Filter").fill("active-learning");
   await page.getByRole("treeitem", { name: "Active Learning Medium" }).getByRole("button").click();
   const reader = page.locator(".wiki-reader");
-  await reader.getByText("flowchart").click();
+  // Scope to <summary>: a bare getByText("flowchart") also matches Mermaid's injected
+  // <style> once a diagram has rendered, yielding a strict-mode violation (see wiki.spec.ts).
+  await reader.locator("summary", { hasText: "flowchart" }).click();
 
   await expect(reader.locator(".markdown-details")).toBeVisible();
   await expect(reader.locator(".mermaid-diagram svg")).toBeVisible();

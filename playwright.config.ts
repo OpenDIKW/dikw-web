@@ -15,14 +15,12 @@ export default defineConfig({
   testIgnore: live ? undefined : ["**/live/**"],
   fullyParallel: true,
   reporter: "list",
-  // CI-only retries to absorb a documented Pixi/StrictMode race in
-  // `graph.spec.ts > renders a nonblank Pixi graph canvas`: the
-  // create-pixi -> destroy -> recreate cycle from React StrictMode dev mode
-  // can leave the canvas mount empty after `data-ready=true` flips. Locally
-  // the test usually passes on the first attempt; CI runners (headless
-  // chromium on Ubuntu) hit it more reliably. Two retries empirically
-  // absorb every observed occurrence without masking actual regressions —
-  // the test is fast (~10s) and unrelated to this codebase's logic.
+  // CI-only retries, kept as a general backstop for timing-sensitive specs on
+  // shared CI runners. The Pixi/StrictMode canvas race that previously made
+  // `graph.spec.ts > renders a nonblank Pixi graph canvas` flaky is now fixed at
+  // the source — GraphCanvas attaches the live engine's canvas only inside its
+  // active guard, so a slower stale StrictMode init can no longer empty the mount.
+  // Retries absorb residual environmental jitter without masking real regressions.
   retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: live
