@@ -9,6 +9,22 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.9] - 2026-06-29
+
+### Added
+
+- **Automated watch-CI + fix (`dikw-web-watch-ci` skill) + loop observability
+  (`scripts/loop-log.mjs`).** Turns delivery-loop step 8 from prose into a bounded,
+  self-logging loop: watch `gh pr checks --watch`, route a real failure to the
+  fresh-context `fixer`, rerun the one known flake (`graph.spec.ts` Pixi) **at most
+  once**, always pull the review prose before merge, and merge **explicitly** (never
+  `--auto`, which outraces the review) — gated by MAX_ROUNDS = 3 and a same-failure
+  circuit breaker. Each transition is appended as a structured JSON line to a gitignored
+  `.loop-log.jsonl` (`node scripts/loop-log.mjs <event> [detail]`) so an
+  autonomous/background run is diagnosable after the fact (runaway / stuck / flake /
+  silent death). Wires into `dikw-web-delivery-workflow` step 9 and `CLAUDE.md`. See
+  `docs/adr/0005-delivery-loop-hardening.md`.
+
 ## [0.8.8] - 2026-06-29
 
 ### Changed

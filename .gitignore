@@ -9,6 +9,8 @@ playwright-report/
 test-results/
 vite*.log
 *.local
+# Delivery-loop observability (structured run log; per-run, never commit).
+.loop-log.jsonl
 # Live integration core keys (LLM/embedding); per-machine, never commit.
 .env.core
 .agent-sessions/
