@@ -9,6 +9,27 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.6] - 2026-06-29
+
+### Fixed
+
+- **Flaky graph e2e (`graph.spec.ts > renders a nonblank Pixi graph canvas`) —
+  root-caused, not retried away.** In React StrictMode's dev double-invoke, the
+  graph mounts two `createPixiGraphEngine()` inits concurrently. The canvas was
+  attached via `mount.replaceChildren(app.canvas)` _inside the async factory_,
+  outside the effect's `active` guard, so a slower-resolving **stale** init could
+  clobber the live engine's canvas and then empty the mount when its `destroy()`
+  fired — leaving `data-ready="true"` over a canvas-less stage. `GraphCanvas` now
+  attaches the canvas **only inside the active guard** (the engine exposes a
+  `canvas` getter), so the discarded init never touches the DOM. Production
+  rendering is unchanged (no StrictMode double-invoke there → single attach). The
+  spec also gates on `data-render-count >= 1` before reading the canvas contract.
+- **Flaky Mermaid disclosure clicks (`wiki.spec.ts`, `theme.spec.ts`).** A bare
+  `getByText("flowchart")` also matched the `<style>` Mermaid injects (its CSS
+  mentions `flowchart`), so once any diagram had rendered the locator resolved to
+  two nodes and `.click()` threw a Playwright strict-mode violation. Both specs
+  now scope to the `<summary>` element (`locator("summary", { hasText: … })`).
+
 ## [0.8.5] - 2026-06-28
 
 ### Fixed

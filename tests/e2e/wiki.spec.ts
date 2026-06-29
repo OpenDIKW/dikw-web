@@ -172,7 +172,11 @@ test("renders source details blocks with Mermaid diagrams", async ({ page }) => 
   await expect(reader.getByRole("heading", { name: "Active Learning Medium" })).toBeVisible();
   await expect(reader).not.toContainText("<details>");
 
-  await reader.getByText("flowchart").click();
+  // Scope to the <summary> element: a bare getByText("flowchart") also matches the
+  // <style> Mermaid injects (its CSS mentions "flowchart"), so once any diagram has
+  // rendered the locator resolves to 2 nodes and .click() throws a strict-mode
+  // violation — the documented order/timing-dependent flake.
+  await reader.locator("summary", { hasText: "flowchart" }).click();
   await expect(reader.locator(".markdown-details")).toBeVisible();
   await expect(reader.locator(".mermaid-diagram svg")).toBeVisible();
   await expect(page).toHaveURL(/#base$/);

@@ -90,6 +90,18 @@ test("renders a nonblank Pixi graph canvas", async ({ page }) => {
   await expect(page.locator('.graph-pixi-mount[data-ready="true"]')).toBeVisible({
     timeout: 15000,
   });
+  // The StrictMode attach race that could leave this mount empty is fixed in
+  // GraphCanvas (canvas is attached only inside the active guard). Still gate on
+  // data-render-count (incremented only after engine.render() actually draws) — the
+  // same signal the sibling test uses — so the contract read below runs against a
+  // populated stage rather than a stage whose canvas exists but hasn't drawn yet.
+  await expect
+    .poll(
+      async () =>
+        Number(await page.locator(".graph-pixi-stage").getAttribute("data-render-count")) || 0,
+      { timeout: 5000 },
+    )
+    .toBeGreaterThanOrEqual(1);
   await page.getByLabel("Search graph").focus();
 
   const canvasContract = await page.evaluate(() => {
