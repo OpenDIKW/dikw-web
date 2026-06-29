@@ -217,6 +217,8 @@ Locale and theme regressions should be caught at the browser boundary:
 
 Initial thresholds are intentionally modest: statements/lines 60%, functions 55%, branches 45%. Raise thresholds only when the suite gains durable behavior coverage. Do not lower thresholds to merge a feature; add or repair tests instead.
 
+"Do not lower thresholds" is no longer just a rule of discipline — the `gate-integrity` CI job (`npm run check:gate`, `scripts/check-gate-integrity.mjs`) enforces it mechanically. It diffs the PR against its merge base and fails if the verification itself was weakened: a lowered coverage threshold, a grown coverage `exclude` list, a raised bundle budget, raised e2e retries, a deleted/disabled test, removed assertions, or any edit to the gate/CI machinery. A deliberate, reviewed change is allowed only when a maintainer attaches the visible `gate-change` label to the PR. See `docs/adr/0005-delivery-loop-hardening.md`.
+
 ## Real Core Smoke Testing
 
 Mocked E2E is the default gate. Manual smoke against a real local `dikw-core` remains useful before demos, but it should not block normal TDD work because local data and providers vary.

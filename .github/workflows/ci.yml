@@ -165,6 +165,35 @@ jobs:
           severity: HIGH,CRITICAL
           version: ${{ env.TRIVY_VERSION }}
 
+  gate-integrity:
+    # Reward-hacking gate: fails a PR that weakens the verification ITSELF — lowers a
+    # coverage threshold (vite.config.ts), raises a bundle budget (check-bundle.mjs),
+    # raises e2e retries (playwright.config.ts), deletes/disables a test or strips its
+    # assertions, or edits the gate/CI machinery (this script, .github/workflows/**,
+    # fixer.md's forbidden list). A maintainer can allow a deliberate change with the
+    # visible, auditable `gate-change` PR label. PR-scoped on purpose: it is a required
+    # status check, so nothing merges to main without it, and the label context only
+    # exists on a PR. Pure Node script (no deps) — no `npm ci` needed.
+    name: Gate integrity (no reward-hacking)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Full history so `<base>...HEAD` can resolve the merge base.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Check gate integrity
+        env:
+          GATE_BASE_REF: ${{ github.event.pull_request.base.sha }}
+          GATE_HAS_OVERRIDE: ${{ contains(github.event.pull_request.labels.*.name, 'gate-change') }}
+        run: node scripts/check-gate-integrity.mjs
+
   release:
     name: Release tag (dikw-web-v*)
     # Cuts a GitHub Release tagged dikw-web-v<package.json version> once the whole
