@@ -86,3 +86,30 @@ state protocol, container `--network none` isolation, per-token cost accounting 
 out of scope. dikw-web's loop is interactive Claude Code with worktree isolation
 already available for background jobs and no destructive operations; that machinery
 would add complexity without proportional value here.
+
+---
+
+## Item 2 — trustworthy green signal (flaky e2e)
+
+Resolved outside this effort: the flaky `graph.spec.ts > renders a nonblank Pixi graph
+canvas` was root-cause-fixed in PR #140 (attach the Pixi canvas only inside the
+effect's `active` guard; the spec gates on `data-render-count >= 1`). `main`
+deliberately keeps `retries: 2` as a *general* backstop for timing-sensitive specs
+(no longer Pixi-specific), so the gate's `e2e-retries-raised` check guards that
+decision without forcing it to 1.
+
+## Item 3 — measured perf + a11y in `verify-frontend`
+
+The `dikw-web-verify-frontend` skill verified real-browser behavior + a clean console,
+then eyeballed the `docs/ui-checklist.md` a11y/contrast/perf items. Following Delba
+Oliveira's feedback-loops note ("many checks have criteria Claude can measure against:
+a performance budget, an accessibility checklist"), **Step 2.5** now uses the
+already-installed `chrome-devtools-mcp` against the changed route: `lighthouse_audit` for
+**accessibility + best-practices** (the tool deliberately excludes performance), plus a
+`performance_start_trace`/`stop_trace` for **Web Vitals**. Scored to a rubric: **a11y ≥
+0.9** with no new violation (Lighthouse), **CLS ≤ 0.1** (cross-checking the
+`perf.spec.ts` gate) and **LCP** as a soft budget (both from the trace). Kept a
+**locally-measured** step, not a new CI gate — Lighthouse + trace timing is
+runner-dependent, the same reason `perf.spec.ts` hard-gates only CLS. The `#graph` Pixi route audits a11y normally but skips the perf trace in a
+background tab (stalled `requestAnimationFrame`), mirroring the skill's existing
+Chrome-MCP caveat.

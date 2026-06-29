@@ -9,6 +9,21 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.8] - 2026-06-29
+
+### Changed
+
+- **`dikw-web-verify-frontend` gains a measured perf + a11y pass (Step 2.5).** The
+  frontend-verify skill previously eyeballed the `docs/ui-checklist.md` a11y / contrast
+  / perf items. It now uses the already-installed `chrome-devtools-mcp`: `lighthouse_audit`
+  for **accessibility + best-practices** (the tool excludes performance), plus a
+  `performance_start_trace`/`stop_trace` for **Web Vitals**, scored to a rubric — **a11y
+  ≥ 0.9** with no new violation, **CLS ≤ 0.1** (cross-checking the `perf.spec.ts` gate),
+  **LCP** recorded as a soft budget — turning the qualitative items into numbers.
+  Locally-measured, not a new CI gate (Lighthouse + trace timing is runner-dependent).
+  The `#graph` Pixi route audits a11y normally but skips the background-tab perf trace.
+  See `docs/adr/0005-delivery-loop-hardening.md`.
+
 ## [0.8.7] - 2026-06-29
 
 ### Added

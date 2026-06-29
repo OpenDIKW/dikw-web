@@ -92,6 +92,50 @@ no-UI-framework, dark reader contrast, graph filters/legend/no-bloom, the
 markdown HTML allow-list, and the surface contracts. Items it marks "e2e: …" are
 already gated — for those, re-run that spec instead of eyeballing.
 
+## Step 2.5 — Measured perf + a11y (Chrome DevTools MCP)
+
+Turn the **eyeballed** a11y / contrast / perf items of the rubric into a *measured*
+pass against numbers, not vibes. Use the **`chrome-devtools-mcp`** plugin (already
+installed — `lighthouse_audit`, `performance_start_trace` / `performance_stop_trace`,
+`performance_analyze_insight`; skills `chrome-devtools-mcp:a11y-debugging` and
+`debug-optimize-lcp`). This is the verification step the Chrome MCP interaction pass
+(Step 1) can't give you. **Run it for the route(s) the diff touched**; skip a route the
+change can't affect.
+
+Two different tools — don't conflate them: **`lighthouse_audit` excludes performance**
+(its tool reference directs perf to the trace tools), so a11y comes from Lighthouse and
+Web Vitals come from a performance trace.
+
+1. Open the changed route in a Chrome DevTools MCP page at
+   `http://127.0.0.1:4321/#<route>` (reuse the running dev server).
+2. **Accessibility (+ best-practices) → `lighthouse_audit`.** Run it with the
+   **accessibility** and **best-practices** categories (**not** `performance` — the tool
+   excludes it). The `a11y-debugging` skill walks specific failures (semantic HTML, ARIA
+   labels, focus order, tap-target size, contrast ratios).
+3. **Web Vitals → a performance trace.** `performance_start_trace` (reload = true so the
+   load is captured) → exercise the route → `performance_stop_trace`; read CLS + LCP from
+   the trace, and use `performance_analyze_insight` on the LCP/CLS insight for detail.
+   (The `debug-optimize-lcp` skill covers this flow.)
+4. Score against this rubric (the budget is a floor, not a target):
+   - **Accessibility ≥ 0.9**, and **no new violation** vs `main` for the route — from the
+     Lighthouse pass. Treat a dropped score as a fail; fix the contrast / label / role and
+     re-audit. This backs the rubric's "contrast ≥ 4.5:1 body / 3:1 headings" with a number.
+   - **CLS ≤ 0.1** — from the trace. Already gated by `tests/e2e/perf.spec.ts` on the
+     primary routes; here it's a cross-check on the *changed* route, and the trace shows
+     *which* element shifted so a regression is fixable, not just flagged.
+   - **LCP** — from the trace; a **soft** budget: record it and flag a clear regression vs
+     `main`, but it's runner-dependent (annotated, not hard-gated, in `perf.spec.ts`).
+5. **Pixi `#graph` caveat (same root cause as Step 1's gotcha):** a background
+   DevTools MCP tab can stall `requestAnimationFrame`, so a performance trace of `#graph`
+   may capture a canvas that never animated. Trace graph perf only in a foreground page,
+   or skip the trace there and rely on `graph.spec.ts` for its render contract. The
+   Lighthouse accessibility audit (DOM-based) is unaffected — the node overlay exposes
+   stable button targets, so run a11y on `#graph` normally.
+
+These are **measured-locally** checks, not new CI gates (Lighthouse + trace timing is
+runner-dependent — the same reason `perf.spec.ts` gates only CLS). A ❌ here feeds Step
+4's loop like any other finding.
+
 ## Step 3 — (if the change touches core data shape) smoke the live contract
 
 If the change reads a different `/v1` field/shape, the mocked e2e suite can't
@@ -102,5 +146,6 @@ Skip when the change is purely presentational.
 ## Step 4 — Close the loop
 
 Any ❌ → fix the source, re-run the affected gate, re-verify the route. Only
-report the UI change done once behavior + rubric pass clean in both themes. This
-skill is Step 5 of the `dikw-web-delivery-workflow`.
+report the UI change done once behavior (Step 1), the rubric (Step 2), and the
+measured perf + a11y pass (Step 2.5) are clean in both themes. This skill is Step 5
+of the `dikw-web-delivery-workflow`.
