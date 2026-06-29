@@ -113,3 +113,29 @@ already-installed `chrome-devtools-mcp` against the changed route: `lighthouse_a
 runner-dependent, the same reason `perf.spec.ts` hard-gates only CLS. The `#graph` Pixi route audits a11y normally but skips the perf trace in a
 background tab (stalled `requestAnimationFrame`), mirroring the skill's existing
 Chrome-MCP caveat.
+
+## Item 4 — automated watch-CI + fix (`dikw-web-watch-ci`)
+
+Delivery-loop step 8 ("monitor CI and PR comments; resolve then merge") was prose: the
+agent had to remember to watch, pull review bodies, rerun the right flake the right
+number of times, and not let `--auto` outrace the review. The new **`dikw-web-watch-ci`**
+skill makes it an executable, bounded loop: `gh pr checks <N> --watch` → classify a
+failure → route a *real* one to the fresh-context `fixer` → re-push → re-watch, gated by
+**MAX_ROUNDS = 3**, a **same-failure circuit breaker**, and a **one-rerun budget** for
+the single known flake (`graph.spec.ts` Pixi). It **always pulls the review prose**
+(`reviews` / `pulls/{N}/comments` / `issues/{N}/comments`) before merging and merges
+**explicitly** (`--squash --delete-branch`, never `--auto`) only once CI is green and
+every finding is resolved. This mirrors Delba's bundled "watch CI and fix failures as
+they come in" plus the loop-engineering brakes (iteration cap + circuit breaker). The
+worktree merge quirk ([[project_worktree_merge_quirk]]) is documented inline.
+
+## Item 5 — lightweight loop observability (`.loop-log.jsonl`)
+
+So an autonomous/background run is diagnosable after the fact (which of the four classic
+loop deaths happened — runaway, stuck, flake-never-converging, silent death),
+`scripts/loop-log.mjs` appends one structured JSON line per transition
+(`{ts, event, detail}`) to a gitignored `.loop-log.jsonl`; `dikw-web-watch-ci` calls it
+at `iter_start` / `flake_rerun` / `fixer` / `ci_fail` / `merged`, and summarizes the run
+into the PR body. This is the "structured log" half of the loop-engineering brakes; per
+the Excluded section above it deliberately stops short of an on-disk *state* protocol —
+the conversation, PR, and this log are enough for an interactive loop.

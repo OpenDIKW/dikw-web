@@ -60,17 +60,16 @@ a fresh agent that didn't write the code).
    warranted. Branch with a descriptive name, commit `<type>(<scope>): <subject>`,
    push, `gh pr create`.
 
-9. **Watch CI + PR comments; resolve then merge.** Actively watch both signals:
-   - CI: `gh pr checks <N>` (`--watch` to block); failing logs
-     `gh run view <run-id> --log-failed`. The flaky `graph.spec.ts:79` gets
-     **one** rerun, not five (memory `project_flaky_graph_e2e`).
-   - Review prose: `gh api repos/{owner}/{repo}/pulls/{N}/reviews` and
-     `.../pulls/{N}/comments` and `.../issues/{N}/comments` — `gh pr checks`
-     shows pass/fail only, not the prose. **Always pull these before merge.**
-     (memory `feedback_pr_reviews_check`)
-   - Resolve each finding as it appears (fix + re-push, refute with evidence, or
-     defer explicitly with rationale). Merge: `gh pr merge <N> --squash
-     --delete-branch` once CI is green and every actionable comment is resolved.
+9. **Watch CI + PR comments; resolve then merge.** Invoke the **`dikw-web-watch-ci`**
+   skill — the executable form of this step, with the brakes built in (MAX_ROUNDS = 3,
+   a same-failure circuit breaker, and a **one**-rerun budget for the known flaky
+   `graph.spec.ts` Pixi test). It watches `gh pr checks <N> --watch`, routes real
+   failures to the fresh-context `fixer`, **always pulls the review prose** (`reviews` /
+   `pulls/{N}/comments` / `issues/{N}/comments` — `gh pr checks` shows pass/fail only)
+   before merge, and merges explicitly (`gh pr merge <N> --squash --delete-branch`, never
+   `--auto`, which would outrace the review) once CI is green and every actionable
+   comment is resolved. Each transition is appended to `.loop-log.jsonl` via
+   `scripts/loop-log.mjs` so an overnight run is diagnosable.
 
 ## Repo gotchas this loop must honor
 
