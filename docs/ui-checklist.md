@@ -63,8 +63,27 @@ no e2e are the ones the manual pass exists for.
 - [ ] **Contrast.** Normal article text ≥ 4.5:1; large headings ≥ 3:1;
   metadata/control text ≥ 3:1 against their background. _e2e: `theme.spec.ts`
   computes these — re-run it for reader changes rather than eyeballing._
+  _measured: also covered by the `lighthouse_audit` accessibility category in
+  `dikw-web-verify-frontend` Step 2.5 (DevTools MCP), which scores contrast +
+  labels + roles for the changed route._
 - [ ] **No console errors** in either theme (the e2e console gate covers mocked
   flows; the manual pass covers real-data rendering). See `tests/e2e/harness.ts`.
+
+## Measured perf + a11y (DevTools MCP)
+
+> These back the eyeballed items above with numbers. Run via
+> `dikw-web-verify-frontend` **Step 2.5** for the route the diff touched, with two
+> `chrome-devtools-mcp` tools: `lighthouse_audit` for **a11y** (it excludes performance)
+> and a `performance_start_trace`/`stop_trace` for **Web Vitals**. Measured locally, not
+> a CI gate (Lighthouse + trace timing is runner-dependent — the same reason
+> `perf.spec.ts` gates only CLS).
+
+- [ ] **Accessibility score ≥ 0.9** for the changed route, with **no new violation**
+  vs `main` (`lighthouse_audit`). A dropped score is a fail — fix and re-audit.
+- [ ] **CLS ≤ 0.1** on the changed route (performance trace). _e2e: `perf.spec.ts` gates
+  this on the primary routes; the trace here shows *which* element shifted._
+- [ ] **LCP** recorded from the trace; flag a clear regression vs `main` (soft budget —
+  annotated, not hard-gated, in `perf.spec.ts`).
 
 ## Graph (`#graph`)
 
