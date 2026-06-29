@@ -11,7 +11,11 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), agentSidecarPlugin(), webApiPlugin()],
     test: {
-      include: ["src/**/*.{test,spec}.{ts,tsx}", "server/**/*.{test,spec}.ts"],
+      include: [
+        "src/**/*.{test,spec}.{ts,tsx}",
+        "server/**/*.{test,spec}.ts",
+        "scripts/**/*.{test,spec}.mjs",
+      ],
       exclude: ["tests/e2e/**", "node_modules/**", "dist/**"],
       environment: "jsdom",
       setupFiles: ["./src/test/setup.ts"],

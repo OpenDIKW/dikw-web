@@ -19,7 +19,11 @@ Each item is pass/fail against the **diff under review**.
   orphaned imports/vars are removed.
 - [ ] **Goal-driven / TDD.** Behavior changes land test-first (see `docs/tdd.md`).
   Coverage thresholds in `vite.config.ts` (60/45/55/60) are **not lowered** to
-  pass — tests are added/repaired instead.
+  pass — tests are added/repaired instead. This is now machine-enforced by the
+  `gate-integrity` CI job (`npm run check:gate`): lowering a threshold, raising a
+  bundle budget, raising e2e retries, or deleting/disabling a test fails the PR
+  unless a maintainer attaches the `gate-change` label. The reviewer's job here is
+  to judge whether a labelled `gate-change` is actually justified.
 
 ## Repo-specific traps (these don't trip generic reviewers)
 

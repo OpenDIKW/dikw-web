@@ -9,6 +9,25 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.7] - 2026-06-29
+
+### Added
+
+- **Reward-hacking gate (`gate-integrity` CI job / `npm run check:gate`).** A
+  deterministic check the in-loop agent cannot fool, hardening the delivery loop
+  against an agent weakening the verification to make a check go green.
+  `scripts/check-gate-integrity.mjs` diffs the branch against its merge base and
+  fails the PR if a coverage threshold was lowered, the coverage `exclude` list
+  grew, a bundle budget was raised, e2e `retries` were raised, a test was
+  deleted/disabled or stripped of assertions, or the gate/CI machinery itself
+  (the script, `.github/workflows/**`, `fixer.md`'s forbidden list) was edited.
+  The good direction (raising a threshold, adding tests) is always allowed; a
+  deliberate weakening is allowed only when a maintainer adds the visible
+  `gate-change` PR label. Until now "don't weaken the tests" was prose only in
+  `CLAUDE.md` / `docs/review-rubric.md` / `fixer.md` — the weakest defense. The job
+  is PR-scoped and a required status check. See
+  `docs/adr/0005-delivery-loop-hardening.md`.
+
 ## [0.8.6] - 2026-06-29
 
 ### Fixed

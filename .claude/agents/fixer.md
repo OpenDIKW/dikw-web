@@ -20,3 +20,5 @@ Forbidden — these "fix the test, not the code" and are never allowed:
 - Lowering the `vite.config.ts` coverage thresholds.
 
 If the only path to green is one of the forbidden moves, STOP: report the real root cause and why it can't be fixed cleanly. Do not weaken the check — escalate instead.
+
+This list is not honor-system only: the `gate-integrity` CI job (`npm run check:gate`) mechanically fails any PR that lowers a coverage threshold, raises a bundle budget, raises e2e retries, or deletes/disables a test / strips its assertions — so a forbidden move won't merge even if attempted. Fix the cause; don't route around the gate.

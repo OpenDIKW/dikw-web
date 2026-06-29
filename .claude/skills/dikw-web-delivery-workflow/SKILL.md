@@ -52,7 +52,10 @@ a fresh agent that didn't write the code).
    the **same** change — not "later". (Disk `.md` is English-only in this repo.)
 
 8. **Final gate + PR.** `npm.cmd run verify` (lint + format:check + typecheck + coverage + build + e2e)
-   green, then `npm.cmd run check:bundle` (gzip budget; also runs in CI). Bump
+   green, then `npm.cmd run check:bundle` (gzip budget) and `npm.cmd run check:gate`
+   (reward-hacking gate; both also run in CI — the latter as the required
+   `gate-integrity` job). If `check:gate` flags a *deliberate* weakening, a maintainer
+   adds the `gate-change` label to the PR; never route around it. Bump
    `package.json` version (3-digit SemVer) and add a `CHANGELOG.md` entry when
    warranted. Branch with a descriptive name, commit `<type>(<scope>): <subject>`,
    push, `gh pr create`.
