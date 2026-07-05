@@ -32,7 +32,7 @@ services:
       retries: 20
 
   dikw-core:
-    image: ghcr.io/opendikw/dikw-core:${DIKW_CORE_VERSION:?set DIKW_CORE_VERSION, e.g. 0.6.1}
+    image: ghcr.io/opendikw/dikw-core:${DIKW_CORE_VERSION:?set DIKW_CORE_VERSION, e.g. 0.6.5}
     depends_on:
       postgres:
         condition: service_healthy
