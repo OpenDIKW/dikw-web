@@ -106,7 +106,7 @@ token and Postgres password per run, so those are not secrets.
 
 ## Tracking new dikw-core versions
 
-The verification target is **pinned** (`DIKW_CORE_VERSION`, default `0.6.1`) — by
+The verification target is **pinned** (`DIKW_CORE_VERSION`, default `0.6.5`) — by
 design: a fixed version keeps the nightly reproducible, so a red run means *your*
 code regressed, not that core changed under you. The pin lives in two places:
 `.github/workflows/live-integration.yml` (CI/nightly) and
@@ -120,10 +120,15 @@ weekly (and on `workflow_dispatch`) it resolves dikw-core's latest GitHub releas
 are thus explicit and reviewed (green/red signal per PR), not silent.
 
 > **One-time setup:** the bump workflow needs a repo secret `DIKW_BUMP_TOKEN` — a
-> fine-grained PAT with **contents: read/write** + **pull requests: read/write**
-> on this repo. The default `GITHUB_TOKEN` can't be used: a PR it opens does not
-> trigger the required CI checks or the `labeled` event, so the bump PR would be
-> unmergeable. Without the secret the workflow no-ops with a warning.
+> fine-grained PAT with **contents: read/write** + **pull requests: read/write** +
+> **workflows: read/write** on this repo (the bump commit edits
+> `.github/workflows/live-integration.yml`, and GitHub rejects a push touching
+> workflow files from a token without the workflows permission — observed in the
+> 2026-06-29 scheduled run). The default `GITHUB_TOKEN` can't be used: a PR it
+> opens does not trigger the required CI checks or the `labeled` event, so the
+> bump PR would be unmergeable. Without the secret the workflow no-ops with a
+> warning. Note the bump PR also edits a workflow file, so the `gate-integrity`
+> check requires a maintainer to add the `gate-change` label before it can merge.
 
 To bump manually instead, edit `DIKW_CORE_VERSION` in those two files (or run any
 `live:*` command with `DIKW_CORE_VERSION=<x.y.z>` in the environment).
@@ -132,6 +137,6 @@ To bump manually instead, edit `DIKW_CORE_VERSION` in those two files (or run an
 
 | Env | Default | Purpose |
 | --- | --- | --- |
-| `DIKW_CORE_VERSION` | `0.6.1` | GHCR image tag to verify against. |
+| `DIKW_CORE_VERSION` | `0.6.5` | GHCR image tag to verify against. |
 | `DIKW_CORE_LLM_MODEL` | `MiniMax-M3` | MiniMax model name in the core `dikw.yml` LLM leg. |
 | `DIKW_LIVE_PROJECT` | `dikw-web-live` | Compose project name; override to run parallel stacks. |

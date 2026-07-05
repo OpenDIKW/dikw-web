@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 30
     env:
       CI: "true"
-      DIKW_CORE_VERSION: "0.6.1"
+      DIKW_CORE_VERSION: "0.6.5"
     steps:
       - uses: actions/checkout@v7
 

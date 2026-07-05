@@ -16,7 +16,7 @@ import { dirname, join, resolve } from "node:path";
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const REPO_ROOT = resolve(here, "..", "..");
-export const DEFAULT_CORE_VERSION = process.env.DIKW_CORE_VERSION || "0.6.1";
+export const DEFAULT_CORE_VERSION = process.env.DIKW_CORE_VERSION || "0.6.5";
 // MiniMax model name for core's LLM leg. Defaults to the value dikw-web's own
 // agent uses; override with DIKW_CORE_LLM_MODEL if core needs a different name.
 export const LLM_MODEL = process.env.DIKW_CORE_LLM_MODEL || "MiniMax-M3";
