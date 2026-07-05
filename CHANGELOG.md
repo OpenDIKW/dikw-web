@@ -9,6 +9,23 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.10] - 2026-07-05
+
+### Changed
+
+- **dikw-core verification pin single-sourced in `scripts/live-core/harness.mjs`.**
+  `live-integration.yml` no longer sets a `DIKW_CORE_VERSION` env — CI/nightly falls
+  back to the harness's `DEFAULT_CORE_VERSION`, the same value local runs use — and
+  `bump-dikw-core.yml` now edits (and reads the current pin from) only the harness
+  file. This unjams the auto-bump loop discovered while bumping to core 0.6.5 (#150):
+  a bump commit that edited a workflow file was doubly blocked — GitHub rejects such
+  a push from a PAT without the Workflows permission, and the `gate-integrity`
+  required check flags any `.github/workflows/**` edit without a maintainer's
+  `gate-change` label. With the pin out of the workflow file, future auto-bump PRs
+  need neither. The `DIKW_CORE_VERSION` env override still works everywhere;
+  `docs/integration-verification.md` no longer hardcodes the pin value (one less
+  thing to drift per bump).
+
 ## [0.8.9] - 2026-06-29
 
 ### Added
