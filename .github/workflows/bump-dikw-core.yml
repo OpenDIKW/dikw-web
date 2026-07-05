@@ -1,10 +1,13 @@
 name: Bump dikw-core version
 
 # Watches dikw-core for a newer published release and, when found, opens a PR
-# bumping the live-integration verification target (DIKW_CORE_VERSION) and labels
-# it `live-integration` so the real-core verification runs on the PR. The pin
+# bumping the live-integration verification target and labels it
+# `live-integration` so the real-core verification runs on the PR. The pin
 # stays explicit + reviewed (reproducible nightly), but upgrades are surfaced
-# automatically. See docs/integration-verification.md.
+# automatically. The pin is single-sourced in scripts/live-core/harness.mjs
+# (DEFAULT_CORE_VERSION) — deliberately NOT in a workflow file, so the bump
+# commit trips neither GitHub's Workflows-permission push check nor the
+# gate-integrity machinery rule. See docs/integration-verification.md.
 #
 # Requires a fine-grained PAT secret DIKW_BUMP_TOKEN (contents: read/write +
 # pull requests: read/write on this repo). The default GITHUB_TOKEN cannot be
@@ -57,7 +60,7 @@ jobs:
           if ! printf '%s' "$latest" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "::error::unexpected dikw-core version '$latest'"; exit 1
           fi
-          current="$(grep -oE 'DIKW_CORE_VERSION: "[0-9.]+"' .github/workflows/live-integration.yml | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+          current="$(grep -oE 'process\.env\.DIKW_CORE_VERSION \|\| "[0-9.]+"' scripts/live-core/harness.mjs | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
           echo "pinned=$current latest=$latest"
           newer="$(printf '%s\n%s\n' "$current" "$latest" | sort -V | tail -1)"
           if [ "$latest" = "$current" ] || [ "$newer" != "$latest" ]; then
@@ -85,8 +88,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git checkout -b "$branch"
-          # Bump the two functional pins (CI env + harness default).
-          sed -i "s/DIKW_CORE_VERSION: \"[0-9.]*\"/DIKW_CORE_VERSION: \"$LATEST\"/" .github/workflows/live-integration.yml
+          # Bump the single pin (harness default; CI/nightly reads the same value).
           sed -i "s#process.env.DIKW_CORE_VERSION || \"[0-9.]*\"#process.env.DIKW_CORE_VERSION || \"$LATEST\"#" scripts/live-core/harness.mjs
           git add -A
           git commit -m "chore(live): bump dikw-core verification target to $LATEST"

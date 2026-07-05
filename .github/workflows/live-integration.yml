@@ -30,7 +30,10 @@ jobs:
     timeout-minutes: 30
     env:
       CI: "true"
-      DIKW_CORE_VERSION: "0.6.5"
+      # DIKW_CORE_VERSION is deliberately NOT set here. The pin is single-sourced in
+      # scripts/live-core/harness.mjs (DEFAULT_CORE_VERSION), which the harness falls
+      # back to when the env override is absent — so the auto-bump PR edits no
+      # workflow file (no gate-integrity label, no Workflows PAT permission needed).
     steps:
       - uses: actions/checkout@v7
 

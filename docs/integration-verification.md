@@ -106,37 +106,36 @@ token and Postgres password per run, so those are not secrets.
 
 ## Tracking new dikw-core versions
 
-The verification target is **pinned** (`DIKW_CORE_VERSION`, default `0.6.5`) — by
-design: a fixed version keeps the nightly reproducible, so a red run means *your*
-code regressed, not that core changed under you. The pin lives in two places:
-`.github/workflows/live-integration.yml` (CI/nightly) and
-`scripts/live-core/harness.mjs` (local default).
+The verification target is **pinned** — by design: a fixed version keeps the
+nightly reproducible, so a red run means *your* code regressed, not that core
+changed under you. The pin is **single-sourced** in `scripts/live-core/harness.mjs`
+(`DEFAULT_CORE_VERSION`); CI/nightly deliberately sets no `DIKW_CORE_VERSION` env,
+so it reads the same default. Keeping the pin out of `.github/workflows/**` means
+a bump PR touches no workflow file: GitHub accepts the push from a PAT without the
+Workflows permission, and the `gate-integrity` check passes without a
+`gate-change` label.
 
 `.github/workflows/bump-dikw-core.yml` keeps the pin current automatically:
 weekly (and on `workflow_dispatch`) it resolves dikw-core's latest GitHub release
 (`vX.Y.Z` → image tag `X.Y.Z`), and if it's newer than the pin, opens a
-`chore/bump-dikw-core-<version>` PR editing both pin sites and labels it
+`chore/bump-dikw-core-<version>` PR editing the harness pin and labels it
 `live-integration` so the full real-core verification runs on the PR. Upgrades
 are thus explicit and reviewed (green/red signal per PR), not silent.
 
 > **One-time setup:** the bump workflow needs a repo secret `DIKW_BUMP_TOKEN` — a
-> fine-grained PAT with **contents: read/write** + **pull requests: read/write** +
-> **workflows: read/write** on this repo (the bump commit edits
-> `.github/workflows/live-integration.yml`, and GitHub rejects a push touching
-> workflow files from a token without the workflows permission — observed in the
-> 2026-06-29 scheduled run). The default `GITHUB_TOKEN` can't be used: a PR it
-> opens does not trigger the required CI checks or the `labeled` event, so the
-> bump PR would be unmergeable. Without the secret the workflow no-ops with a
-> warning. Note the bump PR also edits a workflow file, so the `gate-integrity`
-> check requires a maintainer to add the `gate-change` label before it can merge.
+> fine-grained PAT with **contents: read/write** + **pull requests: read/write**
+> on this repo. The default `GITHUB_TOKEN` can't be used: a PR it opens does not
+> trigger the required CI checks or the `labeled` event, so the bump PR would be
+> unmergeable. Without the secret the workflow no-ops with a warning.
 
-To bump manually instead, edit `DIKW_CORE_VERSION` in those two files (or run any
-`live:*` command with `DIKW_CORE_VERSION=<x.y.z>` in the environment).
+To bump manually instead, edit `DEFAULT_CORE_VERSION` in
+`scripts/live-core/harness.mjs` (or run any `live:*` command with
+`DIKW_CORE_VERSION=<x.y.z>` in the environment).
 
 ## Configuration knobs
 
 | Env | Default | Purpose |
 | --- | --- | --- |
-| `DIKW_CORE_VERSION` | `0.6.5` | GHCR image tag to verify against. |
+| `DIKW_CORE_VERSION` | `DEFAULT_CORE_VERSION` in `scripts/live-core/harness.mjs` | GHCR image tag to verify against (override for a one-off run against a different core). |
 | `DIKW_CORE_LLM_MODEL` | `MiniMax-M3` | MiniMax model name in the core `dikw.yml` LLM leg. |
 | `DIKW_LIVE_PROJECT` | `dikw-web-live` | Compose project name; override to run parallel stacks. |
