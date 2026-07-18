@@ -49,7 +49,7 @@
     "@opentelemetry/sdk-trace-base": "^2.8.0",
     "@opentelemetry/sdk-trace-node": "^2.8.0",
     "@opentelemetry/sdk-trace-web": "^2.9.0",
-    "@opentelemetry/semantic-conventions": "^1.41.1",
+    "@opentelemetry/semantic-conventions": "^1.43.0",
     "d3-force": "^3.0.0",
     "echarts": "^6.1.0",
     "katex": "^0.17.0",
