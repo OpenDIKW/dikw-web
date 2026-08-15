@@ -31,7 +31,7 @@
     "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.105.0",
+    "@anthropic-ai/sdk": "^0.116.0",
     "@google/adk": "^1.2.0",
     "@google/genai": "^2.10.0",
     "@mikro-orm/core": "^6.6.14",
@@ -59,7 +59,7 @@
     "pixi.js": "^8.19.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.7",
-    "undici": "^8.5.0"
+    "undici": "^8.10.0"
   },
   "overrides": {
     "node-gyp": {
