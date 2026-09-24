@@ -6,6 +6,11 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     ignore:
+      # typescript-eslint (every release through 8.70, incl. canary) peers
+      # typescript <6.1.0; TS 7 breaks npm ci with ERESOLVE (see #178). Lift once
+      # typescript-eslint supports it.
+      - dependency-name: "typescript"
+        versions: [">=7"]
       # MikroORM requires every @mikro-orm/* package to match @mikro-orm/core exactly,
       # and core is pinned by @google/adk — bump it together with ADK, not alone.
       - dependency-name: "@mikro-orm/sqlite"

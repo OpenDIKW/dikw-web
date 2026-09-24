@@ -282,17 +282,10 @@ export interface TaskHandle {
 }
 
 export type LintKind =
-  | "broken_wikilink"
-  | "orphan_page"
-  | "duplicate_title"
-  | "non_atomic_page"
-  | "missing_provenance";
+  "broken_wikilink" | "orphan_page" | "duplicate_title" | "non_atomic_page" | "missing_provenance";
 
 export type FixOperationKind =
-  | "create_page"
-  | "update_page"
-  | "delete_page"
-  | "reconcile_provenance";
+  "create_page" | "update_page" | "delete_page" | "reconcile_provenance";
 
 export interface FixOperation {
   kind: FixOperationKind;

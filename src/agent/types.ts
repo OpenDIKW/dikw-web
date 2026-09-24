@@ -2,12 +2,7 @@ import type { Layer } from "../types.js";
 
 export type AgentMessageRole = "user" | "assistant";
 export type AgentProposalStatus =
-  | "pending"
-  | "confirmed"
-  | "rejected"
-  | "running"
-  | "succeeded"
-  | "failed";
+  "pending" | "confirmed" | "rejected" | "running" | "succeeded" | "failed";
 export type AgentMaintenanceAction = "ingest" | "synth" | "lint_propose";
 
 export interface AgentMessage {
