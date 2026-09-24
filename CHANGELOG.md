@@ -9,6 +9,8 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.8.12] - 2026-09-24
+
 ### Changed
 
 - **Dev toolchain majors: vitest 5 (+ `@vitest/coverage-v8` 5), jsdom 30,
@@ -18,6 +20,15 @@ file format introduced in `[0.0.1.0]` was dropped.
   (whitespace only). **TypeScript stays on 6.x**: every typescript-eslint release
   (8.70, canary included) still peers `typescript <6.1.0`, so TS 7 fails `npm ci`
   with ERESOLVE. Dependabot now ignores `typescript >=7` until that lifts.
+
+- **markdown-it 14 → 15.** It now bundles its own types (`@types/markdown-it`
+  dropped) and removed the `markdown-it/lib/*` subpath imports, so
+  `markdown-runtime.ts` takes `StateBlock` / `StateInline` / `Token` from the package
+  root and narrows the widened `Token.attrGet` (`string | number | null`) through a
+  small `attrText` helper. One visible reader change comes from linkify-it v6: **bare
+  domains without a scheme (`example.com`) are no longer auto-linked** — `http(s)://`
+  URLs still are. That also stops filenames like `readme.md` (`.md` is a real TLD)
+  from turning into bogus links.
 
 ## [0.8.11] - 2026-09-24
 

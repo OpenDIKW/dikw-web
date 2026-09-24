@@ -10,10 +10,12 @@
 
 import katex from "katex";
 import "katex/dist/katex.min.css";
-import MarkdownIt from "markdown-it";
-import type StateBlock from "markdown-it/lib/rules_block/state_block.mjs";
-import type StateInline from "markdown-it/lib/rules_inline/state_inline.mjs";
-import type Token from "markdown-it/lib/token.mjs";
+import MarkdownIt, {
+  type MarkdownIt as MarkdownItInstance,
+  type StateBlock,
+  type StateInline,
+  type Token,
+} from "markdown-it";
 import { useEffect, type RefObject } from "react";
 import { parseDetailsOpenAttribute, rawDetailsPattern, uniqueHeadingSlug } from "../utils/markdown";
 import type { PageAsset } from "../types";
@@ -73,7 +75,14 @@ function renderWithEnv(body: string, ctx: MarkdownContext, env: Record<string, u
   return restoreSafeBlocks(restoreSafeRawTables(html, tables), details);
 }
 
-function installWikiLinks(md: MarkdownIt) {
+// markdown-it 15 widened `Token.attrGet` to `string | number | null`; every attr read
+// here is a string markdown-it or our own rules set.
+function attrText(token: Token, name: string): string | null {
+  const value = token.attrGet(name);
+  return value == null ? null : String(value);
+}
+
+function installWikiLinks(md: MarkdownItInstance) {
   md.inline.ruler.before("emphasis", "wikilink", (state, silent) => {
     const start = state.pos;
     if (state.src.charCodeAt(start) !== 0x5b || state.src.charCodeAt(start + 1) !== 0x5b) {
@@ -101,14 +110,14 @@ function installWikiLinks(md: MarkdownIt) {
 
   md.renderer.rules.wikilink = (tokens, index) => {
     const token = tokens[index];
-    const target = token.attrGet("data-target") ?? token.content;
+    const target = attrText(token, "data-target") ?? token.content;
     return `<button type="button" class="inline-wikilink" data-wiki-link="${escapeAttribute(
       target,
     )}">${escapeHtml(token.content)}</button>`;
   };
 }
 
-function installObsidianImages(md: MarkdownIt) {
+function installObsidianImages(md: MarkdownItInstance) {
   md.inline.ruler.before("emphasis", "obsidian_image", (state, silent) => {
     const src = state.src;
     const start = state.pos;
@@ -139,8 +148,8 @@ function installObsidianImages(md: MarkdownIt) {
 
   md.renderer.rules.obsidian_image = (tokens, index, _options, env) => {
     const token = tokens[index];
-    const path = token.attrGet("data-path") ?? "";
-    const alt = token.attrGet("data-alt") ?? "";
+    const path = attrText(token, "data-path") ?? "";
+    const alt = attrText(token, "data-alt") ?? "";
     const ctx = (env as { dikwContext?: MarkdownContext })?.dikwContext;
     const resolved = resolveAssetUrl(path, ctx);
     if (!resolved) {
@@ -166,11 +175,11 @@ function installObsidianImages(md: MarkdownIt) {
 // ``renderInlineAsText`` for alt — markdown-it's default behavior is to strip
 // inline markup from alt (CommonMark spec); a hand-rolled ``token.content``
 // would leak literal ``**`` / ``_`` into screen readers.
-function installStandardImages(md: MarkdownIt) {
+function installStandardImages(md: MarkdownItInstance) {
   md.renderer.rules.image = (tokens, index, options, env, self) => {
     const token = tokens[index];
-    const src = token.attrGet("src") ?? "";
-    const title = token.attrGet("title") ?? "";
+    const src = attrText(token, "src") ?? "";
+    const title = attrText(token, "title") ?? "";
     const ctx = (env as { dikwContext?: MarkdownContext })?.dikwContext;
     const alt = self.renderInlineAsText(token.children ?? [], options, env);
     const titleAttr = title ? ` title="${escapeAttribute(title)}"` : "";
@@ -250,7 +259,7 @@ function resolveAssetUrl(path: string, ctx: MarkdownContext | undefined): string
   return null;
 }
 
-function installMath(md: MarkdownIt) {
+function installMath(md: MarkdownItInstance) {
   md.inline.ruler.before("escape", "math_inline", (state: StateInline, silent: boolean) => {
     const start = state.pos;
     if (state.src.charCodeAt(start) !== 0x24 || state.src.charCodeAt(start + 1) === 0x24) {
@@ -334,7 +343,7 @@ function installMath(md: MarkdownIt) {
   md.renderer.rules.math_block = (tokens, index) => `${renderMath(tokens[index].content, true)}\n`;
 }
 
-function installRendererRules(md: MarkdownIt) {
+function installRendererRules(md: MarkdownItInstance) {
   const defaultRender =
     md.renderer.rules.link_open ??
     ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
@@ -343,7 +352,7 @@ function installRendererRules(md: MarkdownIt) {
     ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
 
   md.renderer.rules.link_open = (tokens, index, options, env, self) => {
-    const href = tokens[index].attrGet("href") ?? "";
+    const href = attrText(tokens[index], "href") ?? "";
     if (/^https?:\/\//i.test(href)) {
       tokens[index].attrSet("target", "_blank");
       tokens[index].attrSet("rel", "noreferrer");
@@ -353,7 +362,7 @@ function installRendererRules(md: MarkdownIt) {
 
   md.renderer.rules.heading_open = (tokens, index, options, env, self) => {
     const inline = tokens[index + 1];
-    const slug = inline?.type === "inline" ? uniqueHeadingSlug(env, inline.content) : "";
+    const slug = inline?.type === "inline" && env ? uniqueHeadingSlug(env, inline.content) : "";
     if (slug) {
       tokens[index].attrSet("id", slug);
     }
