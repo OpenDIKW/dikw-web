@@ -5,6 +5,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # MikroORM requires every @mikro-orm/* package to match @mikro-orm/core exactly,
+      # and core is pinned by @google/adk — bump it together with ADK, not alone.
+      - dependency-name: "@mikro-orm/sqlite"
     groups:
       dev-dependencies:
         dependency-type: development
