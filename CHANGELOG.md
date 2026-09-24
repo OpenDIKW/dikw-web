@@ -17,8 +17,11 @@ file format introduced in `[0.0.1.0]` was dropped.
   DB driver to an optional peer on `@mikro-orm/core ^7.2`, so `@mikro-orm/core` /
   `@mikro-orm/sqlite` go to `^7.2.1`. MikroORM 7's sqlite driver swaps
   `sqlite3` + knex for **`better-sqlite3`** + kysely; better-sqlite3 ships its N-API
-  prebuilts inside the npm package, so the Docker image needs no download or
-  toolchain for it. No sidecar code changes were needed, and the `/agent/*` API +
+  prebuilts inside the npm package and loads them first. The Dockerfile's two
+  `npm ci` calls now pass `--ignore-scripts`: `npm ci` reads lockfile metadata,
+  which drops the package's `gypfile: false`, so it otherwise ran an implicit
+  `node-gyp rebuild` that fails on `node:24-slim` (no python/toolchain) for a
+  binary that is never loaded. No sidecar code changes were needed, and the `/agent/*` API +
   `AgentStreamEvent` wire format are unchanged. **Existing
   `.agent-sessions/agent.sqlite` files keep working** — a session written by ADK
   1.2 was listed, read and appended to by ADK 2.1 with no migration.

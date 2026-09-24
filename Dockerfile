@@ -20,7 +20,13 @@
 FROM node:24-slim AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+# --ignore-scripts: `npm ci` works from lockfile metadata, which drops
+# better-sqlite3's `gypfile: false`, so it would run an implicit
+# `node-gyp rebuild` (needs python + a C++ toolchain this slim image lacks) —
+# for a binary that is never loaded, since better-sqlite3 prefers its bundled
+# prebuilt. esbuild's postinstall is only a binary check; its platform package
+# still arrives as an optional dependency.
+RUN npm ci --ignore-scripts
 COPY . .
 RUN npm run build
 
@@ -30,8 +36,11 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 # --omit=dev drops vite/esbuild/playwright/etc.; package.json `overrides`
 # (e.g. adm-zip) are honored by npm ci and clear the HIGH npm-audit CVEs.
-# better-sqlite3's bundled linux-x64 (glibc) prebuilt is what the runtime loads.
-RUN npm ci --omit=dev
+# better-sqlite3's bundled linux-x64 (glibc) prebuilt is what the runtime loads;
+# --ignore-scripts skips the pointless source build (see builder). The other prod
+# install scripts are a no-op (@google/genai), a version check (protobufjs) and
+# an optional native-crypto build with a JS fallback (ssh2).
+RUN npm ci --omit=dev --ignore-scripts
 
 # --- Runtime: built SPA + server bundle + production node_modules -------------
 FROM node:24-slim AS runtime
