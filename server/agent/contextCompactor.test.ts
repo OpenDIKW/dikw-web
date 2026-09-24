@@ -49,23 +49,34 @@ describe("buildContextCompactor", () => {
     expect(compactor).toBeDefined();
   });
 
-  describe("shouldCompact (ADK TokenBasedContextCompactor, sum of prompt tokens)", () => {
+  describe("shouldCompact (ADK TokenBasedContextCompactor, latest prompt tokens)", () => {
     // window 100 * ratio 0.5 => tokenThreshold 50; retention 1.
-    it("is true when summed prompt tokens exceed the threshold and raw events exceed retention", async () => {
+    it("is true when the latest prompt exceeds the threshold and raw events exceed retention", async () => {
       const compactor = buildContextCompactor(
         fakeLlm(async function* () {}),
         config(),
       )!;
-      const ctx = ctxWith([textEvent("a", 40, 1), textEvent("b", 40, 2)]); // sum 80 > 50, 2 > 1
+      const ctx = ctxWith([textEvent("a", 10, 1), textEvent("b", 60, 2)]); // latest 60 > 50, 2 > 1
       expect(await compactor.shouldCompact(ctx)).toBe(true);
     });
 
-    it("is false when summed prompt tokens stay under the threshold", async () => {
+    it("is false when the latest prompt stays under the threshold", async () => {
       const compactor = buildContextCompactor(
         fakeLlm(async function* () {}),
         config(),
       )!;
-      const ctx = ctxWith([textEvent("a", 10, 1), textEvent("b", 10, 2)]); // sum 20 < 50
+      const ctx = ctxWith([textEvent("a", 10, 1), textEvent("b", 10, 2)]); // latest 10 < 50
+      expect(await compactor.shouldCompact(ctx)).toBe(false);
+    });
+
+    it("is false when only the sum of per-event prompt tokens exceeds the threshold", async () => {
+      // ADK < 1.4 summed every event's promptTokenCount (40 + 40 = 80 > 50 would fire);
+      // ADK >= 1.4 gates on the latest prompt (40 < 50), which is the real live size.
+      const compactor = buildContextCompactor(
+        fakeLlm(async function* () {}),
+        config(),
+      )!;
+      const ctx = ctxWith([textEvent("a", 40, 1), textEvent("b", 40, 2)]);
       expect(await compactor.shouldCompact(ctx)).toBe(false);
     });
 

@@ -1,6 +1,6 @@
 {
   "name": "dikw-web",
-  "version": "0.8.12",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -34,8 +34,8 @@
     "@anthropic-ai/sdk": "^0.127.0",
     "@google/adk": "^2.1.0",
     "@google/genai": "^2.10.0",
-    "@mikro-orm/core": "^6.6.14",
-    "@mikro-orm/sqlite": "^6.6.14",
+    "@mikro-orm/core": "^7.2.1",
+    "@mikro-orm/sqlite": "^7.2.1",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.221.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.220.0",
@@ -62,13 +62,7 @@
     "undici": "^8.10.0"
   },
   "overrides": {
-    "node-gyp": {
-      ".": "^12.3.0",
-      "undici": "^6.27.0"
-    },
-    "tar": "^7.5.22",
-    "mariadb": "~3.4.7",
-    "mysql2": "^3.24.4",
+    "adm-zip": "^0.6.1",
     "form-data": "^2.5.6",
     "hono": "^4.12.25",
     "@opentelemetry/core": "^2.8.0",

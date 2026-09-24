@@ -16,12 +16,11 @@ const log = createLogger("agent");
  * — so the prompt actually shrinks. The only custom code here is a thin
  * `ResilientContextCompactor` guard (below).
  *
- * THRESHOLD CAVEAT: ADK's `shouldCompact` SUMS each event's prompt-token count,
- * and every model event's count already includes the full prior history. So
- * `tokenThreshold` is an aggregate across the session, NOT the live prompt size
- * — effective compaction triggers somewhat BEFORE the live context literally
- * reaches `ratio` of the window (a conservative bias). Raise
- * `DIKW_AGENT_CONTEXT_WINDOW` / `DIKW_AGENT_COMPACTION_RATIO` to compact later.
+ * THRESHOLD: since ADK 1.4 `shouldCompact` compares the LATEST event's
+ * prompt-token count (the live prompt size; a char-based estimate when no event
+ * carries usage) against `tokenThreshold`, so compaction fires once the live
+ * context actually exceeds `ratio` of the window. Lower
+ * `DIKW_AGENT_CONTEXT_WINDOW` / `DIKW_AGENT_COMPACTION_RATIO` to compact sooner.
  */
 export function buildContextCompactor(
   llm: BaseLlm,

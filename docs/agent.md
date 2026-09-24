@@ -180,12 +180,12 @@ DIKW_AGENT_COMPACTION_RETENTION=8       # min recent raw events kept verbatim
 ```
 
 The trigger threshold is `round(contextWindow * ratio)` (524,288 at the
-defaults). **Caveat:** ADK's `shouldCompact` *sums* each event's
-`promptTokenCount`, and every model event's count already includes the full
-prior history, so the threshold is an aggregate across the session, not the
-live prompt size — effective compaction triggers somewhat *before* the live
-context literally reaches `ratio` of the window (a conservative bias). Raise
-`DIKW_AGENT_CONTEXT_WINDOW` / `DIKW_AGENT_COMPACTION_RATIO` to compact later. A
+defaults). Since ADK 1.4, `shouldCompact` compares the **latest** event's
+`promptTokenCount` — the live prompt size, or a char-based estimate when no
+event carries usage — against that threshold, so compaction fires once the live
+context actually exceeds `ratio` of the window. (Before ADK 1.4 it *summed*
+every event's count and so fired early; that bias is gone.) Lower
+`DIKW_AGENT_CONTEXT_WINDOW` / `DIKW_AGENT_COMPACTION_RATIO` to compact sooner. A
 summarization failure is swallowed (logged) and the turn proceeds with the
 un-compacted history — compaction is an optimization, not a correctness
 requirement.

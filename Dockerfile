@@ -2,14 +2,16 @@
 # dikw-web production image: serves the built SPA and the Pi-Agent + web sidecar
 # from a single Node process. Since the ADK migration the server bundle
 # (dist-server/standalone.mjs) is built with esbuild --packages=external, so it
-# imports its dependencies (@google/adk, @mikro-orm/sqlite, native sqlite3,
-# @opentelemetry/*, @anthropic-ai/sdk, undici, ...) from node_modules at RUNTIME
-# — ADK cannot be bundled (dynamic driver import() + native addons). The runtime
-# image therefore ships a production node_modules with a working native sqlite3.
+# imports its dependencies (@google/adk, @mikro-orm/sqlite, native
+# better-sqlite3, @opentelemetry/*, @anthropic-ai/sdk, undici, ...) from
+# node_modules at RUNTIME — ADK cannot be bundled (dynamic driver import() +
+# native addons). The runtime image therefore ships a production node_modules
+# with a working native better-sqlite3.
 #
-# Base image: node:24-slim (Debian glibc) for every stage. sqlite3's N-API
-# prebuilts are reliably published for glibc (no compile / no build toolchain),
-# and a single libc across builder + runtime guarantees the native .node loads.
+# Base image: node:24-slim (Debian glibc) for every stage. better-sqlite3 ships
+# its N-API prebuilts inside the npm package (no download, no compile, no build
+# toolchain), and a single libc across builder + runtime guarantees the native
+# .node loads.
 # LLM credentials and optional web-tool keys are injected via environment
 # variables. Connects to an external dikw-core whose URL is supplied per request
 # by the browser (Settings page).
@@ -22,14 +24,13 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# --- Production deps: prune devDeps, keep native sqlite3 built for Debian -----
+# --- Production deps: prune devDeps, keep native better-sqlite3 for Debian -
 FROM node:24-slim AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 # --omit=dev drops vite/esbuild/playwright/etc.; package.json `overrides`
-# (node-gyp, tar) are honored by npm ci and clear the HIGH npm-audit CVEs. The
-# native sqlite3 addon is fetched/built here for the same Debian glibc the
-# runtime stage uses.
+# (e.g. adm-zip) are honored by npm ci and clear the HIGH npm-audit CVEs.
+# better-sqlite3's bundled linux-x64 (glibc) prebuilt is what the runtime loads.
 RUN npm ci --omit=dev
 
 # --- Runtime: built SPA + server bundle + production node_modules -------------
