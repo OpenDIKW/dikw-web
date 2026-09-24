@@ -3,8 +3,7 @@
 // ADK-backed AdkSessionStore.
 
 export type SessionTitleParseResult =
-  | { ok: true; title: string }
-  | { ok: false; reason: "required" | "too_long" };
+  { ok: true; title: string } | { ok: false; reason: "required" | "too_long" };
 
 export function parseSessionTitle(value: unknown): SessionTitleParseResult {
   if (typeof value !== "string" || !value.trim()) {

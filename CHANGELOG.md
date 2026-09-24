@@ -9,6 +9,16 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+### Changed
+
+- **Dev toolchain majors: vitest 5 (+ `@vitest/coverage-v8` 5), jsdom 30,
+  `@testing-library/jest-dom` 7**, plus minor/patch bumps across the dev group
+  (Playwright 1.63, Vite 8.3, ESLint 10.10, Prettier 3.9, …). No test or config
+  changes were needed; Prettier 3.9's new union-type layout reformatted 7 files
+  (whitespace only). **TypeScript stays on 6.x**: every typescript-eslint release
+  (8.70, canary included) still peers `typescript <6.1.0`, so TS 7 fails `npm ci`
+  with ERESOLVE. Dependabot now ignores `typescript >=7` until that lifts.
+
 ## [0.8.10] - 2026-07-05
 
 ### Changed

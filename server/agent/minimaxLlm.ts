@@ -30,9 +30,7 @@ interface AnthropicToolUseBlock {
   input: unknown;
 }
 type AnthropicContentBlock =
-  | AnthropicTextBlock
-  | AnthropicToolUseBlock
-  | { type: string; [key: string]: unknown };
+  AnthropicTextBlock | AnthropicToolUseBlock | { type: string; [key: string]: unknown };
 
 interface AnthropicMessage {
   content: AnthropicContentBlock[];

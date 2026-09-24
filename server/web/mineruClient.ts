@@ -32,11 +32,7 @@ const INPUT_CODES = new Set(["-60002", "-60005", "-60006", "-30001", "-30002", "
 const QUOTA_CODES = new Set(["-60018", "-60019"]);
 
 export type MineruErrorCode =
-  | "mineru_auth"
-  | "mineru_input"
-  | "mineru_quota"
-  | "mineru_timeout"
-  | "mineru_api";
+  "mineru_auth" | "mineru_input" | "mineru_quota" | "mineru_timeout" | "mineru_api";
 
 export class MineruClientError extends Error {
   readonly code: MineruErrorCode;

@@ -5,6 +5,12 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # typescript-eslint (every release through 8.70, incl. canary) peers
+      # typescript <6.1.0; TS 7 breaks npm ci with ERESOLVE (see #178). Lift once
+      # typescript-eslint supports it.
+      - dependency-name: "typescript"
+        versions: [">=7"]
     groups:
       dev-dependencies:
         dependency-type: development

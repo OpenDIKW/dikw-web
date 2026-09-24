@@ -19,12 +19,7 @@ import { translateBlocks, type TranslateCache } from "../utils/translate";
 import type { PageReadResult } from "../types";
 
 export type UploadStage =
-  | "converting"
-  | "uploading"
-  | "indexing"
-  | "analyzing"
-  | "translating"
-  | "done";
+  "converting" | "uploading" | "indexing" | "analyzing" | "translating" | "done";
 
 export interface UploadProgress {
   stage: UploadStage;

@@ -29,10 +29,7 @@ const METHOD_STORED = 0;
 const METHOD_DEFLATE = 8;
 
 export type MineruConvertErrorCode =
-  | "invalid_zip"
-  | "missing_full_md"
-  | "too_large"
-  | "unsupported_method";
+  "invalid_zip" | "missing_full_md" | "too_large" | "unsupported_method";
 
 export class MineruConvertError extends Error {
   readonly code: MineruConvertErrorCode;
