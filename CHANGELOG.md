@@ -19,6 +19,25 @@ file format introduced in `[0.0.1.0]` was dropped.
   (8.70, canary included) still peers `typescript <6.1.0`, so TS 7 fails `npm ci`
   with ERESOLVE. Dependabot now ignores `typescript >=7` until that lifts.
 
+## [0.8.11] - 2026-09-24
+
+### Security
+
+- **Cleared the HIGH/CRITICAL production-dependency advisories that turned `main`'s
+  `Dependency audit` and `Container scan (trivy)` jobs red.** Transitive-only; no
+  direct dependency or runtime (ADK stays at 1.2.0) changes. `overrides` now raise
+  `tar` to `^7.5.22` (was `^7.5.16`), and pin `mariadb` to `~3.4.7` / `mysql2` to
+  `^3.24.4` — both are exact-pinned by ADK's MikroORM drivers and unused here
+  (sessions run on sqlite). `brace-expansion`, `fast-uri`, `js-yaml`, `ip-address`,
+  and `@xmldom/xmldom` were refreshed in the lockfile within their existing ranges.
+
+### Changed
+
+- **Dependabot no longer proposes standalone `@mikro-orm/sqlite` bumps.** MikroORM
+  refuses to start unless every `@mikro-orm/*` package matches `@mikro-orm/core`
+  exactly, and core is pinned by `@google/adk` — a lone bump (#148) broke every
+  session-store test. It moves together with ADK instead.
+
 ## [0.8.10] - 2026-07-05
 
 ### Changed

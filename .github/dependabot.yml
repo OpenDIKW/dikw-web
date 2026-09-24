@@ -11,6 +11,9 @@ updates:
       # typescript-eslint supports it.
       - dependency-name: "typescript"
         versions: [">=7"]
+      # MikroORM requires every @mikro-orm/* package to match @mikro-orm/core exactly,
+      # and core is pinned by @google/adk — bump it together with ADK, not alone.
+      - dependency-name: "@mikro-orm/sqlite"
     groups:
       dev-dependencies:
         dependency-type: development
