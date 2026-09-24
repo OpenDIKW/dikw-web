@@ -31,7 +31,7 @@
     "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.116.0",
+    "@anthropic-ai/sdk": "^0.127.0",
     "@google/adk": "^1.2.0",
     "@google/genai": "^2.10.0",
     "@mikro-orm/core": "^6.6.14",
@@ -40,7 +40,7 @@
     "@opentelemetry/api-logs": "^0.221.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.220.0",
     "@opentelemetry/instrumentation": "^0.221.0",
-    "@opentelemetry/instrumentation-document-load": "^0.66.0",
+    "@opentelemetry/instrumentation-document-load": "^0.67.0",
     "@opentelemetry/instrumentation-fetch": "^0.219.0",
     "@opentelemetry/instrumentation-undici": "^0.30.0",
     "@opentelemetry/resources": "^2.8.0",
@@ -48,7 +48,7 @@
     "@opentelemetry/sdk-metrics": "^2.8.0",
     "@opentelemetry/sdk-trace-base": "^2.8.0",
     "@opentelemetry/sdk-trace-node": "^2.8.0",
-    "@opentelemetry/sdk-trace-web": "^2.10.0",
+    "@opentelemetry/sdk-trace-web": "^2.11.0",
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "d3-force": "^3.0.0",
     "echarts": "^6.1.0",
