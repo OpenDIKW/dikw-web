@@ -9,6 +9,17 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+### Changed
+
+- **markdown-it 14 → 15.** It now bundles its own types (`@types/markdown-it`
+  dropped) and removed the `markdown-it/lib/*` subpath imports, so
+  `markdown-runtime.ts` takes `StateBlock` / `StateInline` / `Token` from the package
+  root and narrows the widened `Token.attrGet` (`string | number | null`) through a
+  small `attrText` helper. One visible reader change comes from linkify-it v6: **bare
+  domains without a scheme (`example.com`) are no longer auto-linked** — `http(s)://`
+  URLs still are. That also stops filenames like `readme.md` (`.md` is a real TLD)
+  from turning into bogus links.
+
 ## [0.8.10] - 2026-07-05
 
 ### Changed
