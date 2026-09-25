@@ -11,6 +11,11 @@ updates:
       # typescript-eslint supports it.
       - dependency-name: "typescript"
         versions: [">=7"]
+      # mermaid 12 targets ES2024 / Safari 17.4+, but the reader still supports
+      # Safari 16 (Vite's default build target); 12 would silently drop diagrams to
+      # plain text there, and it re-lays out existing diagrams (see #185).
+      - dependency-name: "mermaid"
+        versions: [">=12"]
     groups:
       # MikroORM refuses to start unless every @mikro-orm/* package matches
       # @mikro-orm/core exactly, so core + sqlite always move in one PR.
