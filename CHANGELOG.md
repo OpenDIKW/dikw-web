@@ -17,8 +17,7 @@ file format introduced in `[0.0.1.0]` was dropped.
   targets ES2024 / Safari 17.4+, while the reader still supports Safari 16 (Vite
   8's default build target): Safari 16.x–17.3 would fall back to the plain-text
   diagram source. 12 also re-lays out and recolours existing flowchart / state /
-  class diagrams, grows past the bundle budget, and pulls a vulnerable `lodash-es`.
-  Dependabot now ignores `mermaid >=12`; revisit when the Safari floor is raised
+  class diagrams and grows past the bundle budget. Dependabot now ignores `mermaid >=12`; revisit when the Safari floor is raised
   (#185).
 
 ## [0.9.0] - 2026-09-24
