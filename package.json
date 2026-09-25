@@ -52,7 +52,7 @@
     "@opentelemetry/semantic-conventions": "^1.43.0",
     "d3-force": "^3.0.0",
     "echarts": "^6.1.0",
-    "katex": "^0.18.1",
+    "katex": "^0.18.7",
     "lucide-react": "^1.47.0",
     "markdown-it": "^15.0.2",
     "mermaid": "^11.16.1",
