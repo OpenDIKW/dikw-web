@@ -2,14 +2,16 @@
 # dikw-web production image: serves the built SPA and the Pi-Agent + web sidecar
 # from a single Node process. Since the ADK migration the server bundle
 # (dist-server/standalone.mjs) is built with esbuild --packages=external, so it
-# imports its dependencies (@google/adk, @mikro-orm/sqlite, native sqlite3,
-# @opentelemetry/*, @anthropic-ai/sdk, undici, ...) from node_modules at RUNTIME
-# — ADK cannot be bundled (dynamic driver import() + native addons). The runtime
-# image therefore ships a production node_modules with a working native sqlite3.
+# imports its dependencies (@google/adk, @mikro-orm/sqlite, native
+# better-sqlite3, @opentelemetry/*, @anthropic-ai/sdk, undici, ...) from
+# node_modules at RUNTIME — ADK cannot be bundled (dynamic driver import() +
+# native addons). The runtime image therefore ships a production node_modules
+# with a working native better-sqlite3.
 #
-# Base image: node:24-slim (Debian glibc) for every stage. sqlite3's N-API
-# prebuilts are reliably published for glibc (no compile / no build toolchain),
-# and a single libc across builder + runtime guarantees the native .node loads.
+# Base image: node:24-slim (Debian glibc) for every stage. better-sqlite3 ships
+# its N-API prebuilts inside the npm package (no download, no compile, no build
+# toolchain), and a single libc across builder + runtime guarantees the native
+# .node loads.
 # LLM credentials and optional web-tool keys are injected via environment
 # variables. Connects to an external dikw-core whose URL is supplied per request
 # by the browser (Settings page).
@@ -18,19 +20,27 @@
 FROM node:24-slim AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+# --ignore-scripts: `npm ci` works from lockfile metadata, which drops
+# better-sqlite3's `gypfile: false`, so it would run an implicit
+# `node-gyp rebuild` (needs python + a C++ toolchain this slim image lacks) —
+# for a binary that is never loaded, since better-sqlite3 prefers its bundled
+# prebuilt. esbuild's postinstall is only a binary check; its platform package
+# still arrives as an optional dependency.
+RUN npm ci --ignore-scripts
 COPY . .
 RUN npm run build
 
-# --- Production deps: prune devDeps, keep native sqlite3 built for Debian -----
+# --- Production deps: prune devDeps, keep native better-sqlite3 for Debian -
 FROM node:24-slim AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 # --omit=dev drops vite/esbuild/playwright/etc.; package.json `overrides`
-# (node-gyp, tar) are honored by npm ci and clear the HIGH npm-audit CVEs. The
-# native sqlite3 addon is fetched/built here for the same Debian glibc the
-# runtime stage uses.
-RUN npm ci --omit=dev
+# (e.g. adm-zip) are honored by npm ci and clear the HIGH npm-audit CVEs.
+# better-sqlite3's bundled linux-x64 (glibc) prebuilt is what the runtime loads;
+# --ignore-scripts skips the pointless source build (see builder). The other prod
+# install scripts are a no-op (@google/genai), a version check (protobufjs) and
+# an optional native-crypto build with a JS fallback (ssh2).
+RUN npm ci --omit=dev --ignore-scripts
 
 # --- Runtime: built SPA + server bundle + production node_modules -------------
 FROM node:24-slim AS runtime

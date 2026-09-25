@@ -9,6 +9,40 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-24
+
+### Changed
+
+- **Agent runtime: `@google/adk` 1.2 → 2.1, MikroORM 6 → 7.** ADK 2 moved every
+  DB driver to an optional peer on `@mikro-orm/core ^7.2`, so `@mikro-orm/core` /
+  `@mikro-orm/sqlite` go to `^7.2.1`. MikroORM 7's sqlite driver swaps
+  `sqlite3` + knex for **`better-sqlite3`** + kysely; better-sqlite3 ships its N-API
+  prebuilts inside the npm package and loads them first. The Dockerfile's two
+  `npm ci` calls now pass `--ignore-scripts`: `npm ci` reads lockfile metadata,
+  which drops the package's `gypfile: false`, so it otherwise ran an implicit
+  `node-gyp rebuild` that fails on `node:24-slim` (no python/toolchain) for a
+  binary that is never loaded. No sidecar code changes were needed, and the `/agent/*` API +
+  `AgentStreamEvent` wire format are unchanged. **Existing
+  `.agent-sessions/agent.sqlite` files keep working** — a session written by ADK
+  1.2 was listed, read and appended to by ADK 2.1 with no migration.
+- **Context compaction now fires on the live prompt size.** Since ADK 1.4,
+  `shouldCompact` compares the *latest* event's prompt-token count against
+  `round(DIKW_AGENT_CONTEXT_WINDOW × DIKW_AGENT_COMPACTION_RATIO)` instead of
+  summing every event's count, so the old early-fire bias is gone and long chats
+  compact later than before. `contextCompactor.test.ts` now pins the new
+  semantics, including a case where only the old sum would have crossed the
+  threshold.
+- Dependabot groups `@mikro-orm/*` into one PR (replacing the `@mikro-orm/sqlite`
+  ignore), since core and the driver must match exactly.
+
+### Security
+
+- `adm-zip` (pulled in by ADK's skill loader, unused here) overridden to
+  `^0.6.1`, clearing its HIGH advisories. The `node-gyp` / `tar` / `mariadb` /
+  `mysql2` overrides are dropped: none of those packages are in the tree anymore
+  (ADK 2 no longer installs the MySQL/MariaDB drivers, and better-sqlite3 needs
+  no node-gyp build).
+
 ## [0.8.12] - 2026-09-24
 
 ### Changed
