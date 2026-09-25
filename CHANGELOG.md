@@ -9,6 +9,20 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-09-25
+
+### Fixed
+
+- **`npm ci` works again on machines without python / a C++ toolchain** (a
+  regression from 0.9.0's MikroORM 7 move). better-sqlite3 ships N-API prebuilts
+  and loads them first, but `npm ci` reads lockfile metadata that drops the
+  package's `gypfile: false`, so npm 11 ran an implicit `node-gyp rebuild` that
+  failed (typical on Windows; CI and Linux dev boxes hid it by having python). A
+  project `.npmrc` now sets `ignore-scripts=true` — the same thing the Dockerfile
+  already does — and the new `scripts/install-scripts.test.mjs` fails if a
+  dependency gains an install script that hasn't been reviewed as safe to skip.
+  npm 12's `allow-scripts` gate would also block it by default.
+
 ## [0.9.1] - 2026-09-25
 
 ### Changed

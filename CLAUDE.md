@@ -85,6 +85,8 @@ For trivial edits (typo, comment, single-line refactor), use judgment and skip t
 
 Windows shell: use `npm.cmd` (not `npm`) when invoking from PowerShell.
 
+Dependency install scripts are off: the project `.npmrc` sets `ignore-scripts=true`, so `npm ci` / `npm install` need no python or C++ toolchain (without it, `npm ci` runs an implicit `node-gyp rebuild` for better-sqlite3, whose bundled prebuilt is what actually loads). `scripts/install-scripts.test.mjs` fails when a dependency gains an install script that hasn't been reviewed as safe to skip — review it and add it to that list, don't delete the `.npmrc`. `npm run <script>` is unaffected, but `pre*`/`post*` hooks of our own scripts won't run.
+
 - `npm.cmd run dev` — Vite dev server, fixed at `http://127.0.0.1:4321` (`--strictPort`).
 - `npm.cmd run typecheck` — `tsc --noEmit`.
 - `npm.cmd run lint` — ESLint flat config (`eslint.config.js`), `--max-warnings 0`. Covers the lint layer `tsc --strict` doesn't: React hook deps/order, unused symbols (tsconfig has no `noUnusedLocals`), no raw `console` in the browser bundle. react-hooks is pinned to its two classic rules (rules-of-hooks + exhaustive-deps), **not** the v7 `recommended` preset; type-checked rules are omitted to keep it fast.
