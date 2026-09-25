@@ -37,6 +37,9 @@ const REVIEWED = {
     // The registry metadata adds `install: node-gyp rebuild`, but the published
     // package.json has no install hook and no binding.gyp.
     steps: NONE_ON_DISK,
+    // Absent on the Linux CI runner, where its steps can't be read: pin the reviewed
+    // version so an upgrade still fails there and gets re-reviewed.
+    reviewedVersion: "2.3.3",
     why: "fsevents.js requires the prebuilt fsevents.node shipped in the package",
   },
   protobufjs: {
@@ -94,10 +97,13 @@ describe("install scripts", () => {
 
   it("only exist on dependencies whose exact steps were reviewed as safe to skip", () => {
     const unreviewed = copiesWithInstallStep()
-      .filter(({ name, steps }) => {
+      .filter(({ name, version, steps }) => {
         const entry = REVIEWED[name];
-        // Not on disk (another platform's optional dep): only the name can be checked.
-        return !entry || (steps !== null && steps !== entry.steps);
+        if (!entry) return true;
+        // Not on disk (another platform's optional dep): its steps can't be read here,
+        // so only the exact reviewed version is accepted.
+        if (steps === null) return entry.reviewedVersion !== version;
+        return steps !== entry.steps;
       })
       .map(({ name, version, steps }) => `${name}@${version} → ${steps ?? "(not installed)"}`);
     expect(unreviewed).toEqual([]);
