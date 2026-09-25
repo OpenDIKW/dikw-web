@@ -12,6 +12,9 @@ import { describe, expect, it } from "vitest";
 // the test and has to be reviewed. Keyed by the script rather than the version so
 // routine bumps that leave the script alone don't need a re-review.
 const IMPLICIT_GYP = "(implicit) node-gyp rebuild";
+// The lockfile flags an install script (from registry metadata) that the installed
+// package.json doesn't actually carry, so npm runs nothing.
+const NONE_ON_DISK = "(none in the installed package)";
 const REVIEWED = {
   "@google/genai": {
     steps: "preinstall: echo 'preinstall: no-op'",
@@ -30,8 +33,11 @@ const REVIEWED = {
     why: "only verifies the binary; @esbuild/<platform> arrives as an optional dep",
   },
   fsevents: {
-    steps: null, // macOS-only optional dep, absent from other platforms' node_modules
-    why: "optional file watcher; chokidar falls back to polling",
+    // macOS-only optional dep: installed (and so compared) on macOS, absent elsewhere.
+    // The registry metadata adds `install: node-gyp rebuild`, but the published
+    // package.json has no install hook and no binding.gyp.
+    steps: NONE_ON_DISK,
+    why: "fsevents.js requires the prebuilt fsevents.node shipped in the package",
   },
   protobufjs: {
     steps: "postinstall: node scripts/postinstall",
@@ -67,7 +73,7 @@ function copiesWithInstallStep() {
     const steps = installSteps(path);
     if (meta.hasInstallScript || steps) {
       const name = path.slice(path.lastIndexOf("node_modules/") + "node_modules/".length);
-      copies.push({ name, version: meta.version, steps });
+      copies.push({ name, version: meta.version, steps: steps === "" ? NONE_ON_DISK : steps });
     }
   }
   return copies;
@@ -77,6 +83,13 @@ describe("install scripts", () => {
   it("are skipped by the project .npmrc", () => {
     const npmrc = readFileSync(join(root, ".npmrc"), "utf8");
     expect(npmrc).toMatch(/^ignore-scripts=true$/m);
+  });
+
+  it("record concrete reviewed steps, so a platform where the dep installs still matches", () => {
+    const missing = Object.entries(REVIEWED)
+      .filter(([, entry]) => typeof entry.steps !== "string" || !entry.steps)
+      .map(([name]) => name);
+    expect(missing).toEqual([]);
   });
 
   it("only exist on dependencies whose exact steps were reviewed as safe to skip", () => {
