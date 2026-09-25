@@ -33,7 +33,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
     "@google/adk": "^2.1.0",
-    "@google/genai": "^2.10.0",
+    "@google/genai": "^2.24.0",
     "@mikro-orm/core": "^7.2.1",
     "@mikro-orm/sqlite": "^7.2.1",
     "@opentelemetry/api": "^1.9.1",
