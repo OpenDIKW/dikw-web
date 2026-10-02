@@ -348,7 +348,22 @@ describe("auth gate", () => {
       origin: PUBLIC_URL,
     });
     expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("/");
+    // Not "/": the gate would send that straight back through login, and a still
+    // live IdP session would sign the user in again without asking.
+    expect(response.headers.get("location")).toBe("/web/auth/signed-out");
+    const page = await send("/web/auth/signed-out", { accept: "text/html" });
+    expect(page.response.status).toBe(200);
+    expect(page.body).toContain('href="/web/auth/login"');
+    expect((await send("/web/auth/me", { cookie })).response.status).toBe(401);
+  });
+
+  it("keeps shared caches from storing what a signed-in user sees", async () => {
+    const { send, signIn } = await setup();
+    const { cookie } = await signIn({ roles: ["kb_viewer"] });
+    // e.g. the agent session list, which the handlers send without cache headers.
+    const { response } = await send("/agent/sessions", { cookie });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private");
   });
 
   it("expires the session after the configured TTL and rejects a tampered cookie", async () => {

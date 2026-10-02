@@ -51,7 +51,7 @@ in-flight login (`state`, `nonce`, PKCE verifier, return path) travels in a
 second sealed, 10-minute cookie scoped to `/web/auth`, so `/login` holds no
 server-side state.
 
-**The gate** (`server/auth/gate.ts`) owns `/web/auth/{login,callback,logout,me}`
+**The gate** (`server/auth/gate.ts`) owns `/web/auth/{login,callback,logout,signed-out,me}`
 and decides for every other request:
 
 - no session → a page load gets a tiny page that sends the browser to login with
@@ -66,7 +66,15 @@ and decides for every other request:
   **allowlist** (`POST /v1/retrieve`, `POST /v1/doc/search`), so a new core write
   endpoint is denied to viewers by default. Paths are split on `/` with empty
   segments dropped, the same normalization the `/agent` and `/web` handlers
-  route by.
+  route by;
+- an admitted request gets a default `Cache-Control: private`, so a shared cache
+  never stores one user's chats or jobs. Handlers with their own policy (hashed
+  static assets, the core proxy) override it.
+
+**Sign out** is a POST to `/web/auth/logout`. It ends the local session, then
+sends the browser to the IdP's end-session endpoint. Without one it lands on
+`/web/auth/signed-out`, a static page with a Sign in link, not `/`: `/` would go
+straight back through login, and a live IdP session would sign the user in again.
 
 `/healthz` is the only route that stays open (the container `HEALTHCHECK`).
 

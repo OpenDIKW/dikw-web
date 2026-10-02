@@ -155,7 +155,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 ### 在 IdP 上注册应用
 
 - **Redirect URI**：`{DIKW_WEB_PUBLIC_URL}/web/auth/callback`
-- **Post-logout redirect URI**：`{DIKW_WEB_PUBLIC_URL}/`（IdP 声明了 `end_session_endpoint` 时，「退出登录」会走 RP-initiated logout；否则只清本地会话）
+- **Post-logout redirect URI**：`{DIKW_WEB_PUBLIC_URL}/`（IdP 声明了 `end_session_endpoint` 时，「退出登录」会走 RP-initiated logout；否则只清本地会话，并停在「已退出登录」页，不会被 IdP 自动登录回来）
 - **角色进 ID token**：Casdoor 默认的 JWT 格式已包含 `roles`（对象数组，用 `DIKW_WEB_OIDC_ROLES_CLAIM=roles[].name` + `DIKW_WEB_OIDC_ROLES_OWNER=<组织>`）；Keycloak 需在 roles mapper 上打开 "Add to ID token"（`realm_access.roles`）；Entra ID 的 app roles 在 `roles`；Authentik 的 groups 在 `groups`。
 
 Casdoor 示例：

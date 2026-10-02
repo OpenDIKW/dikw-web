@@ -139,7 +139,7 @@ Both prefixes are served by the same Node process in dev and in the standalone `
   - `config.ts` — fail-fast env loader;
   - `oidc.ts` — `openid-client` v6: code + PKCE S256, state, nonce, `iss`/`aud`/`exp`/`azp`, JWKS signature via `enableNonRepudiationChecks`, optional internal back-channel URL, RP-initiated logout;
   - `sessionStore.ts` — `node:sqlite` `auth.sqlite` next to `agent.sqlite`, holding only the SHA-256 of each session id plus an AES-256-GCM record sealed by `seal.ts`;
-  - `gate.ts` — owns `/web/auth/{login,callback,logout,me}`; everything else gets 401 / 403 / CSRF / role checks;
+  - `gate.ts` — owns `/web/auth/{login,callback,logout,signed-out,me}`; everything else gets 401 / 403 / CSRF / role checks, and an admitted request defaults to `Cache-Control: private`. Sign out without an IdP end-session endpoint lands on `signed-out`, not `/`, which would silently sign the user back in;
   - `roles.ts` — claim-path role extraction + `requiredRole()`, the single viewer/editor capability matrix;
   - `coreProxy.ts` — streaming same-origin `/v1/*` → `DIKW_CORE_URL` with `DIKW_SERVER_TOKEN`; responses become `Cache-Control: private`, and a core 401 (bad server token) becomes `502 core_auth_failed` rather than a login loop.
 - `server/agent/requestRouter.ts` is the standalone top-level routing: `/healthz` is always open, then the gate (on the full path), then `/v1` → proxy, `/agent`, `/web`, static. Keep any new route behind the gate.

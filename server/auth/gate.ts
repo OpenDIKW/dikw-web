@@ -142,11 +142,13 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
 
   async function logout(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const current = currentSession(req);
-    let location = "/";
+    // Without RP-initiated logout the IdP session stays live, so "/" would sign
+    // the user straight back in; land on a page that waits for them instead.
+    let location = `${AUTH_PATH}/signed-out`;
     if (current) {
       sessions.delete(current.id);
       try {
-        location = (await oidc.logoutUrl(current.session.idToken)) ?? "/";
+        location = (await oidc.logoutUrl(current.session.idToken)) ?? location;
       } catch (error) {
         log.warn("RP-initiated logout unavailable; signed out locally", { error });
       }
@@ -163,6 +165,8 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
       if (!originAllowed(req)) return csrfRejected(res);
       return logout(req, res);
     }
+    if (req.method === "GET" && route === "/signed-out")
+      return sendPage(req, res, 200, "signedOut");
     if (req.method === "GET" && route === "/me") {
       const current = currentSession(req);
       if (!current) return unauthenticated(res);
@@ -213,6 +217,9 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
         ...(email ? { email } : {}),
       };
       principals.set(req, principal);
+      // Everything past the gate is per-user. Keep shared caches from storing it
+      // unless a handler sets its own policy (hashed static assets, core proxy).
+      res.setHeader("Cache-Control", "private");
       return principal;
     },
     principalOf: (req) => principals.get(req),
@@ -305,7 +312,9 @@ const PAGES = {
       "Sign-in unavailable",
       "The identity provider could not be reached. Try again shortly.",
     ],
+    signedOut: ["Signed out", "You have signed out of this knowledge base."],
     signOut: "Sign out",
+    signIn: "Sign in",
     retry: "Try again",
   },
   "zh-CN": {
@@ -313,12 +322,14 @@ const PAGES = {
     signInFailed: ["登录失败", "无法校验身份提供方返回的结果。"],
     signInExpired: ["登录已过期", "本次登录已过期，或浏览器拦截了登录 Cookie。"],
     idpUnavailable: ["暂时无法登录", "无法连接身份提供方，请稍后再试。"],
+    signedOut: ["已退出登录", "你已退出本知识库。"],
     signOut: "退出登录",
+    signIn: "登录",
     retry: "重试",
   },
 } as const;
 
-type PageId = "noAccess" | "signInFailed" | "signInExpired" | "idpUnavailable";
+type PageId = "noAccess" | "signInFailed" | "signInExpired" | "idpUnavailable" | "signedOut";
 
 function sendPage(req: IncomingMessage, res: ServerResponse, status: number, page: PageId): void {
   const copy = /^zh\b/i.test(req.headers["accept-language"] ?? "") ? PAGES["zh-CN"] : PAGES.en;
@@ -326,7 +337,7 @@ function sendPage(req: IncomingMessage, res: ServerResponse, status: number, pag
   const action =
     page === "noAccess"
       ? `<form method="post" action="${AUTH_PATH}/logout"><button type="submit">${copy.signOut}</button></form>`
-      : `<p><a href="${AUTH_PATH}/login">${copy.retry}</a></p>`;
+      : `<p><a href="${AUTH_PATH}/login">${page === "signedOut" ? copy.signIn : copy.retry}</a></p>`;
   res.statusCode = status;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
