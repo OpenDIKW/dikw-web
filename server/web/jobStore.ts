@@ -24,8 +24,14 @@ export interface JobError {
   message: string;
 }
 
+/** The `/web/<family>/jobs/*` routes that may serve a job. In auth mode
+ *  (issue #200) `/web/mineru/*` is editor-only while `/web/translate/*` is
+ *  open to viewers, so a conversion must never be reachable as a translation. */
+export type JobFamily = "mineru" | "translate";
+
 export interface Job {
   id: string;
+  family: JobFamily;
   status: JobStatus;
   /** Coarse progress hint for the status endpoint; the browser drives its own
    *  substage off `status`, not this. Present only while running. */
@@ -92,7 +98,7 @@ export class JobStore {
     this.maxTotalResultBytes = opts.maxTotalResultBytes ?? MAX_TOTAL_RESULT_BYTES;
   }
 
-  create(controller: AbortController): Job {
+  create(controller: AbortController, family: JobFamily): Job {
     this.sweep();
     // Cap only LIVE (pending/running) conversions. Terminal jobs awaiting a
     // result fetch or the TTL sweep must NOT lock out new submits — otherwise a
@@ -103,6 +109,7 @@ export class JobStore {
     }
     const job: Job = {
       id: randomUUID(),
+      family,
       status: "pending",
       controller,
       createdAt: this.now(),

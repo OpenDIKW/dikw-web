@@ -137,5 +137,7 @@ MB-Web upload; the server enforces all of it regardless.
 ## Follow-ups
 
 - `/web/*` conversion and translation jobs are not user-scoped. Their ids are
-  unguessable UUIDs and MinerU is editor-only, but a job could carry its owner.
+  unguessable UUIDs, MinerU is editor-only, and a job is served only under the
+  `/web/<family>/` prefix that created it (`JobStore` holds both families), but a
+  job could carry its owner.
 - Refresh-token renewal, if an absolute TTL turns out too blunt.

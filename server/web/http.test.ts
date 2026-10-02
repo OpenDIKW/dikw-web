@@ -580,6 +580,36 @@ describe("/web/mineru/jobs — status / result / cancel", () => {
     expect(jsonBody(r).error?.code).toBe("not_found");
   });
 
+  it("never serves a conversion job under /web/translate, which viewers can reach in auth mode", async () => {
+    const fileBytes = Buffer.from([0x25, 0x50]);
+    const { body, contentType } = makeMultipart("x.pdf", "application/pdf", fileBytes);
+    const jobStore = new JobStore();
+    const handler = createWebHandler({
+      config: { mineruApiKey: TOKEN },
+      fetch: pendingForeverFetch(),
+      jobStore,
+    });
+    const submit = await submitConvert(handler, {
+      inputSha: sha256Hex(fileBytes),
+      body,
+      contentType,
+    });
+    const jobId = jsonBody(submit).jobId!;
+
+    for (const [method, suffix] of [
+      ["GET", ""],
+      ["GET", "/result"],
+      ["POST", "/cancel"],
+    ]) {
+      const { res, captured } = makeRes();
+      await handler(makeReq({ method, url: `/translate/jobs/${jobId}${suffix}` }), res);
+      expect((await captured).status, `${method} /translate/jobs/<id>${suffix}`).toBe(404);
+    }
+    expect(jobStore.get(jobId)?.controller.signal.aborted).toBe(false);
+    expect((await getJob(handler, jobId)).status).toBe(200);
+    await cancelJob(handler, jobId);
+  });
+
   it("reports running, refuses the result with 409 not_ready, and cancel drives it to failed", async () => {
     const fileBytes = Buffer.from([0x25, 0x50]);
     const inputSha = sha256Hex(fileBytes);

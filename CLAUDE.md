@@ -144,7 +144,7 @@ Both prefixes are served by the same Node process in dev and in the standalone `
   - `coreProxy.ts` — streaming same-origin `/v1/*` → `DIKW_CORE_URL` with `DIKW_SERVER_TOKEN`; responses become `Cache-Control: private`, and a core 401 (bad server token) becomes `502 core_auth_failed` rather than a login loop.
 - `server/agent/requestRouter.ts` is the standalone top-level routing: `/healthz` is always open, then the gate (on the full path), then `/v1` → proxy, `/agent`, `/web`, static. Keep any new route behind the gate.
 - Signed-out page loads get a CSP-hashed script page that redirects to login with `pathname + search + hash` (hash routes never reach the server). Unsafe methods need `Origin` exactly equal to `DIKW_WEB_PUBLIC_URL`.
-- Viewer core writes are an **allowlist** (`POST /v1/retrieve`, `/v1/doc/search`). Every other non-GET `/v1` call, all of `/web/mineru/*` and agent proposal **confirm** need editor. Add new editor-only routes to `requiredRole` + `roles.test.ts`.
+- Viewer core writes are an **allowlist** (`POST /v1/retrieve`, `/v1/doc/search`). Every other non-GET `/v1` call, all of `/web/mineru/*` and agent proposal **confirm** need editor. The shared `JobStore` serves a job only under the `/web/<family>/jobs` prefix that created it, so a conversion id never works under the viewer-open `/web/translate`. Add new editor-only routes to `requiredRole` + `roles.test.ts`.
 - Agent: ADK `userId` = `oidc:<sub>` via `createAgentHandler({ subjectFor, serverCore, legacySessionsOwner })` — namespaced so no IdP subject can be the pre-auth `demo` owner.
   - Every session route goes through `AdkSessionStore.forUser()`; a foreign or missing id → 404 (`SessionNotFoundError`).
   - `serverCore` makes the sidecar ignore request `coreUrl`/`token`.

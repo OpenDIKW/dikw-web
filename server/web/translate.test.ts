@@ -695,7 +695,7 @@ describe("splitIntoBatches", () => {
 describe("runTranslation", () => {
   it("translates batch by batch, publishing growing progress, and accumulates the full 1:1 result", async () => {
     const store = new JobStore();
-    const job = store.create(new AbortController());
+    const job = store.create(new AbortController(), "translate");
     const n = MAX_BLOCKS_PER_BATCH * 2 + 1; // forces 3 batches at the default cap
     const blocks = Array.from({ length: n }, (_, i) => `b${i}`);
     const seenDone: number[] = [];
@@ -729,7 +729,7 @@ describe("runTranslation", () => {
 
   it("re-pins wikilink targets per block across batches", async () => {
     const store = new JobStore();
-    const job = store.create(new AbortController());
+    const job = store.create(new AbortController(), "translate");
     const blocks = ["see [[a/b|src]]", "plain"];
     const client = {
       async translate(bs: string[]): Promise<string[]> {
@@ -745,7 +745,7 @@ describe("runTranslation", () => {
 
   it("fails the whole job when any batch errors", async () => {
     const store = new JobStore();
-    const job = store.create(new AbortController());
+    const job = store.create(new AbortController(), "translate");
     const blocks = Array.from({ length: MAX_BLOCKS_PER_BATCH + 5 }, (_, i) => `b${i}`);
     let calls = 0;
     const client = {
@@ -850,7 +850,7 @@ describe("/web/translate", () => {
 
   it("status surfaces translate progress (partial blocks) while a job runs", async () => {
     const jobStore = new JobStore();
-    const job = jobStore.create(new AbortController());
+    const job = jobStore.create(new AbortController(), "translate");
     jobStore.setRunning(job.id);
     jobStore.setProgress(job.id, { done: 1, total: 2, blocks: [{ i: 0, tr: "你好" }] });
     const handler = createWebHandler({ config: CONFIG, jobStore });

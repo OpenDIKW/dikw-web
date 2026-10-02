@@ -245,6 +245,11 @@ describe("auth gate", () => {
     expect(page.response.status).toBe(403);
     expect(page.response.headers.get("content-type")).toMatch(/text\/html/);
     expect(page.body).toContain('action="/web/auth/logout"');
+    // Browsers apply form-action to the logout's 303 to the IdP's end-session
+    // endpoint (usually another origin), so the policy must not pin forms to 'self'.
+    const csp = page.response.headers.get("content-security-policy");
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).not.toContain("form-action");
 
     const api = await send("/v1/base/pages", { cookie });
     expect(api.response.status).toBe(403);

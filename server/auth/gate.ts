@@ -330,10 +330,10 @@ function sendPage(req: IncomingMessage, res: ServerResponse, status: number, pag
   res.statusCode = status;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'",
-  );
+  // No `form-action`: browsers apply it to the Sign out form's 303 to the IdP's
+  // end-session endpoint, usually another origin. The page is fully static, so
+  // there is no injected form for it to stop.
+  res.setHeader("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'");
   res.end(
     `<!doctype html><html lang="${copy === PAGES.en ? "en" : "zh-CN"}"><head><meta charset="utf-8">` +
       `<meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title>` +

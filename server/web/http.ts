@@ -146,6 +146,10 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
       // JSON, mineru → tar.gz); status / cancel are content-type agnostic.
       if (parts[1] === "jobs" && parts[2]) {
         const jobId = parts[2];
+        // One store holds both families; a job is only served under its own.
+        if (jobStore.get(jobId)?.family !== family) {
+          return notFound(res);
+        }
         if (req.method === "GET" && parts.length === 3) {
           return handleJobStatus(res, jobStore, jobId);
         }
@@ -240,7 +244,7 @@ async function handleConvert(
   const controller = new AbortController();
   let job: Job;
   try {
-    job = jobStore.create(controller);
+    job = jobStore.create(controller, "mineru");
   } catch (err) {
     if (err instanceof JobLimitError) {
       return errorJson(res, 503, "too_many_jobs", err.message);
@@ -372,7 +376,7 @@ async function handleTranslateSubmit(
   const controller = new AbortController();
   let job: Job;
   try {
-    job = jobStore.create(controller);
+    job = jobStore.create(controller, "translate");
   } catch (err) {
     if (err instanceof JobLimitError) {
       return errorJson(res, 503, "too_many_jobs", err.message);
