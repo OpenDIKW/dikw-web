@@ -332,6 +332,19 @@ function pendingForeverFetch(): typeof fetch {
 
 // ------ tests ------
 
+describe("/web/auth/me (auth mode off)", () => {
+  it("reports auth as disabled so the SPA keeps its Settings-owned connection", async () => {
+    // In auth mode the auth gate answers /web/auth/* before this handler runs.
+    const handler = createWebHandler({ config: {} });
+    const req = makeReq({ method: "GET", url: "/auth/me" });
+    const { res, captured } = makeRes();
+    await handler(req, res);
+    const r = await captured;
+    expect(r.status).toBe(200);
+    expect(JSON.parse(r.body.toString("utf-8"))).toEqual({ enabled: false });
+  });
+});
+
 describe("/web/mineru/health", () => {
   it("returns enabled=true when key is configured", async () => {
     const handler = createWebHandler({ config: { mineruApiKey: TOKEN } });

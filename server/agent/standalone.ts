@@ -1,11 +1,16 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { createServer, type ServerResponse } from "node:http";
+import { mkdir, readFile, stat } from "node:fs/promises";
 import { extname, isAbsolute, join, normalize, resolve, sep } from "node:path";
 import { loadAgentConfig } from "./config.js";
 import { createDefaultAgentHandler, resolveSessionsDir } from "./http.js";
+import { createRequestRouter, type RequestRouterOptions } from "./requestRouter.js";
 import { createDefaultWebHandler } from "../web/http.js";
 import { loadWebConfig } from "../web/config.js";
-import { withServerSpan } from "../shared/withServerSpan.js";
+import { loadAuthConfig, type AuthConfig } from "../auth/config.js";
+import { createAuthGate } from "../auth/gate.js";
+import { createOidcClient } from "../auth/oidc.js";
+import { AuthSessionStore } from "../auth/sessionStore.js";
+import { createCoreProxy } from "../auth/coreProxy.js";
 import { createLogger } from "../shared/logger.js";
 import { registerOutboundInstrumentation } from "./instrumentation.js";
 
@@ -70,6 +75,21 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
+  let authConfig: AuthConfig | null;
+  try {
+    authConfig = await loadAuthConfig({ cwd });
+    if (authConfig) {
+      log.info("auth mode enabled", {
+        mode: "oidc",
+        issuer: authConfig.issuer,
+        publicUrl: authConfig.publicUrl,
+      });
+    }
+  } catch (error) {
+    log.error("auth configuration error", { error });
+    process.exit(1);
+  }
+
   try {
     const stats = await stat(INDEX_HTML);
     if (!stats.isFile()) {
@@ -83,11 +103,48 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const agentHandler = await createDefaultAgentHandler(cwd);
+  let auth: RequestRouterOptions["auth"];
+  if (authConfig) {
+    // Login sessions live next to agent.sqlite, on the same volume.
+    const sessionsDir = resolveSessionsDir(cwd);
+    await mkdir(sessionsDir, { recursive: true });
+    const sessions = new AuthSessionStore({
+      path: join(sessionsDir, "auth.sqlite"),
+      secret: authConfig.sessionSecret,
+    });
+    auth = {
+      gate: createAuthGate({ config: authConfig, oidc: createOidcClient(authConfig), sessions }),
+      coreProxy: createCoreProxy({ coreUrl: authConfig.coreUrl, token: authConfig.serverToken }),
+    };
+  }
+  const gate = auth?.gate;
+  const agentHandler = await createDefaultAgentHandler(
+    cwd,
+    authConfig && gate
+      ? {
+          // The gate has admitted every request that reaches /agent.
+          userIdFor: (req) => gate.principalOf(req)!.sub,
+          legacySessionsOwner: authConfig.legacySessionsOwner,
+          serverCore: { coreUrl: authConfig.coreUrl, token: authConfig.serverToken },
+        }
+      : {},
+  );
   const webHandler = await createDefaultWebHandler(cwd);
+  const route = createRequestRouter({
+    agent: (req, res) => agentHandler(req, res),
+    web: (req, res) => webHandler(req, res),
+    serveStatic: (req, res) =>
+      serveStatic(
+        req.method ?? "GET",
+        new URL(req.url ?? "/", "http://localhost").pathname,
+        req.headers.accept,
+        res,
+      ),
+    auth,
+  });
 
   const server = createServer((req, res) => {
-    handleRequest(req, res, agentHandler, webHandler).catch((error) => {
+    route(req, res).catch((error) => {
       log.error("request error", { error });
       if (!res.headersSent) {
         res.statusCode = 500;
@@ -118,37 +175,6 @@ async function main(): Promise<void> {
   };
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
-}
-
-type AgentHandler = Awaited<ReturnType<typeof createDefaultAgentHandler>>;
-type WebHandler = Awaited<ReturnType<typeof createDefaultWebHandler>>;
-
-async function handleRequest(
-  req: IncomingMessage,
-  res: ServerResponse,
-  agentHandler: AgentHandler,
-  webHandler: WebHandler,
-): Promise<void> {
-  const url = new URL(req.url ?? "/", "http://localhost");
-  if (url.pathname === "/agent" || url.pathname.startsWith("/agent/")) {
-    const rest = url.pathname.slice("/agent".length) || "/";
-    req.url = `${rest}${url.search ?? ""}`;
-    await withServerSpan(
-      { method: req.method ?? "GET", pathname: url.pathname, headers: req.headers, res },
-      () => agentHandler(req, res),
-    );
-    return;
-  }
-  if (url.pathname === "/web" || url.pathname.startsWith("/web/")) {
-    const rest = url.pathname.slice("/web".length) || "/";
-    req.url = `${rest}${url.search ?? ""}`;
-    await withServerSpan(
-      { method: req.method ?? "GET", pathname: url.pathname, headers: req.headers, res },
-      () => webHandler(req, res),
-    );
-    return;
-  }
-  await serveStatic(req.method ?? "GET", url.pathname, req.headers.accept, res);
 }
 
 async function serveStatic(
