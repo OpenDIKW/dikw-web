@@ -1,6 +1,7 @@
 // @vitest-environment node
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthConfig } from "./config";
 import { startFakeIdp } from "./fakeIdp";
 import { createAuthGate, safeReturnTo } from "./gate";
@@ -130,11 +131,24 @@ describe("auth gate", () => {
     return header ? header.split(";")[0] : "";
   }
 
-  it("redirects an unauthenticated page load to login, keeping the path to come back to", async () => {
+  it("sends an unauthenticated page load to login, keeping the hash route to come back to", async () => {
     const { send } = await setup();
-    const { response } = await send("/base?x=1", { accept: "text/html" });
-    expect(response.status).toBe(302);
-    expect(response.headers.get("location")).toBe("/web/auth/login?returnTo=%2Fbase%3Fx%3D1");
+    const { response, body } = await send("/base?x=1", { accept: "text/html" });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toMatch(/text\/html/);
+    expect(response.headers.get("cache-control")).toBe("no-store");
+
+    // The hash (#chat, #MB-Web) never reaches the server, so a tiny script
+    // builds the return path in the browser...
+    const script = /<script>([^<]*)<\/script>/.exec(body)![1];
+    const replace = vi.fn();
+    new Function("location", script)({ pathname: "/", search: "?x=1", hash: "#MB-Web", replace });
+    expect(replace).toHaveBeenCalledWith("/web/auth/login?returnTo=%2F%3Fx%3D1%23MB-Web");
+    // ...which the page's CSP allows by hash (else the browser would block it)...
+    const digest = createHash("sha256").update(script).digest("base64");
+    expect(response.headers.get("content-security-policy")).toContain(`'sha256-${digest}'`);
+    // ...with a no-script fallback that still keeps the path + query.
+    expect(body).toContain('content="0;url=/web/auth/login?returnTo=%2Fbase%3Fx%3D1"');
   });
 
   it.each(["/v1/base/pages", "/agent/sessions", "/web/translate/health", "/assets/app.js"])(

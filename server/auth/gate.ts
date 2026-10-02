@@ -8,6 +8,7 @@
 //                       SameSite=Lax alone doesn't cover same-site other ports)
 //   requiredRole()    → 403 when the caller's role is below it
 
+import { createHash } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AuthConfig } from "./config.js";
 import { CALLBACK_PATH, type LoginTransaction, type OidcClient } from "./oidc.js";
@@ -177,8 +178,7 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
       const current = currentSession(req);
       if (!current) {
         if (isPageLoad(req)) {
-          const returnTo = encodeURIComponent(`${url.pathname}${url.search}`);
-          redirect(res, 302, `${LOGIN_COOKIE_PATH}/login?returnTo=${returnTo}`);
+          sendLoginRedirectPage(res, `${url.pathname}${url.search}`);
         } else {
           unauthenticated(res);
         }
@@ -232,6 +232,29 @@ function isPageLoad(req: IncomingMessage): boolean {
   const method = req.method ?? "GET";
   return (
     (method === "GET" || method === "HEAD") && (req.headers.accept ?? "").includes("text/html")
+  );
+}
+
+// The SPA routes by hash (#chat, the shareable #MB-Web link), which never
+// reaches the server — so a signed-out page load gets a tiny page that sends the
+// browser to login with the *full* return path. Its CSP admits exactly this
+// script by hash; without JS, a meta refresh still keeps path + query.
+const LOGIN_REDIRECT_SCRIPT =
+  'location.replace("/web/auth/login?returnTo="+encodeURIComponent(location.pathname+location.search+location.hash))';
+const LOGIN_REDIRECT_CSP = `default-src 'none'; script-src 'sha256-${createHash("sha256")
+  .update(LOGIN_REDIRECT_SCRIPT)
+  .digest("base64")}'`;
+
+function sendLoginRedirectPage(res: ServerResponse, returnTo: string): void {
+  const fallback = `/web/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+  res.statusCode = 200;
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Content-Security-Policy", LOGIN_REDIRECT_CSP);
+  res.end(
+    `<!doctype html><html><head><meta charset="utf-8"><title>Sign in</title>` +
+      `<noscript><meta http-equiv="refresh" content="0;url=${fallback}"></noscript>` +
+      `<script>${LOGIN_REDIRECT_SCRIPT}</script></head><body></body></html>`,
   );
 }
 
