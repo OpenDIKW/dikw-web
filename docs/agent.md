@@ -104,10 +104,12 @@ unaffected.
 Do not use `VITE_*` for these values. `VITE_*` variables are browser
 visible.
 
-The dikw-core URL is not read from `.env.local`. The browser sends
+With auth mode off, the dikw-core URL is not read from `.env.local`. The browser sends
 the current Settings `Server URL` with each Agent message and maintenance
 confirmation. If `coreUrl` is missing, `/agent/*` returns `400
-invalid_request`.
+invalid_request`. In the opt-in auth mode the core URL + token are instead
+deliberate server config (`DIKW_CORE_URL` / `DIKW_SERVER_TOKEN`) and the
+request body's `coreUrl` / `token` are ignored — see "API" below.
 
 **Dev-only exception — the dev `/v1` proxy mirror.** dikw-core has no
 CORS, so during browser-verify / `live:verify` the browser keeps its
@@ -125,7 +127,8 @@ it always dials the Settings `Server URL` verbatim. A non-default custom
 ## Session Storage
 
 Sessions persist to **local SQLite** via ADK's `DatabaseSessionService`,
-in `.agent-sessions/agent.sqlite` (appName `dikw-web`, userId `demo`). The
+in `.agent-sessions/agent.sqlite` (appName `dikw-web`, userId `demo` — or, in
+the opt-in [auth mode](adr/0006-oidc-auth-bff.md), `oidc:<sub>` for the caller). The
 directory is ignored by Git and is local to the workstation; `http.ts`
 creates the directory and hands the service a `sqlite://.../agent.sqlite`
 URI (POSIX slashes — Windows backslashes break the URI parse). The legacy
@@ -209,6 +212,16 @@ requirement.
 `messages` returns NDJSON events such as `message_delta`, `tool_event`,
 `source`, `proposal`, `error`, and `agent_end`.
 
+A session id that doesn't exist answers **404** `not_found` on every
+`/sessions/{id}…` route. In auth mode (`DIKW_WEB_AUTH_MODE=oidc`, see
+`docs/adr/0006-oidc-auth-bff.md`) every route is scoped to the caller
+(`AdkSessionStore.forUser("oidc:" + sub)`), so another user's session id is that same 404;
+the sidecar uses the server-configured `DIKW_CORE_URL` / `DIKW_SERVER_TOKEN` and
+ignores any `coreUrl` / `token` in the request body; and `proposals/{id}/confirm`
+needs the editor role. `DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER=<sub>` hands the
+pre-auth `demo` sessions to one user by merging them in at read time (writes go
+back under `demo`).
+
 `tool_event` and `source` payloads are appended to the session context.
 The sidecar de-duplicates sources by `path`, `title`, and `kind`, and updates tool
 events by `id`.
@@ -219,9 +232,10 @@ characters. Invalid titles return `400 invalid_request`.
 ## Core Boundary
 
 The agent uses `dikw-core` as the fact source through retrieve, page,
-link, wisdom, and health endpoints. The target core URL comes from the
-current browser Settings request payload. The removed `/v1/query`
-endpoint is not called.
+link, wisdom, and health endpoints. With auth off, the target core URL
+comes from the current browser Settings request payload; in auth mode the
+sidecar uses the server-configured `DIKW_CORE_URL` / `DIKW_SERVER_TOKEN`
+instead. The removed `/v1/query` endpoint is not called.
 
 Maintenance tasks are not executed directly by the agent. The agent may
 create a proposal; the UI must get explicit user confirmation before

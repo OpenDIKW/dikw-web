@@ -42,6 +42,13 @@ Vite proxy to avoid CORS requirements on `dikw-core`. Custom server URLs
 are requested directly. Settings changes only the client configuration
 and presentation preferences.
 
+In the opt-in auth mode (`DIKW_WEB_AUTH_MODE=oidc`, see
+`docs/adr/0006-oidc-auth-bff.md`) the stored connection is ignored: every `/v1`
+call is same-origin to the dikw-web server, which authorizes the signed-in user
+and forwards it to `DIKW_CORE_URL` with the server-held `DIKW_SERVER_TOKEN`. The
+request paths, params and response shapes are the same — only who holds the
+token changes — so the consumed contract below is unchanged.
+
 Locale and theme are web-only presentation state. They do not change
 request paths, request params, auth behavior, or the shape of any core
 response. Page chrome is localized by the web app; core/user content is

@@ -18,6 +18,7 @@ import { IconButton } from "../components/IconButton";
 import { MarkdownView } from "../components/MarkdownView";
 import { SoftLabel } from "../components/SoftLabel";
 import { useAsyncResource } from "../hooks/useAsyncResource";
+import { useCanEdit } from "../config/auth";
 import { translations, type Locale } from "../i18n";
 import { basename, formatUnixSeconds, truncateMiddle } from "../utils/format";
 import { injectInlineRefs } from "../utils/source-inline-refs";
@@ -174,6 +175,8 @@ const PENDING_PATH_PREFIX = "__pending__/";
 
 export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
   const copy = translations[locale].pages.wisdom;
+  // Auth mode: viewers read wisdom but can't create, edit or favorite it.
+  const canEdit = useCanEdit();
 
   // ── data sources ────────────────────────────────────────────────────────
 
@@ -969,10 +972,12 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
           <h1>{copy.title}</h1>
           <p className="page-header__description">{copy.description}</p>
         </div>
-        <Button onClick={openNewDialog}>
-          <Plus size={16} aria-hidden="true" />
-          <span>{copy.newButton}</span>
-        </Button>
+        {canEdit ? (
+          <Button onClick={openNewDialog}>
+            <Plus size={16} aria-hidden="true" />
+            <span>{copy.newButton}</span>
+          </Button>
+        ) : null}
       </header>
 
       <section className="wiki-layout wisdom-layout">
@@ -1042,21 +1047,23 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
                 </div>
                 <div className="reader-header__meta reader-header__meta--inline">
                   <SoftLabel>{formatUnixSeconds(selected.updatedTs)}</SoftLabel>
-                  <button
-                    type="button"
-                    className={`wisdom-star ${selected.status === "favorite" ? "is-on" : ""}`}
-                    onClick={() => toggleFavorite(selected.path)}
-                    aria-pressed={selected.status === "favorite"}
-                    aria-label={selected.status === "favorite" ? copy.unfavorite : copy.favorite}
-                    title={selected.status === "favorite" ? copy.unfavorite : copy.favorite}
-                    disabled={saving || selected.isPending || (mode === "edit" && isDirty)}
-                  >
-                    <Star
-                      size={16}
-                      aria-hidden="true"
-                      fill={selected.status === "favorite" ? "currentColor" : "none"}
-                    />
-                  </button>
+                  {canEdit ? (
+                    <button
+                      type="button"
+                      className={`wisdom-star ${selected.status === "favorite" ? "is-on" : ""}`}
+                      onClick={() => toggleFavorite(selected.path)}
+                      aria-pressed={selected.status === "favorite"}
+                      aria-label={selected.status === "favorite" ? copy.unfavorite : copy.favorite}
+                      title={selected.status === "favorite" ? copy.unfavorite : copy.favorite}
+                      disabled={saving || selected.isPending || (mode === "edit" && isDirty)}
+                    >
+                      <Star
+                        size={16}
+                        aria-hidden="true"
+                        fill={selected.status === "favorite" ? "currentColor" : "none"}
+                      />
+                    </button>
+                  ) : null}
                   <WisdomStatusChip status={selected.status} locale={locale} />
                 </div>
               </div>
@@ -1070,15 +1077,17 @@ export function WisdomPage({ client, locale = "en" }: WisdomPageProps) {
                 >
                   {copy.readTab}
                 </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === "edit"}
-                  className={mode === "edit" ? "is-active" : ""}
-                  onClick={() => (mode === "edit" ? undefined : enterEditMode())}
-                >
-                  {copy.editTab}
-                </button>
+                {canEdit ? (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={mode === "edit"}
+                    className={mode === "edit" ? "is-active" : ""}
+                    onClick={() => (mode === "edit" ? undefined : enterEditMode())}
+                  >
+                    {copy.editTab}
+                  </button>
+                ) : null}
               </div>
 
               {mode === "read" ? (

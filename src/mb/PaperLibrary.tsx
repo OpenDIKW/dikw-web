@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Loader2, PencilLine, RotateCw, Upload, X } from "lucide-react";
 import { DikwClientError, type DikwClient } from "../api/client";
+import { useCanEdit } from "../config/auth";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { basename } from "../utils/format";
 import type { DocumentRecord } from "../types";
@@ -71,6 +72,7 @@ export function PaperLibrary({
   reloadKey,
   hidden,
 }: Props) {
+  const canEdit = useCanEdit();
   const loadPages = useCallback(
     (signal: AbortSignal) =>
       client.get<DocumentRecord[]>("/v1/base/pages", { signal, params: { active: true } }),
@@ -252,16 +254,18 @@ export function PaperLibrary({
           })
         )}
       </div>
-      <button
-        className="mb-up"
-        type="button"
-        onClick={onPickClick}
-        disabled={uploadInFlight}
-        title={uploadInFlight ? "正在上传，请稍候…" : "上传论文"}
-      >
-        <Upload size={16} aria-hidden="true" />
-        上传论文
-      </button>
+      {canEdit ? (
+        <button
+          className="mb-up"
+          type="button"
+          onClick={onPickClick}
+          disabled={uploadInFlight}
+          title={uploadInFlight ? "正在上传，请稍候…" : "上传论文"}
+        >
+          <Upload size={16} aria-hidden="true" />
+          上传论文
+        </button>
+      ) : null}
     </aside>
   );
 }

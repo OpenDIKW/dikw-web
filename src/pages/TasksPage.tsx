@@ -8,6 +8,7 @@ import { IconButton } from "../components/IconButton";
 import { Notice } from "../components/Notice";
 import { SoftLabel } from "../components/SoftLabel";
 import { StatusPill } from "../components/StatusPill";
+import { useCanEdit } from "../config/auth";
 import { translations, type Locale } from "../i18n";
 import type {
   IngestError,
@@ -54,6 +55,8 @@ const BUSY_POLL_MS = 4000;
 
 export function TasksPage({ client, locale = "en" }: TasksPageProps) {
   const copy = translations[locale].pages.tasks;
+  // Auth mode: viewers can watch tasks but not fire or cancel them.
+  const canEdit = useCanEdit();
   const [status, setStatus] = useState<"" | TaskStatus>("");
   const [op, setOp] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -455,20 +458,22 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
             ))}
           </datalist>
         </Field>
-        <div className="task-actions">
-          <Button variant="secondary" onClick={onIngest} disabled={busy}>
-            {copy.actions.ingest}
-          </Button>
-          <Button variant="secondary" onClick={onSynth} disabled={busy}>
-            {copy.actions.synth}
-          </Button>
-          <Button variant="secondary" onClick={onLintPropose} disabled={busy}>
-            {copy.actions.lintPropose}
-          </Button>
-          <Button variant="secondary" onClick={onLintApply} disabled={!canApply}>
-            {copy.actions.lintApply}
-          </Button>
-        </div>
+        {canEdit ? (
+          <div className="task-actions">
+            <Button variant="secondary" onClick={onIngest} disabled={busy}>
+              {copy.actions.ingest}
+            </Button>
+            <Button variant="secondary" onClick={onSynth} disabled={busy}>
+              {copy.actions.synth}
+            </Button>
+            <Button variant="secondary" onClick={onLintPropose} disabled={busy}>
+              {copy.actions.lintPropose}
+            </Button>
+            <Button variant="secondary" onClick={onLintApply} disabled={!canApply}>
+              {copy.actions.lintApply}
+            </Button>
+          </div>
+        ) : null}
       </section>
 
       {actionError ? <Notice title={copy.actions.errorTitle} error={actionError} /> : null}
@@ -557,14 +562,16 @@ export function TasksPage({ client, locale = "en" }: TasksPageProps) {
                   <Play size={16} />
                   {isTerminalTask(selected.status) ? "Load events" : "Follow"}
                 </Button>
-                <Button
-                  variant="danger"
-                  onClick={() => void cancelSelected()}
-                  disabled={isTerminalTask(selected.status)}
-                >
-                  <Square size={16} />
-                  Stop
-                </Button>
+                {canEdit ? (
+                  <Button
+                    variant="danger"
+                    onClick={() => void cancelSelected()}
+                    disabled={isTerminalTask(selected.status)}
+                  >
+                    <Square size={16} />
+                    Stop
+                  </Button>
+                ) : null}
               </div>
               {eventsError ? <Notice title={copy.eventsErrorTitle} error={eventsError} /> : null}
               <EventTape

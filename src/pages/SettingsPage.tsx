@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Check, Globe2, MonitorCog, PlugZap } from "lucide-react";
+import { Check, Globe2, MonitorCog, PlugZap, UserRound } from "lucide-react";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { SegmentedControl } from "../components/SegmentedControl";
 import type { Locale, ResolvedTheme, ThemePreference } from "../i18n";
 import { translations } from "../i18n";
 import { defaultServerUrl } from "../config/connection";
+import type { AuthRole, AuthUser } from "../config/auth";
 
 interface SettingsPageProps {
   locale: Locale;
@@ -19,6 +20,11 @@ interface SettingsPageProps {
   onSaveConnection: (serverUrl: string, token: string) => void;
   /** Reset the connection to its default URL + empty token, immediately. */
   onClearConnection: () => void;
+  /**
+   * Auth mode (issue #200): the server owns the core connection, so the
+   * Server URL / Token form is replaced by the signed-in account + Sign out.
+   */
+  account?: { user: AuthUser; role: AuthRole };
 }
 
 export function SettingsPage({
@@ -31,8 +37,10 @@ export function SettingsPage({
   onThemeChange,
   onSaveConnection,
   onClearConnection,
+  account,
 }: SettingsPageProps) {
   const copy = translations[locale].settings;
+  const accountCopy = translations[locale].account;
 
   // The committed connection (props) is the source of truth; these hold the
   // pending edit so Server URL / Token only take effect on an explicit Save.
@@ -82,61 +90,99 @@ export function SettingsPage({
       </header>
 
       <section className="settings-grid">
-        <article className="panel settings-panel">
-          <div className="settings-panel__header">
-            <PlugZap size={18} aria-hidden="true" />
-            <div>
-              <h2>{copy.connectionTitle}</h2>
+        {account ? (
+          <article className="panel settings-panel">
+            <div className="settings-panel__header">
+              <UserRound size={18} aria-hidden="true" />
+              <div>
+                <h2>{accountCopy.title}</h2>
+                <p>{accountCopy.detail}</p>
+              </div>
             </div>
-          </div>
-          <Field label={copy.serverUrl}>
-            <input
-              value={draftUrl}
-              onChange={(event) => {
-                setDraftUrl(event.target.value);
-                setJustSaved(false);
-              }}
-              placeholder={copy.serverPlaceholder}
-              spellCheck={false}
-              autoComplete="off"
-            />
-          </Field>
-          <Field label={copy.token}>
-            <input
-              value={draftToken}
-              onChange={(event) => {
-                setDraftToken(event.target.value);
-                setJustSaved(false);
-              }}
-              placeholder={copy.tokenPlaceholder}
-              type="password"
-              autoComplete="off"
-            />
-          </Field>
-          <div className="settings-actions">
-            <span className="settings-actions__status" aria-live="polite">
-              {dirty ? (
-                <span className="settings-actions__hint">
-                  <span className="settings-actions__dot" aria-hidden="true" />
-                  {copy.unsavedChanges}
-                </span>
-              ) : justSaved ? (
-                <span className="settings-actions__saved">
-                  <Check size={14} aria-hidden="true" />
-                  {copy.saved}
-                </span>
+            <dl className="compact-dl">
+              {account.user.name ? (
+                <div>
+                  <dt>{accountCopy.name}</dt>
+                  <dd>{account.user.name}</dd>
+                </div>
               ) : null}
-            </span>
-            <div className="settings-actions__buttons">
-              <Button variant="secondary" onClick={handleClear}>
-                {copy.clearConnection}
+              {account.user.email ? (
+                <div>
+                  <dt>{accountCopy.email}</dt>
+                  <dd>{account.user.email}</dd>
+                </div>
+              ) : null}
+              <div>
+                <dt>{accountCopy.role}</dt>
+                <dd>{accountCopy.roles[account.role]}</dd>
+              </div>
+            </dl>
+            {/* A plain form POST: the server clears the session and redirects to
+                the IdP's end-session endpoint; the browser sends Origin. */}
+            <form className="settings-actions" method="post" action="/web/auth/logout">
+              <span />
+              <Button type="submit" variant="secondary">
+                {accountCopy.signOut}
               </Button>
-              <Button onClick={handleSave} disabled={!dirty}>
-                {copy.save}
-              </Button>
+            </form>
+          </article>
+        ) : (
+          <article className="panel settings-panel">
+            <div className="settings-panel__header">
+              <PlugZap size={18} aria-hidden="true" />
+              <div>
+                <h2>{copy.connectionTitle}</h2>
+              </div>
             </div>
-          </div>
-        </article>
+            <Field label={copy.serverUrl}>
+              <input
+                value={draftUrl}
+                onChange={(event) => {
+                  setDraftUrl(event.target.value);
+                  setJustSaved(false);
+                }}
+                placeholder={copy.serverPlaceholder}
+                spellCheck={false}
+                autoComplete="off"
+              />
+            </Field>
+            <Field label={copy.token}>
+              <input
+                value={draftToken}
+                onChange={(event) => {
+                  setDraftToken(event.target.value);
+                  setJustSaved(false);
+                }}
+                placeholder={copy.tokenPlaceholder}
+                type="password"
+                autoComplete="off"
+              />
+            </Field>
+            <div className="settings-actions">
+              <span className="settings-actions__status" aria-live="polite">
+                {dirty ? (
+                  <span className="settings-actions__hint">
+                    <span className="settings-actions__dot" aria-hidden="true" />
+                    {copy.unsavedChanges}
+                  </span>
+                ) : justSaved ? (
+                  <span className="settings-actions__saved">
+                    <Check size={14} aria-hidden="true" />
+                    {copy.saved}
+                  </span>
+                ) : null}
+              </span>
+              <div className="settings-actions__buttons">
+                <Button variant="secondary" onClick={handleClear}>
+                  {copy.clearConnection}
+                </Button>
+                <Button onClick={handleSave} disabled={!dirty}>
+                  {copy.save}
+                </Button>
+              </div>
+            </div>
+          </article>
+        )}
 
         <article className="panel settings-panel">
           <div className="settings-panel__header">

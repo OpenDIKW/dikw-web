@@ -190,7 +190,8 @@ stable across the runtime. The sidecar:
 
 - Receives the current Settings `Server URL` and optional bearer token
   on each request; rejects requests without a `coreUrl` rather than
-  falling back to `.env.local`.
+  falling back to `.env.local`. (In auth mode it uses the server-configured
+  `DIKW_CORE_URL` / `DIKW_SERVER_TOKEN` instead and scopes sessions per user.)
 - Calls `dikw-core` retrieval / page / wisdom / health endpoints as
   tools.
 - Optionally calls `web_search` (Tavily) and `web_fetch` (Jina) when
@@ -215,7 +216,9 @@ Use `.env.example` as the template.
 - `dikw-web.token` (localStorage) — bearer token, never displayed in chrome.
   Persisted to `localStorage` so the connection is shared across tabs and
   survives a restart (the token is therefore at rest by default). MB-Web reads
-  it and its gear opens `#settings` to edit it (issue #97).
+  it and its gear opens `#settings` to edit it (issue #97). In the opt-in auth
+  mode both keys are ignored — `/v1` goes same-origin with no browser token — and
+  Settings shows the signed-in account, role and Sign out instead.
 - `dikw-web.locale` (localStorage) — `en` or `zh-CN`, defaults to `en`.
 - `dikw-web.theme` (localStorage) — `system` / `light` / `dark`,
   defaults to `system`. Applied as `html[data-theme="..."]`. Shared by the
@@ -258,7 +261,19 @@ lower them to make a feature pass.
 
 For production, build and run as a single self-contained Node service that
 serves the SPA plus the same-origin `/agent/*` sidecar. LLM credentials are
-injected via env; users still pick the external dikw-core URL in Settings.
+injected via env. With auth off, users still pick the external dikw-core URL in
+Settings; the auth mode below keeps it on the server.
+
+For a shared deployment, the opt-in **OIDC auth mode** (`DIKW_WEB_AUTH_MODE=oidc`)
+turns that server into a Backend-for-Frontend:
+- users sign in through your OpenID Connect provider;
+- the dikw-core token stays server-side, and `/v1` is proxied same-origin;
+- agent sessions are per user;
+- viewer / editor roles are enforced server-side.
+
+`/healthz` stays open for health checks. See the auth-mode section of
+[`docs/deployment.md`](docs/deployment.md) and
+[ADR 0006](docs/adr/0006-oidc-auth-bff.md).
 
 ```sh
 npm run build   # produces dist/ and dist-server/
@@ -280,7 +295,8 @@ Jaeger + Prometheus + Loki + Grafana) — and the full env reference are in
 
 - `CLAUDE.md` — operational guide for Claude Code sessions (working
   principles, architecture, testing, patch intake).
-- `docs/deployment.md` — production deploy (Docker, env vars, networking).
+- `docs/deployment.md` — production deploy (Docker, env vars, networking,
+  the opt-in OIDC auth mode + reverse-proxy recipe).
 - `docs/core-contract.md` — the `dikw-core` HTTP subset this app
   consumes (Settings, Overview, Base Pages, Assets, Graph, Chat, Tasks).
 - `docs/ui-system.md` — visual tokens, markdown reader contract,

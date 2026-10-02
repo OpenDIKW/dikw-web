@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WisdomPage } from "./WisdomPage";
+import { AuthContext } from "../config/auth";
 import { createMockClient, type MockDikwClient } from "../test/mockClient";
 import { WISDOM_WRITE_STORAGE_KEY } from "../state/wisdom-write";
 
@@ -273,6 +274,26 @@ describe("WisdomPage backed by dikw-core API", () => {
       "/v1/base/pages",
       expect.objectContaining({ params: expect.objectContaining({ layer: "wisdom" }) }),
     );
+  });
+
+  it("is read-only for viewers in auth mode: no New, favorite or Edit", async () => {
+    const client = setupClient();
+    render(
+      <AuthContext.Provider value={{ enabled: true, user: { sub: "u-1" }, role: "viewer" }}>
+        <WisdomPage client={client} />
+      </AuthContext.Provider>,
+    );
+
+    const reader = await screen.findByRole("main", { name: "Wisdom reader" });
+    await waitFor(() => {
+      expect(within(reader).getByText("wisdom/principles/prefer-evidence.md")).toBeInTheDocument();
+    });
+    expect(within(reader).getByRole("tab", { name: "Read", selected: true })).toBeInTheDocument();
+    expect(within(reader).queryByRole("tab", { name: "Edit" })).not.toBeInTheDocument();
+    expect(
+      within(reader).queryByRole("button", { name: "Add to favorites" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "New" })).not.toBeInTheDocument();
   });
 
   it("loads body + frontmatter sources when switching to another tree item", async () => {

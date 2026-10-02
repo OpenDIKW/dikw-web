@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DatabaseSessionService, createEvent } from "@google/adk";
 import type { Session } from "@google/adk";
@@ -409,17 +409,215 @@ describe("agent HTTP sidecar", () => {
       error: { code: "invalid_request", message: "session title is required" },
     });
   });
+
+  it("answers 404 (not 500) for a session that does not exist", async () => {
+    const { store } = makeStore();
+    const runner: AgentRunner = {
+      async runMessage() {
+        throw new Error("runner should not be called");
+      },
+    };
+    const baseUrl = await listen(createAgentHandler({ store, runner }));
+    const response = await fetch(`${baseUrl}/sessions/missing`);
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: { code: "not_found", message: "session not found" },
+    });
+  });
+
+  describe("auth mode (issue #200)", () => {
+    const serverCore = { coreUrl: "http://core.internal:8765", token: "server-token" };
+    // Stand-in for the auth gate: the caller's OIDC `sub` arrives as a header.
+    const subjectFor = (req: IncomingMessage) => String(req.headers["x-test-user"]);
+    const as = (user: string, init: RequestInit = {}): RequestInit => ({
+      ...init,
+      headers: { "Content-Type": "application/json", "x-test-user": user },
+    });
+
+    function recordingRunner() {
+      const calls: Array<{ userId?: string; coreUrl: string; token?: string }> = [];
+      const runner: AgentRunner = {
+        async runMessage({ sessionId, userId, coreUrl, token, onEvent }) {
+          calls.push({ userId, coreUrl, token });
+          await onEvent({ type: "agent_end", sessionId });
+        },
+      };
+      return { calls, runner };
+    }
+
+    it("isolates two users' sessions on every session route", async () => {
+      const { store } = makeStore();
+      const { calls, runner } = recordingRunner();
+      const baseUrl = await listen(
+        createAgentHandler({ store, runner, spanStore: new SpanStore(), subjectFor, serverCore }),
+      );
+      const created = (await (
+        await fetch(`${baseUrl}/sessions`, as("alice", { method: "POST" }))
+      ).json()) as { id: string };
+      const id = created.id;
+
+      expect(await (await fetch(`${baseUrl}/sessions`, as("bob"))).json()).toEqual([]);
+      const routes: Array<[string, string, string?]> = [
+        ["GET", `/sessions/${id}`],
+        ["GET", `/sessions/${id}/traces`],
+        ["PATCH", `/sessions/${id}`, JSON.stringify({ title: "Mine now" })],
+        ["POST", `/sessions/${id}/abort`],
+        ["POST", `/sessions/${id}/messages`, JSON.stringify({ message: "hi" })],
+        ["POST", `/sessions/${id}/proposals/p-1/reject`],
+        ["POST", `/sessions/${id}/proposals/p-1/confirm`, "{}"],
+        ["DELETE", `/sessions/${id}`],
+      ];
+      for (const [method, path, body] of routes) {
+        const response = await fetch(`${baseUrl}${path}`, as("bob", { method, body }));
+        expect(response.status, `${method} ${path}`).toBe(404);
+      }
+      expect(calls).toEqual([]);
+
+      // Alice still owns an untouched session and can keep using it.
+      expect(await (await fetch(`${baseUrl}/sessions`, as("alice"))).json()).toEqual([
+        expect.objectContaining({ id, title: "New chat" }),
+      ]);
+      const stream = await fetch(
+        `${baseUrl}/sessions/${id}/messages`,
+        as("alice", { method: "POST", body: JSON.stringify({ message: "hi" }) }),
+      );
+      await stream.text();
+      expect(calls).toEqual([{ userId: "oidc:alice", ...serverCore }]);
+      const deleted = await fetch(`${baseUrl}/sessions/${id}`, as("alice", { method: "DELETE" }));
+      expect(deleted.status).toBe(204);
+    });
+
+    it("uses the server-held core connection and ignores a request-supplied one", async () => {
+      const { sessionService, store } = makeStore();
+      const { calls, runner } = recordingRunner();
+      const baseUrl = await listen(createAgentHandler({ store, runner, subjectFor, serverCore }));
+      const created = (await (
+        await fetch(`${baseUrl}/sessions`, as("alice", { method: "POST" }))
+      ).json()) as { id: string };
+
+      const stream = await fetch(
+        `${baseUrl}/sessions/${created.id}/messages`,
+        as("alice", {
+          method: "POST",
+          body: JSON.stringify({
+            message: "hi",
+            coreUrl: "http://169.254.169.254",
+            token: "browser-token",
+          }),
+        }),
+      );
+      await stream.text();
+      expect(calls).toEqual([{ userId: "oidc:alice", ...serverCore }]);
+
+      // A confirmed maintenance proposal also goes to the server-held core.
+      const session = (await sessionService.getSession({
+        appName: APP_NAME,
+        userId: "oidc:alice",
+        sessionId: created.id,
+      })) as Session;
+      await sessionService.appendEvent({
+        session,
+        event: createEvent({
+          author: "dikw_agent",
+          content: {
+            role: "user",
+            parts: [
+              {
+                functionResponse: {
+                  id: "pr-1",
+                  name: "propose_maintenance_action",
+                  response: { proposal: { action: "synth", description: "d", params: {} } },
+                },
+              },
+            ],
+          },
+        }),
+      });
+      const coreFetch = vi.fn(async (_url: string, _init: RequestInit) =>
+        Response.json({ task_id: "t-2" }),
+      );
+      vi.stubGlobal("fetch", coreFetch);
+      try {
+        await nodeFetch(`${baseUrl}/sessions/${created.id}/proposals/pr-1/confirm`, {
+          method: "POST",
+          body: JSON.stringify({ coreUrl: "http://169.254.169.254", token: "browser-token" }),
+          headers: { "x-test-user": "alice" },
+        });
+      } finally {
+        vi.unstubAllGlobals();
+      }
+      expect(coreFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = coreFetch.mock.calls[0];
+      expect(url).toBe("http://core.internal:8765/v1/synth");
+      expect((init.headers as Record<string, string>).Authorization).toBe("Bearer server-token");
+    });
+
+    it("lets the configured legacy owner see and continue the pre-auth sessions", async () => {
+      const { store } = makeStore();
+      const legacy = await store.createSession();
+      const { calls, runner } = recordingRunner();
+      const baseUrl = await listen(
+        createAgentHandler({
+          store,
+          runner,
+          subjectFor,
+          serverCore,
+          legacySessionsOwner: "owner-sub",
+        }),
+      );
+
+      expect(await (await fetch(`${baseUrl}/sessions`, as("owner-sub"))).json()).toEqual([
+        expect.objectContaining({ id: legacy.id }),
+      ]);
+      const stream = await fetch(
+        `${baseUrl}/sessions/${legacy.id}/messages`,
+        as("owner-sub", { method: "POST", body: JSON.stringify({ message: "hi" }) }),
+      );
+      await stream.text();
+      // ADK is driven under the user id the session is actually stored under.
+      expect(calls).toEqual([{ userId: USER_ID, ...serverCore }]);
+
+      expect(await (await fetch(`${baseUrl}/sessions`, as("someone-else"))).json()).toEqual([]);
+      expect((await fetch(`${baseUrl}/sessions/${legacy.id}`, as("someone-else"))).status).toBe(
+        404,
+      );
+    });
+
+    it.each([
+      ["no legacy owner is configured", undefined],
+      ["someone else is the legacy owner", "owner-sub"],
+    ])(
+      "keeps the pre-auth sessions from a subject that is literally `demo` when %s",
+      async (_label, legacySessionsOwner) => {
+        const { store } = makeStore();
+        const legacy = await store.createSession();
+        const { runner } = recordingRunner();
+        const baseUrl = await listen(
+          createAgentHandler({ store, runner, subjectFor, serverCore, legacySessionsOwner }),
+        );
+
+        expect(await (await fetch(`${baseUrl}/sessions`, as(USER_ID))).json()).toEqual([]);
+        expect((await fetch(`${baseUrl}/sessions/${legacy.id}`, as(USER_ID))).status).toBe(404);
+      },
+    );
+  });
 });
 
 // Minimal Node http client used where the proposal-confirm test stubs global fetch
 // (so we cannot use fetch to talk to the sidecar). Returns the raw response body.
-function nodeFetch(url: string, init: { method: string; body?: string }): Promise<string> {
+function nodeFetch(
+  url: string,
+  init: { method: string; body?: string; headers?: Record<string, string> },
+): Promise<string> {
   return new Promise((resolve, reject) => {
     import("node:http")
       .then(({ request }) => {
         const req = request(
           url,
-          { method: init.method, headers: { "Content-Type": "application/json" } },
+          {
+            method: init.method,
+            headers: { "Content-Type": "application/json", ...init.headers },
+          },
           (res) => {
             let text = "";
             res.setEncoding("utf8");

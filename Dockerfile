@@ -76,6 +76,7 @@ USER node
 EXPOSE 4321
 VOLUME ["/data/agent-sessions"]
 # node:24-slim ships neither wget nor curl; probe with the always-present node.
+# /healthz is the one route that stays open in auth mode (DIKW_WEB_AUTH_MODE=oidc).
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:4321/agent/sessions').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:4321/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 CMD ["node", "dist-server/standalone.mjs"]

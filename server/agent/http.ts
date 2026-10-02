@@ -4,7 +4,7 @@ import { isAbsolute, join } from "node:path";
 import { DatabaseSessionService } from "@google/adk";
 import { loadAgentConfig } from "./config.js";
 import { parseSessionTitle, SESSION_TITLE_ERROR_MESSAGES } from "./sessionStore.js";
-import { AdkSessionStore } from "./adkSessionStore.js";
+import { AdkSessionStore, DEFAULT_USER_ID, SessionNotFoundError } from "./adkSessionStore.js";
 import { AdkAgentRunner } from "./adkRunner.js";
 import { SpanStore } from "./spanStore.js";
 import { initAgentTelemetry } from "./telemetry.js";
@@ -28,7 +28,26 @@ export interface AgentHandlerOptions {
    * sets this, so the rewrite is impossible in prod by construction.
    */
   devProxyTarget?: string;
+  /**
+   * Auth mode (issue #200): the OIDC `sub` the auth gate admitted for this
+   * request; its ADK user id is `oidc:<sub>`. Unset → every caller is
+   * `DEFAULT_USER_ID`.
+   */
+  subjectFor?: (req: IncomingMessage) => string;
+  /** Auth mode: the `sub` that also sees the pre-auth `DEFAULT_USER_ID` sessions. */
+  legacySessionsOwner?: string;
+  /**
+   * Auth mode: the server-configured core URL + token. Request-supplied
+   * `coreUrl` / `token` are then ignored, so a caller can't point the sidecar
+   * at an arbitrary URL.
+   */
+  serverCore?: CoreConnection;
 }
+
+type DefaultAgentHandlerOptions = Pick<
+  AgentHandlerOptions,
+  "sessionsDir" | "devProxyTarget" | "subjectFor" | "legacySessionsOwner" | "serverCore"
+>;
 
 export function resolveSessionsDir(cwd: string, override?: string): string {
   const raw = (override ?? process.env.DIKW_AGENT_SESSIONS_DIR ?? "").trim();
@@ -40,7 +59,7 @@ export function resolveSessionsDir(cwd: string, override?: string): string {
 
 export async function createDefaultAgentHandler(
   cwd = process.cwd(),
-  options: { sessionsDir?: string; devProxyTarget?: string } = {},
+  options: DefaultAgentHandlerOptions = {},
 ) {
   const config = await loadAgentConfig({ cwd });
   const dir = resolveSessionsDir(cwd, options.sessionsDir);
@@ -48,25 +67,31 @@ export async function createDefaultAgentHandler(
   // POSIX slashes — Windows backslashes break the sqlite:// URI parse.
   const dbUri = `sqlite://${dir.replace(/\\/g, "/")}/agent.sqlite`;
   const sessionService = new DatabaseSessionService(dbUri);
-  const store = new AdkSessionStore({ sessionService, appName: "dikw-web", userId: "demo" });
+  const store = new AdkSessionStore({
+    sessionService,
+    appName: "dikw-web",
+    userId: DEFAULT_USER_ID,
+  });
   // Register telemetry BEFORE building the runner so the first turn's spans are
   // captured; initAgentTelemetry owns the process-global SpanStore (see
   // telemetry.ts) so a dev /web request before any /agent request still
   // registers the provider, and #trace reads from this same store.
   const spanStore = initAgentTelemetry();
   const runner = new AdkAgentRunner({ config, store, sessionService });
-  return createAgentHandler({
-    cwd,
-    store,
-    runner,
-    spanStore,
-    devProxyTarget: options.devProxyTarget,
-  });
+  return createAgentHandler({ ...options, cwd, store, runner, spanStore });
 }
 
 export function createAgentHandler(options: AgentHandlerOptions = {}) {
-  const { store, runner, spanStore, devProxyTarget } = options;
-  if (!store || !runner) {
+  const {
+    store: baseStore,
+    runner,
+    spanStore,
+    devProxyTarget,
+    serverCore,
+    subjectFor,
+    legacySessionsOwner,
+  } = options;
+  if (!baseStore || !runner) {
     throw new Error(
       "createAgentHandler requires both store and runner (use createDefaultAgentHandler)",
     );
@@ -84,6 +109,18 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       if (parts[0] !== "sessions") {
         return notFound(res);
       }
+      // Every route below goes through the caller's own store, so another
+      // user's session id is simply "not found". Signed-in users live under
+      // `oidc:<sub>`, so no IdP subject can ever be the pre-auth `demo` owner;
+      // only the configured legacy owner is handed those sessions.
+      const subject = subjectFor?.(req);
+      const store =
+        subject === undefined
+          ? baseStore.forUser(DEFAULT_USER_ID)
+          : baseStore.forUser(
+              `oidc:${subject}`,
+              subject === legacySessionsOwner ? DEFAULT_USER_ID : undefined,
+            );
       if (req.method === "GET" && parts.length === 1) {
         return json(res, await store.listSessions());
       }
@@ -98,6 +135,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         return json(res, await store.getSession(sessionId));
       }
       if (req.method === "GET" && parts.length === 3 && parts[2] === "traces") {
+        await store.ownerOf(sessionId);
         return json(
           res,
           spanStore ? spanStore.getSessionTraces(sessionId) : { sessionId, invocations: [] },
@@ -121,6 +159,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         return noContent(res);
       }
       if (req.method === "POST" && parts.length === 3 && parts[2] === "abort") {
+        await store.ownerOf(sessionId);
         activeControllers.get(sessionId)?.abort();
         return noContent(res);
       }
@@ -129,10 +168,13 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         if (!isRecord(body) || typeof body.message !== "string" || !body.message.trim()) {
           return errorJson(res, 400, "invalid_request", "message is required");
         }
-        const connection = readCoreConnection(body, devProxyTarget);
+        const connection = serverCore ?? readCoreConnection(body, devProxyTarget);
         if ("error" in connection) {
           return errorJson(res, 400, "invalid_request", connection.error);
         }
+        // Resolve before streaming starts, so a foreign id is a clean 404 and
+        // ADK runs under the user the session is stored under.
+        const owner = await store.ownerOf(sessionId);
         const controller = new AbortController();
         activeControllers.set(sessionId, controller);
         res.statusCode = 200;
@@ -143,6 +185,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         try {
           await runner.runMessage({
             sessionId,
+            userId: owner,
             message: body.message.trim(),
             coreUrl: connection.coreUrl,
             token: connection.token,
@@ -169,7 +212,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         }
         if (parts[4] === "confirm") {
           const body = await readJsonBody(req);
-          const connection = readCoreConnection(body, devProxyTarget);
+          const connection = serverCore ?? readCoreConnection(body, devProxyTarget);
           if ("error" in connection) {
             return errorJson(res, 400, "invalid_request", connection.error);
           }
@@ -190,6 +233,9 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       }
       return notFound(res);
     } catch (error) {
+      if (error instanceof SessionNotFoundError) {
+        return errorJson(res, 404, "not_found", "session not found");
+      }
       if (next) {
         next(error);
         return;

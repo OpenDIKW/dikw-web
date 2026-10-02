@@ -9,6 +9,54 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-10-02
+
+### Added
+
+- **Opt-in OIDC auth mode (Backend-for-Frontend), [#200](https://github.com/OpenDIKW/dikw-web/issues/200).**
+  `DIKW_WEB_AUTH_MODE=oidc` makes the standalone server (`npm start` / the Docker
+  image) a Backend-for-Frontend. With it unset, nothing changes, and `npm run dev`
+  never authenticates. Design: `docs/adr/0006-oidc-auth-bff.md`. Setup, the env
+  table and a reverse-proxy recipe (browser traffic → dikw-web, Bearer machine
+  traffic → dikw-core): `docs/deployment.md`.
+  - **Sign-in** through any OpenID Connect provider (Casdoor, Keycloak, Authentik,
+    Entra ID, Google, …): Authorization Code + PKCE (S256), `state` / `nonce`,
+    `iss` / `aud` / `exp` / `azp` checks, and ID-token signatures verified against
+    the IdP's JWKS. Built on `openid-client` v6 (new dependency). An optional
+    internal URL carries the server-to-server calls.
+  - **Login sessions** use an `HttpOnly` cookie. They are stored in `auth.sqlite`
+    next to `agent.sqlite` as a session-id hash plus an AES-256-GCM-sealed record,
+    so they survive restarts. They last an absolute TTL (default 8h). Sign out
+    uses RP-initiated logout when the IdP supports it.
+  - **The dikw-core token stays on the server.** The browser calls same-origin
+    `/v1/*`, and dikw-web forwards it to `DIKW_CORE_URL` with `DIKW_SERVER_TOKEN`,
+    streaming NDJSON retrieve, task-event long-polls and multipart imports. The
+    agent sidecar uses the same server-held connection and ignores any
+    request-supplied `coreUrl` / `token`.
+  - **Per-user agent sessions** (ADK `userId` = `oidc:<sub>`): another user's
+    session id is a 404 on every session route.
+    `DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER=<sub>` hands the pre-auth chats to one
+    user; otherwise they stay hidden.
+  - **Viewer / editor roles** come from a configurable ID-token claim path
+    (`roles`, `groups`, `realm_access.roles`, Casdoor `roles[].name` with an
+    optional owner filter) and are enforced server-side. Viewers can read, search,
+    chat and use bilingual reading; import, conversion, ingest / synth / lint,
+    task cancel, wisdom writes and confirming agent maintenance proposals need
+    editor. Every state-changing request must carry an exact-match `Origin`
+    (CSRF).
+  - **In the browser**, Settings shows the signed-in account, role and Sign out
+    instead of Server URL / Token, and the top bar shows the user. A 401 sends
+    you back through sign-in to the page you were on, including hash routes like
+    `#MB-Web`. Viewers don't see editor-only actions.
+- **`GET /healthz`**, an always-open liveness endpoint.
+
+### Changed
+
+- The Docker `HEALTHCHECK` probes `/healthz` instead of `/agent/sessions` (which
+  answers 401 in auth mode).
+- `GET /agent/sessions/{id}` and the other session routes now answer
+  `404 not_found` for an unknown session instead of a 500.
+
 ## [0.9.3] - 2026-10-02
 
 ### Security

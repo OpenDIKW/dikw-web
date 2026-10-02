@@ -236,16 +236,18 @@ function makeConfig(): AgentConfig {
 function makeRunner(createRunner: () => RunnerLike): {
   runner: AdkAgentRunner;
   finalizeTurn: ReturnType<typeof vi.fn>;
+  forUser: ReturnType<typeof vi.fn>;
 } {
   const finalizeTurn = vi.fn(async () => {});
-  const store = { finalizeTurn } as unknown as AdkSessionStore;
+  const forUser = vi.fn((): unknown => store);
+  const store = { finalizeTurn, forUser } as unknown as AdkSessionStore;
   const runner = new AdkAgentRunner({
     config: makeConfig(),
     store,
     sessionService: {} as never,
     createRunner,
   });
-  return { runner, finalizeTurn };
+  return { runner, finalizeTurn, forUser };
 }
 
 async function collect(
@@ -335,6 +337,34 @@ describe("AdkAgentRunner.runMessage", () => {
     expect(finalizeTurn).toHaveBeenCalledTimes(1);
     expect(finalizeTurn).toHaveBeenCalledWith(SESSION_ID);
     expect(recordAgentTurnDuration).toHaveBeenCalledWith(expect.any(Number), "ok");
+  });
+
+  it("drives ADK and finalizes under the session owner's user id (auth mode)", async () => {
+    const seenUserIds: string[] = [];
+    const fakeRunner: RunnerLike = {
+      async *runAsync({ userId }) {
+        seenUserIds.push(userId);
+      },
+    };
+    const { runner, finalizeTurn, forUser } = makeRunner(() => fakeRunner);
+
+    await runner.runMessage({
+      sessionId: SESSION_ID,
+      userId: "oidc-sub-1",
+      message: "hi",
+      coreUrl: "http://127.0.0.1:8765",
+      onEvent: () => {},
+    });
+    await runner.runMessage({
+      sessionId: SESSION_ID,
+      message: "hi",
+      coreUrl: "http://127.0.0.1:8765",
+      onEvent: () => {},
+    });
+
+    expect(seenUserIds).toEqual(["oidc-sub-1", "demo"]);
+    expect(forUser.mock.calls).toEqual([["oidc-sub-1"], ["demo"]]);
+    expect(finalizeTurn).toHaveBeenCalledTimes(2);
   });
 
   it("treats a throw after abort as graceful: still finalizes + ends, no rethrow", async () => {
