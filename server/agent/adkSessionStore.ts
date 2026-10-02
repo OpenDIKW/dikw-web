@@ -6,7 +6,7 @@ import {
   isCompactedEvent,
   stringifyContent,
 } from "@google/adk";
-import type { DatabaseSessionService, Event, Session } from "@google/adk";
+import type { DatabaseSessionService, Event, GetSessionConfig, Session } from "@google/adk";
 import type {
   AgentMessage,
   AgentProposal,
@@ -77,7 +77,8 @@ export class AdkSessionStore {
 
   /** The ADK user id the session is stored under (`userId` or the legacy one). */
   async ownerOf(id: string): Promise<string> {
-    return (await this.loadSession(id)).userId;
+    // An ownership check needs no history: load one event, not the whole chat.
+    return (await this.loadSession(id, { numRecentEvents: 1 })).userId;
   }
 
   async createSession(): Promise<AgentSession> {
@@ -182,12 +183,13 @@ export class AdkSessionStore {
     return this.legacyUserId ? [this.userId, this.legacyUserId] : [this.userId];
   }
 
-  private async loadSession(id: string): Promise<Session> {
+  private async loadSession(id: string, config?: GetSessionConfig): Promise<Session> {
     for (const userId of this.owners()) {
       const session = await this.sessionService.getSession({
         appName: this.appName,
         userId,
         sessionId: id,
+        config,
       });
       if (session) {
         return session;

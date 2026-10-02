@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, type StatementSync } from "node:sqlite";
 import type { AuthRole } from "./roles.js";
 import { createSealer, type Sealer } from "./seal.js";
 
@@ -32,6 +32,11 @@ export class AuthSessionStore {
   private readonly db: DatabaseSync;
   private readonly sealer: Sealer;
   private readonly now: () => number;
+  // Prepared once: `get` runs on every authenticated request.
+  private readonly sweep: StatementSync;
+  private readonly insert: StatementSync;
+  private readonly select: StatementSync;
+  private readonly remove: StatementSync;
 
   constructor(options: AuthSessionStoreOptions) {
     this.db = new DatabaseSync(options.path);
@@ -39,6 +44,12 @@ export class AuthSessionStore {
       "CREATE TABLE IF NOT EXISTS auth_sessions (" +
         "id_hash TEXT PRIMARY KEY, data TEXT NOT NULL, expires_at INTEGER NOT NULL)",
     );
+    this.sweep = this.db.prepare("DELETE FROM auth_sessions WHERE expires_at <= ?");
+    this.insert = this.db.prepare(
+      "INSERT INTO auth_sessions (id_hash, data, expires_at) VALUES (?, ?, ?)",
+    );
+    this.select = this.db.prepare("SELECT data, expires_at FROM auth_sessions WHERE id_hash = ?");
+    this.remove = this.db.prepare("DELETE FROM auth_sessions WHERE id_hash = ?");
     this.sealer = createSealer(options.secret, "session-record");
     this.now = options.now ?? Date.now;
   }
@@ -46,18 +57,14 @@ export class AuthSessionStore {
   /** Stores `session` for `ttlSeconds` and returns the opaque id for the cookie. */
   create(session: AuthSession, ttlSeconds: number): string {
     const now = this.now();
-    this.db.prepare("DELETE FROM auth_sessions WHERE expires_at <= ?").run(now);
+    this.sweep.run(now);
     const id = randomBytes(32).toString("base64url");
-    this.db
-      .prepare("INSERT INTO auth_sessions (id_hash, data, expires_at) VALUES (?, ?, ?)")
-      .run(hashId(id), this.sealer.seal(session), now + ttlSeconds * 1000);
+    this.insert.run(hashId(id), this.sealer.seal(session), now + ttlSeconds * 1000);
     return id;
   }
 
   get(id: string): AuthSession | null {
-    const row = this.db
-      .prepare("SELECT data, expires_at FROM auth_sessions WHERE id_hash = ?")
-      .get(hashId(id)) as { data: string; expires_at: number } | undefined;
+    const row = this.select.get(hashId(id)) as { data: string; expires_at: number } | undefined;
     if (!row) {
       return null;
     }
@@ -69,7 +76,7 @@ export class AuthSessionStore {
   }
 
   delete(id: string): void {
-    this.db.prepare("DELETE FROM auth_sessions WHERE id_hash = ?").run(hashId(id));
+    this.remove.run(hashId(id));
   }
 
   close(): void {

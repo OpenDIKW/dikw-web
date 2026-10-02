@@ -81,8 +81,15 @@ export async function createDefaultAgentHandler(
 }
 
 export function createAgentHandler(options: AgentHandlerOptions = {}) {
-  const { store: baseStore, runner, spanStore, devProxyTarget, serverCore } = options;
-  const { userIdFor, legacySessionsOwner } = options;
+  const {
+    store: baseStore,
+    runner,
+    spanStore,
+    devProxyTarget,
+    serverCore,
+    userIdFor,
+    legacySessionsOwner,
+  } = options;
   if (!baseStore || !runner) {
     throw new Error(
       "createAgentHandler requires both store and runner (use createDefaultAgentHandler)",

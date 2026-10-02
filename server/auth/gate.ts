@@ -2,7 +2,8 @@
 // request, whether it may reach the app handlers. The server is the source of
 // truth — the SPA only hides what a role can't do.
 //
-//   no session        → page load: 302 to login (returning here) / API: 401
+//   no session        → page load: a page that sends the browser to login (keeping
+//                       the #hash route to return to) / API: 401
 //   no mapped role    → 403 (an HTML page with Sign out, or JSON)
 //   unsafe method     → Origin must equal DIKW_WEB_PUBLIC_URL exactly (CSRF;
 //                       SameSite=Lax alone doesn't cover same-site other ports)
@@ -21,7 +22,8 @@ const log = createLogger("auth");
 
 const SESSION_COOKIE = "dikw_session";
 const LOGIN_COOKIE = "dikw_login";
-const LOGIN_COOKIE_PATH = "/web/auth";
+/** The gate's own routes; also the login cookie's Path. */
+const AUTH_PATH = "/web/auth";
 const LOGIN_TTL_SECONDS = 600;
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
@@ -91,12 +93,12 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
       return sendPage(req, res, 502, "idpUnavailable");
     }
     const sealed = loginSealer.seal({ ...begun.tx, exp: Date.now() + LOGIN_TTL_SECONDS * 1000 });
-    res.setHeader("Set-Cookie", cookie(LOGIN_COOKIE, sealed, LOGIN_TTL_SECONDS, LOGIN_COOKIE_PATH));
+    res.setHeader("Set-Cookie", cookie(LOGIN_COOKIE, sealed, LOGIN_TTL_SECONDS, AUTH_PATH));
     redirect(res, 302, begun.url);
   }
 
   async function callback(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
-    const clearLogin = cookie(LOGIN_COOKIE, "", 0, LOGIN_COOKIE_PATH);
+    const clearLogin = cookie(LOGIN_COOKIE, "", 0, AUTH_PATH);
     const raw = readCookie(req, LOGIN_COOKIE);
     const tx = raw ? loginSealer.open<LoginTransaction & { exp: number }>(raw) : null;
     // A missing/expired transaction is answered with a page, never a fresh
@@ -151,7 +153,7 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
   }
 
   async function authRoute(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
-    const route = url.pathname.slice(LOGIN_COOKIE_PATH.length);
+    const route = url.pathname.slice(AUTH_PATH.length);
     if (req.method === "GET" && route === "/login") return login(req, res, url);
     if (req.method === "GET" && route === "/callback") return callback(req, res, url);
     if (req.method === "POST" && route === "/logout") {
@@ -170,7 +172,7 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
   return {
     async authorize(req, res) {
       const url = new URL(req.url ?? "/", "http://localhost");
-      if (url.pathname === LOGIN_COOKIE_PATH || url.pathname.startsWith(`${LOGIN_COOKIE_PATH}/`)) {
+      if (url.pathname === AUTH_PATH || url.pathname.startsWith(`${AUTH_PATH}/`)) {
         await authRoute(req, res, url);
         return null;
       }
@@ -239,14 +241,13 @@ function isPageLoad(req: IncomingMessage): boolean {
 // reaches the server — so a signed-out page load gets a tiny page that sends the
 // browser to login with the *full* return path. Its CSP admits exactly this
 // script by hash; without JS, a meta refresh still keeps path + query.
-const LOGIN_REDIRECT_SCRIPT =
-  'location.replace("/web/auth/login?returnTo="+encodeURIComponent(location.pathname+location.search+location.hash))';
+const LOGIN_REDIRECT_SCRIPT = `location.replace("${AUTH_PATH}/login?returnTo="+encodeURIComponent(location.pathname+location.search+location.hash))`;
 const LOGIN_REDIRECT_CSP = `default-src 'none'; script-src 'sha256-${createHash("sha256")
   .update(LOGIN_REDIRECT_SCRIPT)
   .digest("base64")}'`;
 
 function sendLoginRedirectPage(res: ServerResponse, returnTo: string): void {
-  const fallback = `/web/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+  const fallback = `${AUTH_PATH}/login?returnTo=${encodeURIComponent(returnTo)}`;
   res.statusCode = 200;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");
@@ -321,8 +322,8 @@ function sendPage(req: IncomingMessage, res: ServerResponse, status: number, pag
   const [title, detail] = copy[page];
   const action =
     page === "noAccess"
-      ? `<form method="post" action="/web/auth/logout"><button type="submit">${copy.signOut}</button></form>`
-      : `<p><a href="/web/auth/login">${copy.retry}</a></p>`;
+      ? `<form method="post" action="${AUTH_PATH}/logout"><button type="submit">${copy.signOut}</button></form>`
+      : `<p><a href="${AUTH_PATH}/login">${copy.retry}</a></p>`;
   res.statusCode = status;
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "no-store");

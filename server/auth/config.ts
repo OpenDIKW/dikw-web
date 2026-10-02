@@ -92,7 +92,7 @@ export async function loadAuthConfig(
   const legacySessionsOwner = readOptional(env, "DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER");
   return {
     publicUrl: readOrigin(value("DIKW_WEB_PUBLIC_URL"), "DIKW_WEB_PUBLIC_URL"),
-    issuer: readHttpUrl(value("DIKW_WEB_OIDC_ISSUER"), "DIKW_WEB_OIDC_ISSUER").raw,
+    issuer: readHttpUrl(value("DIKW_WEB_OIDC_ISSUER"), "DIKW_WEB_OIDC_ISSUER"),
     ...(internalUrl ? { internalUrl: readOrigin(internalUrl, "DIKW_WEB_OIDC_INTERNAL_URL") } : {}),
     clientId: value("DIKW_WEB_OIDC_CLIENT_ID"),
     clientSecret: value("DIKW_WEB_OIDC_CLIENT_SECRET"),
@@ -103,7 +103,7 @@ export async function loadAuthConfig(
     editorRoles,
     sessionSecret,
     sessionTtlSeconds: readTtl(env),
-    coreUrl: readHttpUrl(value("DIKW_CORE_URL"), "DIKW_CORE_URL").raw.replace(/\/+$/, ""),
+    coreUrl: readHttpUrl(value("DIKW_CORE_URL"), "DIKW_CORE_URL").replace(/\/+$/, ""),
     serverToken: value("DIKW_SERVER_TOKEN"),
     ...(legacySessionsOwner ? { legacySessionsOwner } : {}),
   };
@@ -116,11 +116,12 @@ function readList(env: Record<string, string | undefined>, key: string): string[
     .filter(Boolean);
 }
 
-function readHttpUrl(raw: string, key: string): { raw: string; url: URL } {
+/** `raw` unchanged when it is an absolute http(s) URL; throws otherwise. */
+function readHttpUrl(raw: string, key: string): string {
   try {
-    const url = new URL(raw);
-    if (url.protocol === "http:" || url.protocol === "https:") {
-      return { raw, url };
+    const { protocol } = new URL(raw);
+    if (protocol === "http:" || protocol === "https:") {
+      return raw;
     }
   } catch {
     // fall through
@@ -130,7 +131,7 @@ function readHttpUrl(raw: string, key: string): { raw: string; url: URL } {
 
 /** An absolute http(s) URL with no path/query, returned as its bare origin. */
 function readOrigin(raw: string, key: string): string {
-  const { url } = readHttpUrl(raw, key);
+  const url = new URL(readHttpUrl(raw, key));
   if (url.pathname !== "/" || url.search || url.hash) {
     throw new Error(`${key} must be an origin without a path (e.g. https://kb.example.com)`);
   }
