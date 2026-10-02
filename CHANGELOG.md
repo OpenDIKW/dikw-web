@@ -57,6 +57,19 @@ file format introduced in `[0.0.1.0]` was dropped.
 - `GET /agent/sessions/{id}` and the other session routes now answer
   `404 not_found` for an unknown session instead of a 500.
 
+## [0.9.3] - 2026-10-02
+
+### Security
+
+- **`@grpc/grpc-js` 1.14.4 → 1.14.5, clearing the HIGH advisories
+  (GHSA-m9gg-hp2v-232j / CVE-2026-101916, GHSA-f596-whhp-79r4) that turned the
+  required `Dependency audit` job and `Container scan (trivy)` red.** It is
+  transitive-only, reached through ADK's `@a2a-js/sdk` and the Cloud Trace exporter,
+  so the fix is a lockfile refresh within their existing `^1.x` ranges. No direct
+  dependency or runtime changed. The same refresh drops a redundant nested copy of
+  `@opentelemetry/instrumentation@0.222.0` under `instrumentation-fetch`; the hoisted
+  copy is the same version, so module resolution is unchanged.
+
 ## [0.9.2] - 2026-09-25
 
 ### Fixed
