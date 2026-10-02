@@ -24,6 +24,10 @@ describe("safeReturnTo", () => {
   it.each([
     "//evil.example.com/",
     "/\\evil.example.com",
+    // Dot segments that normalize to a protocol-relative "//host" path.
+    "/.//evil.example.com",
+    "/%2e//evil.example.com",
+    "/x/..//evil.example.com",
     "https://evil.example.com/",
     "javascript:alert(1)",
     "chat",

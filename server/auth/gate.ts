@@ -53,12 +53,15 @@ export interface AuthGate {
 
 /** A same-origin absolute path to return to after login, or `null`. */
 export function safeReturnTo(value: string | null, publicUrl: string): string | null {
-  if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
+  if (!value?.startsWith("/")) {
     return null;
   }
   try {
     const url = new URL(value, publicUrl);
-    return url.origin === publicUrl ? `${url.pathname}${url.search}${url.hash}` : null;
+    const path = `${url.pathname}${url.search}${url.hash}`;
+    // Judge the *normalized* path: dot segments turn "/.//host" into "//host",
+    // which a browser follows as a protocol-relative (off-site) redirect.
+    return url.origin === publicUrl && !path.startsWith("//") ? path : null;
   } catch {
     return null;
   }
