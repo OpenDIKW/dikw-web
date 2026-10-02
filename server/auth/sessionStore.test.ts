@@ -19,9 +19,10 @@ const session: AuthSession = {
 describe("createSealer", () => {
   it("round-trips a value and rejects tampering or the wrong key/purpose", () => {
     const sealer = createSealer(SECRET, "test");
-    const sealed = sealer.seal({ a: 1 });
-    expect(sealer.open(sealed)).toEqual({ a: 1 });
-    expect(sealed).not.toContain("a");
+    const sealed = sealer.seal({ marker: "plaintext-marker" });
+    expect(sealer.open(sealed)).toEqual({ marker: "plaintext-marker" });
+    expect(sealed).not.toContain("plaintext-marker");
+    expect(Buffer.from(sealed, "base64url").toString("latin1")).not.toContain("plaintext-marker");
 
     const flipped = `${sealed.slice(0, -2)}${sealed.endsWith("A") ? "B" : "A"}${sealed.slice(-1)}`;
     expect(sealer.open(flipped)).toBeNull();
