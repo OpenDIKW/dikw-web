@@ -110,9 +110,9 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 默认关闭。设置 `DIKW_WEB_AUTH_MODE=oidc` 后，dikw-web 变成一个 Backend-for-Frontend（设计见 [ADR 0006](adr/0006-oidc-auth-bff.md)，对应 [#200](https://github.com/OpenDIKW/dikw-web/issues/200)）：
 
 - 用户经外部 OpenID Connect 身份提供方（Casdoor / Keycloak / Authentik / Entra ID / Google …）登录：Authorization Code + PKCE（S256），校验 `state` / `nonce` / `iss` / `aud` / `exp` / `azp`，并用 IdP 的 JWKS 校验 ID token 签名。
-- dikw-core 的 token **只在服务端**：浏览器同源访问 `/v1/*`，dikw-web 校验会话和角色后用 `DIKW_SERVER_TOKEN` 转发给 `DIKW_CORE_URL`（NDJSON 流式检索、任务事件长轮询、multipart 导入都是流式透传）。Settings 页不再显示 Server URL / Token，改为显示当前账户、角色和「退出登录」。
+- dikw-core 的 token **只在服务端**：浏览器同源访问 `/v1/*`，dikw-web 校验会话和角色后用 `DIKW_SERVER_TOKEN` 转发给 `DIKW_CORE_URL`（NDJSON 流式检索、任务事件长轮询、multipart 导入都是流式透传；响应一律改成 `Cache-Control: private`，前面的 CDN / 共享缓存不会把登录用户的内容转给别人）。Settings 页不再显示 Server URL / Token，改为显示当前账户、角色和「退出登录」。
 - `/agent/*`、`/web/*` 和 SPA 本身都需要登录；未登录的页面访问会跳转登录（登录后回到原来的 `#路由`），API 请求返回 401。只有 `/healthz` 免登录。
-- 聊天会话**按用户隔离**（ADK `userId` = OIDC `sub`）：别人的会话 id 一律 404。
+- 聊天会话**按用户隔离**（ADK `userId` = `oidc:<sub>`，加前缀是为了让任何 IdP 的 `sub` 都不可能等于旧的 `demo`）：别人的会话 id 一律 404。
 - 两级角色 **viewer / editor**（editor 包含 viewer），由服务端强制；界面只是把 viewer 用不了的操作藏起来。
 
 | 能力 | viewer | editor |
@@ -242,6 +242,7 @@ server {
 | 登录后显示「登录失败」 | ID token 校验没通过：核对 `DIKW_WEB_OIDC_CLIENT_ID`、IdP 的 issuer 与 `DIKW_WEB_OIDC_ISSUER` 是否逐字一致；dikw-web 日志里有 `sign-in rejected` 和原因 |
 | 登录后显示「无访问权限」 | 账号的角色没映射上：核对 `DIKW_WEB_OIDC_ROLES_CLAIM` / `_ROLES_OWNER` / `DIKW_WEB_ROLE_*`，以及角色是否进了 ID token |
 | 写操作返回 403 `csrf_origin_mismatch` | 浏览器访问的 origin 与 `DIKW_WEB_PUBLIC_URL` 不一致（协议、域名、端口都要一样） |
+| 已登录，但所有页面报 502 `core_auth_failed` | dikw-core 拒绝了 `DIKW_SERVER_TOKEN`（日志里有 `core rejected DIKW_SERVER_TOKEN`）：核对 token 是否与 core 一致、是否已轮换。这时 dikw-web 不会把 401 转给浏览器，免得浏览器反复跳去登录 |
 
 ## 升级与回滚
 

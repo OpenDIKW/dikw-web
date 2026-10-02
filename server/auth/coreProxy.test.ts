@@ -157,6 +157,42 @@ describe("createCoreProxy", () => {
     expect(seen[0].body.equals(bytes)).toBe(true);
   });
 
+  it("keeps shared caches from replaying an authenticated response to anyone else", async () => {
+    const cacheControl: Record<string, string> = {
+      "/v1/assets/a": "public, max-age=31536000, immutable",
+      "/v1/assets/b": "max-age=60, s-maxage=600",
+    };
+    const { webUrl } = await setup((req, _seen, res) => {
+      const value = cacheControl[req.url!];
+      if (value) res.setHeader("Cache-Control", value);
+      res.end("x");
+    });
+    const cacheControlAt = async (path: string) => {
+      const response = await fetch(`${webUrl}${path}`);
+      await response.arrayBuffer();
+      return response.headers.get("cache-control");
+    };
+    // The browser may still cache its own copy; a CDN in front must not.
+    expect(await cacheControlAt("/v1/assets/a")).toBe("private, max-age=31536000, immutable");
+    expect(await cacheControlAt("/v1/assets/b")).toBe("private, max-age=60");
+    expect(await cacheControlAt("/v1/health")).toBe("private");
+  });
+
+  it("turns a core 401 into a gateway error rather than a sign-in prompt", async () => {
+    // The gate already admitted this browser, so core rejecting the request
+    // means DIKW_SERVER_TOKEN is wrong — a 401 would bounce the SPA to login forever.
+    const { webUrl } = await setup((_req, _seen, res) => {
+      res.statusCode = 401;
+      res.setHeader("WWW-Authenticate", "Bearer");
+      res.setHeader("Content-Type", "application/json");
+      res.end(JSON.stringify({ error: { code: "unauthorized", message: "bad token" } }));
+    });
+    const response = await fetch(`${webUrl}/v1/health`);
+    expect(response.status).toBe(502);
+    expect(response.headers.get("www-authenticate")).toBeNull();
+    expect((await response.json()).error.code).toBe("core_auth_failed");
+  });
+
   it("answers 502 when core is unreachable", async () => {
     const proxy = createCoreProxy({ coreUrl: "http://127.0.0.1:1", token: TOKEN });
     const webUrl = await listen(createServer((req, res) => void proxy(req, res)));

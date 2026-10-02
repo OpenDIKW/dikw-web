@@ -59,7 +59,7 @@ editor 两级角色在服务端强制。关闭时行为与现在完全一致。
 | `server/auth/coreProxy.ts` | 新建 | `/v1/*` 流式反代:注入 Bearer、剥离 cookie/Authorization、`Accept-Encoding: identity`、客户端断开即中止上游、上游不可达 502 |
 | `server/agent/adkSessionStore.ts` | 修改 | `forUser(userId, legacyUserId?)`、读时合并、`ownerOf(id)`、`SessionNotFoundError` |
 | `server/agent/adkRunner.ts` / `runtime.ts` | 修改 | `runMessage({ userId })` 取代常量 `"demo"` |
-| `server/agent/http.ts` | 修改 | `userIdFor` / `serverCore` / `legacySessionsOwner` 选项;所有会话路由按用户;不存在/他人会话 → 404;traces/abort 先校验归属 |
+| `server/agent/http.ts` | 修改 | `subjectFor` / `serverCore` / `legacySessionsOwner` 选项;所有会话路由按用户;不存在/他人会话 → 404;traces/abort 先校验归属 |
 | `server/web/http.ts` | 修改 | 关闭模式下 `GET /web/auth/me` → `{ enabled: false }` |
 | `server/agent/standalone.ts` | 修改 | 组装 gate + proxy;`/healthz` |
 | `Dockerfile` | 修改 | `HEALTHCHECK` 改探 `/healthz` |

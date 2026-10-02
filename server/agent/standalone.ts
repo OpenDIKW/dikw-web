@@ -123,7 +123,7 @@ async function main(): Promise<void> {
     authConfig && gate
       ? {
           // The gate has admitted every request that reaches /agent.
-          userIdFor: (req) => gate.principalOf(req)!.sub,
+          subjectFor: (req) => gate.principalOf(req)!.sub,
           legacySessionsOwner: authConfig.legacySessionsOwner,
           serverCore: { coreUrl: authConfig.coreUrl, token: authConfig.serverToken },
         }

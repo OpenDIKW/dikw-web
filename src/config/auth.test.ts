@@ -55,6 +55,26 @@ describe("loadAuth", () => {
     await expect(loadAuth()).resolves.toEqual({ enabled: false });
   });
 
+  it("falls back to auth off when the probe stalls, so the app still renders", async () => {
+    vi.useFakeTimers();
+    try {
+      const stalled = vi.fn(
+        (_url: string, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () =>
+              reject(new DOMException("The operation was aborted.", "AbortError")),
+            );
+          }),
+      );
+      vi.stubGlobal("fetch", stalled);
+      const auth = loadAuth();
+      await vi.advanceTimersByTimeAsync(5000);
+      await expect(auth).resolves.toEqual({ enabled: false });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("sends a signed-out auth-mode user to login, returning to the current page", async () => {
     vi.stubGlobal(
       "fetch",

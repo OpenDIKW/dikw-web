@@ -33,7 +33,7 @@ file format introduced in `[0.0.1.0]` was dropped.
     streaming NDJSON retrieve, task-event long-polls and multipart imports. The
     agent sidecar uses the same server-held connection and ignores any
     request-supplied `coreUrl` / `token`.
-  - **Per-user agent sessions** (ADK `userId` = OIDC `sub`): another user's
+  - **Per-user agent sessions** (ADK `userId` = `oidc:<sub>`): another user's
     session id is a 404 on every session route.
     `DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER=<sub>` hands the pre-auth chats to one
     user; otherwise they stay hidden.

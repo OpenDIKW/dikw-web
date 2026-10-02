@@ -65,16 +65,26 @@ export function createCoreProxy({ coreUrl, token }: CoreProxyOptions) {
     } catch (error) {
       if (controller.signal.aborted) return;
       log.warn("core unreachable", { error });
-      res.statusCode = 502;
-      res.setHeader("Content-Type", "application/json; charset=utf-8");
-      res.end(JSON.stringify({ error: { code: "core_unreachable", message: "core unreachable" } }));
-      return;
+      return sendError(res, "core_unreachable", "core unreachable");
+    }
+
+    if (upstream.status === 401) {
+      // The gate already admitted this browser, so core is rejecting the server
+      // token: a misconfiguration, not an expired sign-in. Passing the 401 on
+      // would send the SPA to login, back here, and to login again forever.
+      void upstream.body?.cancel();
+      log.warn("core rejected DIKW_SERVER_TOKEN", { status: upstream.status });
+      return sendError(res, "core_auth_failed", "core rejected the server token");
     }
 
     res.statusCode = upstream.status;
     upstream.headers.forEach((value, name) => {
       if (!DROPPED_RESPONSE_HEADERS.has(name)) res.setHeader(name, value);
     });
+    // Every response is now per-session (the gate authorized this caller), so a
+    // shared cache in front of dikw-web must never replay it to someone else —
+    // including core's long-lived `public, immutable` assets.
+    res.setHeader("Cache-Control", privateCacheControl(upstream.headers.get("cache-control")));
     if (!upstream.body || method === "HEAD") {
       res.end();
       return;
@@ -86,4 +96,19 @@ export function createCoreProxy({ coreUrl, token }: CoreProxyOptions) {
       // Browser disconnect or upstream reset mid-stream: nothing left to send.
     }
   };
+}
+
+/** Core's caching policy, minus anything that lets a shared cache store it. */
+function privateCacheControl(upstream: string | null): string {
+  const directives = (upstream ?? "")
+    .split(",")
+    .map((directive) => directive.trim())
+    .filter((directive) => directive && !/^(public|private|s-maxage=.*)$/i.test(directive));
+  return ["private", ...directives].join(", ");
+}
+
+function sendError(res: ServerResponse, code: string, message: string): void {
+  res.statusCode = 502;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify({ error: { code, message } }));
 }

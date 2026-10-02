@@ -17,11 +17,25 @@ export type AuthState = { enabled: false } | { enabled: true; user: AuthUser; ro
 
 const AUTH_OFF: AuthState = { enabled: false };
 const GUARDED_API = /^\/(v1|agent|web)\//;
+// Cap the boot probe like the branding fetch: a stalled sidecar must not keep
+// the app from rendering. A timeout falls back to auth off like any other
+// failure; in auth mode the server still enforces everything.
+const AUTH_PROBE_TIMEOUT_MS = 5000;
 
 export async function loadAuth(): Promise<AuthState> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AUTH_PROBE_TIMEOUT_MS);
+  try {
+    return await probeAuth(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function probeAuth(signal: AbortSignal): Promise<AuthState> {
   let response: Response;
   try {
-    response = await fetch("/web/auth/me", { headers: { Accept: "application/json" } });
+    response = await fetch("/web/auth/me", { headers: { Accept: "application/json" }, signal });
   } catch {
     return AUTH_OFF;
   }

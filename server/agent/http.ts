@@ -29,10 +29,11 @@ export interface AgentHandlerOptions {
    */
   devProxyTarget?: string;
   /**
-   * Auth mode (issue #200): the ADK user id for this request — the OIDC `sub`
-   * the auth gate admitted. Unset → every caller is `DEFAULT_USER_ID`.
+   * Auth mode (issue #200): the OIDC `sub` the auth gate admitted for this
+   * request; its ADK user id is `oidc:<sub>`. Unset → every caller is
+   * `DEFAULT_USER_ID`.
    */
-  userIdFor?: (req: IncomingMessage) => string;
+  subjectFor?: (req: IncomingMessage) => string;
   /** Auth mode: the `sub` that also sees the pre-auth `DEFAULT_USER_ID` sessions. */
   legacySessionsOwner?: string;
   /**
@@ -45,7 +46,7 @@ export interface AgentHandlerOptions {
 
 type DefaultAgentHandlerOptions = Pick<
   AgentHandlerOptions,
-  "sessionsDir" | "devProxyTarget" | "userIdFor" | "legacySessionsOwner" | "serverCore"
+  "sessionsDir" | "devProxyTarget" | "subjectFor" | "legacySessionsOwner" | "serverCore"
 >;
 
 export function resolveSessionsDir(cwd: string, override?: string): string {
@@ -87,7 +88,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
     spanStore,
     devProxyTarget,
     serverCore,
-    userIdFor,
+    subjectFor,
     legacySessionsOwner,
   } = options;
   if (!baseStore || !runner) {
@@ -109,12 +110,17 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         return notFound(res);
       }
       // Every route below goes through the caller's own store, so another
-      // user's session id is simply "not found".
-      const userId = userIdFor?.(req) ?? DEFAULT_USER_ID;
-      const store = baseStore.forUser(
-        userId,
-        userId === legacySessionsOwner ? DEFAULT_USER_ID : undefined,
-      );
+      // user's session id is simply "not found". Signed-in users live under
+      // `oidc:<sub>`, so no IdP subject can ever be the pre-auth `demo` owner;
+      // only the configured legacy owner is handed those sessions.
+      const subject = subjectFor?.(req);
+      const store =
+        subject === undefined
+          ? baseStore.forUser(DEFAULT_USER_ID)
+          : baseStore.forUser(
+              `oidc:${subject}`,
+              subject === legacySessionsOwner ? DEFAULT_USER_ID : undefined,
+            );
       if (req.method === "GET" && parts.length === 1) {
         return json(res, await store.listSessions());
       }

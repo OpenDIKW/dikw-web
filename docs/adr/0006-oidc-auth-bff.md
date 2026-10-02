@@ -80,11 +80,17 @@ to the two levels; editor implies viewer. Roles are fixed at login.
 `DIKW_CORE_URL` with `Authorization: Bearer $DIKW_SERVER_TOKEN`. The browser's own
 `Cookie` / `Authorization` never cross and core's `Set-Cookie` never comes back.
 Request and response bodies stream (NDJSON retrieve, task-event long-poll,
-multipart import), and a browser disconnect aborts the upstream request. The
+multipart import), and a browser disconnect aborts the upstream request. Core's
+`Cache-Control` is rewritten to `private` (its assets are `public, immutable`), so
+a shared cache can't replay one user's response to another. A core `401` means
+the server token is wrong, not that the user's sign-in expired, so it becomes a
+`502 core_auth_failed`; passing it on would bounce the SPA through login forever. The
 agent sidecar gets the same server-held connection and ignores any
 request-supplied `coreUrl` / `token`.
 
-**Per-user agent sessions** — the ADK `userId` is the OIDC `sub`.
+**Per-user agent sessions** — the ADK `userId` is `oidc:<sub>`. The prefix
+keeps every IdP subject out of the pre-auth `"demo"` owner, even an IdP that
+literally issues `sub: "demo"`.
 `AdkSessionStore.forUser()` scopes every session route to the caller, and another
 user's session id is indistinguishable from a missing one (404). The pre-auth
 `"demo"` sessions stay where they are. When

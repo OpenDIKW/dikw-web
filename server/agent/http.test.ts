@@ -428,7 +428,7 @@ describe("agent HTTP sidecar", () => {
   describe("auth mode (issue #200)", () => {
     const serverCore = { coreUrl: "http://core.internal:8765", token: "server-token" };
     // Stand-in for the auth gate: the caller's OIDC `sub` arrives as a header.
-    const userIdFor = (req: IncomingMessage) => String(req.headers["x-test-user"]);
+    const subjectFor = (req: IncomingMessage) => String(req.headers["x-test-user"]);
     const as = (user: string, init: RequestInit = {}): RequestInit => ({
       ...init,
       headers: { "Content-Type": "application/json", "x-test-user": user },
@@ -449,7 +449,7 @@ describe("agent HTTP sidecar", () => {
       const { store } = makeStore();
       const { calls, runner } = recordingRunner();
       const baseUrl = await listen(
-        createAgentHandler({ store, runner, spanStore: new SpanStore(), userIdFor, serverCore }),
+        createAgentHandler({ store, runner, spanStore: new SpanStore(), subjectFor, serverCore }),
       );
       const created = (await (
         await fetch(`${baseUrl}/sessions`, as("alice", { method: "POST" }))
@@ -482,7 +482,7 @@ describe("agent HTTP sidecar", () => {
         as("alice", { method: "POST", body: JSON.stringify({ message: "hi" }) }),
       );
       await stream.text();
-      expect(calls).toEqual([{ userId: "alice", ...serverCore }]);
+      expect(calls).toEqual([{ userId: "oidc:alice", ...serverCore }]);
       const deleted = await fetch(`${baseUrl}/sessions/${id}`, as("alice", { method: "DELETE" }));
       expect(deleted.status).toBe(204);
     });
@@ -490,7 +490,7 @@ describe("agent HTTP sidecar", () => {
     it("uses the server-held core connection and ignores a request-supplied one", async () => {
       const { sessionService, store } = makeStore();
       const { calls, runner } = recordingRunner();
-      const baseUrl = await listen(createAgentHandler({ store, runner, userIdFor, serverCore }));
+      const baseUrl = await listen(createAgentHandler({ store, runner, subjectFor, serverCore }));
       const created = (await (
         await fetch(`${baseUrl}/sessions`, as("alice", { method: "POST" }))
       ).json()) as { id: string };
@@ -507,12 +507,12 @@ describe("agent HTTP sidecar", () => {
         }),
       );
       await stream.text();
-      expect(calls).toEqual([{ userId: "alice", ...serverCore }]);
+      expect(calls).toEqual([{ userId: "oidc:alice", ...serverCore }]);
 
       // A confirmed maintenance proposal also goes to the server-held core.
       const session = (await sessionService.getSession({
         appName: APP_NAME,
-        userId: "alice",
+        userId: "oidc:alice",
         sessionId: created.id,
       })) as Session;
       await sessionService.appendEvent({
@@ -560,7 +560,7 @@ describe("agent HTTP sidecar", () => {
         createAgentHandler({
           store,
           runner,
-          userIdFor,
+          subjectFor,
           serverCore,
           legacySessionsOwner: "owner-sub",
         }),
@@ -582,6 +582,24 @@ describe("agent HTTP sidecar", () => {
         404,
       );
     });
+
+    it.each([
+      ["no legacy owner is configured", undefined],
+      ["someone else is the legacy owner", "owner-sub"],
+    ])(
+      "keeps the pre-auth sessions from a subject that is literally `demo` when %s",
+      async (_label, legacySessionsOwner) => {
+        const { store } = makeStore();
+        const legacy = await store.createSession();
+        const { runner } = recordingRunner();
+        const baseUrl = await listen(
+          createAgentHandler({ store, runner, subjectFor, serverCore, legacySessionsOwner }),
+        );
+
+        expect(await (await fetch(`${baseUrl}/sessions`, as(USER_ID))).json()).toEqual([]);
+        expect((await fetch(`${baseUrl}/sessions/${legacy.id}`, as(USER_ID))).status).toBe(404);
+      },
+    );
   });
 });
 

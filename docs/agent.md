@@ -128,7 +128,7 @@ it always dials the Settings `Server URL` verbatim. A non-default custom
 
 Sessions persist to **local SQLite** via ADK's `DatabaseSessionService`,
 in `.agent-sessions/agent.sqlite` (appName `dikw-web`, userId `demo` — or, in
-the opt-in [auth mode](adr/0006-oidc-auth-bff.md), the caller's OIDC `sub`). The
+the opt-in [auth mode](adr/0006-oidc-auth-bff.md), `oidc:<sub>` for the caller). The
 directory is ignored by Git and is local to the workstation; `http.ts`
 creates the directory and hands the service a `sqlite://.../agent.sqlite`
 URI (POSIX slashes — Windows backslashes break the URI parse). The legacy
