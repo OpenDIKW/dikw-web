@@ -215,7 +215,7 @@ requirement.
 A session id that doesn't exist answers **404** `not_found` on every
 `/sessions/{id}…` route. In auth mode (`DIKW_WEB_AUTH_MODE=oidc`, see
 `docs/adr/0006-oidc-auth-bff.md`) every route is scoped to the caller
-(`AdkSessionStore.forUser(sub)`), so another user's session id is that same 404;
+(`AdkSessionStore.forUser("oidc:" + sub)`), so another user's session id is that same 404;
 the sidecar uses the server-configured `DIKW_CORE_URL` / `DIKW_SERVER_TOKEN` and
 ignores any `coreUrl` / `token` in the request body; and `proposals/{id}/confirm`
 needs the editor role. `DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER=<sub>` hands the
@@ -232,9 +232,10 @@ characters. Invalid titles return `400 invalid_request`.
 ## Core Boundary
 
 The agent uses `dikw-core` as the fact source through retrieve, page,
-link, wisdom, and health endpoints. The target core URL comes from the
-current browser Settings request payload. The removed `/v1/query`
-endpoint is not called.
+link, wisdom, and health endpoints. With auth off, the target core URL
+comes from the current browser Settings request payload; in auth mode the
+sidecar uses the server-configured `DIKW_CORE_URL` / `DIKW_SERVER_TOKEN`
+instead. The removed `/v1/query` endpoint is not called.
 
 Maintenance tasks are not executed directly by the agent. The agent may
 create a proposal; the UI must get explicit user confirmation before

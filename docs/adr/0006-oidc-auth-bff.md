@@ -67,9 +67,9 @@ and decides for every other request:
   endpoint is denied to viewers by default. Paths are split on `/` with empty
   segments dropped, the same normalization the `/agent` and `/web` handlers
   route by;
-- an admitted request gets a default `Cache-Control: private`, so a shared cache
-  never stores one user's chats or jobs. Handlers with their own policy (hashed
-  static assets, the core proxy) override it.
+- an admitted request gets a default `Cache-Control: no-store`, so no cache, shared
+  or the browser's, keeps one user's chats or jobs. Handlers with their own policy
+  (the SPA shell, hashed static assets, the core proxy) override it.
 
 **Sign out** is a POST to `/web/auth/logout`. It ends the local session, then
 sends the browser to the IdP's end-session endpoint. Without one it lands on
@@ -107,7 +107,11 @@ user's session id is indistinguishable from a missing one (404). The pre-auth
 original owner. ADK's internal tables are never rewritten.
 
 **Browser** — the SPA learns the mode at boot from `GET /web/auth/me`, which
-answers `{ enabled: false }` when auth is off (dev included). In auth mode the
+answers `{ enabled: false }` when auth is off (dev included); a 404 or a non-JSON
+reply also means a server without auth mode. Anything else that doesn't settle
+the question (unreachable, 5xx, a 5 s timeout, auth mode without a usable role)
+fails closed to a retryable "can't reach the server" screen: guessing auth off
+would bring back the browser-held core token. In auth mode the
 clients go same-origin with no token and the agent gets no core URL. Settings
 shows the account and a Sign out form instead of Server URL / Token. A 401 from
 same-origin `/v1`, `/agent` or `/web` sends the user through sign-in once and back

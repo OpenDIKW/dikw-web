@@ -431,6 +431,9 @@ export const translations = {
       signOut: "Sign out",
       editorOnly: "Editor access required",
       editorOnlyDetail: "Your role can read the knowledge base but not import into it.",
+      unreachable: "Can't reach the server",
+      unreachableDetail: "Couldn't check your sign-in status. Check your connection and try again.",
+      retry: "Try again",
     },
     settings: {
       title: "Settings",
@@ -875,6 +878,9 @@ export const translations = {
       signOut: "退出登录",
       editorOnly: "需要编辑权限",
       editorOnlyDetail: "你的角色可以阅读知识库，但不能导入内容。",
+      unreachable: "无法连接服务器",
+      unreachableDetail: "无法确认登录状态，请检查网络后重试。",
+      retry: "重试",
     },
     settings: {
       title: "设置",

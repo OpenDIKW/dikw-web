@@ -41,7 +41,7 @@ editor 两级角色在服务端强制。关闭时行为与现在完全一致。
     非 GET/HEAD/OPTIONS → Origin 必须精确等于 PUBLIC_URL 的 origin
     requiredRole(method, path) 不满足 → 403
   /v1/*    → coreProxy → DIKW_CORE_URL + Bearer DIKW_SERVER_TOKEN(流式)
-  /agent/* → agentHandler(userId = sub,core 连接用服务端配置)
+  /agent/* → agentHandler(userId = oidc:<sub>,core 连接用服务端配置)
   /web/*   → webHandler
   其他     → SPA 静态资源
 ```

@@ -17,10 +17,22 @@ export type AuthState = { enabled: false } | { enabled: true; user: AuthUser; ro
 
 const AUTH_OFF: AuthState = { enabled: false };
 const GUARDED_API = /^\/(v1|agent|web)\//;
-// Cap the boot probe like the branding fetch: a stalled sidecar must not keep
-// the app from rendering. A timeout falls back to auth off like any other
-// failure; in auth mode the server still enforces everything.
+// Cap the boot probe like the branding fetch, so a stalled server can't leave
+// the page blank.
 const AUTH_PROBE_TIMEOUT_MS = 5000;
+
+/**
+ * The boot probe couldn't tell whether auth is on: unreachable, timed out, a
+ * server error, or an auth-mode answer without a usable role. The app must not
+ * start as auth-off then, which would re-enable the browser-held core connection
+ * (a stored token would go straight to core).
+ */
+export class AuthProbeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuthProbeError";
+  }
+}
 
 export async function loadAuth(): Promise<AuthState> {
   const controller = new AbortController();
@@ -34,10 +46,12 @@ export async function loadAuth(): Promise<AuthState> {
 
 async function probeAuth(signal: AbortSignal): Promise<AuthState> {
   let response: Response;
+  let text: string;
   try {
     response = await fetch("/web/auth/me", { headers: { Accept: "application/json" }, signal });
+    text = await response.text();
   } catch {
-    return AUTH_OFF;
+    throw new AuthProbeError("the server could not be reached");
   }
   if (response.status === 401) {
     // Auth mode, but the session ended between the page load and this probe.
@@ -45,22 +59,27 @@ async function probeAuth(signal: AbortSignal): Promise<AuthState> {
     redirectToLogin();
     return new Promise<AuthState>(() => {});
   }
-  if (!response.ok) {
+  // An auth-mode server always answers this route with JSON, so a 404 or an
+  // HTML page (a static host's SPA fallback) means a server without auth mode.
+  if (response.status === 404) {
     return AUTH_OFF;
   }
-  try {
-    const body = (await response.json()) as Partial<{
-      enabled: boolean;
-      user: AuthUser;
-      role: unknown;
-    }>;
-    if (body.enabled && body.user?.sub && (body.role === "viewer" || body.role === "editor")) {
-      return { enabled: true, user: body.user, role: body.role };
-    }
-  } catch {
-    // fall through
+  if (!response.ok) {
+    throw new AuthProbeError(`sign-in status check failed (${response.status})`);
   }
-  return AUTH_OFF;
+  let body: Partial<{ enabled: unknown; user: AuthUser; role: unknown }> | null;
+  try {
+    body = JSON.parse(text) as typeof body;
+  } catch {
+    return AUTH_OFF;
+  }
+  if (body?.enabled !== true) {
+    return AUTH_OFF;
+  }
+  if (body.user?.sub && (body.role === "viewer" || body.role === "editor")) {
+    return { enabled: true, user: body.user, role: body.role };
+  }
+  throw new AuthProbeError("unusable sign-in status");
 }
 
 let redirecting = false;

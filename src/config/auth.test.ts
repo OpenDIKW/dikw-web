@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { createElement, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AuthContext, loadAuth, useCanEdit, type AuthState } from "./auth";
+import { AuthContext, AuthProbeError, loadAuth, useCanEdit, type AuthState } from "./auth";
 
 function respond(status: number, body?: unknown): Response {
   return new Response(body === undefined ? null : JSON.stringify(body), {
@@ -46,16 +46,32 @@ describe("loadAuth", () => {
     expect(fetchMock).toHaveBeenCalledWith("/web/auth/me", expect.anything());
   });
 
+  // An auth-mode server always answers /web/auth/me with JSON (200 or 401), so
+  // these can only come from a server that has no auth mode at all.
   it.each([
     ["an older server without the route", () => respond(404)],
-    ["an unreachable sidecar", () => Promise.reject(new TypeError("fetch failed"))],
-    ["a malformed body", () => respond(200, { enabled: true, role: "admin" })],
-  ])("falls back to auth off for %s", async (_label, reply) => {
+    [
+      "a static host's SPA fallback page",
+      () =>
+        new Response("<!doctype html>", { status: 200, headers: { "Content-Type": "text/html" } }),
+    ],
+  ])("reports auth off for %s", async (_label, reply) => {
     vi.stubGlobal("fetch", vi.fn(reply));
     await expect(loadAuth()).resolves.toEqual({ enabled: false });
   });
 
-  it("falls back to auth off when the probe stalls, so the app still renders", async () => {
+  // Anything else is "unknown", and unknown must not re-enable the browser-held
+  // core connection (a stored token would then go straight to core).
+  it.each([
+    ["an unreachable server", () => Promise.reject(new TypeError("fetch failed"))],
+    ["a server error", () => respond(502)],
+    ["auth mode with an unusable role", () => respond(200, { enabled: true, role: "admin" })],
+  ])("fails closed for %s", async (_label, reply) => {
+    vi.stubGlobal("fetch", vi.fn(reply));
+    await expect(loadAuth()).rejects.toBeInstanceOf(AuthProbeError);
+  });
+
+  it("fails closed when the probe stalls instead of blocking the first render", async () => {
     vi.useFakeTimers();
     try {
       const stalled = vi.fn(
@@ -68,8 +84,9 @@ describe("loadAuth", () => {
       );
       vi.stubGlobal("fetch", stalled);
       const auth = loadAuth();
+      const settled = expect(auth).rejects.toBeInstanceOf(AuthProbeError);
       await vi.advanceTimersByTimeAsync(5000);
-      await expect(auth).resolves.toEqual({ enabled: false });
+      await settled;
     } finally {
       vi.useRealTimers();
     }

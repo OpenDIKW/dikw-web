@@ -761,6 +761,17 @@ textarea:focus {
   font-size: 13px;
 }
 
+.startup-error {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  max-width: 480px;
+  margin: 0 auto;
+  /* Padding, not margin: a top margin collapses through <body> (min-height:
+     100vh) and adds a page scrollbar. */
+  padding: 18vh 16px 0;
+}
+
 .query-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;

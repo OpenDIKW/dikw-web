@@ -261,7 +261,8 @@ lower them to make a feature pass.
 
 For production, build and run as a single self-contained Node service that
 serves the SPA plus the same-origin `/agent/*` sidecar. LLM credentials are
-injected via env; users still pick the external dikw-core URL in Settings.
+injected via env. With auth off, users still pick the external dikw-core URL in
+Settings; the auth mode below keeps it on the server.
 
 For a shared deployment, the opt-in **OIDC auth mode** (`DIKW_WEB_AUTH_MODE=oidc`)
 turns that server into a Backend-for-Frontend:

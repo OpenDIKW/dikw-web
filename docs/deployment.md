@@ -243,6 +243,7 @@ server {
 | 登录后显示「无访问权限」 | 账号的角色没映射上：核对 `DIKW_WEB_OIDC_ROLES_CLAIM` / `_ROLES_OWNER` / `DIKW_WEB_ROLE_*`，以及角色是否进了 ID token |
 | 写操作返回 403 `csrf_origin_mismatch` | 浏览器访问的 origin 与 `DIKW_WEB_PUBLIC_URL` 不一致（协议、域名、端口都要一样） |
 | 已登录，但所有页面报 502 `core_auth_failed` | dikw-core 拒绝了 `DIKW_SERVER_TOKEN`（日志里有 `core rejected DIKW_SERVER_TOKEN`）：核对 token 是否与 core 一致、是否已轮换。这时 dikw-web 不会把 401 转给浏览器，免得浏览器反复跳去登录 |
+| 打开页面只显示「无法连接服务器 · 重试」 | 浏览器启动时查询 `GET /web/auth/me` 失败（网络不通、5xx 或 5 秒超时）。页面这时不会当作「未开启鉴权」继续运行，否则会用浏览器里保存的 core token。检查 dikw-web 是否在运行，以及反向代理是否把 `/web/*` 转发给了 dikw-web |
 
 ## 升级与回滚
 

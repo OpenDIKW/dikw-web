@@ -144,7 +144,10 @@ describe("auth gate", () => {
 
     // The hash (#chat, #MB-Web) never reaches the server, so a tiny script
     // builds the return path in the browser...
-    const script = /<script>([^<]*)<\/script>/.exec(body)![1];
+    const script = body.slice(
+      body.indexOf("<script>") + "<script>".length,
+      body.indexOf("</script>"),
+    );
     const replace = vi.fn();
     new Function("location", script)({ pathname: "/", search: "?x=1", hash: "#MB-Web", replace });
     expect(replace).toHaveBeenCalledWith("/web/auth/login?returnTo=%2F%3Fx%3D1%23MB-Web");
@@ -363,7 +366,8 @@ describe("auth gate", () => {
     // e.g. the agent session list, which the handlers send without cache headers.
     const { response } = await send("/agent/sessions", { cookie });
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("private");
+    // no-store, not just private: a shared device's browser cache mustn't keep them either.
+    expect(response.headers.get("cache-control")).toBe("no-store");
   });
 
   it("expires the session after the configured TTL and rejects a tampered cookie", async () => {

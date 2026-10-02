@@ -31,6 +31,24 @@ describe("createSealer", () => {
     expect(createSealer(SECRET, "other").open(sealed)).toBeNull();
   });
 
+  it("rejects a token whose tag was cut short instead of checking the shorter tag", async () => {
+    const sealer = createSealer(SECRET, "test");
+    const bytes = Buffer.from(sealer.seal({ sub: "u-1" }), "base64url");
+    // 12-byte IV + only 4 bytes of the 16-byte tag. Without an explicit tag
+    // length, Node would verify against those 4 bytes (and warn: DEP0182).
+    const truncated = bytes.subarray(0, 16).toString("base64url");
+    const warnings: string[] = [];
+    const onWarning = (warning: Error & { code?: string }) => warnings.push(warning.code ?? "");
+    process.on("warning", onWarning);
+    try {
+      expect(sealer.open(truncated)).toBeNull();
+      await new Promise((resolve) => setImmediate(resolve));
+    } finally {
+      process.off("warning", onWarning);
+    }
+    expect(warnings).not.toContain("DEP0182");
+  });
+
   it("uses a fresh IV per seal", () => {
     const sealer = createSealer(SECRET, "test");
     expect(sealer.seal("same")).not.toBe(sealer.seal("same"));

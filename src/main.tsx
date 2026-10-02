@@ -1,6 +1,7 @@
 import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { StartupError } from "./components/StartupError";
 import { MbApp } from "./mb/MbApp";
 import { AuthContext, installUnauthorizedRedirect, loadAuth } from "./config/auth";
 import { loadBranding, type Branding } from "./config/branding";
@@ -35,16 +36,21 @@ function Root({ branding }: { branding: Branding }) {
 }
 
 // Auth mode (issue #200) is learned from the server at boot; when it is on, any
-// later 401 from /v1, /agent or /web sends the user back through sign-in.
-void Promise.all([loadBranding(), loadAuth()]).then(([branding, auth]) => {
-  if (auth.enabled) {
-    installUnauthorizedRedirect();
-  }
-  createRoot(document.getElementById("root")!).render(
-    <StrictMode>
-      <AuthContext.Provider value={auth}>
-        <Root branding={branding} />
-      </AuthContext.Provider>
-    </StrictMode>,
-  );
-});
+// later 401 from /v1, /agent or /web sends the user back through sign-in. If the
+// server can't say, show a retryable error rather than guessing auth is off.
+const root = createRoot(document.getElementById("root")!);
+void Promise.all([loadBranding(), loadAuth()]).then(
+  ([branding, auth]) => {
+    if (auth.enabled) {
+      installUnauthorizedRedirect();
+    }
+    root.render(
+      <StrictMode>
+        <AuthContext.Provider value={auth}>
+          <Root branding={branding} />
+        </AuthContext.Provider>
+      </StrictMode>,
+    );
+  },
+  () => root.render(<StartupError />),
+);

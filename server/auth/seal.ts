@@ -27,7 +27,11 @@ export function createSealer(secret: string, purpose: string): Sealer {
     open<T>(sealed: string): T | null {
       try {
         const bytes = Buffer.from(sealed, "base64url");
-        const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(0, IV_BYTES));
+        // A cut-short tag must fail, not be checked as a shorter (weaker) tag.
+        if (bytes.length < IV_BYTES + TAG_BYTES) return null;
+        const decipher = createDecipheriv("aes-256-gcm", key, bytes.subarray(0, IV_BYTES), {
+          authTagLength: TAG_BYTES,
+        });
         decipher.setAuthTag(bytes.subarray(IV_BYTES, IV_BYTES + TAG_BYTES));
         const plain = Buffer.concat([
           decipher.update(bytes.subarray(IV_BYTES + TAG_BYTES)),

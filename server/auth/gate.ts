@@ -217,9 +217,10 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
         ...(email ? { email } : {}),
       };
       principals.set(req, principal);
-      // Everything past the gate is per-user. Keep shared caches from storing it
-      // unless a handler sets its own policy (hashed static assets, core proxy).
-      res.setHeader("Cache-Control", "private");
+      // Everything past the gate is per-user (chats, job results): no cache keeps
+      // it, shared or browser, unless a handler sets its own policy (the SPA shell,
+      // hashed static assets, the core proxy).
+      res.setHeader("Cache-Control", "no-store");
       return principal;
     },
     principalOf: (req) => principals.get(req),
