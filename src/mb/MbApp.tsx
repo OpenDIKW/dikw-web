@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { DikwClient, normalizeBaseUrl } from "../api/client";
 import { AgentClient } from "../api/agentClient";
+import { useAuth, useCanEdit } from "../config/auth";
 import {
   fetchTranslateEnabled,
   tryOpenDefaultTranslateCache,
@@ -109,7 +110,11 @@ export function MbApp() {
   // Settings page saved to localStorage. The gear navigates to #settings to
   // edit it (see the header button below).
   const [conn] = useState<MbConnection>(() => loadConnection());
-  const { serverUrl, token } = conn;
+  // Auth mode (issue #200): the server holds the core connection — same-origin
+  // /v1 through its proxy, no browser token, no core URL sent to the agent.
+  const auth = useAuth();
+  const canEdit = useCanEdit();
+  const { serverUrl, token } = auth.enabled ? { serverUrl: "", token: "" } : conn;
   // Theme is shared with the workbench (read from `dikw-web.theme`); MB-Web keeps
   // a one-tap toggle but no longer owns its own storage. See ./theme. MbApp only
   // needs the toggle — the hook applies the theme to <html> itself.
@@ -184,6 +189,8 @@ export function MbApp() {
   // the card can show 同步中 / 已入 Wisdom / 重试.
   const syncNote = useCallback(
     async (note: MbNote) => {
+      // Viewers can't write wisdom (the server would 403): their notes stay local.
+      if (!canEdit) return;
       setNotes((prev) => prev.map((n) => (n.nid === note.nid ? { ...n, sync: "syncing" } : n)));
       try {
         const path = await writeNoteToWisdom(client, note);
@@ -194,7 +201,7 @@ export function MbApp() {
         setNotes((prev) => prev.map((n) => (n.nid === note.nid ? { ...n, sync: "error" } : n)));
       }
     },
-    [client],
+    [client, canEdit],
   );
 
   // Best-effort archive on delete — only if the note actually reached Wisdom.

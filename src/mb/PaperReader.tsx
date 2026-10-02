@@ -8,6 +8,7 @@ import {
   PanelRightOpen,
 } from "lucide-react";
 import type { DikwClient } from "../api/client";
+import { useCanEdit } from "../config/auth";
 import { MarkdownView } from "../components/MarkdownView";
 import {
   renderMarkdownBlockHtml,
@@ -54,6 +55,7 @@ export function PaperReader({
   onToggleRight,
   onUpload,
 }: Props) {
+  const canEdit = useCanEdit();
   const [page, setPage] = useState<PageReadResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -175,10 +177,12 @@ export function PaperReader({
             <FileUp size={46} aria-hidden="true" />
             <div className="t">选择一篇论文开始阅读</div>
             <div className="s">从左侧论文库点选，或上传新的 PDF 自动入库</div>
-            <button className="mb-btn pri" type="button" onClick={onUpload}>
-              <FileUp size={16} aria-hidden="true" />
-              上传论文
-            </button>
+            {canEdit ? (
+              <button className="mb-btn pri" type="button" onClick={onUpload}>
+                <FileUp size={16} aria-hidden="true" />
+                上传论文
+              </button>
+            ) : null}
           </div>
         ) : loading ? (
           <div className="mb-reader-empty">

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ResearchWorkspace } from "./ResearchWorkspace";
 import { createMockClient } from "../test/mockClient";
 import type { AgentClient } from "../api/agentClient";
+import { AuthContext, type AuthState } from "../config/auth";
 
 function makeAgentClient(answer: string): AgentClient {
   return {
@@ -23,7 +24,7 @@ function makeAgentClient(answer: string): AgentClient {
   } as unknown as AgentClient;
 }
 
-function mountWorkspace(answer: string) {
+function mountWorkspace(answer: string, auth: AuthState = { enabled: false }) {
   const client = createMockClient();
   client.get.mockImplementation((path: string) => {
     if (path === "/v1/base/pages") {
@@ -54,17 +55,33 @@ function mountWorkspace(answer: string) {
     return Promise.resolve(undefined);
   });
   render(
-    <ResearchWorkspace
-      client={client}
-      agentClient={makeAgentClient(answer)}
-      assetBaseUrl=""
-      assetToken=""
-      translatorEnabled={false}
-      translateCache={null}
-      onCurrentPaperChange={() => {}}
-    />,
+    <AuthContext.Provider value={auth}>
+      <ResearchWorkspace
+        client={client}
+        agentClient={makeAgentClient(answer)}
+        assetBaseUrl=""
+        assetToken=""
+        translatorEnabled={false}
+        translateCache={null}
+        onCurrentPaperChange={() => {}}
+      />
+    </AuthContext.Provider>,
   );
 }
+
+describe("ResearchWorkspace — auth mode (issue #200)", () => {
+  it("offers upload to editors but not to viewers", async () => {
+    mountWorkspace("", { enabled: true, user: { sub: "u-1" }, role: "editor" });
+    expect(await screen.findByText("Paper One")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "上传论文" }).length).toBeGreaterThan(0);
+  });
+
+  it("hides every upload entry from viewers", async () => {
+    mountWorkspace("", { enabled: true, user: { sub: "u-1" }, role: "viewer" });
+    expect(await screen.findByText("Paper One")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "上传论文" })).not.toBeInTheDocument();
+  });
+});
 
 describe("ResearchWorkspace — Q&A panel collapse", () => {
   it("keeps the conversation when the right panel is collapsed and re-expanded", async () => {

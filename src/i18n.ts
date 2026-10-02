@@ -421,6 +421,17 @@ export const translations = {
       tokenConfigured: "token configured",
       noToken: "no token",
     },
+    account: {
+      title: "Account",
+      detail: "Signed in through your organization's identity provider.",
+      name: "Name",
+      email: "Email",
+      role: "Role",
+      roles: { viewer: "Viewer", editor: "Editor" },
+      signOut: "Sign out",
+      editorOnly: "Editor access required",
+      editorOnlyDetail: "Your role can read the knowledge base but not import into it.",
+    },
     settings: {
       title: "Settings",
       description: "Manage connection, language, and appearance for this browser.",
@@ -853,6 +864,17 @@ export const translations = {
     connection: {
       tokenConfigured: "已配置令牌",
       noToken: "未配置令牌",
+    },
+    account: {
+      title: "账户",
+      detail: "已通过组织的身份提供方登录。",
+      name: "姓名",
+      email: "邮箱",
+      role: "角色",
+      roles: { viewer: "只读", editor: "编辑" },
+      signOut: "退出登录",
+      editorOnly: "需要编辑权限",
+      editorOnlyDetail: "你的角色可以阅读知识库，但不能导入内容。",
     },
     settings: {
       title: "设置",

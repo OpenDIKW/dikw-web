@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
+import { AuthContext, type AuthState } from "./config/auth";
 import {
   healthFixture,
   infoFixture,
@@ -288,5 +289,81 @@ describe("App shell", () => {
     expect(screen.getByText("OpenDIKW")).toBeInTheDocument();
     expect(screen.getByText("Workbench")).toBeInTheDocument();
     await waitFor(() => expect(document.title).toBe("OpenDIKW"));
+  });
+});
+
+describe("App shell in auth mode (issue #200)", () => {
+  const viewer: AuthState = {
+    enabled: true,
+    user: { sub: "u-1", name: "Vic Viewer", email: "vic@example.com" },
+    role: "viewer",
+  };
+
+  function renderAs(auth: AuthState) {
+    return render(
+      <AuthContext.Provider value={auth}>
+        <App />
+      </AuthContext.Provider>,
+    );
+  }
+
+  it("talks to core only through the same-origin proxy, never with a browser token", async () => {
+    const fetchMock = stubApi();
+    // Leftovers from before auth mode was switched on must not be used.
+    localStorage.setItem("dikw-web.serverUrl", "https://old-core.example.com");
+    localStorage.setItem("dikw-web.token", "stale-browser-token");
+    window.location.hash = "#overview";
+
+    renderAs(viewer);
+
+    expect(await screen.findByText("dikw-core 0.2.0")).toBeInTheDocument();
+    const calls = fetchMock.mock.calls.map(([input, init]) => ({
+      url: String(input),
+      headers: JSON.stringify(init?.headers ?? {}),
+    }));
+    expect(calls.map((call) => call.url)).toEqual(
+      expect.arrayContaining(["/v1/health", "/v1/status", "/v1/info"]),
+    );
+    expect(calls.every((call) => !call.url.includes("old-core"))).toBe(true);
+    expect(calls.every((call) => !call.headers.includes("stale-browser-token"))).toBe(true);
+    // The chip names the signed-in user and role instead of a core URL / token posture.
+    expect(screen.getByText("Vic Viewer")).toBeInTheDocument();
+    expect(screen.getByText("Viewer")).toBeInTheDocument();
+    expect(screen.queryByText("https://old-core.example.com")).not.toBeInTheDocument();
+  });
+
+  it("hides Import from viewers and explains when they open it directly", async () => {
+    stubApi();
+    window.location.hash = "#import";
+
+    renderAs(viewer);
+
+    expect(screen.queryByRole("button", { name: "Import" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Editor access required")).toBeInTheDocument();
+  });
+
+  it("shows editors the Import entry", () => {
+    stubApi();
+    window.location.hash = "#overview";
+
+    renderAs({ ...viewer, role: "editor" });
+
+    expect(screen.getByRole("button", { name: "Import" })).toBeInTheDocument();
+  });
+
+  it("replaces the connection form with the signed-in account and a Sign out action", async () => {
+    stubApi();
+    window.location.hash = "#settings";
+
+    renderAs(viewer);
+
+    expect(await screen.findByRole("heading", { name: "Account" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Server URL")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Token")).not.toBeInTheDocument();
+    expect(screen.getByText("vic@example.com")).toBeInTheDocument();
+    const signOut = screen.getByRole("button", { name: "Sign out" });
+    const form = signOut.closest("form")!;
+    expect(form).toHaveAttribute("method", "post");
+    expect(form).toHaveAttribute("action", "/web/auth/logout");
   });
 });

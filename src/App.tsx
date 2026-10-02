@@ -4,6 +4,7 @@ import {
   Gem,
   LayoutDashboard,
   ListChecks,
+  Lock,
   MessageSquareText,
   Network,
   PanelLeftClose,
@@ -14,6 +15,8 @@ import {
 } from "lucide-react";
 import { DikwClient, normalizeBaseUrl } from "./api/client";
 import { AgentClient } from "./api/agentClient";
+import { EmptyState } from "./components/EmptyState";
+import { useAuth, useCanEdit } from "./config/auth";
 import { defaultBranding, type Branding } from "./config/branding";
 import {
   defaultServerUrl,
@@ -117,18 +120,25 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
   );
   const [wikiInitialPath, setWikiInitialPath] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => readSidebarCollapsed());
-  const clientBaseUrl = normalizeBaseUrl(serverUrl) === defaultServerUrl ? "" : serverUrl;
+  const auth = useAuth();
+  const canEdit = useCanEdit();
+  // Auth mode (issue #200): the server holds the core connection — /v1 goes
+  // same-origin through its proxy with no browser token, and the agent gets no
+  // core URL. Any connection saved in localStorage is ignored.
+  const coreUrl = auth.enabled ? "" : serverUrl;
+  const coreToken = auth.enabled ? "" : token;
+  const clientBaseUrl = normalizeBaseUrl(coreUrl) === defaultServerUrl ? "" : coreUrl;
   // Pass the user-visible serverUrl as coreId so same-origin proxy mode
   // (baseUrl='') still has a distinct identity across distinct upstream cores —
   // ImportPage uses coreId to guard persisted task state against cross-core
   // replay (see docs/core-contract.md#import).
   const client = useMemo(
-    () => new DikwClient({ baseUrl: clientBaseUrl, token, coreId: serverUrl }),
-    [clientBaseUrl, token, serverUrl],
+    () => new DikwClient({ baseUrl: clientBaseUrl, token: coreToken, coreId: coreUrl }),
+    [clientBaseUrl, coreToken, coreUrl],
   );
   const agentClient = useMemo(
-    () => new AgentClient({ coreUrl: serverUrl, token }),
-    [serverUrl, token],
+    () => new AgentClient({ coreUrl, token: coreToken }),
+    [coreUrl, coreToken],
   );
   const copy = translations[locale];
   const brandName = branding.name[locale];
@@ -199,6 +209,12 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
     window.location.hash = view;
   }
 
+  // Import is the one editor-only page; the other editor-only actions are
+  // hidden inside their pages. The server enforces all of it regardless.
+  function isAllowed(item: NavItem): boolean {
+    return canEdit || item.id !== "import";
+  }
+
   function openWikiPath(path: string) {
     setWikiInitialPath(path);
     openView("base");
@@ -214,9 +230,17 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
     setToken("");
   }
 
-  const connectionTarget = serverUrl;
-  const tokenConfigured = Boolean(token);
-  const tokenStatus = tokenConfigured ? copy.connection.tokenConfigured : copy.connection.noToken;
+  // The top-bar chip: core target + token posture, or in auth mode the
+  // signed-in user + role (the server-held token is never the browser's concern).
+  const connectionTarget = auth.enabled
+    ? (auth.user.name ?? auth.user.email ?? auth.user.sub)
+    : serverUrl;
+  const tokenConfigured = auth.enabled || Boolean(token);
+  const tokenStatus = auth.enabled
+    ? copy.account.roles[auth.role]
+    : tokenConfigured
+      ? copy.connection.tokenConfigured
+      : copy.connection.noToken;
   const activeLabel = copy.nav[activeView as NavLabelKey] ?? copy.nav.overview;
 
   return (
@@ -234,7 +258,7 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
 
         {navGroups.map((group) => (
           <nav className="nav-list nav-main" aria-label={copy.navGroups[group.id]} key={group.id}>
-            {group.items.map((item) => (
+            {group.items.filter(isAllowed).map((item) => (
               <NavButton
                 active={activeView === item.id}
                 collapsed={sidebarCollapsed}
@@ -312,7 +336,7 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
               initialPath={wikiInitialPath}
               locale={locale}
               assetBaseUrl={clientBaseUrl}
-              assetToken={token}
+              assetToken={coreToken}
             />
           ) : null}
           {activeView === "graph" ? (
@@ -320,7 +344,17 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
           ) : null}
           {activeView === "wisdom" ? <WisdomPage client={client} locale={locale} /> : null}
           {activeView === "tasks" ? <TasksPage client={client} locale={locale} /> : null}
-          {activeView === "import" ? <ImportPage client={client} locale={locale} /> : null}
+          {activeView === "import" ? (
+            canEdit ? (
+              <ImportPage client={client} locale={locale} />
+            ) : (
+              <EmptyState
+                icon={Lock}
+                title={copy.account.editorOnly}
+                detail={copy.account.editorOnlyDetail}
+              />
+            )
+          ) : null}
           {activeView === "settings" ? (
             <SettingsPage
               locale={locale}
@@ -332,6 +366,7 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
               onThemeChange={setTheme}
               onSaveConnection={saveConnection}
               onClearConnection={clearConnection}
+              account={auth.enabled ? auth : undefined}
             />
           ) : null}
         </main>

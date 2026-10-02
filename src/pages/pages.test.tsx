@@ -31,6 +31,7 @@ import {
 } from "../test/fixtures";
 import { createMockClient } from "../test/mockClient";
 import { DikwClientError } from "../api/client";
+import { AuthContext } from "../config/auth";
 import type {
   DocumentRecord,
   PageLinksResult,
@@ -2529,6 +2530,23 @@ describe("read console pages", () => {
       option.getAttribute("value"),
     );
     expect(values).toEqual(["ingest", "synth", "lint.propose", "lint.apply"]);
+  });
+
+  it("hides the maintenance toolbar and Stop from viewers in auth mode", async () => {
+    const client = createMockClient();
+    client.listTasks.mockResolvedValue(taskListPageFixture);
+    client.getTask.mockResolvedValue(taskRowsFixture[0]);
+
+    render(
+      <AuthContext.Provider value={{ enabled: true, user: { sub: "u-1" }, role: "viewer" }}>
+        <TasksPage client={client} />
+      </AuthContext.Provider>,
+    );
+
+    expect(await screen.findByRole("heading", { name: "eval" })).toBeInTheDocument();
+    for (const name of ["Ingest", "Synth", "Lint Propose", "Lint Apply", "Stop"]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
   });
 
   it("summarizes eval tasks and loads event timelines without expanding raw JSON", async () => {
