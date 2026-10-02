@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { DatabaseSessionService, createEvent } from "@google/adk";
 import type { Session } from "@google/adk";
-import { AdkSessionStore } from "./adkSessionStore";
+import { AdkSessionStore, SessionNotFoundError } from "./adkSessionStore";
 
 const APP_NAME = "dikw-web";
 const USER_ID = "local";
@@ -317,5 +317,52 @@ describe("AdkSessionStore", () => {
     expect(second.toolEvents).toEqual(first.toolEvents);
     expect(second.sources).toEqual(first.sources);
     expect(second.proposals).toEqual(first.proposals);
+  });
+});
+
+describe("AdkSessionStore per-user scoping (auth mode)", () => {
+  function makeBase() {
+    const sessionService = new DatabaseSessionService("sqlite://:memory:");
+    return new AdkSessionStore({ sessionService, appName: APP_NAME, userId: "demo" });
+  }
+
+  it("isolates one user's sessions from another's", async () => {
+    const base = makeBase();
+    const alice = base.forUser("alice");
+    const bob = base.forUser("bob");
+    const mine = await alice.createSession();
+
+    expect((await alice.listSessions()).map((s) => s.id)).toEqual([mine.id]);
+    expect(await alice.ownerOf(mine.id)).toBe("alice");
+    expect(await bob.listSessions()).toEqual([]);
+    await expect(bob.getSession(mine.id)).rejects.toBeInstanceOf(SessionNotFoundError);
+    await expect(bob.renameSession(mine.id, "x")).rejects.toBeInstanceOf(SessionNotFoundError);
+    await expect(bob.deleteSession(mine.id)).rejects.toBeInstanceOf(SessionNotFoundError);
+    await expect(bob.ownerOf(mine.id)).rejects.toBeInstanceOf(SessionNotFoundError);
+    expect((await alice.getSession(mine.id)).id).toBe(mine.id);
+  });
+
+  it("merges the legacy owner's sessions at read time and writes them back to that owner", async () => {
+    const base = makeBase();
+    const legacy = await base.createSession();
+    const owner = base.forUser("owner-sub", "demo");
+    const fresh = await owner.createSession();
+
+    expect((await owner.listSessions()).map((s) => s.id).sort()).toEqual(
+      [legacy.id, fresh.id].sort(),
+    );
+    expect(await owner.ownerOf(legacy.id)).toBe("demo");
+    expect(await owner.ownerOf(fresh.id)).toBe("owner-sub");
+    // New sessions belong to the signed-in user, not the legacy bucket.
+    expect((await base.listSessions()).map((s) => s.id)).toEqual([legacy.id]);
+
+    await owner.renameSession(legacy.id, "Old chat");
+    expect((await base.getSession(legacy.id)).title).toBe("Old chat");
+
+    // Anyone else still can't see the legacy sessions.
+    expect(await base.forUser("someone-else").listSessions()).toEqual([]);
+
+    await owner.deleteSession(legacy.id);
+    expect(await base.listSessions()).toEqual([]);
   });
 });

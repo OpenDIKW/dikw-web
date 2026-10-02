@@ -20,10 +20,27 @@ import { proposalFromTool, sourcesFromTool } from "./runtime.js";
 
 const DEFAULT_TITLE = "New chat";
 
+/** ADK user id for every session when auth mode is off (and for pre-auth sessions). */
+export const DEFAULT_USER_ID = "demo";
+
+/** The session doesn't exist — or belongs to another user (indistinguishable on purpose). */
+export class SessionNotFoundError extends Error {
+  constructor(id: string) {
+    super(`session ${id} not found`);
+    this.name = "SessionNotFoundError";
+  }
+}
+
 export interface AdkSessionStoreOptions {
   sessionService: DatabaseSessionService;
   appName: string;
   userId: string;
+  /**
+   * Auth mode: also read (and write back) sessions stored under this user id —
+   * the read-time merge that hands the pre-auth `DEFAULT_USER_ID` sessions to
+   * `DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER`. New sessions still go to `userId`.
+   */
+  legacyUserId?: string;
 }
 
 /**
@@ -39,11 +56,28 @@ export class AdkSessionStore {
   private readonly sessionService: DatabaseSessionService;
   private readonly appName: string;
   private readonly userId: string;
+  private readonly legacyUserId?: string;
 
   constructor(opts: AdkSessionStoreOptions) {
     this.sessionService = opts.sessionService;
     this.appName = opts.appName;
     this.userId = opts.userId;
+    this.legacyUserId = opts.legacyUserId === opts.userId ? undefined : opts.legacyUserId;
+  }
+
+  /** The same store scoped to another user (cheap: shares the session service). */
+  forUser(userId: string, legacyUserId?: string): AdkSessionStore {
+    return new AdkSessionStore({
+      sessionService: this.sessionService,
+      appName: this.appName,
+      userId,
+      legacyUserId,
+    });
+  }
+
+  /** The ADK user id the session is stored under (`userId` or the legacy one). */
+  async ownerOf(id: string): Promise<string> {
+    return (await this.loadSession(id)).userId;
   }
 
   async createSession(): Promise<AgentSession> {
@@ -66,11 +100,13 @@ export class AdkSessionStore {
   }
 
   async listSessions(): Promise<SessionSummary[]> {
-    const { sessions } = await this.sessionService.listSessions({
-      appName: this.appName,
-      userId: this.userId,
-    });
-    return sessions
+    const lists = await Promise.all(
+      this.owners().map((userId) =>
+        this.sessionService.listSessions({ appName: this.appName, userId }),
+      ),
+    );
+    return lists
+      .flatMap(({ sessions }) => sessions)
       .map((session) => summaryFromState(session))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
@@ -83,9 +119,12 @@ export class AdkSessionStore {
   }
 
   async deleteSession(id: string): Promise<void> {
+    // Resolve the owner first: ADK's delete is a silent no-op for a session the
+    // caller doesn't own, and that must surface as "not found".
+    const session = await this.loadSession(id);
     await this.sessionService.deleteSession({
       appName: this.appName,
-      userId: this.userId,
+      userId: session.userId,
       sessionId: id,
     });
   }
@@ -139,16 +178,22 @@ export class AdkSessionStore {
     await this.persistState(session, delta);
   }
 
+  private owners(): string[] {
+    return this.legacyUserId ? [this.userId, this.legacyUserId] : [this.userId];
+  }
+
   private async loadSession(id: string): Promise<Session> {
-    const session = await this.sessionService.getSession({
-      appName: this.appName,
-      userId: this.userId,
-      sessionId: id,
-    });
-    if (!session) {
-      throw new Error(`session ${id} not found`);
+    for (const userId of this.owners()) {
+      const session = await this.sessionService.getSession({
+        appName: this.appName,
+        userId,
+        sessionId: id,
+      });
+      if (session) {
+        return session;
+      }
     }
-    return session;
+    throw new SessionNotFoundError(id);
   }
 
   private async persistState(session: Session, stateDelta: Record<string, unknown>): Promise<void> {

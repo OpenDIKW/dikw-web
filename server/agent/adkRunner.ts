@@ -13,14 +13,13 @@ import type { AgentConfig } from "./config.js";
 import { createDikwTools } from "./adkTools.js";
 import { buildContextCompactor } from "./contextCompactor.js";
 import { MiniMaxLlm } from "./minimaxLlm.js";
-import type { AdkSessionStore } from "./adkSessionStore.js";
+import { DEFAULT_USER_ID, type AdkSessionStore } from "./adkSessionStore.js";
 import { proposalFromTool, sourcesFromTool, systemPrompt } from "./runtime.js";
 import type { AgentRunner, RunAgentMessageOptions } from "./runtime.js";
 import type { AgentStreamEvent } from "../../src/agent/types.js";
 import { recordAgentTurnDuration, type TurnOutcome } from "../shared/metrics.js";
 
 const APP_NAME = "dikw-web";
-const USER_ID = "demo";
 
 /**
  * Minimal slice of the ADK `Runner` we depend on, so tests can inject a fake
@@ -161,6 +160,7 @@ export class AdkAgentRunner implements AgentRunner {
 
   async runMessage({
     sessionId,
+    userId = DEFAULT_USER_ID,
     message,
     coreUrl,
     token,
@@ -212,7 +212,7 @@ export class AdkAgentRunner implements AgentRunner {
       });
 
       const stream = runner.runAsync({
-        userId: USER_ID,
+        userId,
         sessionId,
         newMessage: { role: "user", parts: [{ text: message }] },
         abortSignal: signal,
@@ -240,7 +240,7 @@ export class AdkAgentRunner implements AgentRunner {
       recordAgentTurnDuration((Date.now() - startedAt) / 1000, outcome);
     }
 
-    await this.store.finalizeTurn(sessionId);
+    await this.store.forUser(userId).finalizeTurn(sessionId);
     await onEvent({ type: "agent_end", sessionId });
   }
 }

@@ -4,6 +4,8 @@ import type { AgentProposal, AgentSource, AgentStreamEvent } from "../../src/age
 
 export interface RunAgentMessageOptions {
   sessionId: string;
+  /** ADK user id the session is stored under; defaults to the auth-off `"demo"`. */
+  userId?: string;
   message: string;
   coreUrl: string;
   token?: string;
