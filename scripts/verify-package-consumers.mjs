@@ -8,7 +8,8 @@ import { verifyUi } from "../tests/package-consumers/ui/verify.mjs";
 const require = createRequire(import.meta.url);
 const npm = process.env.npm_execpath;
 if (!npm) throw new Error("Run this script through npm run verify:packages");
-const manifest = JSON.parse(readFileSync(".tmp/shared-packages/manifest.json", "utf8"));
+const packageDirectory = resolve(process.env.SHARED_PACKAGE_DIRECTORY ?? ".tmp/shared-packages");
+const manifest = JSON.parse(readFileSync(`${packageDirectory}/manifest.json`, "utf8"));
 mkdirSync(".tmp", { recursive: true });
 const cwd = mkdtempSync(resolve(tmpdir(), "dikw-package-consumer-"));
 writeFileSync(`${cwd}/package.json`, JSON.stringify({ private: true, type: "module" }));
@@ -20,7 +21,7 @@ execFileSync(
     "--ignore-scripts",
     "--no-audit",
     "--no-fund",
-    ...manifest.packages.map((pkg) => resolve(`.tmp/shared-packages/${pkg.tarball}`)),
+    ...manifest.packages.map((pkg) => resolve(packageDirectory, pkg.tarball)),
     ...(manifest.packages.some((pkg) => pkg.name === "@opendikw/web-ui")
       ? [
           `react@${require("react/package.json").version}`,
@@ -76,7 +77,7 @@ if (manifest.packages.some((pkg) => pkg.name === "@opendikw/web-server")) {
       "--no-fund",
       ...manifest.packages
         .filter((pkg) => pkg.name !== "@opendikw/web-ui")
-        .map((pkg) => resolve(`.tmp/shared-packages/${pkg.tarball}`)),
+        .map((pkg) => resolve(packageDirectory, pkg.tarball)),
       `@types/node@${require("@types/node/package.json").version}`,
     ],
     { cwd: serverCwd, stdio: "inherit" },

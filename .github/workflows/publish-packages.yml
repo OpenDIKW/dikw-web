@@ -1,0 +1,88 @@
+name: Publish shared npm packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: next for a prerelease, latest after both applications validate stable
+        type: choice
+        required: true
+        default: next
+        options: [next, latest]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-shared-packages
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.manifest.outputs.version }}
+    env:
+      CI: "true"
+      LIVE_WEB_TOOLS: ""
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run verify
+      - run: npm run check:bundle
+      - name: Read verified manifest
+        id: manifest
+        run: node -e "const fs = require('node:fs'); const m = require('./.tmp/shared-packages/manifest.json'); fs.appendFileSync(process.env.GITHUB_OUTPUT, 'version=' + m.version + '\n');"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: verified-shared-packages
+          include-hidden-files: true
+          retention-days: 14
+          path: |
+            .tmp/shared-packages/manifest.json
+            .tmp/shared-packages/opendikw-web-*-${{ steps.manifest.outputs.version }}.tgz
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          name: verified-shared-packages
+          path: .tmp/shared-packages
+      - name: Publish verified artifacts with npm trusted publishing
+        run: npm run publish:shared -- --tag "$RELEASE_TAG"
+      - run: npx playwright install --with-deps chromium
+      - name: Verify bytes downloaded from the registry and independent consumers
+        run: npm run verify:registry
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: npm-publication-evidence
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 30
+          path: |
+            .tmp/shared-packages/publication.json
+            .tmp/registry-shared-packages/manifest.json
+            .tmp/registry-shared-packages/verification.json
