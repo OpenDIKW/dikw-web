@@ -106,6 +106,21 @@ user's session id is indistinguishable from a missing one (404). The pre-auth
 **read-time merge**: listed and read from both owners, written back under the
 original owner. ADK's internal tables are never rewritten.
 
+**Per-user web jobs** ([#204](https://github.com/OpenDIKW/dikw-web/issues/204)) —
+standalone supplies the gate's admitted OIDC subject to the web handler, and
+`JobStore.create(controller, family, owner?)` records it on each MinerU or
+translation job. Status (including progressive translated blocks), result and
+cancel require both the job's family and the caller's subject to match. A
+foreign id gets the same `404 not_found` as an unknown one, and a foreign cancel
+never aborts the job. Auth off/dev records no owner and retains the shared flow.
+
+The live-job cap remains **process-wide: 16 across both families and all users**.
+It bounds the sidecar's total concurrent upstream work and quota consumption;
+a per-user cap alone would multiply that budget with the number of users.
+This does not guarantee fairness: one user can occupy every slot, and other
+users then receive `503 too_many_jobs` until a slot is released. Per-user fair
+admission is outside this ownership change.
+
 **Browser** — the SPA learns the mode at boot from `GET /web/auth/me`, which
 answers `{ enabled: false }` when auth is off (dev included); a 404 or a non-JSON
 reply also means a server without auth mode. Anything else that doesn't settle
@@ -148,8 +163,4 @@ MB-Web upload; the server enforces all of it regardless.
 
 ## Follow-ups
 
-- `/web/*` conversion and translation jobs are not user-scoped. Their ids are
-  unguessable UUIDs, MinerU is editor-only, and a job is served only under the
-  `/web/<family>/` prefix that created it (`JobStore` holds both families), but a
-  job could carry its owner.
 - Refresh-token renewal, if an absolute TTL turns out too blunt.

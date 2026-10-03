@@ -763,6 +763,143 @@ describe("runTranslation", () => {
 
 // ---- POST /web/translate ---------------------------------------------------
 
+describe("/web/translate — auth mode (issue #204)", () => {
+  it.each(["complete", "cancel"])(
+    "keeps progressive blocks private while the owner can %s the job",
+    async (action) => {
+      let release!: () => void;
+      let secondBatchStarted!: () => void;
+      const paused = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const started = new Promise<void>((resolve) => {
+        secondBatchStarted = resolve;
+      });
+      let batches = 0;
+      const anthropic: AnthropicLike = {
+        messages: {
+          stream(params, options) {
+            batches += 1;
+            const batch = batches;
+            return {
+              async finalMessage() {
+                if (batch === 2) {
+                  secondBatchStarted();
+                  await paused;
+                }
+                if (options?.signal?.aborted) throw options.signal.reason;
+                const text = params.messages[0].content
+                  .split(SEP_RE)
+                  .map((block) => `译-${block.trim()}`)
+                  .join(`\n\n${SEP}\n\n`);
+                return { content: [{ type: "text", text }] };
+              },
+            };
+          },
+        },
+      };
+      const jobStore = new JobStore();
+      const handler = createWebHandler({
+        config: CONFIG,
+        jobStore,
+        anthropic,
+        subjectFor: (req) => String(req.headers["x-test-user"]),
+      });
+      const asUser =
+        (user: string): typeof handler =>
+        (req, res, next) => {
+          req.headers["x-test-user"] = user;
+          return handler(req, res, next);
+        };
+      const alice = asUser("alice");
+      const bob = asUser("bob");
+      const blocks = Array.from({ length: MAX_BLOCKS_PER_BATCH + 1 }, (_, i) => `b${i}`);
+      const submit = await call(
+        alice,
+        makeReq({
+          method: "POST",
+          url: "/translate/submit",
+          body: JSON.stringify({ blocks, owner: "bob" }),
+        }),
+      );
+      expect(submit.status).toBe(202);
+      const { jobId } = jsonBody(submit) as { jobId: string };
+
+      const assertPrivate = async () => {
+        for (const [method, suffix] of [
+          ["GET", ""],
+          ["GET", "/result"],
+          ["POST", "/cancel"],
+        ]) {
+          const denied = await call(
+            bob,
+            makeReq({ method, url: `/translate/jobs/${jobId}${suffix}` }),
+          );
+          const missing = await call(
+            bob,
+            makeReq({ method, url: `/translate/jobs/missing${suffix}` }),
+          );
+          expect(denied.status, `${method} /translate/jobs/<id>${suffix}`).toBe(404);
+          expect(jsonBody(denied)).toEqual(jsonBody(missing));
+        }
+        expect(jobStore.get(jobId)?.controller.signal.aborted).toBe(false);
+      };
+
+      try {
+        await started;
+        await assertPrivate();
+        const status = await call(
+          alice,
+          makeReq({ method: "GET", url: `/translate/jobs/${jobId}` }),
+        );
+        expect(status.status).toBe(200);
+        expect(jsonBody(status)).toEqual({
+          jobId,
+          status: "running",
+          progress: {
+            done: MAX_BLOCKS_PER_BATCH,
+            total: blocks.length,
+            blocks: blocks
+              .slice(0, MAX_BLOCKS_PER_BATCH)
+              .map((block, i) => ({ i, tr: `译-${block}` })),
+          },
+        });
+        expect(
+          (await call(alice, makeReq({ method: "GET", url: `/translate/jobs/${jobId}/result` })))
+            .status,
+        ).toBe(409);
+        if (action === "cancel") {
+          const cancel = await call(
+            alice,
+            makeReq({ method: "POST", url: `/translate/jobs/${jobId}/cancel` }),
+          );
+          expect(cancel.status).toBe(200);
+          expect(jsonBody(cancel)).toEqual({ jobId, ok: true });
+          expect(jobStore.get(jobId)?.controller.signal.aborted).toBe(true);
+        }
+        release();
+        expect((await waitTerminal(jobStore, jobId)).status).toBe(
+          action === "cancel" ? "failed" : "succeeded",
+        );
+        if (action === "complete") {
+          await assertPrivate();
+          const result = await call(
+            alice,
+            makeReq({ method: "GET", url: `/translate/jobs/${jobId}/result` }),
+          );
+          expect(result.status).toBe(200);
+          expect(jsonBody(result)).toEqual({
+            blocks: blocks.map((block, i) => ({ i, tr: `译-${block}` })),
+          });
+        }
+      } finally {
+        release();
+        await waitTerminal(jobStore, jobId);
+      }
+    },
+  );
+});
+
 describe("/web/translate", () => {
   it("health reports enabled per the configured key", async () => {
     const on = await call(

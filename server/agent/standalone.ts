@@ -129,7 +129,10 @@ async function main(): Promise<void> {
         }
       : {},
   );
-  const webHandler = await createDefaultWebHandler(cwd);
+  const webHandler = await createDefaultWebHandler(
+    cwd,
+    authConfig && gate ? { subjectFor: (req) => gate.principalOf(req)!.sub } : {},
+  );
   const route = createRequestRouter({
     agent: (req, res) => agentHandler(req, res),
     web: (req, res) => webHandler(req, res),

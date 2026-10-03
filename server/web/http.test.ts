@@ -722,3 +722,75 @@ describe("/web/mineru/jobs — status / result / cancel", () => {
     await driveJob(jobStore, jsonBody(first).jobId!);
   });
 });
+
+describe("/web/mineru/jobs — auth mode (issue #204)", () => {
+  it.each(["running", "succeeded"])(
+    "isolates a user's %s conversion on every job route",
+    async (state) => {
+      const fileBytes = Buffer.from([0x25, 0x50]);
+      const { body, contentType } = makeMultipart("private.pdf", "application/pdf", fileBytes);
+      const fixtureZip = makeFixtureZip(
+        new Map([["full.md", new TextEncoder().encode("# Private\n")]]),
+      );
+      const jobStore = new JobStore();
+      const handler = createWebHandler({
+        config: { mineruApiKey: TOKEN },
+        fetch: state === "running" ? pendingForeverFetch() : mineruFetchMock(fixtureZip),
+        jobStore,
+        subjectFor: (req) => String(req.headers["x-test-user"]),
+      });
+      // Stand-in for the auth gate: the verified OIDC subject is supplied per request.
+      const asUser =
+        (user: string): WebHandler =>
+        (req, res, next) => {
+          req.headers["x-test-user"] = user;
+          return handler(req, res, next);
+        };
+      const alice = asUser("alice");
+      const bob = asUser("bob");
+      const submit = await submitConvert(alice, {
+        inputSha: sha256Hex(fileBytes),
+        body,
+        contentType,
+      });
+      expect(submit.status).toBe(202);
+      const jobId = jsonBody(submit).jobId!;
+
+      try {
+        if (state === "succeeded") await driveJob(jobStore, jobId);
+        for (const [method, suffix] of [
+          ["GET", ""],
+          ["GET", "/result"],
+          ["POST", "/cancel"],
+        ]) {
+          const denied = makeRes();
+          await bob(makeReq({ method, url: `/mineru/jobs/${jobId}${suffix}` }), denied.res);
+          const missing = makeRes();
+          await bob(makeReq({ method, url: `/mineru/jobs/missing${suffix}` }), missing.res);
+          const response = await denied.captured;
+          expect(response.status, `${method} /mineru/jobs/<id>${suffix}`).toBe(404);
+          expect(jsonBody(response)).toEqual(jsonBody(await missing.captured));
+        }
+        expect(jobStore.get(jobId)?.controller.signal.aborted).toBe(false);
+        const status = await getJob(alice, jobId);
+        expect(status.status).toBe(200);
+        expect(jsonBody(status)).toMatchObject({ jobId, status: state });
+        const result = await getJobResult(alice, jobId);
+        expect(result.status).toBe(state === "running" ? 409 : 200);
+        if (state === "succeeded") {
+          const entries = readTar(new Uint8Array(gunzipSync(result.body)));
+          expect(
+            new TextDecoder().decode(
+              entries.find((entry) => entry.archivePath === "private.md")!.data,
+            ),
+          ).toContain("# Private");
+        }
+        expect(jsonBody(await cancelJob(alice, jobId))).toMatchObject({ jobId, ok: true });
+        expect(jobStore.get(jobId)?.controller.signal.aborted).toBe(true);
+      } finally {
+        await cancelJob(alice, jobId);
+        await driveJob(jobStore, jobId);
+      }
+    },
+  );
+});
