@@ -3,6 +3,7 @@
 ## Status
 
 Accepted (2026-10-02). Implements [#200](https://github.com/OpenDIKW/dikw-web/issues/200).
+Session policy A accepted (2026-10-03), [#205](https://github.com/OpenDIKW/dikw-web/issues/205).
 
 ## Context
 
@@ -37,7 +38,7 @@ openid-client checks the ID token's `iss` (exactly the discovered issuer), `aud`
 ID token signature is verified against the IdP's JWKS (cached, refetched on an
 unknown `kid`), and we reject any `azp` that isn't our client id. An optional
 `DIKW_WEB_OIDC_INTERNAL_URL` rewrites only the server-to-server calls (discovery,
-token, JWKS) to a private origin; browser-facing URLs stay public.
+token, JWKS, UserInfo, revocation) to a private origin; browser-facing URLs stay public.
 
 **Sessions** — an opaque random id in an `HttpOnly; SameSite=Lax` cookie (`Secure`
 when `DIKW_WEB_PUBLIC_URL` is https). Records live in `auth.sqlite` next to
@@ -45,8 +46,22 @@ when `DIKW_WEB_PUBLIC_URL` is https). Records live in `auth.sqlite` next to
 the file holds only the SHA-256 of each id and an AES-256-GCM-sealed record, under
 a key derived from `DIKW_WEB_SESSION_SECRET` by HKDF. Sessions therefore survive a
 restart, a leaked file yields no usable cookie or identity, and rotating the
-secret signs everyone out. The lifetime is an absolute TTL
-(`DIKW_WEB_SESSION_TTL_SECONDS`, default 8h); no refresh tokens are kept. The
+secret signs everyone out. When the IdP issues a refresh token, it is kept only
+inside that sealed record, with the initial sign-in and last-refresh timestamps.
+The session id stays stable. Valid-origin activity extends the idle timeout
+(`DIKW_WEB_SESSION_TTL_SECONDS`, default 8h), capped at the original sign-in plus
+`DIKW_WEB_SESSION_MAX_SECONDS` (default 7 days). Cookie Max-Age is capped too.
+On the first request after `DIKW_WEB_SESSION_REFRESH_SECONDS` (default 15 minutes),
+`refreshTokenGrant` renews tokens before authorization and stores any rotated token.
+One promise per session shares concurrent renewals in the standalone process.
+This assumes a single server process per auth.sqlite; sharing it across replicas
+would need a distributed refresh lock. No background timer extends idle sessions.
+An expired/deleted record cannot be revived by a late response; its returned
+refresh token is revoked when supported. Refresh failure ends the local session
+and returns 401 through the existing sign-in flow, without retries or raw error logs.
+Providers that do not issue refresh tokens, and sessions created before this
+change, retain the original fixed TTL. Default scopes stay `openid profile email`;
+offline access is an explicit provider-specific deployment choice. The
 in-flight login (`state`, `nonce`, PKCE verifier, return path) travels in a
 second sealed, 10-minute cookie scoped to `/web/auth`, so `/login` holds no
 server-side state.
@@ -72,7 +87,9 @@ and decides for every other request:
   (the SPA shell, hashed static assets, the core proxy) override it.
 
 **Sign out** is a POST to `/web/auth/logout`. It ends the local session, then
-sends the browser to the IdP's end-session endpoint. Without one it lands on
+revokes the refresh token via an advertised `revocation_endpoint` and sends the
+browser to the IdP's end-session endpoint. Revocation failure never prevents local
+sign-out. Without an end-session endpoint it lands on
 `/web/auth/signed-out`, a static page with a Sign in link, not `/`: `/` would go
 straight back through login, and a live IdP session would sign the user in again.
 
@@ -82,7 +99,13 @@ straight back through login, and a live IdP session would sign the user in again
 (`roles`, `groups`, `realm_access.roles`, `roles[].name`). Role *objects* are
 dropped when `isEnabled: false` or, with `DIKW_WEB_OIDC_ROLES_OWNER`, when owned by
 another organization (Casdoor). `DIKW_WEB_ROLE_VIEWER` / `_EDITOR` map role names
-to the two levels; editor implies viewer. Roles are fixed at login.
+to the two levels; editor implies viewer. Every renewal re-derives roles from a
+verified ID token (signature, issuer, audience, authorized party, expiry), requiring
+the original subject. If refresh omits the ID token, `fetchUserInfo` with the new
+access token checks that same subject and supplies claims to the same role mapper.
+No mapped role means 403 `no_role` on app APIs; `/me` reports role null. Missing or
+unverifiable UserInfo ends the session. The previous logout ID-token hint is kept
+when no new ID token arrives; access tokens are never persisted.
 
 **Core access** — `server/auth/coreProxy.ts` forwards same-origin `/v1/*` to
 `DIKW_CORE_URL` with `Authorization: Bearer $DIKW_SERVER_TOKEN`. The browser's own
@@ -141,7 +164,11 @@ MB-Web upload; the server enforces all of it regardless.
   (see `docs/deployment.md`).
 - Auth mode lives in the standalone server only. `npm run dev` always runs with
   auth off; its Vite proxy and sidecar plugins are unchanged.
-- A role change at the IdP takes effect at the next sign-in (bounded by the TTL).
+- A role change takes effect server-side on the next active renewal. The SPA's
+  boot-time role display and hidden controls update on reload; stale controls
+  cannot bypass the server. Disabled/revoked accounts sign out when the provider
+  rejects refresh or UserInfo; the IdP must enforce that policy and expose current
+  roles. Already admitted streaming requests and jobs are not interrupted.
 - With an internal URL, the IdP must keep a fixed public issuer: discovery fetched
   over the internal origin must still advertise the public `issuer`.
 - New production dependency: `openid-client` (+ `jose`, `oauth4webapi`).
@@ -151,16 +178,15 @@ MB-Web upload; the server enforces all of it regardless.
 - **An auth proxy in front (oauth2-proxy, Cloudflare Access).** It gates the port,
   but it can't give per-user agent sessions, can't keep the core token out of the
   browser, and needs a `/v1` bypass so the sidecar can still reach core.
-- **Roles from the access token or userinfo.** Access tokens are often opaque, or
+- **Roles from the access token at login.** Access tokens are often opaque, or
   carry an `aud` that isn't the client. Casdoor, Entra ID and Authentik put roles
   or groups in the ID token, and Keycloak does with "Add to ID token" on its
-  mapper. Deferred until a provider needs it.
+  mapper. UserInfo is used only as the subject-checked fallback during renewal.
+- **Fixed TTL with role-only refresh, or no renewal.** Rejected for #205: active
+  users should keep their in-flight work beyond the initial TTL. Sliding idle
+  expiry plus a hard cap bounds stolen-session lifetime without an 8h interruption.
 - **In-memory sessions.** Simpler, but every restart or redeploy signs everyone
   out, and "encrypted at rest" has nothing to apply to.
 - **Moving the `"demo"` sessions by rewriting ADK's `sessions` / `events` /
   `user_states` tables.** That couples us to ADK's internal schema across
   upgrades; the read-time merge doesn't.
-
-## Follow-ups
-
-- Refresh-token renewal, if an absolute TTL turns out too blunt.

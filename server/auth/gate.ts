@@ -38,6 +38,7 @@ export interface AuthGateOptions {
   config: AuthConfig;
   oidc: OidcClient;
   sessions: AuthSessionStore;
+  now?: () => number;
 }
 
 export interface AuthGate {
@@ -67,23 +68,101 @@ export function safeReturnTo(value: string | null, publicUrl: string): string | 
   }
 }
 
-export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): AuthGate {
+export function createAuthGate({
+  config,
+  oidc,
+  sessions,
+  now = Date.now,
+}: AuthGateOptions): AuthGate {
   const principals = new WeakMap<IncomingMessage, Principal>();
   const loginSealer = createSealer(config.sessionSecret, "login-transaction");
   const secure = config.publicUrl.startsWith("https:");
+  const refreshing = new Map<string, Promise<void>>();
 
   function cookie(name: string, value: string, maxAge: number, path = "/"): string {
     return `${name}=${value}; Path=${path}; Max-Age=${maxAge}; HttpOnly; SameSite=Lax${secure ? "; Secure" : ""}`;
   }
 
-  function currentSession(req: IncomingMessage): { id: string; session: AuthSession } | null {
+  function storedSession(req: IncomingMessage): { id: string; session: AuthSession } | null {
     const id = readCookie(req, SESSION_COOKIE);
     const session = id ? sessions.get(id) : null;
     return id && session ? { id, session } : null;
   }
 
+  async function currentSession(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<{ id: string; session: AuthSession } | null> {
+    const current = storedSession(req);
+    if (!current || !current.session.renewal || !originAllowed(req)) return current;
+    const { id } = current;
+    let { session } = current;
+    const deadline = session.renewal!.startedAt + config.sessionMaxSeconds * 1000;
+    if (now() >= deadline) {
+      sessions.delete(id);
+      return null;
+    }
+    if (now() >= session.renewal!.refreshedAt + config.sessionRefreshSeconds * 1000) {
+      let pending = refreshing.get(id);
+      if (!pending) {
+        pending = refreshSession(id, session, deadline).finally(() => refreshing.delete(id));
+        refreshing.set(id, pending);
+      }
+      await pending;
+      const refreshed = sessions.get(id);
+      if (!refreshed) {
+        res.setHeader("Set-Cookie", cookie(SESSION_COOKIE, "", 0));
+        return null;
+      }
+      session = refreshed;
+    }
+    const expiresAt = Math.min(now() + config.sessionTtlSeconds * 1000, deadline);
+    if (!sessions.update(id, session, expiresAt)) return null;
+    res.setHeader("Set-Cookie", cookie(SESSION_COOKIE, id, Math.floor((expiresAt - now()) / 1000)));
+    return { id, session };
+  }
+
+  async function refreshSession(id: string, session: AuthSession, deadline: number): Promise<void> {
+    try {
+      const result = await oidc.refresh(session.renewal!.refreshToken, session.sub);
+      const renewed: AuthSession = {
+        ...session,
+        ...optionalString("name", result.claims.name ?? result.claims.preferred_username),
+        ...optionalString("email", result.claims.email),
+        role: resolveRole(
+          extractRoles(result.claims, config.rolesClaim, config.rolesOwner),
+          config,
+        ),
+        idToken: result.idToken ?? session.idToken,
+        renewal: {
+          ...session.renewal!,
+          refreshToken: result.refreshToken ?? session.renewal!.refreshToken,
+          refreshedAt: now(),
+        },
+      };
+      if (
+        !sessions.update(id, renewed, Math.min(now() + config.sessionTtlSeconds * 1000, deadline))
+      ) {
+        sessions.delete(id);
+        await revoke(renewed.renewal!.refreshToken);
+      }
+    } catch {
+      sessions.delete(id);
+      // Provider errors may contain credentials; log no response or exception.
+      log.warn("session renewal failed; signed out locally");
+    }
+  }
+
   function originAllowed(req: IncomingMessage): boolean {
     return SAFE_METHODS.has(req.method ?? "GET") || req.headers.origin === config.publicUrl;
+  }
+
+  async function revoke(refreshToken: string): Promise<void> {
+    try {
+      await oidc.revoke(refreshToken);
+    } catch {
+      log.warn("token revocation unavailable; signed out locally");
+    }
   }
 
   async function login(req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
@@ -95,7 +174,7 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
       log.error("identity provider unavailable", { error });
       return sendPage(req, res, 502, "idpUnavailable");
     }
-    const sealed = loginSealer.seal({ ...begun.tx, exp: Date.now() + LOGIN_TTL_SECONDS * 1000 });
+    const sealed = loginSealer.seal({ ...begun.tx, exp: now() + LOGIN_TTL_SECONDS * 1000 });
     res.setHeader("Set-Cookie", cookie(LOGIN_COOKIE, sealed, LOGIN_TTL_SECONDS, AUTH_PATH));
     redirect(res, 302, begun.url);
   }
@@ -106,7 +185,7 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
     const tx = raw ? loginSealer.open<LoginTransaction & { exp: number }>(raw) : null;
     // A missing/expired transaction is answered with a page, never a fresh
     // login redirect — with cookies blocked that would loop forever.
-    if (!tx || tx.exp < Date.now()) {
+    if (!tx || tx.exp < now()) {
       res.setHeader("Set-Cookie", clearLogin);
       return sendPage(req, res, 400, "signInExpired");
     }
@@ -121,10 +200,13 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
       res.setHeader("Set-Cookie", clearLogin);
       return sendPage(req, res, 400, "signInFailed");
     }
-    const { claims, idToken } = result;
+    const { claims, idToken, refreshToken } = result;
     const role = resolveRole(extractRoles(claims, config.rolesClaim, config.rolesOwner), config);
-    const previous = currentSession(req);
+    const previous = storedSession(req);
     if (previous) sessions.delete(previous.id);
+    const lifetime = refreshToken
+      ? Math.min(config.sessionTtlSeconds, config.sessionMaxSeconds)
+      : config.sessionTtlSeconds;
     const id = sessions.create(
       {
         sub: String(claims.sub),
@@ -132,25 +214,29 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
         ...optionalString("email", claims.email),
         role,
         idToken,
+        ...(refreshToken
+          ? { renewal: { refreshToken, startedAt: now(), refreshedAt: now() } }
+          : {}),
       },
-      config.sessionTtlSeconds,
+      lifetime,
     );
     log.info("signed in", { role: role ?? "none" });
-    res.setHeader("Set-Cookie", [clearLogin, cookie(SESSION_COOKIE, id, config.sessionTtlSeconds)]);
+    res.setHeader("Set-Cookie", [clearLogin, cookie(SESSION_COOKIE, id, lifetime)]);
     redirect(res, 302, tx.returnTo);
   }
 
   async function logout(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const current = currentSession(req);
+    const current = storedSession(req);
     // Without RP-initiated logout the IdP session stays live, so "/" would sign
     // the user straight back in; land on a page that waits for them instead.
     let location = `${AUTH_PATH}/signed-out`;
     if (current) {
       sessions.delete(current.id);
+      if (current.session.renewal) await revoke(current.session.renewal.refreshToken);
       try {
         location = (await oidc.logoutUrl(current.session.idToken)) ?? location;
-      } catch (error) {
-        log.warn("RP-initiated logout unavailable; signed out locally", { error });
+      } catch {
+        log.warn("RP-initiated logout unavailable; signed out locally");
       }
     }
     res.setHeader("Set-Cookie", cookie(SESSION_COOKIE, "", 0));
@@ -168,7 +254,7 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
     if (req.method === "GET" && route === "/signed-out")
       return sendPage(req, res, 200, "signedOut");
     if (req.method === "GET" && route === "/me") {
-      const current = currentSession(req);
+      const current = await currentSession(req, res);
       if (!current) return unauthenticated(res);
       const { sub, name, email, role } = current.session;
       return sendJson(res, 200, { enabled: true, user: { sub, name, email }, role });
@@ -184,7 +270,7 @@ export function createAuthGate({ config, oidc, sessions }: AuthGateOptions): Aut
         return null;
       }
 
-      const current = currentSession(req);
+      const current = await currentSession(req, res);
       if (!current) {
         if (isPageLoad(req)) {
           sendLoginRedirectPage(res, `${url.pathname}${url.search}`);

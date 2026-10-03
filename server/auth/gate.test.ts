@@ -2,8 +2,10 @@
 import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { logs } from "@opentelemetry/api-logs";
+import { LoggerProvider, type ReadableLogRecord } from "@opentelemetry/sdk-logs";
 import type { AuthConfig } from "./config";
-import { startFakeIdp } from "./fakeIdp";
+import { startFakeIdp, type FakeIdpOptions } from "./fakeIdp";
 import { createAuthGate, safeReturnTo } from "./gate";
 import { createOidcClient } from "./oidc";
 import { AuthSessionStore } from "./sessionStore";
@@ -46,7 +48,7 @@ describe("auth gate", () => {
 
   async function setup(
     overrides: Partial<AuthConfig> = {},
-    idpOptions: { endSession?: boolean } = {},
+    idpOptions: Partial<FakeIdpOptions> = {},
   ) {
     const idp = await startFakeIdp({
       clientId: "dikw-web",
@@ -66,6 +68,8 @@ describe("auth gate", () => {
       editorRoles: ["kb_editor"],
       sessionSecret: "q".repeat(32),
       sessionTtlSeconds: 3600,
+      sessionMaxSeconds: 7 * 24 * 3600,
+      sessionRefreshSeconds: 900,
       coreUrl: "http://core.internal:8765",
       serverToken: CORE_TOKEN,
       ...overrides,
@@ -76,8 +80,15 @@ describe("auth gate", () => {
       now: () => now,
     });
     cleanups.push(() => sessions.close());
-    const gate = createAuthGate({ config, oidc: createOidcClient(config), sessions });
+    const gate = createAuthGate({
+      config,
+      oidc: createOidcClient(config),
+      sessions,
+      now: () => now,
+    });
+    const received: string[] = [];
     const server = createServer((req, res) => {
+      received.push(req.url ?? "/");
       void gate.authorize(req, res).then((principal) => {
         if (!principal) return;
         // Stand-in for the app handlers: echo who the gate let through.
@@ -126,6 +137,7 @@ describe("auth gate", () => {
       send,
       signIn,
       seen,
+      received,
       advance: (ms: number) => (now += ms),
     };
   }
@@ -378,6 +390,231 @@ describe("auth gate", () => {
     expect((await send("/web/auth/me", { cookie })).response.status).toBe(401);
   });
 
+  it("keeps an active session beyond its initial TTL and picks up editor demotion on renewal", async () => {
+    const { idp, send, signIn, advance } = await setup(
+      { sessionTtlSeconds: 60, sessionRefreshSeconds: 30 },
+      { refreshTokens: true, rotateRefreshTokens: true },
+    );
+    const { cookie } = await signIn({ roles: ["kb_editor"] });
+    advance(29_000);
+    expect((await send("/v1/health", { cookie })).response.status).toBe(200);
+    expect(idp.refreshRequests).toBe(0);
+    idp.refresh.claims = { roles: ["kb_viewer"] };
+    advance(1_000);
+    const denied = await send("/v1/ingest", { method: "POST", cookie, origin: PUBLIC_URL });
+    expect(denied.response.status).toBe(403);
+    expect(JSON.parse(denied.body).error.code).toBe("forbidden");
+    expect(cookieFrom(denied.response, "dikw_session")).toBe(cookie);
+    expect(idp.refreshRequests).toBe(1);
+    advance(40_000);
+    const me = await send("/web/auth/me", { cookie });
+    expect(me.response.status).toBe(200);
+    expect(JSON.parse(me.body).role).toBe("viewer");
+    expect(idp.refreshRequests).toBe(2);
+  });
+
+  it("shares one refresh across concurrent requests even with single-use rotating tokens", async () => {
+    const { idp, send, signIn, advance, received } = await setup(
+      { sessionRefreshSeconds: 30 },
+      { refreshTokens: true, rotateRefreshTokens: true },
+    );
+    const { cookie } = await signIn({ roles: ["kb_editor"] });
+    advance(30_000);
+    let release!: () => void;
+    idp.refresh.wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const requests = Array.from({ length: 8 }, () => send("/v1/health", { cookie }));
+    try {
+      await vi.waitFor(() =>
+        expect(received.filter((path) => path === "/v1/health")).toHaveLength(8),
+      );
+      await vi.waitFor(() => expect(idp.refreshRequests).toBeGreaterThan(0));
+      expect(idp.refreshRequests).toBe(1);
+    } finally {
+      release();
+      await Promise.all(requests);
+    }
+    expect((await Promise.all(requests)).map(({ response }) => response.status)).toEqual(
+      Array(8).fill(200),
+    );
+    advance(30_000);
+    expect((await send("/web/auth/me", { cookie })).response.status).toBe(200);
+    expect(idp.refreshRequests).toBe(2);
+  });
+
+  it("revokes the current rotated token on logout and keeps the session deleted", async () => {
+    const { idp, send, signIn, advance } = await setup(
+      { sessionRefreshSeconds: 30 },
+      { refreshTokens: true, rotateRefreshTokens: true, revocation: true },
+    );
+    const { cookie } = await signIn({ roles: ["kb_editor"] });
+    advance(30_000);
+    await send("/web/auth/me", { cookie });
+    const logout = await send("/web/auth/logout", { method: "POST", cookie, origin: PUBLIC_URL });
+    expect(logout.response.status).toBe(303);
+    expect(idp.revokedTokens).toEqual([idp.refreshTokens[1]]);
+    expect((await send("/web/auth/me", { cookie })).response.status).toBe(401);
+  });
+
+  it("cannot revive a logged-out session and revokes a token returned by a late refresh", async () => {
+    const { idp, send, signIn, advance } = await setup(
+      { sessionRefreshSeconds: 30 },
+      { refreshTokens: true, rotateRefreshTokens: true, revocation: true },
+    );
+    const { cookie } = await signIn({ roles: ["kb_editor"] });
+    advance(30_000);
+    let release!: () => void;
+    idp.refresh.wait = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const request = send("/v1/health", { cookie });
+    try {
+      await vi.waitFor(() => expect(idp.refreshRequests).toBe(1));
+      const logout = await send("/web/auth/logout", { method: "POST", cookie, origin: PUBLIC_URL });
+      expect(logout.response.status).toBe(303);
+      expect((await send("/web/auth/me", { cookie })).response.status).toBe(401);
+    } finally {
+      release();
+    }
+    expect((await request).response.status).toBe(401);
+    expect(idp.revokedTokens).toEqual(idp.refreshTokens);
+    expect((await send("/web/auth/me", { cookie })).response.status).toBe(401);
+  });
+
+  it("expires renewable sessions when idle and caps active sessions at the absolute lifetime", async () => {
+    const { idp, send, signIn, advance } = await setup(
+      { sessionTtlSeconds: 60, sessionMaxSeconds: 120, sessionRefreshSeconds: 30 },
+      { refreshTokens: true },
+    );
+    const idle = (await signIn({ sub: "idle", roles: ["kb_viewer"] })).cookie;
+    const active = (await signIn({ sub: "active", roles: ["kb_viewer"] })).cookie;
+    for (let step = 0; step < 3; step++) {
+      advance(30_000);
+      expect((await send("/v1/health", { cookie: active })).response.status).toBe(200);
+    }
+    expect((await send("/web/auth/me", { cookie: idle })).response.status).toBe(401);
+    expect(idp.refreshRequests).toBe(3);
+    const last = await send("/web/auth/me", { cookie: active });
+    expect(last.response.headers.getSetCookie().join()).toContain("Max-Age=30");
+    advance(30_000);
+    expect((await send("/web/auth/me", { cookie: active })).response.status).toBe(401);
+    expect(idp.refreshRequests).toBe(3);
+  });
+
+  it("keeps the fixed TTL for providers without refresh tokens even during activity", async () => {
+    const { idp, send, signIn, advance } = await setup({
+      sessionTtlSeconds: 60,
+      sessionMaxSeconds: 30,
+      sessionRefreshSeconds: 10,
+    });
+    const { cookie } = await signIn({ roles: ["kb_viewer"] });
+    advance(40_000);
+    expect((await send("/v1/health", { cookie })).response.status).toBe(200);
+    advance(20_000);
+    expect((await send("/web/auth/me", { cookie })).response.status).toBe(401);
+    expect(idp.refreshRequests).toBe(0);
+  });
+
+  it("syncs promotions and revoked roles through subject-checked UserInfo with the configured role mapping", async () => {
+    const { idp, send, signIn, advance } = await setup(
+      { rolesClaim: "roles[].name", rolesOwner: "my-org", sessionRefreshSeconds: 30 },
+      { refreshTokens: true },
+    );
+    const { cookie } = await signIn({ roles: [{ owner: "my-org", name: "kb_viewer" }] });
+    idp.refresh.idToken = false;
+    idp.refresh.omitRefreshToken = true;
+    idp.refresh.claims = { roles: [{ owner: "my-org", name: "kb_editor" }] };
+    advance(30_000);
+    expect(
+      (await send("/v1/ingest", { method: "POST", cookie, origin: PUBLIC_URL })).response.status,
+    ).toBe(200);
+    idp.refresh.claims = {
+      roles: [
+        { owner: "other-org", name: "kb_editor" },
+        { owner: "my-org", name: "kb_viewer", isEnabled: false },
+      ],
+    };
+    advance(30_000);
+    const denied = await send("/v1/health", { cookie });
+    expect(denied.response.status).toBe(403);
+    expect(JSON.parse(denied.body).error.code).toBe("no_role");
+    const me = await send("/web/auth/me", { cookie });
+    expect(JSON.parse(me.body).role).toBeNull();
+    expect(idp.refreshRequests).toBe(2);
+  });
+
+  it("signs out on an invalid grant once and never retries the deleted session", async () => {
+    const { idp, send, signIn, advance } = await setup(
+      { sessionRefreshSeconds: 30 },
+      { refreshTokens: true },
+    );
+    const { cookie } = await signIn({ roles: ["kb_editor"] });
+    idp.refresh.error = "invalid_grant";
+    advance(30_000);
+    const responses = await Promise.all(
+      Array.from({ length: 8 }, () => send("/v1/health", { cookie })),
+    );
+    expect(responses.map(({ response }) => response.status)).toEqual(Array(8).fill(401));
+    expect(idp.refreshRequests).toBe(1);
+    const me = await send("/web/auth/me", { cookie });
+    expect(me.response.status).toBe(401);
+    expect(idp.refreshRequests).toBe(1);
+    expect(
+      responses.some(({ response }) =>
+        response.headers.getSetCookie().join().includes("Max-Age=0"),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not refresh or extend a session for a forged cross-origin write", async () => {
+    const { idp, send, signIn, advance } = await setup(
+      { sessionTtlSeconds: 60, sessionRefreshSeconds: 30 },
+      { refreshTokens: true },
+    );
+    const { cookie } = await signIn({ roles: ["kb_editor"] });
+    advance(30_000);
+    const forged = await send("/v1/ingest", {
+      method: "POST",
+      cookie,
+      origin: "https://evil.example.com",
+    });
+    expect(forged.response.status).toBe(403);
+    expect(idp.refreshRequests).toBe(0);
+    advance(30_000);
+    expect((await send("/web/auth/me", { cookie })).response.status).toBe(401);
+    expect(idp.refreshRequests).toBe(0);
+  });
+
+  it.each([
+    ["idle timeout", 60, 3600],
+    ["absolute lifetime", 120, 60],
+  ])(
+    "does not revive a session whose %s expires during a slow refresh",
+    async (_label, sessionTtlSeconds, sessionMaxSeconds) => {
+      const { idp, send, signIn, advance } = await setup(
+        { sessionTtlSeconds, sessionMaxSeconds, sessionRefreshSeconds: 30 },
+        { refreshTokens: true, revocation: true },
+      );
+      const { cookie } = await signIn({ roles: ["kb_editor"] });
+      advance(30_000);
+      let release!: () => void;
+      idp.refresh.wait = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const request = send("/v1/health", { cookie });
+      try {
+        await vi.waitFor(() => expect(idp.refreshRequests).toBe(1));
+        advance(30_000);
+      } finally {
+        release();
+      }
+      expect((await request).response.status).toBe(401);
+      expect(idp.revokedTokens).toEqual([idp.refreshTokens[1]]);
+      expect((await send("/web/auth/me", { cookie })).response.status).toBe(401);
+    },
+  );
+
   it("never sends the OIDC client secret or the core token to the browser", async () => {
     const { send, signIn, seen } = await setup();
     const { cookie } = await signIn({ roles: ["kb_editor"] });
@@ -387,5 +624,51 @@ describe("auth gate", () => {
     const everything = seen.join("\n");
     expect(everything).not.toContain(CLIENT_SECRET);
     expect(everything).not.toContain(CORE_TOKEN);
+  });
+
+  it("never exposes refresh tokens in cookies, responses, stdout or OTel logs", async () => {
+    const { idp, send, signIn, advance, seen } = await setup(
+      { sessionRefreshSeconds: 30 },
+      { refreshTokens: true, rotateRefreshTokens: true, revocation: true },
+    );
+    const records: ReadableLogRecord[] = [];
+    const lines: string[] = [];
+    const provider = new LoggerProvider({
+      processors: [
+        {
+          onEmit: (record) => records.push(record),
+          forceFlush: async () => {},
+          shutdown: async () => {},
+        },
+      ],
+    });
+    logs.setGlobalLoggerProvider(provider);
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation((chunk: unknown) => {
+      lines.push(String(chunk));
+      return true;
+    });
+    try {
+      const { cookie } = await signIn({ roles: ["kb_editor"] });
+      advance(30_000);
+      expect((await send("/web/auth/me", { cookie })).response.status).toBe(200);
+      await send("/web/auth/logout", { method: "POST", cookie, origin: PUBLIC_URL });
+      const failing = (await signIn({ roles: ["kb_editor"] })).cookie;
+      // Even a provider error that echoes a credential must stay server-private.
+      idp.refresh.error = idp.refreshTokens.at(-1)!;
+      advance(30_000);
+      expect((await send("/v1/health", { cookie: failing })).response.status).toBe(401);
+      expect(records.length).toBeGreaterThan(0);
+      const everything = [
+        ...seen,
+        ...lines,
+        JSON.stringify(records.map(({ body, attributes }) => ({ body, attributes }))),
+      ].join("\n");
+      for (const token of [...idp.refreshTokens, CLIENT_SECRET, CORE_TOKEN])
+        expect(everything).not.toContain(token);
+    } finally {
+      stdout.mockRestore();
+      logs.disable();
+      await provider.shutdown();
+    }
   });
 });

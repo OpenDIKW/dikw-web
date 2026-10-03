@@ -267,6 +267,8 @@ Settings; the auth mode below keeps it on the server.
 For a shared deployment, the opt-in **OIDC auth mode** (`DIKW_WEB_AUTH_MODE=oidc`)
 turns that server into a Backend-for-Frontend:
 - users sign in through your OpenID Connect provider;
+- with provider-issued refresh tokens, activity renews sessions and roles every
+  15 minutes, with an 8h idle timeout and a 7-day absolute cap (configurable);
 - the dikw-core token stays server-side, and `/v1` is proxied same-origin;
 - agent sessions are per user;
 - conversion and translation job progress, results and cancellation are per user

@@ -72,6 +72,8 @@ describe("loadAuthConfig", () => {
         editorRoles: ["kb_editor"],
         sessionSecret: SECRET,
         sessionTtlSeconds: 8 * 60 * 60,
+        sessionMaxSeconds: 7 * 24 * 60 * 60,
+        sessionRefreshSeconds: 15 * 60,
         coreUrl: "http://dikw-core:8765",
         serverToken: "core-token",
       });
@@ -90,6 +92,8 @@ describe("loadAuthConfig", () => {
           DIKW_WEB_ROLE_VIEWER: "a, b ,,",
           DIKW_WEB_ROLE_EDITOR: "",
           DIKW_WEB_SESSION_TTL_SECONDS: "600",
+          DIKW_WEB_SESSION_MAX_SECONDS: "7200",
+          DIKW_WEB_SESSION_REFRESH_SECONDS: "120",
           DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER: "user-sub-1",
         }),
       });
@@ -101,8 +105,32 @@ describe("loadAuthConfig", () => {
         viewerRoles: ["a", "b"],
         editorRoles: [],
         sessionTtlSeconds: 600,
+        sessionMaxSeconds: 7200,
+        sessionRefreshSeconds: 120,
         legacySessionsOwner: "user-sub-1",
       });
+    });
+  });
+
+  it("accepts opt-in offline authorization parameters without overriding OIDC security fields", async () => {
+    await withCwd(async (cwd) => {
+      const config = await loadAuthConfig({
+        cwd,
+        env: oidcEnv({ DIKW_WEB_OIDC_AUTH_PARAMS: '{"access_type":"offline","prompt":"consent"}' }),
+      });
+      expect(config?.authorizationParams).toEqual({ access_type: "offline", prompt: "consent" });
+      expect(config?.scopes).toBe("openid profile email");
+      for (const value of [
+        '{"nonce":"replayed"}',
+        '{"scope":"offline_access"}',
+        '{"prompt":false}',
+        "[]",
+        "not-json",
+      ]) {
+        await expect(
+          loadAuthConfig({ cwd, env: oidcEnv({ DIKW_WEB_OIDC_AUTH_PARAMS: value }) }),
+        ).rejects.toThrow(/DIKW_WEB_OIDC_AUTH_PARAMS/);
+      }
     });
   });
 
@@ -146,6 +174,8 @@ describe("loadAuthConfig", () => {
     ["DIKW_WEB_SESSION_SECRET", "too-short"],
     ["DIKW_WEB_SESSION_TTL_SECONDS", "0"],
     ["DIKW_WEB_SESSION_TTL_SECONDS", "8h"],
+    ["DIKW_WEB_SESSION_MAX_SECONDS", "0"],
+    ["DIKW_WEB_SESSION_REFRESH_SECONDS", "-1"],
   ])("rejects an invalid %s", async (key, value) => {
     await withCwd(async (cwd) => {
       const error = await configError(cwd, oidcEnv({ [key]: value }));

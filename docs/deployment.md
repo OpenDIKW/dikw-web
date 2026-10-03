@@ -138,13 +138,16 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 | `DIKW_WEB_OIDC_INTERNAL_URL` | | _未设_ | IdP 在内网的 origin（如 `http://casdoor:8000`）。只把服务端到 IdP 的调用（discovery / token / JWKS）改走这里，浏览器跳转仍用公网 issuer。此时 IdP 必须固定公网 hostname（通过内网取到的 discovery 里 `issuer` 仍须是公网值） |
 | `DIKW_WEB_OIDC_CLIENT_ID` | ✅ | | OIDC client id |
 | `DIKW_WEB_OIDC_CLIENT_SECRET` | ✅ | | client secret（`client_secret_post`），不会发给浏览器 |
-| `DIKW_WEB_OIDC_SCOPES` | | `openid profile email` | 申请的 scope |
-| `DIKW_WEB_OIDC_ROLES_CLAIM` | | `roles` | 从 ID token 读角色的路径：`roles`、`groups`、`realm_access.roles`、`roles[].name`（`[]` 表示遍历数组） |
+| `DIKW_WEB_OIDC_SCOPES` | | `openid profile email` | Requested scopes; offline access is opt-in (see provider notes below) |
+| `DIKW_WEB_OIDC_AUTH_PARAMS` | | _unset_ | JSON authorization parameters; only string `access_type` / `prompt` allowed, e.g. `{"access_type":"offline","prompt":"consent"}` for Google |
+| `DIKW_WEB_OIDC_ROLES_CLAIM` | | `roles` | Role path in login/renewed ID tokens, or UserInfo when renewal omits an ID token: `roles`, `groups`, `realm_access.roles`, `roles[].name` (`[]` traverses arrays) |
 | `DIKW_WEB_OIDC_ROLES_OWNER` | | _未设_ | 只保留 `owner` 等于该值的角色对象（Casdoor 的组织）；`isEnabled: false` 的角色对象总会被忽略 |
 | `DIKW_WEB_ROLE_VIEWER` | 二者至少一个 | | 映射为 viewer 的角色名，逗号分隔 |
 | `DIKW_WEB_ROLE_EDITOR` | 二者至少一个 | | 映射为 editor 的角色名，逗号分隔 |
 | `DIKW_WEB_SESSION_SECRET` | ✅ | | ≥ 32 字符的随机串（如 `openssl rand -base64 48`）。用于加密服务端会话；更换它会让所有人重新登录 |
-| `DIKW_WEB_SESSION_TTL_SECONDS` | | `28800`（8 小时） | 登录会话的绝对有效期。不做 refresh token 续期；角色变更在下次登录生效 |
+| `DIKW_WEB_SESSION_TTL_SECONDS` | | `28800` (8h) | Idle timeout with refresh tokens; fixed lifetime without them |
+| `DIKW_WEB_SESSION_MAX_SECONDS` | | `604800` (7 days) | Absolute lifetime from sign-in for renewable sessions |
+| `DIKW_WEB_SESSION_REFRESH_SECONDS` | | `900` (15 min) | Minimum interval between request-driven token renewal and role synchronization |
 | `DIKW_CORE_URL` | ✅ | | dikw-core 地址（服务端视角），如 `http://dikw-core:8765` |
 | `DIKW_SERVER_TOKEN` | ✅ | | dikw-core 的 bearer token |
 | `DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER` | | _未设_ | 见下文「开启前的旧会话」 |
@@ -178,6 +181,61 @@ DIKW_SERVER_TOKEN=...
 ```
 
 用 docker compose 时，把这些变量加进 `dikw-web` 服务的 `environment:`（`docker-compose.yml` 默认只透传 LLM / 工具相关变量）。
+
+### Session renewal and provider setup
+
+Default scopes remain `openid profile email`. Existing sessions, and providers
+that issue no refresh token, retain the fixed TTL and need a new sign-in to
+pick up role changes. New renewable sessions slide the idle timeout on
+valid-origin activity and renew tokens before authorizing the first request
+after the refresh interval. Cookie Max-Age never exceeds the absolute cap.
+There is no background refresh; polling counts as activity, while a long-running
+request alone does not keep the session alive.
+
+Refresh tokens and clocks live only inside the AES-256-GCM-sealed server record.
+The opaque cookie id stays stable. Token rotation is persisted before any waiting
+request is authorized. Use one standalone process per `auth.sqlite`: the
+single-flight refresh lock is process-local, not a cross-replica lock.
+
+Provider configuration must allow refresh grants at the discovered token endpoint:
+
+- **Casdoor:** authorization-code responses can include refresh tokens without
+  `offline_access`. Enable the application's Refresh Token grant and configure
+  a suitable Refresh Token expiration (the documented default is 0 hours).
+  Keep the role-object mapping shown above. See [Casdoor OAuth documentation](https://casdoor.org/docs/how-to-connect/oauth/#refresh-token).
+- **Keycloak:** enable refresh tokens for the confidential client. Regular
+  code flow can issue session-bound refresh tokens. For offline sessions,
+  explicitly set `DIKW_WEB_OIDC_SCOPES=openid profile email offline_access`,
+  allow the `offline_access` client scope/role and review Offline Session Idle/Max
+  settings. Enable roles in refreshed ID tokens and UserInfo when needed.
+  See [Keycloak session and offline-access settings](https://www.keycloak.org/docs/latest/server_admin/index.html#_offline-access).
+- **Microsoft Entra ID:** explicitly set
+  `DIKW_WEB_OIDC_SCOPES=openid profile email offline_access` on the confidential
+  web application, and map its app roles into ID tokens.
+  See [Entra offline_access scope](https://learn.microsoft.com/en-us/entra/identity-platform/scopes-oidc#the-offline_access-scope).
+- **Google:** set `DIKW_WEB_OIDC_AUTH_PARAMS={"access_type":"offline","prompt":"consent"}`
+  to request offline access and re-consent when obtaining a refresh token. Leave
+  scopes explicit; Google does not supply this application's custom roles by
+  default, so a provider/claim mapping supplying those roles is still required.
+  See [Google offline access](https://developers.google.com/identity/protocols/oauth2/web-server#offline).
+
+Renewed ID tokens undergo the same signature/issuer/audience/authorized-party
+checks as login and must keep the original subject. If no ID token is returned,
+the new access token is used once for subject-checked UserInfo; configure the
+same role claims there. Missing role claims result in `403 no_role` on app APIs
+(`/web/auth/me` returns role null). Failed refresh or unverifiable UserInfo deletes
+the session and returns 401, triggering the SPA's existing sign-in redirect
+without a retry loop. Provider responses/errors and refresh credentials are never
+logged. The IdP must return current roles and reject refresh/UserInfo for disabled
+or revoked accounts; its own policies can impose a shorter lifetime.
+
+Role changes take effect on the server at the next active renewal. SPA controls
+and the role display update on reload; already admitted streams/jobs continue.
+Logout deletes the local record first and revokes the current refresh token when
+the IdP advertises `revocation_endpoint`; provider failure still leaves the local
+session signed out. A late refresh cannot revive a logged-out/expired record and
+its new token is also revoked when supported. The three configurable session
+values must be positive integer seconds; login transactions remain fixed at 10 minutes.
 
 ### 开启前的旧会话
 

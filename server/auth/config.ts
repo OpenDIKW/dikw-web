@@ -21,6 +21,8 @@ export interface AuthConfig {
   clientId: string;
   clientSecret: string;
   scopes: string;
+  /** Explicit provider opt-in (e.g. Google's offline access); protocol fields cannot be overridden. */
+  authorizationParams?: Partial<Record<"access_type" | "prompt", string>>;
   /** Claim path the role names are read from, e.g. `roles`, `realm_access.roles`, `roles[].name`. */
   rolesClaim: string;
   /** Keep only role objects whose `owner` equals this (Casdoor organization). */
@@ -29,6 +31,8 @@ export interface AuthConfig {
   editorRoles: string[];
   sessionSecret: string;
   sessionTtlSeconds: number;
+  sessionMaxSeconds: number;
+  sessionRefreshSeconds: number;
   coreUrl: string;
   serverToken: string;
   /** OIDC `sub` that inherits the pre-auth `"demo"` agent sessions (read-time merge). */
@@ -90,6 +94,7 @@ export async function loadAuthConfig(
   const internalUrl = readOptional(env, "DIKW_WEB_OIDC_INTERNAL_URL");
   const rolesOwner = readOptional(env, "DIKW_WEB_OIDC_ROLES_OWNER");
   const legacySessionsOwner = readOptional(env, "DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER");
+  const authorizationParams = readAuthorizationParams(env);
   return {
     publicUrl: readOrigin(value("DIKW_WEB_PUBLIC_URL"), "DIKW_WEB_PUBLIC_URL"),
     issuer: readHttpUrl(value("DIKW_WEB_OIDC_ISSUER"), "DIKW_WEB_OIDC_ISSUER"),
@@ -97,12 +102,19 @@ export async function loadAuthConfig(
     clientId: value("DIKW_WEB_OIDC_CLIENT_ID"),
     clientSecret: value("DIKW_WEB_OIDC_CLIENT_SECRET"),
     scopes: readOptional(env, "DIKW_WEB_OIDC_SCOPES") ?? "openid profile email",
+    ...(authorizationParams ? { authorizationParams } : {}),
     rolesClaim: readOptional(env, "DIKW_WEB_OIDC_ROLES_CLAIM") ?? "roles",
     ...(rolesOwner ? { rolesOwner } : {}),
     viewerRoles,
     editorRoles,
     sessionSecret,
-    sessionTtlSeconds: readTtl(env),
+    sessionTtlSeconds: readSeconds(
+      env,
+      "DIKW_WEB_SESSION_TTL_SECONDS",
+      DEFAULT_SESSION_TTL_SECONDS,
+    ),
+    sessionMaxSeconds: readSeconds(env, "DIKW_WEB_SESSION_MAX_SECONDS", 7 * 24 * 60 * 60),
+    sessionRefreshSeconds: readSeconds(env, "DIKW_WEB_SESSION_REFRESH_SECONDS", 15 * 60),
     coreUrl: readHttpUrl(value("DIKW_CORE_URL"), "DIKW_CORE_URL").replace(/\/+$/, ""),
     serverToken: value("DIKW_SERVER_TOKEN"),
     ...(legacySessionsOwner ? { legacySessionsOwner } : {}),
@@ -114,6 +126,32 @@ function readList(env: Record<string, string | undefined>, key: string): string[
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function readAuthorizationParams(
+  env: Record<string, string | undefined>,
+): AuthConfig["authorizationParams"] {
+  const raw = readOptional(env, "DIKW_WEB_OIDC_AUTH_PARAMS");
+  if (!raw) return undefined;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (
+      value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      Object.entries(value).every(
+        ([key, item]) =>
+          ["access_type", "prompt"].includes(key) && typeof item === "string" && item.trim(),
+      )
+    ) {
+      return value as AuthConfig["authorizationParams"];
+    }
+  } catch {
+    /* fall through without echoing the configured value */
+  }
+  throw new Error(
+    "DIKW_WEB_OIDC_AUTH_PARAMS must be a JSON object with string access_type/prompt values only",
+  );
 }
 
 /** `raw` unchanged when it is an absolute http(s) URL; throws otherwise. */
@@ -138,14 +176,18 @@ function readOrigin(raw: string, key: string): string {
   return url.origin;
 }
 
-function readTtl(env: Record<string, string | undefined>): number {
-  const raw = readOptional(env, "DIKW_WEB_SESSION_TTL_SECONDS");
+function readSeconds(
+  env: Record<string, string | undefined>,
+  key: string,
+  fallback: number,
+): number {
+  const raw = readOptional(env, key);
   if (raw === undefined) {
-    return DEFAULT_SESSION_TTL_SECONDS;
+    return fallback;
   }
   const value = Number(raw);
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new Error("DIKW_WEB_SESSION_TTL_SECONDS must be a positive integer");
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new Error(`${key} must be a positive integer`);
   }
   return value;
 }
