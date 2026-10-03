@@ -66,6 +66,7 @@ export default tseslint.config(
   {
     files: [
       "server/**/*.ts",
+      "packages/web-server/src/**/*.ts",
       "scripts/**/*.{mjs,js,mts}",
       "tests/package-consumers/**/*.{mjs,mts,ts,tsx}",
       "*.{js,cjs,mjs}",

@@ -24,7 +24,7 @@ for (const name of ["web-client", "web-ui", "web-server"]) {
   for (const file of packed.files) {
     if (
       !/^(dist\/|package\.json$|README\.md$|LICENSE$)/.test(file.path) ||
-      /\.test\./.test(file.path)
+      /\.test\.|fakeIdp\./.test(file.path)
     ) {
       throw new Error(`Unexpected public package file: ${packed.name}/${file.path}`);
     }

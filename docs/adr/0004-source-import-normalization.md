@@ -150,7 +150,7 @@ its `assets/`. Collision safety is reframed:
   original extension (kept for MinerU format detection), forwarding the true name
   via the `originalFilename` query. Replaces the old `shorten-filename.ts`, now
   deleted.
-- `server/web/http.ts` — `injectFrontmatter` rewritten to the flat schema (drop
+- `packages/web-server/src/web/http.ts` — `injectFrontmatter` rewritten to the flat schema (drop
   the nested `source:` object, `original_sha256`, and the now-unused `inputSha`
   arg).
 

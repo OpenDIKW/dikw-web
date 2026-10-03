@@ -61,6 +61,53 @@ execFileSync(
   { cwd, stdio: "inherit" },
 );
 console.log("Packed client runtime and NodeNext declarations passed in an independent install.");
+if (manifest.packages.some((pkg) => pkg.name === "@opendikw/web-server")) {
+  // A separate production consumer must not inherit React, Vite or workspace
+  // node_modules from the UI fixture or the checkout.
+  const serverCwd = mkdtempSync(resolve(tmpdir(), "dikw-server-consumer-"));
+  writeFileSync(`${serverCwd}/package.json`, JSON.stringify({ private: true, type: "module" }));
+  execFileSync(
+    process.execPath,
+    [
+      npm,
+      "install",
+      "--ignore-scripts",
+      "--no-audit",
+      "--no-fund",
+      ...manifest.packages
+        .filter((pkg) => pkg.name !== "@opendikw/web-ui")
+        .map((pkg) => resolve(`.tmp/shared-packages/${pkg.tarball}`)),
+      `@types/node@${require("@types/node/package.json").version}`,
+    ],
+    { cwd: serverCwd, stdio: "inherit" },
+  );
+  copyFileSync("tests/package-consumers/server/runtime.mjs", `${serverCwd}/runtime.mjs`);
+  copyFileSync("tests/package-consumers/server/types.mts", `${serverCwd}/types.mts`);
+  writeFileSync(
+    `${serverCwd}/tsconfig.json`,
+    JSON.stringify({
+      compilerOptions: {
+        noEmit: true,
+        strict: true,
+        skipLibCheck: false,
+        module: "NodeNext",
+        moduleResolution: "NodeNext",
+        target: "ES2022",
+        types: ["node"],
+      },
+      include: ["types.mts"],
+    }),
+  );
+  execFileSync(process.execPath, [`${serverCwd}/runtime.mjs`], {
+    cwd: serverCwd,
+    stdio: "inherit",
+  });
+  execFileSync(
+    process.execPath,
+    [require.resolve("typescript/bin/tsc"), "-p", `${serverCwd}/tsconfig.json`],
+    { cwd: serverCwd, stdio: "inherit" },
+  );
+}
 if (manifest.packages.some((pkg) => pkg.name === "@opendikw/web-ui")) {
   for (const name of ["main", "controls"]) {
     copyFileSync(`tests/package-consumers/ui/${name}.jsx`, `${cwd}/${name}.jsx`);
@@ -104,4 +151,16 @@ if (manifest.packages.some((pkg) => pkg.name === "@opendikw/web-ui")) {
     );
   }
   console.log("Packed UI controls, shared AuthContext, reader hydration, fonts and theme passed.");
+  if (manifest.packages.some((pkg) => pkg.name === "@opendikw/web-server")) {
+    writeFileSync(`${cwd}/entry.mts`, 'import "@opendikw/web-server/vite";\n');
+    writeFileSync(
+      `${cwd}/entry-tsconfig.json`,
+      JSON.stringify({ ...config, include: ["entry.mts"] }),
+    );
+    execFileSync(
+      process.execPath,
+      [require.resolve("typescript/bin/tsc"), "-p", `${cwd}/entry-tsconfig.json`],
+      { cwd, stdio: "inherit" },
+    );
+  }
 }

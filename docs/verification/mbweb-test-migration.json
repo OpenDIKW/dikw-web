@@ -142,12 +142,215 @@
       "destination": "packages/web-ui/src/reader/markdown-document.test.tsx",
       "behavior": "Existing assertions retained; public package/source entry imports updated",
       "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/adkRunner.test.ts",
+      "destination": "packages/web-server/src/agent/adkRunner.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/adkSessionStore.test.ts",
+      "destination": "packages/web-server/src/agent/adkSessionStore.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/adkTools.test.ts",
+      "destination": "packages/web-server/src/agent/adkTools.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/config.test.ts",
+      "destination": "packages/web-server/src/agent/config.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/contextCompaction.integration.test.ts",
+      "destination": "packages/web-server/src/agent/contextCompaction.integration.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/contextCompactor.test.ts",
+      "destination": "packages/web-server/src/agent/contextCompactor.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/dikwSpanProcessor.test.ts",
+      "destination": "packages/web-server/src/agent/dikwSpanProcessor.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/http.test.ts",
+      "destination": "packages/web-server/src/agent/http.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/instrumentation.test.ts",
+      "destination": "packages/web-server/src/agent/instrumentation.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/minimaxLlm.test.ts",
+      "destination": "packages/web-server/src/agent/minimaxLlm.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/requestRouter.test.ts",
+      "destination": "packages/web-server/src/agent/requestRouter.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/runtime.test.ts",
+      "destination": "packages/web-server/src/agent/runtime.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/sessionStore.test.ts",
+      "destination": "packages/web-server/src/agent/sessionStore.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/spanStore.test.ts",
+      "destination": "packages/web-server/src/agent/spanStore.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/telemetry.test.ts",
+      "destination": "packages/web-server/src/agent/telemetry.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/tools.test.ts",
+      "destination": "packages/web-server/src/agent/tools.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/agent/vitePlugin.test.ts",
+      "destination": "packages/web-server/src/agent/vitePlugin.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/auth/config.test.ts",
+      "destination": "packages/web-server/src/auth/config.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/auth/coreProxy.test.ts",
+      "destination": "packages/web-server/src/auth/coreProxy.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/auth/gate.test.ts",
+      "destination": "packages/web-server/src/auth/gate.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/auth/oidc.test.ts",
+      "destination": "packages/web-server/src/auth/oidc.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/auth/roles.test.ts",
+      "destination": "packages/web-server/src/auth/roles.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/auth/sessionStore.test.ts",
+      "destination": "packages/web-server/src/auth/sessionStore.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/web/config.test.ts",
+      "destination": "packages/web-server/src/web/config.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/web/http.test.ts",
+      "destination": "packages/web-server/src/web/http.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/web/jobStore.test.ts",
+      "destination": "packages/web-server/src/web/jobStore.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/web/mineruClient.test.ts",
+      "destination": "packages/web-server/src/web/mineruClient.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/web/mineruConvert.test.ts",
+      "destination": "packages/web-server/src/web/mineruConvert.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/web/translate.test.ts",
+      "destination": "packages/web-server/src/web/translate.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/shared/env.test.ts",
+      "destination": "packages/web-server/src/shared/env.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/shared/logger.test.ts",
+      "destination": "packages/web-server/src/shared/logger.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/shared/metrics.test.ts",
+      "destination": "packages/web-server/src/shared/metrics.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "server/shared/withServerSpan.test.ts",
+      "destination": "packages/web-server/src/shared/withServerSpan.test.ts",
+      "behavior": "Existing behavior assertions retained; runtime imports remain relative",
+      "ci": "dikw-web CI / vitest"
     }
   ],
   "addedTests": [
     "packages/web-client/src/core/public-api.test.ts",
     "packages/web-client/src/core/cache-api.test.ts",
     "packages/web-ui/src/reader/consumer.test.tsx",
-    "packages/web-ui/src/theme/theme.test.tsx"
+    "packages/web-ui/src/theme/theme.test.tsx",
+    "packages/web-server/src/runtime/createWebRuntime.test.ts",
+    "packages/web-server/src/runtime/profile.integration.test.ts",
+    "packages/web-server/src/runtime/profile.test.ts",
+    "packages/web-server/src/runtime/tools.test.ts",
+    "packages/web-server/src/agent/coreCancellation.test.ts"
   ]
 }

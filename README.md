@@ -86,7 +86,7 @@ Direct `npx vitest` commands require `npm run build:packages` after changing a p
 Single-file iteration:
 
 ```sh
-npx vitest run src/components/MarkdownView.test.tsx
+npx vitest run packages/web-ui/src/reader/MarkdownView.test.tsx
 npx playwright test tests/e2e/wiki.spec.ts
 ```
 
@@ -141,12 +141,24 @@ dev server as middleware, and into `dist-server/standalone.mjs` for prod):
 
 1. **Browser app** in `src/` — React 19 + TypeScript, no UI framework.
    Hand-rolled CSS token system in `src/styles.css`.
-2. **Sidecar** in `server/agent/` + `server/web/` + `server/shared/` —
+2. **Sidecar** in `packages/web-server/src/` —
    `/agent/*` mounted by `agentSidecarPlugin()` (Google ADK chat), `/web/*`
    mounted by `webApiPlugin()` (browser helpers: mineru conversion + on-demand
-   LLM translation). Both plugins are defined under `server/*/vitePlugin.ts`
-   and registered in `vite.config.ts`. Sessions persist to local SQLite in
+   LLM translation). Both plugins are defined under `packages/web-server/src/*/vitePlugin.ts`
+   and composed by the public `/vite` `createApplicationPlugins()` entry in
+   `vite.config.ts`. The production `server/agent/standalone.ts` entry calls
+   `/runtime` `createWebRuntime({ appId: "dikw-web", profile: "workbench" })`;
+   the application owns listening and shutdown, while the factory owns databases
+   and jobs. Sessions persist to local SQLite in
    `.agent-sessions/agent.sqlite` (gitignored).
+
+The same MIT runtime also supports the independent MB application through the
+`mbweb` profile, with separate BFF configuration, cookies, databases and jobs.
+MB retains paper/Q&A/notes workflows and rejects maintenance, proposals, traces
+and unknown APIs. Production MB requires OIDC and `DIKW_WEB_CORE_ID`, a stable
+public logical identifier for the shared Core knowledge base. See the
+[package contract](packages/web-server/README.md) and
+[application boundary ADR](docs/adr/0007-independent-applications-shared-packages.md).
 
 ## Routes
 
@@ -165,7 +177,7 @@ Hash-based. Settings owns connection state.
 
 ## Markdown reader
 
-`src/components/MarkdownView.tsx` renders source- and knowledge-layer
+`packages/web-ui/src/reader/MarkdownView.tsx` renders source- and knowledge-layer
 markdown bodies (the shared renderer also backs the bilingual dual column).
 Supports:
 
@@ -328,20 +340,22 @@ Jaeger + Prometheus + Loki + Grafana) — and the full env reference are in
 
 ```
 src/
-  api/             DikwClient + AgentClient + NDJSON helpers
-  components/      MarkdownView, GraphCanvas, BilingualView, shared UI pieces
+  components/      workbench-specific GraphCanvas, navigation and panels
   pages/           one file per workbench route (Chat, Graph, Wiki/Base, Overview, Tasks, Settings, Trace, …)
   mb/              the #MB-Web 论文知识库 front-end (MbApp + mb.css)
   config/          branding + telemetry runtime config, connection keys
-  hooks/           useAsyncResource, useBilingualReader, usePreviewTranslation
+  hooks/           workbench-specific resource and preview hooks
   state/           import-pipeline + wisdom-write client state
   telemetry/       browser RUM bootstrap (initBrowserOtel)
-  utils/           pure helpers (chart-spec, frontmatter, graph adapters, kebab names, format)
-  styles.css       hand-rolled token system — the UI baseline
+  utils/           workbench-specific graph adapters and UI helpers
+  styles.css       workbench layout and application styles
+packages/
+  web-client/      public Core/Agent clients, protocol types and document utilities
+  web-ui/          shared controls, readers, hooks, auth Context and theme/CSS layers
+  web-server/      shared auth, Agent, web jobs, runtime/profile and optional Vite plugins
 server/
-  agent/           ADK agent sidecar, MiniMaxLlm, tools, sqlite sessions, OTel
-  web/             /web/* helpers — mineru convert + LLM translate (job + poll)
-  shared/          logger, metrics, env, withServerSpan (cross-sidecar)
+  agent/           thin workbench standalone entry (instrumentation/listen/shutdown)
 tests/e2e/         Playwright specs + mockApi fixtures
+tests/package-consumers/  independently installed tarball consumers
 docs/              canonical product/contract notes (see above)
 ```

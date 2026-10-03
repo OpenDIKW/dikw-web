@@ -1,0 +1,445 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { mkdir } from "node:fs/promises";
+import { isAbsolute, join } from "node:path";
+import { DatabaseSessionService } from "@google/adk";
+import type { MikroORM } from "@mikro-orm/core";
+import { SqliteDriver } from "@mikro-orm/sqlite";
+import type { ApplicationId, ApplicationProfile } from "../runtime/profile.js";
+import { loadAgentConfig } from "./config.js";
+import { parseSessionTitle, SESSION_TITLE_ERROR_MESSAGES } from "./sessionStore.js";
+import { AdkSessionStore, DEFAULT_USER_ID, SessionNotFoundError } from "./adkSessionStore.js";
+import { AdkAgentRunner } from "./adkRunner.js";
+import { SpanStore } from "./spanStore.js";
+import { initAgentTelemetry } from "./telemetry.js";
+import { createLogger } from "../shared/logger.js";
+import { defaultServerUrl } from "@opendikw/web-client/connection";
+import type { AgentRunner } from "./runtime.js";
+import type { AgentMaintenanceAction, AgentStreamEvent } from "@opendikw/web-client/types";
+
+const log = createLogger("agent");
+
+export interface AgentHandlerOptions {
+  cwd?: string;
+  store?: AdkSessionStore;
+  runner?: AgentRunner;
+  spanStore?: SpanStore;
+  sessionsDir?: string;
+  /**
+   * Dev-only: the Vite `/v1` proxy target (`VITE_DIKW_PROXY_TARGET`), injected by
+   * `agentSidecarPlugin` so the sidecar mirrors that proxy for its outbound core
+   * calls (see `applyDevProxyTarget`). The standalone production sidecar never
+   * sets this, so the rewrite is impossible in prod by construction.
+   */
+  devProxyTarget?: string;
+  /**
+   * Auth mode (issue #200): the OIDC `sub` the auth gate admitted for this
+   * request; its ADK user id is `oidc:<sub>`. Unset → every caller is
+   * `DEFAULT_USER_ID`.
+   */
+  subjectFor?: (req: IncomingMessage) => string;
+  /** Auth mode: the `sub` that also sees the pre-auth `DEFAULT_USER_ID` sessions. */
+  legacySessionsOwner?: string;
+  /**
+   * Auth mode: the server-configured core URL + token. Request-supplied
+   * `coreUrl` / `token` are then ignored, so a caller can't point the sidecar
+   * at an arbitrary URL.
+   */
+  serverCore?: CoreConnection;
+}
+
+type DefaultAgentHandlerOptions = Pick<
+  AgentHandlerOptions,
+  "sessionsDir" | "devProxyTarget" | "subjectFor" | "legacySessionsOwner" | "serverCore"
+> & {
+  env?: Record<string, string | undefined>;
+  appId?: ApplicationId;
+  profile?: ApplicationProfile;
+};
+
+export function resolveSessionsDir(cwd: string, override?: string): string {
+  const raw = (override ?? process.env.DIKW_AGENT_SESSIONS_DIR ?? "").trim();
+  if (raw) {
+    return isAbsolute(raw) ? raw : join(cwd, raw);
+  }
+  return join(cwd, ".agent-sessions");
+}
+
+export async function createDefaultAgentHandler(
+  cwd = process.cwd(),
+  options: DefaultAgentHandlerOptions = {},
+) {
+  const config = await loadAgentConfig({ cwd, env: options.env });
+  const dir = resolveSessionsDir(cwd, options.sessionsDir);
+  await mkdir(dir, { recursive: true }); // sqlite3 creates the file, not the dir
+  // POSIX slashes — Windows backslashes break the sqlite:// URI parse.
+  let ownedOrm: MikroORM | undefined;
+  const sessionService = new DatabaseSessionService({
+    driver: SqliteDriver,
+    dbName: join(dir, "agent.sqlite"),
+    // ADK has no public close method. Its public ORM extension API gives the
+    // runtime ownership of the connection without reading private ADK fields.
+    extensions: [
+      {
+        register(orm) {
+          ownedOrm = orm;
+        },
+      },
+    ],
+  });
+  // Initialize once before concurrent HTTP requests can enter ADK's lazy init.
+  // A returned runtime owns exactly one validated, closable SQLite connection.
+  try {
+    await sessionService.init();
+  } catch (error) {
+    await ownedOrm?.close(true);
+    throw error;
+  }
+  const store = new AdkSessionStore({
+    sessionService,
+    appName: options.appId ?? "dikw-web",
+    userId: DEFAULT_USER_ID,
+  });
+  // Register telemetry BEFORE building the runner so the first turn's spans are
+  // captured; initAgentTelemetry owns the process-global SpanStore (see
+  // telemetry.ts) so a dev /web request before any /agent request still
+  // registers the provider, and #trace reads from this same store.
+  const spanStore = initAgentTelemetry(options.appId);
+  const runner = new AdkAgentRunner({
+    config,
+    store,
+    sessionService,
+    appId: options.appId,
+    profile: options.profile,
+  });
+  const handler = createAgentHandler({ ...options, cwd, store, runner, spanStore });
+  return Object.assign(handler, {
+    async close() {
+      await ownedOrm?.close(true);
+    },
+  });
+}
+
+export function createAgentHandler(options: AgentHandlerOptions = {}) {
+  const {
+    store: baseStore,
+    runner,
+    spanStore,
+    devProxyTarget,
+    serverCore,
+    subjectFor,
+    legacySessionsOwner,
+  } = options;
+  if (!baseStore || !runner) {
+    throw new Error(
+      "createAgentHandler requires both store and runner (use createDefaultAgentHandler)",
+    );
+  }
+  const activeControllers = new Map<string, Set<AbortController>>();
+  const shutdown = new AbortController();
+  const admitted = new Set<IncomingMessage>();
+
+  const handler = async function agentHandler(
+    req: IncomingMessage,
+    res: ServerResponse,
+    next?: (error?: unknown) => void,
+  ) {
+    if (shutdown.signal.aborted) {
+      return errorJson(res, 503, "application_closed", "application is closed");
+    }
+    admitted.add(req);
+    try {
+      const url = new URL(req.url ?? "/", "http://localhost");
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts[0] !== "sessions") {
+        return notFound(res);
+      }
+      // Every route below goes through the caller's own store, so another
+      // user's session id is simply "not found". Signed-in users live under
+      // `oidc:<sub>`, so no IdP subject can ever be the pre-auth `demo` owner;
+      // only the configured legacy owner is handed those sessions.
+      const subject = subjectFor?.(req);
+      const store =
+        subject === undefined
+          ? baseStore.forUser(DEFAULT_USER_ID)
+          : baseStore.forUser(
+              `oidc:${subject}`,
+              subject === legacySessionsOwner ? DEFAULT_USER_ID : undefined,
+            );
+      if (req.method === "GET" && parts.length === 1) {
+        return json(res, await store.listSessions());
+      }
+      if (req.method === "POST" && parts.length === 1) {
+        return json(res, await store.createSession(), 201);
+      }
+      const sessionId = parts[1];
+      if (!sessionId) {
+        return notFound(res);
+      }
+      if (req.method === "GET" && parts.length === 2) {
+        return json(res, await store.getSession(sessionId));
+      }
+      if (req.method === "GET" && parts.length === 3 && parts[2] === "traces") {
+        await store.ownerOf(sessionId);
+        return json(
+          res,
+          spanStore ? spanStore.getSessionTraces(sessionId) : { sessionId, invocations: [] },
+        );
+      }
+      if (req.method === "PATCH" && parts.length === 2) {
+        const body = await readJsonBody(req);
+        const parsed = parseSessionTitle(isRecord(body) ? body.title : undefined);
+        if (!parsed.ok) {
+          return errorJson(
+            res,
+            400,
+            "invalid_request",
+            SESSION_TITLE_ERROR_MESSAGES[parsed.reason],
+          );
+        }
+        return json(res, await store.renameSession(sessionId, parsed.title));
+      }
+      if (req.method === "DELETE" && parts.length === 2) {
+        await store.deleteSession(sessionId);
+        return noContent(res);
+      }
+      if (req.method === "POST" && parts.length === 3 && parts[2] === "abort") {
+        await store.ownerOf(sessionId);
+        for (const controller of activeControllers.get(sessionId) ?? []) controller.abort();
+        return noContent(res);
+      }
+      if (req.method === "POST" && parts.length === 3 && parts[2] === "messages") {
+        const body = await readJsonBody(req);
+        if (!isRecord(body) || typeof body.message !== "string" || !body.message.trim()) {
+          return errorJson(res, 400, "invalid_request", "message is required");
+        }
+        const connection = serverCore ?? readCoreConnection(body, devProxyTarget);
+        if ("error" in connection) {
+          return errorJson(res, 400, "invalid_request", connection.error);
+        }
+        // Resolve before streaming starts, so a foreign id is a clean 404 and
+        // ADK runs under the user the session is stored under.
+        const owner = await store.ownerOf(sessionId);
+        const controller = new AbortController();
+        const controllers = activeControllers.get(sessionId) ?? new Set<AbortController>();
+        controllers.add(controller);
+        activeControllers.set(sessionId, controllers);
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
+        const writeEvent = (event: AgentStreamEvent) => {
+          res.write(`${JSON.stringify(event)}\n`);
+        };
+        try {
+          await runner.runMessage({
+            sessionId,
+            userId: owner,
+            message: body.message.trim(),
+            coreUrl: connection.coreUrl,
+            token: connection.token,
+            signal: AbortSignal.any([controller.signal, shutdown.signal]),
+            onEvent: writeEvent,
+          });
+        } catch (error) {
+          writeEvent({
+            type: "error",
+            sessionId,
+            code: "agent_error",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        } finally {
+          controllers.delete(controller);
+          if (!controllers.size) activeControllers.delete(sessionId);
+          res.end();
+        }
+        return;
+      }
+      if (req.method === "POST" && parts.length === 5 && parts[2] === "proposals") {
+        const proposalId = parts[3];
+        if (parts[4] === "reject") {
+          return json(res, await store.updateProposalStatus(sessionId, proposalId, "rejected"));
+        }
+        if (parts[4] === "confirm") {
+          const body = await readJsonBody(req);
+          const connection = serverCore ?? readCoreConnection(body, devProxyTarget);
+          if ("error" in connection) {
+            return errorJson(res, 400, "invalid_request", connection.error);
+          }
+          const session = await store.updateProposalStatus(sessionId, proposalId, "confirmed");
+          const proposal = session.proposals.find((item) => item.id === proposalId);
+          if (!proposal) {
+            return errorJson(res, 404, "not_found", "proposal not found");
+          }
+          const task = await runMaintenanceProposal(
+            proposal.action,
+            proposal.params ?? {},
+            connection,
+            shutdown.signal,
+          );
+          proposal.status = "succeeded";
+          proposal.taskId = task.task_id;
+          return json(res, await store.recordProposal(sessionId, proposal));
+        }
+      }
+      return notFound(res);
+    } catch (error) {
+      if (shutdown.signal.aborted) {
+        res.destroy();
+        return;
+      }
+      if (error instanceof SessionNotFoundError) {
+        return errorJson(res, 404, "not_found", "session not found");
+      }
+      if (next) {
+        next(error);
+        return;
+      }
+      log.error("unhandled handler error", { error });
+      return errorJson(res, 500, "agent_http_error", "internal agent error");
+    } finally {
+      admitted.delete(req);
+    }
+  };
+  return Object.assign(handler, {
+    abort() {
+      shutdown.abort();
+      for (const req of admitted) {
+        if (!req.complete) req.destroy();
+      }
+    },
+  });
+}
+
+interface CoreConnection {
+  coreUrl: string;
+  token?: string;
+}
+
+export function maintenanceEndpoint(action: AgentMaintenanceAction): string {
+  switch (action) {
+    case "ingest":
+      return "/v1/ingest";
+    case "synth":
+      return "/v1/synth";
+    case "lint_propose":
+      return "/v1/lint/propose";
+    default: {
+      // Reject unknown actions (e.g. a `distill` proposal persisted before it was
+      // removed) instead of silently falling through to lint.propose.
+      const unreachable: never = action;
+      throw new Error(`unknown maintenance action: ${String(unreachable)}`);
+    }
+  }
+}
+
+async function runMaintenanceProposal(
+  action: AgentMaintenanceAction,
+  params: Record<string, unknown>,
+  connection: CoreConnection,
+  signal?: AbortSignal,
+): Promise<{ task_id?: string }> {
+  const endpoint = maintenanceEndpoint(action);
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  };
+  if (connection.token) {
+    headers.Authorization = `Bearer ${connection.token}`;
+  }
+  const response = await fetch(`${connection.coreUrl}${endpoint}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(params),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  return (await response.json()) as { task_id?: string };
+}
+
+function readCoreConnection(
+  body: unknown,
+  devProxyTarget?: string,
+): CoreConnection | { error: string } {
+  if (!isRecord(body) || typeof body.coreUrl !== "string" || !body.coreUrl.trim()) {
+    return { error: "coreUrl is required" };
+  }
+  try {
+    const url = new URL(body.coreUrl.trim());
+    if (url.protocol !== "http:" && url.protocol !== "https:") {
+      return { error: "coreUrl must be an absolute http(s) URL" };
+    }
+    return {
+      coreUrl: applyDevProxyTarget(url.toString().replace(/\/$/, ""), devProxyTarget),
+      ...(typeof body.token === "string" && body.token ? { token: body.token } : {}),
+    };
+  } catch {
+    return { error: "coreUrl must be an absolute http(s) URL" };
+  }
+}
+
+/**
+ * Mirror the dev Vite `/v1` proxy (vite.config.ts) for the sidecar's outbound
+ * core calls. The browser keeps `serverUrl` at the default so its cross-origin
+ * `/v1` reads ride the same-origin proxy (dikw-core has no CORS). The sidecar's
+ * `/agent` calls run server-side and bypass that proxy, so when the browser
+ * sends the *default* core URL and a dev proxy target is configured, route to
+ * the same target the proxy uses — otherwise the sidecar would dial the unused
+ * default port and every core tool would fail with `fetch failed`.
+ *
+ * `devProxyTarget` is injected by `agentSidecarPlugin` (dev only), resolved from
+ * Vite's own env (so it honors `.env.local`, not just `process.env`). The
+ * standalone production sidecar passes nothing, so the rewrite is impossible in
+ * prod by construction — not merely "the env var happens to be unset". A
+ * non-default (custom, directly-reachable) `serverUrl` is also left untouched.
+ */
+export function applyDevProxyTarget(coreUrl: string, devProxyTarget?: string): string {
+  const target = devProxyTarget?.trim();
+  if (!target) return coreUrl;
+  let normalized: string;
+  try {
+    normalized = new URL(coreUrl).toString().replace(/\/$/, "");
+  } catch {
+    return coreUrl;
+  }
+  if (normalized !== defaultServerUrl) return coreUrl;
+  try {
+    return new URL(target).toString().replace(/\/$/, "");
+  } catch {
+    // Malformed target (e.g. missing scheme). agentSidecarPlugin warns about
+    // this at startup; here we safely fall through to the unrewritten URL.
+    return coreUrl;
+  }
+}
+
+function json(res: ServerResponse, value: unknown, status = 200) {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify(value));
+}
+
+function noContent(res: ServerResponse) {
+  res.statusCode = 204;
+  res.end();
+}
+
+function notFound(res: ServerResponse) {
+  errorJson(res, 404, "not_found", "agent route not found");
+}
+
+function errorJson(res: ServerResponse, status: number, code: string, message: string) {
+  res.statusCode = status;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(JSON.stringify({ error: { code, message } }));
+}
+
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  let text = "";
+  for await (const chunk of req) {
+    text += chunk;
+  }
+  return text ? JSON.parse(text) : {};
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}

@@ -316,3 +316,27 @@ docker run ... <registry>/dikw-web:<old-tag>
 ```
 
 session volume 与镜像 tag 解耦，回滚不会丢历史。
+
+## Shared runtime and application profiles
+
+The workbench entry point explicitly initializes outbound instrumentation and
+calls `createWebRuntime` from `@opendikw/web-server/runtime` with
+`appId: "dikw-web"` and `profile: "workbench"`. Importing the package does not
+start a listener or create application storage. The application owns its port,
+static directory and shutdown hooks. Shutdown aborts Core proxy and Agent
+requests, cancels conversion/translation jobs, waits for request completion and
+closes its auth and Agent SQLite connections.
+
+An MB entry point must fix `appId: "dikw-mbweb"` and `profile: "mbweb"`; client
+requests cannot select a profile. MB production requires OIDC and a stable,
+non-secret `DIKW_WEB_CORE_ID`. Its auth response exposes this ID and the validated
+issuer, while its cookies, Agent application ID, SQLite files and volumes remain
+separate from the workbench. Both deployments may point to the same Core base;
+the profile does not provide per-user Core-content isolation.
+
+Each process owns one application's telemetry identity. Run the two BFFs as
+separate processes because outbound OpenTelemetry instrumentation is global.
+The Vite entry `@opendikw/web-server/vite` provides a development capability
+guard and sidecars; local auth-off development is not production OIDC enforcement.
+Production browsers use the same-origin BFF Core proxy. Direct browser-to-Core
+connections in auth-off mode still require the Core deployment's CORS policy.

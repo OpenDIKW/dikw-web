@@ -65,7 +65,8 @@
     "react-dom": "^19.3.0",
     "undici": "^8.10.0",
     "@opendikw/web-client": "0.1.0",
-    "@opendikw/web-ui": "0.1.0"
+    "@opendikw/web-ui": "0.1.0",
+    "@opendikw/web-server": "0.1.0"
   },
   "overrides": {
     "adm-zip": "^0.6.1",
