@@ -13,7 +13,7 @@
 | 包分发 | 维护者已选择公开 npm |
 | 共享包许可 | 维护者已选择 MIT；仅对共享包声明许可，私有应用保持 `private: true` 与 `UNLICENSED` |
 | 服务端 | 推荐每个应用部署自己的 BFF 实例，共享运行库；BFF 指持有凭证、代理 Core 并处理应用请求的服务端 |
-| Core 拓扑 | 澄清问题已提出，尚未收到回答。实施基线暂按共用现有 Core 知识库，独立 Core 分支见下文；生产切换前落实选择 |
+| Core 拓扑 | 维护者已确认 A：两套应用共用同一个 Core 知识库，工作台作为管理入口，MB 作为业务入口；BFF、权限配置、登录会话与部署独立 |
 | 私有仓库归属 | 计划使用 `OpenDIKW/dikw-mbweb`；创建前核实组织写入权限与仓库是否已存在 |
 | 旧 Git 历史 | 保留 `dikw-web` 公开历史；MB 新仓库从迁移快照开始，记录原始提交与作者来源 |
 
@@ -112,11 +112,11 @@ CSS 显式按层引入。tokens 保留现有变量名称和亮暗主题；contro
 
 OIDC 继续使用同一 Casdoor/IdP，但建议注册两个 client，分别配置 redirect URI、logout URI 和角色映射。两套 BFF 使用独立 secret、host-only Cookie、auth.sqlite、agent.sqlite 和 volume；不同应用不互读会话，不复制数据库来实现 SSO。身份提供方的登录体验以真实双应用验证为准。工作台沿用当前 8 小时空闲、15 分钟刷新、7 天绝对上限；MB 默认相同。两端日志分别标记 `dikw-web` 和 `dikw-mbweb`，不记录凭证或客户正文。
 
-## Core 共用与独立部署
+## 共用 Core 的数据与部署关系
 
-共用 Core 时，两套 BFF 配置同一个 Core URL/知识库；用户可在工作台管理 MB 已导入的数据。**会话和 Web jobs 隔离不等于知识库按用户或按应用隔离。** MB 的论文、Wisdom 笔记及 ingest/synth 结果仍进入共用知识库；现有 Core task 与内容访问规则保持原样。此次不承诺在同一个 Core 内实现个人笔记隐私或多租户。
+两套 BFF 配置同一个 Core URL/知识库，各自在服务端持有连接凭证；用户可在工作台管理 MB 已导入的数据。**会话和 Web jobs 隔离不等于知识库按用户或按应用隔离。** MB 的论文、Wisdom 笔记及 ingest/synth 结果仍进入共用知识库；现有 Core task 与内容访问规则保持原样。此次不承诺在同一个 Core 内实现个人笔记隐私或多租户。
 
-若维护者选择 MB 使用独立 Core，应用和 npm 包结构完全相同，仅改变服务端 Core URL/token、部署依赖和稳定的 `coreId`。切换步骤为：备份源 Core、按 Core 支持的方法迁移所需 source/knowledge/wisdom/assets 与索引、校验路径和来源引用、关闭迁移期间写入、验证读取/上传/问答后切换连接。不能只复制 Markdown 并假设资产、索引、任务和 Wisdom 都已迁移。独立 Core 不属于 npm 包拆分的前置代码依赖，但属于生产数据切换的前置决定。
+Core 数据留在现有知识库，本次切换迁移应用和浏览器数据。两套部署的公开逻辑 `coreId` 指向同一份知识库；应用名、会话目录和密钥分别配置。上线前备份 Core，并验证 MB 已导入论文及 Wisdom 可从工作台读取和管理，工作台管理后的数据可在 MB 的业务界面读取。MB 上传仍会触发这个共用知识库的 ingest/synth；切换期间避免旧 MB 和新 MB 同时运行写入流程。
 
 ## MB 配置与浏览器数据迁移
 

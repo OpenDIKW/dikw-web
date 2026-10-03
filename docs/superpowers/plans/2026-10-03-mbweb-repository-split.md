@@ -4,7 +4,7 @@
 
 **Goal:** 将管理工作台和迈博业务应用拆成两个独立仓库，通过公开 npm 共享包复用协议、UI 与服务端能力，并完成配置、数据迁移、CI、部署和回退验证。
 
-**Architecture:** `dikw-web` 保存管理应用及三个共享 workspace 包，`dikw-mbweb` 保存私有业务应用。两套应用分别运行 BFF，共享运行库，通过服务端 profile 控制可用能力。MB 的论文、问答、笔记模型与页面留在私有仓库。
+**Architecture:** `dikw-web` 保存管理应用及三个共享 workspace 包，`dikw-mbweb` 保存私有业务应用。两套应用共用同一个 Core 知识库，分别运行 BFF，共享运行库，通过服务端 profile 控制可用能力。MB 的论文、问答、笔记模型与页面留在私有仓库。
 
 **Tech Stack:** Node 24、npm、TypeScript、React 19、Vite、Vitest、Playwright、openid-client、Google ADK、SQLite、Docker、GitHub Actions、公开 npm。
 
@@ -22,7 +22,7 @@
 - 首期不引入 Nx、Turborepo、Lerna、UI 框架；不改变 Core API/NDJSON 协议、auth/agent sqlite schema、现有 #204/#205 行为。
 - 新 Node runtime 模块相对导入带 `.js`；React/ReactDOM 由应用提供，UI 包不能内联 React 或创建第二份 AuthContext。
 - 公共包与工作台不能依赖私有仓库；公开 CI 不获得私有 MB 源码凭证，私有测试报告和业务资产留在私有仓库。
-- Core 拓扑尚未确认；代码任务同时支持共用和独立 Core，生产切换以维护者最终回答为准。
+- Core 拓扑已确认采用 A：两套应用共用现有 Core 知识库；工作台管理 MB 的数据，两套 BFF、权限配置、会话与部署独立。Core 数据留在原库，迁移应用与浏览器数据。
 
 ## 交付与依赖顺序
 
@@ -389,11 +389,11 @@ test("keeps the old MB link usable for migration", async ({ page }) => {
 
 **文件与记录：** 两仓部署文档、私有 MB `docker-compose.verify.yml`、真实集成验证脚本、镜像/包/commit 验收记录、回退操作说明。记录不包含凭证或客户正文。
 
-**前置条件：** 落实 Core 拓扑、实际域名、Casdoor 管理权限、npm scope、private repo/镜像访问权限、Docker daemon 和测试凭证。使用测试知识库和测试用户；真实 LLM 成本只用于必要验收。当前环境 Docker CLI 存在但 daemon 曾未运行，实施时重新核实。
+**前置条件：** 落实实际域名、Casdoor 管理权限、npm scope、private repo/镜像访问权限、Docker daemon 和测试凭证；两套部署连接已确认的同一个 Core 知识库。使用测试知识库和测试用户；真实 LLM 成本只用于必要验收。当前环境 Docker CLI 存在但 daemon 曾未运行，实施时重新核实。
 
-- [ ] 设置两个不同 origin 的应用、两个 OIDC client/回调地址、独立 secret/角色映射/volume。工作台容器与 MB 容器可以都监听内部 4321，开发宿主机端口分别为 4321、4322。共用 Core 时声明共享数据行为，独立 Core 时先完成支持的数据迁移与路径/资产/索引校验。
+- [ ] 设置两个不同 origin 的应用、两个 OIDC client/回调地址、独立 secret/角色映射/volume；两套 BFF 配置同一个 Core URL/知识库和对应的同一个公开逻辑 coreId，各自在服务端持有连接凭证。工作台容器与 MB 容器可以都监听内部 4321，开发宿主机端口分别为 4321、4322。
 - [ ] 验证实际登录与应用权限：允许的用户分别登录，未授权用户不可用；登录工作台后访问 MB 的 SSO 体验正确，Cookie 不跨应用复用；viewer/editor 控件与外部 HTTP 都受限。退出一应用不允许该应用旧会话恢复；是否影响 IdP/另一应用以实际 IdP logout 行为记录，不承诺“只退出当前应用”。
-- [ ] 在真实 Core 上跑论文导入→ingest→synth→读取→双语→问答→笔记 Wisdom 流程；验证两个用户的会话与 Web jobs 隔离，以及 MB 无维护工具/确认入口。共用 Core 的内容共享和整库处理按设计记录，不当成用户数据隔离通过。
+- [ ] 在真实 Core 上跑论文导入→ingest→synth→读取→双语→问答→笔记 Wisdom 流程；验证 MB 导入的数据可在工作台管理，工作台管理后的数据可在 MB 读取。验证两个用户的会话与 Web jobs 隔离，以及 MB 无维护工具/确认入口。共用 Core 的内容共享和整库处理按设计记录，不当成用户数据隔离通过。
 - [ ] 用确定性短时间配置验证 #205 的活跃续期、空闲、绝对上限、角色同步/降级、刷新失败和退出竞态；使用签名的 fake IdP 覆盖时间与并发边界，再用真实 Casdoor 验证 discovery、签名、refresh/角色配置。UI 两套分别做亮暗主题、控制台、LCP/CLS 与可访问性回归，目标 CLS `<=0.1`、accessibility `>=0.9`，不新增长期违规。
 - [ ] 备份 Core 和两个 volume，记录 digest/版本；先上线迁移出口和新 MB，确认用户可迁移后切换旧 hash。演练分别回退工作台/MB 镜像和 lockfile，确认持久数据可读、不删除数据、不覆盖包版本。两个应用全部验收项有本次证据后完成交付。
 
