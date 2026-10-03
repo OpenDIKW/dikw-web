@@ -46,6 +46,21 @@ CI already invokes independent package consumers through `npm run verify`.
 
 ## Workflow gate and external prerequisites
 
+The private candidate's real development-browser pass found that canonicalizing
+all paths changed `/@vite/client` and scoped-package resource spelling. The MB
+guard now canonicalizes dispatch only within its API namespaces, while validating
+every request against the unchanged capability policy. A failing real Vite HTTP
+regression preceded the fix; Vite JavaScript and an `@` resource now load, and
+all 65 profile/integration cases pass. The rebuilt cohort was installed into the
+independent MB application again and its root now renders against the real Core.
+The final complete local verification passed: 98 Vitest files / 1,251 tests,
+57 browser tests with the two existing skips, lint, formatting, typecheck, builds
+and all three rebuilt independent package consumers. The unchanged bundle budgets
+passed again. The third and final independent review found no actionable issue.
+
+The maintainer explicitly approved `gate-change` for PR #216 on 2026-10-03;
+the label has been applied. CI and review still gate the final merge.
+
 Adding `.github/workflows/publish-packages.yml` intentionally triggers
 `gate-machinery-modified`. It adds a release workflow; existing CI checks,
 coverage thresholds, bundle budgets and browser retry/assertion policies are
