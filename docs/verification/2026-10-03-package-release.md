@@ -32,6 +32,17 @@ CI already invokes independent package consumers through `npm run verify`.
   handoff and project review rubric. No actionable findings; reviewer reran all
   20 boundary tests. Final implementation self-review also found no unresolved
   correctness issue.
+- Remote review subsequently identified dirty-pack/restore provenance and
+  immediate registry lookup issues. Three additional failing regressions preceded
+  the fixes; all 23 release-boundary tests now pass. Manifests record source
+  cleanliness at packing time; the publisher rejects dirty or missing provenance,
+  even after restoring the current checkout. Packing clears verified package-owned
+  output before compilation. Registry 404/5xx responses receive at most ten
+  attempts with bounded backoff, while permanent failures remain immediate.
+  The second independent review is clean; lint, formatting and all three rebuilt
+  candidate tarball consumers passed again. Initial CI's full Verify, image,
+  dependency, secret and CodeQL checks passed; the expected workflow gate awaits
+  the maintainer decision.
 
 ## Workflow gate and external prerequisites
 

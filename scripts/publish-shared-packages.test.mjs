@@ -8,6 +8,7 @@ const bytes = Buffer.from("verified tarball");
 const integrity = "sha512-" + createHash("sha512").update(bytes).digest("base64");
 const manifest = () => ({
   commit,
+  sourceClean: true,
   version: "0.1.0-rc.1",
   packages: ["client", "ui", "server"].map((name) => ({
     name: `@opendikw/web-${name}`,
@@ -37,6 +38,16 @@ test("does not promote prereleases to latest", () => {
     () => assertReleaseInputs(manifest(), { ...state(), tag: "custom" }, () => bytes),
     /tag/,
   );
+});
+
+test("rejects artifacts packed from dirty source even after the tree is restored", () => {
+  assert.throws(
+    () => assertReleaseInputs({ ...manifest(), sourceClean: false }, state(), () => bytes),
+    /packed.*clean source/,
+  );
+  const legacy = manifest();
+  delete legacy.sourceClean;
+  assert.throws(() => assertReleaseInputs(legacy, state(), () => bytes), /packed.*clean source/);
 });
 test("rejects missing, duplicated and mixed-version package artifacts", () => {
   const missing = manifest();

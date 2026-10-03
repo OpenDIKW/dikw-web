@@ -1,8 +1,8 @@
 // @vitest-environment node
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { it as test } from "vitest";
-import { assertRegistryArtifact } from "./verify-registry-packages.mjs";
+import { afterEach, it as test, vi } from "vitest";
+import { assertRegistryArtifact, downloadRegistryArtifact } from "./verify-registry-packages.mjs";
 const bytes = Buffer.from("verified public package");
 const pkg = {
   name: "@opendikw/web-client",
@@ -55,4 +55,37 @@ test("rejects non-registry download locations", () => {
       /registry/,
     );
   }
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
+test("waits for newly published registry files and keeps strict transport rules", async () => {
+  vi.useFakeTimers();
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(new Response("pending", { status: 404 }))
+    .mockResolvedValueOnce(new Response("temporary", { status: 503 }))
+    .mockResolvedValueOnce(new Response("available"));
+  vi.stubGlobal("fetch", fetchMock);
+  const pending = downloadRegistryArtifact(metadata().dist.tarball);
+  await vi.runAllTimersAsync();
+  assert.equal(await (await pending).text(), "available");
+  assert.equal(fetchMock.mock.calls.length, 3);
+  for (const [, options] of fetchMock.mock.calls) assert.equal(options.redirect, "error");
+});
+test("bounds registry retries and fails permanent errors immediately", async () => {
+  vi.useFakeTimers();
+  const fetchMock = vi
+    .fn()
+    .mockImplementation(async () => new Response("pending", { status: 404 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const bounded = assert.rejects(downloadRegistryArtifact(metadata().dist.tarball), /404/);
+  await vi.runAllTimersAsync();
+  await bounded;
+  assert.equal(fetchMock.mock.calls.length, 10);
+  fetchMock.mockReset().mockResolvedValue(new Response("forbidden", { status: 403 }));
+  await assert.rejects(downloadRegistryArtifact(metadata().dist.tarball), /403/);
+  assert.equal(fetchMock.mock.calls.length, 1);
 });

@@ -41,8 +41,12 @@ dependencies and application/test/config/database files. It writes
 names and SHA-512 integrity. Build is explicit because `.npmrc` disables scripts.
 
 Commit the version/lockfile changes and complete PR review/CI before release.
-Packing an uncommitted tree is useful for development; publishing requires a
-clean checkout and a manifest matching `HEAD`. Publication validates all three
+Packing an uncommitted tree is useful for development; its manifest records
+`sourceClean: false` and cannot be published even after restoring the source.
+The packer clears package-owned build output before compiling and checks source
+cleanliness before and after packing. Publishing requires artifacts packed from
+a clean checkout, a clean current checkout and a manifest matching `HEAD`.
+Publication validates all three
 registry versions before the first write. An identical already-published version
 with the requested tag is skipped; conflicting bytes or tags stop the release.
 Receipts are written after each successful publication, allowing a partial release
@@ -85,7 +89,9 @@ automatic provenance through trusted publishing; see
 `verify:registry` downloads metadata and tarballs from HTTPS `registry.npmjs.org`
 without following redirects, checks name/version and both registry/download
 integrity against the verified release, then runs the same independent consumer
-fixtures on the downloaded files. `.tmp/registry-shared-packages/verification.json`
+fixtures on the downloaded files. New-version 404s and temporary 5xx responses
+receive at most ten attempts with bounded backoff; other failures stop immediately.
+`.tmp/registry-shared-packages/verification.json`
 is written only after all consumers pass. CI uploads publication and verification
 receipts as release evidence.
 

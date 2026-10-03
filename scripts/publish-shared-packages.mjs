@@ -7,6 +7,8 @@ import { EXACT_VERSION, SHARED_NAMES, assertCohort } from "./pack-shared-package
 
 export function assertReleaseInputs(manifest, { commit, dirty, tag }, readArtifact) {
   if (dirty) throw new Error("Release requires a clean source checkout");
+  if (manifest.sourceClean !== true)
+    throw new Error("Release artifacts must be packed from a clean source checkout");
   if (!/^[a-f0-9]{40}$/.test(manifest.commit) || manifest.commit !== commit)
     throw new Error("Verified artifact commit does not match HEAD");
   if (!["next", "latest"].includes(tag)) throw new Error("Release tag must be next or latest");

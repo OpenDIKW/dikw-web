@@ -27,14 +27,20 @@ export function assertRegistryArtifact(pkg, metadata, bytes) {
     throw new Error(`Registry integrity mismatch: ${pkg.name}@${pkg.version}`);
 }
 
-async function download(url) {
-  const response = await fetch(registryUrl(url), {
-    redirect: "error",
-    signal: AbortSignal.timeout(30_000),
-    headers: { "cache-control": "no-cache" },
-  });
-  if (!response.ok) throw new Error(`Registry download failed: HTTP ${response.status}`);
-  return response;
+export async function downloadRegistryArtifact(url) {
+  const target = registryUrl(url);
+  for (let attempt = 1; ; attempt++) {
+    const response = await fetch(target, {
+      redirect: "error",
+      signal: AbortSignal.timeout(30_000),
+      headers: { "cache-control": "no-cache" },
+    });
+    if (response.ok) return response;
+    await response.body?.cancel();
+    if ((response.status !== 404 && response.status < 500) || attempt >= 10)
+      throw new Error(`Registry download failed: HTTP ${response.status}`);
+    await new Promise((resolve) => setTimeout(resolve, Math.min(2_000 * attempt, 15_000)));
+  }
 }
 
 export async function verifyRegistryPackages() {
@@ -56,11 +62,13 @@ export async function verifyRegistryPackages() {
   mkdirSync(destination, { recursive: true });
   for (const pkg of manifest.packages) {
     const metadata = await (
-      await download(
+      await downloadRegistryArtifact(
         `https://registry.npmjs.org/${encodeURIComponent(pkg.name)}/${encodeURIComponent(pkg.version)}`,
       )
     ).json();
-    const bytes = Buffer.from(await (await download(metadata.dist?.tarball)).arrayBuffer());
+    const bytes = Buffer.from(
+      await (await downloadRegistryArtifact(metadata.dist?.tarball)).arrayBuffer(),
+    );
     assertRegistryArtifact(pkg, metadata, bytes);
     writeFileSync(`${destination}/${pkg.tarball}`, bytes);
   }

@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { isBuiltin } from "node:module";
 import { resolve, posix } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -125,6 +125,17 @@ export function packSharedPackages() {
     return { cwd, pkg: JSON.parse(readFileSync(`${cwd}/package.json`, "utf8")) };
   });
   assertCohort(manifests.map(({ pkg }) => pkg));
+  const cleanSource = () =>
+    !execFileSync("git", ["status", "--porcelain"], { encoding: "utf8" }).trim();
+  const cleanBefore = cleanSource();
+  // A fresh build must not include stale compiled modules left by a previous
+  // source version. Only remove the verified package-owned dist directories.
+  for (const { cwd } of manifests) {
+    const output = resolve(cwd, "dist");
+    if (output !== `${cwd}${process.platform === "win32" ? "\\" : "/"}dist`)
+      throw new Error("Unexpected package output directory");
+    rmSync(output, { recursive: true, force: true });
+  }
   execFileSync(process.execPath, ["scripts/build-shared-packages.mjs"], { stdio: "inherit" });
   const packages = manifests.map(({ cwd, pkg }) => {
     const [packed] = JSON.parse(
@@ -143,7 +154,12 @@ export function packSharedPackages() {
     };
   });
   const commit = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
-  const manifest = { commit, version: packages[0].version, packages };
+  const manifest = {
+    commit,
+    sourceClean: cleanBefore && cleanSource(),
+    version: packages[0].version,
+    packages,
+  };
   writeFileSync(`${destination}/manifest.json`, JSON.stringify(manifest, null, 2) + "\n");
   console.log(`Packed ${packages.length} shared packages at ${manifest.version}`);
 }
