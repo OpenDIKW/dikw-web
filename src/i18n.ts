@@ -1,6 +1,6 @@
 export type Locale = "en" | "zh-CN";
-export type ThemePreference = "system" | "light" | "dark";
-export type ResolvedTheme = "light" | "dark";
+export { isThemePreference, resolveTheme } from "@opendikw/web-ui/theme";
+export type { ThemePreference, ResolvedTheme } from "@opendikw/web-ui/theme";
 
 export const localeStorageKey = "dikw-web.locale";
 export const themeStorageKey = "dikw-web.theme";
@@ -910,18 +910,4 @@ export const translations = {
 
 export function isLocale(value: string | null): value is Locale {
   return value === "en" || value === "zh-CN";
-}
-
-export function isThemePreference(value: string | null): value is ThemePreference {
-  return value === "system" || value === "light" || value === "dark";
-}
-
-/** Resolve a stored preference to the concrete theme applied to the DOM. A
- *  `"system"` preference follows the OS via `prefers-color-scheme`. Shared by
- *  the workbench (App) and the MB-Web reader so both resolve identically. */
-export function resolveTheme(theme: ThemePreference): ResolvedTheme {
-  if (theme === "light" || theme === "dark") {
-    return theme;
-  }
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }

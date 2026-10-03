@@ -1,0 +1,701 @@
+.markdown-view {
+  max-width: 760px;
+  margin: 0 auto;
+  color: var(--reader-text);
+  line-height: 1.76;
+}
+
+.markdown-fallback-title {
+  margin: 0 0 18px;
+  color: var(--reader-heading);
+  font-size: var(--type-display-size);
+  line-height: var(--type-display-lh);
+  letter-spacing: var(--type-display-ls);
+}
+
+.frontmatter-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 0 14px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--reader-border);
+  background: transparent;
+}
+
+/* Cap the reading measure so prose stays at a comfortable line length on wide
+   panes (DESIGN.md: body 65–75ch) instead of running edge-to-edge. Narrower
+   surfaces (chat replies, bilingual columns) sit under this width already, so
+   the cap is a no-op there. */
+.markdown-body {
+  max-width: 72ch;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  margin: 1.25em 0 0.45em;
+  color: var(--reader-heading);
+  line-height: 1.25;
+}
+
+.markdown-body h1 {
+  font-size: var(--type-display-size);
+  letter-spacing: var(--type-display-ls);
+}
+
+.markdown-body h1:first-child,
+.markdown-body h2:first-child {
+  margin-top: 0;
+}
+
+.markdown-body h2 {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--reader-border);
+  font-size: 22px;
+}
+
+.markdown-body h3 {
+  font-size: var(--type-title-size);
+}
+
+.markdown-body p {
+  margin: 0.7em 0;
+}
+
+/* Pin markdown emphasis to a concrete weight. The UA default
+   `strong { font-weight: bolder }` is relative — inside an already-bold (700)
+   context it compounds to 900, a 5th weight that breaks the Two-Weight Rule
+   (and exceeds IBM Plex's Bold ceiling). 600 is the system's emphasis weight. */
+.markdown-body strong,
+.markdown-body b {
+  font-weight: 600;
+}
+
+.markdown-body a,
+.inline-wikilink {
+  color: var(--reader-link);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.inline-wikilink {
+  display: inline;
+  padding: 0 1px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--reader-link) 55%, transparent);
+  border-radius: 0;
+  background: transparent;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+.inline-wikilink:hover {
+  color: var(--accent-strong);
+  border-bottom-color: var(--accent-strong);
+}
+
+.markdown-body code {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: var(--reader-table-bg);
+  color: var(--reader-text);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.markdown-body pre {
+  overflow: auto;
+  padding: 12px;
+  border: 1px solid var(--reader-border);
+  border-radius: var(--radius);
+  background: var(--reader-code-bg);
+  color: #eef8f5;
+}
+
+.markdown-body pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.code-block {
+  margin: 14px 0;
+  overflow: hidden;
+  border: 1px solid var(--reader-border);
+  border-radius: var(--radius);
+  background: var(--reader-code-bg);
+}
+
+.code-block pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.code-label {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--reader-border);
+  color: #a8c9c2;
+  font-size: var(--type-label-size);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.markdown-body blockquote {
+  margin: 1em 0;
+  padding: 8px 12px;
+  border-left: 3px solid var(--accent);
+  background: var(--reader-quote-bg);
+  color: var(--reader-text);
+}
+
+.markdown-body hr {
+  border: 0;
+  border-top: 1px solid var(--reader-border);
+  margin: 18px 0;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.7em 0;
+  padding-left: 1.35em;
+}
+
+.markdown-body li + li {
+  margin-top: 0.24em;
+}
+
+/* Bilingual reading status bar (translating / cached / re-translate / cancel). */
+.bi-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 auto 14px;
+  max-width: 760px;
+  padding: 8px 12px;
+  border: 1px solid var(--reader-border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent-soft) 60%, var(--reader-bg));
+  font-size: var(--type-body-sm-size);
+  color: var(--reader-text);
+}
+.bi-statusbar--error {
+  background: color-mix(in srgb, var(--red) 12%, var(--reader-bg));
+  border-color: color-mix(in srgb, var(--red) 35%, var(--reader-border));
+}
+.bi-statusbar__left {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+.bi-chip {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--green) 18%, transparent);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 600;
+}
+.bi-statusbar__action {
+  border: 0;
+  background: transparent;
+  color: var(--reader-link);
+  font: inherit;
+  font-size: var(--type-body-sm-size);
+  font-weight: 600;
+  cursor: pointer;
+}
+.bi-statusbar__action:hover {
+  color: var(--accent-strong);
+  text-decoration: underline;
+}
+.bi-spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: bi-spin 0.7s linear infinite;
+}
+@keyframes bi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Paragraph-aligned dual columns. The dual view is two reading measures side by
+   side, so it must override the single-column 72ch cap it inherits from
+   `.markdown-body` — otherwise both columns crush into one measure on the left
+   and leave the pane's right half empty. Fill the reader pane on normal widths;
+   past two measures, cap and center so columns never run past a comfortable
+   line length on an ultra-wide monitor. */
+.bilingual-cols {
+  position: relative;
+  max-width: calc(72ch * 2 + 40px);
+  margin-inline: auto;
+}
+.bilingual-cols::before {
+  content: "";
+  position: absolute;
+  top: 30px;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-0.5px);
+  background: var(--reader-border);
+}
+.bi-colhead {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 40px;
+  margin-bottom: 8px;
+}
+.bi-colhead span {
+  padding: 0 4px 6px;
+  color: var(--reader-muted);
+  font-size: 11px;
+  /* Mono ships 400/500 only — 500 is the canonical label weight; 600 was a
+     no-op that silently rendered as 500. */
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-family: var(--font-mono);
+}
+.bilingual-stack {
+  display: grid;
+  row-gap: 6px;
+  line-height: 1.76;
+  color: var(--reader-text);
+}
+.bi-pair {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 40px;
+  align-items: start;
+  padding: 6px 4px 6px 12px;
+  border-radius: 6px;
+  transition: background 0.12s ease;
+}
+.bi-pair::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+.bi-pair:hover {
+  background: var(--accent-soft);
+}
+.bi-pair:hover::before {
+  background: var(--accent);
+}
+.bi-block {
+  min-width: 0;
+}
+.bi-block > :first-child {
+  margin-top: 0;
+}
+.bi-block > :last-child {
+  margin-bottom: 0;
+}
+.bi-skeleton {
+  display: none;
+}
+.bi-pair.is-loading .bi-skeleton {
+  display: block;
+  padding-top: 2px;
+}
+.bi-pair.is-loading .bi-tr-text {
+  display: none;
+}
+.bi-skeleton span {
+  display: block;
+  height: 0.78em;
+  margin: 0.55em 0;
+  border-radius: 5px;
+  background: linear-gradient(
+    90deg,
+    var(--reader-table-bg) 0%,
+    color-mix(in srgb, var(--reader-table-bg) 55%, var(--reader-bg)) 50%,
+    var(--reader-table-bg) 100%
+  );
+  background-size: 200% 100%;
+  animation: bi-shimmer 1.25s ease-in-out infinite;
+}
+.bi-skeleton span:nth-child(2) {
+  width: 92%;
+}
+.bi-skeleton span:nth-child(3) {
+  width: 64%;
+}
+.bi-tr-text {
+  animation: bi-fade 0.45s ease;
+}
+@keyframes bi-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+@keyframes bi-fade {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Special blocks (code/table/chart/math/rule): a single CENTERED shared
+   instance — not spanning both columns, masking the center hairline. */
+.bi-pair--special {
+  position: relative;
+  z-index: 1;
+  margin: 2px 0;
+  padding: 4px 0;
+  background: var(--reader-bg);
+}
+.bi-special {
+  max-width: 600px;
+  margin: 0 auto;
+}
+.bi-special .code-block,
+.bi-special .markdown-chart,
+.bi-special .markdown-table-wrap {
+  margin: 0 auto;
+}
+
+/* Narrow screens: collapse the two columns into a stacked single column. */
+@media (max-width: 1100px) {
+  /* Stacked = a single column again, so restore the single-column reading
+     measure — the two-measure cap above is only for the side-by-side layout and
+     would let a stacked paragraph run far past a comfortable line length. */
+  .bilingual-cols {
+    max-width: 72ch;
+  }
+  .bilingual-cols::before {
+    display: none;
+  }
+  .bi-colhead {
+    display: none;
+  }
+  .bi-pair {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 2px;
+  }
+  .bi-block.bi-block--tr {
+    margin-top: 4px;
+    padding: 4px 10px;
+    border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--reader-bg));
+    border-radius: 0 6px 6px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bi-skeleton span,
+  .bi-tr-text,
+  .bi-spinner {
+    animation: none;
+  }
+  .bi-pair,
+  .bi-pair::before {
+    transition: none;
+  }
+}
+
+.markdown-table-wrap {
+  overflow: auto;
+  margin: 16px 0;
+  border: 1px solid var(--reader-border);
+  border-radius: var(--radius);
+  background: var(--reader-bg);
+}
+
+.markdown-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-body-sm-size);
+}
+
+.markdown-table-wrap caption {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--reader-border);
+  color: var(--reader-muted);
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: var(--type-label-ls);
+}
+
+.markdown-table-wrap th,
+.markdown-table-wrap td {
+  padding: 9px 11px;
+  border-bottom: 1px solid var(--reader-border);
+  border-right: 1px solid var(--reader-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.markdown-table-wrap th {
+  background: var(--reader-table-bg);
+  color: var(--reader-muted);
+  font-size: var(--type-body-sm-size);
+  font-weight: 600;
+  /* User markdown table headers render verbatim — no force-uppercase (that both
+     altered authored content and read as a sans "eyebrow"). Weight + muted color
+     + table-bg keep the header row distinct. */
+}
+
+.markdown-table-wrap tr:last-child td {
+  border-bottom: 0;
+}
+
+.markdown-table-wrap th:last-child,
+.markdown-table-wrap td:last-child {
+  border-right: 0;
+}
+
+.markdown-body .katex {
+  color: var(--reader-text);
+  font-size: 1.02em;
+}
+
+.markdown-body .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  margin: 18px 0;
+  padding: 8px 0;
+  color: var(--reader-text);
+}
+
+.markdown-body .katex-display > .katex {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.markdown-details {
+  margin: 16px 0;
+  overflow: hidden;
+  border: 1px solid var(--reader-border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--reader-bg) 88%, var(--reader-table-bg));
+  color: var(--reader-text);
+}
+
+.markdown-details summary {
+  padding: 10px 12px;
+  color: var(--reader-heading);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.markdown-details[open] summary {
+  border-bottom: 1px solid var(--reader-border);
+}
+
+.markdown-details__body {
+  padding: 12px 14px;
+}
+
+.markdown-details__body > :first-child {
+  margin-top: 0;
+}
+
+.markdown-details__body > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 12px auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--reader-border);
+  background: var(--reader-bg);
+}
+
+.md-broken-image {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  margin: 6px 0;
+  border: 1px dashed var(--reader-border);
+  border-radius: var(--radius);
+  color: var(--reader-text);
+  background: color-mix(in srgb, var(--reader-bg) 90%, var(--reader-table-bg));
+  font-size: 0.9em;
+  word-break: break-all;
+}
+
+.markdown-chart {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid var(--reader-border);
+  border-radius: var(--radius);
+  background: var(--reader-bg);
+}
+
+.markdown-chart__canvas {
+  width: 100%;
+  min-height: 280px;
+}
+
+.markdown-chart__caption {
+  margin-top: 8px;
+  font-size: var(--type-body-sm-size);
+  color: var(--reader-text);
+  opacity: 0.75;
+}
+
+.mermaid-diagram {
+  overflow: auto;
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid var(--reader-border);
+  border-radius: var(--radius);
+  background: var(--reader-bg);
+  color: var(--reader-text);
+}
+
+.mermaid-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  background: transparent !important;
+}
+
+.mermaid-diagram__loading,
+.mermaid-diagram__error {
+  color: var(--reader-muted);
+  font-size: 13px;
+}
+
+.mermaid-diagram__error {
+  margin-bottom: 10px;
+  color: var(--red);
+}
+
+.mermaid-fallback {
+  margin: 0;
+  overflow: auto;
+}
+
+html[data-theme="dark"] .markdown-view,
+html[data-theme="dark"] .markdown-body h1,
+html[data-theme="dark"] .markdown-body h2,
+html[data-theme="dark"] .markdown-body h3,
+html[data-theme="dark"] .markdown-body h4,
+html[data-theme="dark"] .markdown-fallback-title {
+  color: var(--text);
+}
+
+html[data-theme="dark"] .markdown-table-wrap th {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+html[data-theme="dark"] .markdown-body blockquote {
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface));
+  color: var(--text);
+}
+
+html[data-theme="dark"] .markdown-body code {
+  background-color: var(--surface-2);
+}
+
+html[data-theme="dark"] .markdown-table-wrap {
+  background: var(--reader-bg);
+  color: var(--reader-text);
+}
+
+html[data-theme="dark"] .markdown-view {
+  color: var(--reader-text);
+}
+
+html[data-theme="dark"] .markdown-body h1,
+html[data-theme="dark"] .markdown-body h2,
+html[data-theme="dark"] .markdown-body h3,
+html[data-theme="dark"] .markdown-body h4,
+html[data-theme="dark"] .markdown-fallback-title {
+  color: var(--reader-heading);
+}
+
+html[data-theme="dark"] .markdown-table-wrap th {
+  color: var(--reader-muted);
+}
+
+html[data-theme="dark"] .markdown-body code,
+html[data-theme="dark"] .markdown-table-wrap th {
+  background: var(--reader-table-bg);
+}
+
+html[data-theme="dark"] .markdown-body blockquote {
+  background: var(--reader-quote-bg);
+  color: var(--reader-text);
+}
+
+/* ============================================================
+   PR1 · Type role overrides
+   ─ Big headings + numeric metrics use editorial serif
+   ─ Labels / IDs / paths use mono uppercase
+   ─ Status pills lose 800 weight, gain hairline edge
+   ============================================================ */
+
+/* The editorial serif is used in exactly three places: the document reader prose
+   (`.markdown-body h1/h2`, fallback + reader-header title), the assistant reply
+   prose (agent markdown headings), and the two stat-number tiers (27 hero metric
+   value, 18 summary stat). Page H1s and all panel/card/detail headings stay sans
+   (title role) so the serif moment stays special to reading. See DESIGN.md §3. */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-fallback-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+/* Mono uppercase on all eyebrow labels */
+.code-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Reader: longer measure + taller leading on Markdown body */
+.markdown-view {
+  font-size: 15px;
+  line-height: 1.78;
+}
+.markdown-body h1 {
+  font-size: 32px;
+}
+.markdown-body h2 {
+  font-size: 22px;
+}
+.markdown-body h3 {
+  font-size: 17px;
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}

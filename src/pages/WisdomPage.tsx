@@ -11,14 +11,14 @@ import {
   X,
 } from "lucide-react";
 import { DikwClient, DikwClientError } from "@opendikw/web-client/core";
-import { Button } from "../components/Button";
-import { EmptyState } from "../components/EmptyState";
-import { Field } from "../components/Field";
-import { IconButton } from "../components/IconButton";
-import { MarkdownView } from "../components/MarkdownView";
-import { SoftLabel } from "../components/SoftLabel";
-import { useAsyncResource } from "../hooks/useAsyncResource";
-import { useCanEdit } from "../config/auth";
+import { Button } from "@opendikw/web-ui/controls";
+import { EmptyState } from "@opendikw/web-ui/controls";
+import { Field } from "@opendikw/web-ui/controls";
+import { IconButton } from "@opendikw/web-ui/controls";
+import { MarkdownView } from "@opendikw/web-ui/reader";
+import { SoftLabel } from "@opendikw/web-ui/controls";
+import { useAsyncResource } from "@opendikw/web-ui/hooks";
+import { useCanEdit } from "@opendikw/web-ui/auth";
 import { translations, type Locale } from "../i18n";
 import { basename, formatUnixSeconds, truncateMiddle } from "@opendikw/web-client/document";
 import { injectInlineRefs } from "@opendikw/web-client/document";

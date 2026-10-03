@@ -1,0 +1,546 @@
+.button-row {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+}
+
+.metric-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.metric-card {
+  min-height: 104px;
+  padding: 13px;
+}
+
+.metric-card__label,
+.field span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.metric-card__value {
+  margin-top: 12px;
+  color: var(--text);
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.metric-card__detail {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.field--grow {
+  flex: 1;
+  min-width: 220px;
+}
+
+.field--small {
+  width: 92px;
+}
+
+.field--inline {
+  grid-template-columns: auto minmax(160px, 260px);
+  align-items: center;
+}
+
+.field--token input {
+  max-width: 180px;
+}
+
+/* Keyboard focus: one branded ring across interactive controls that don't
+   already define their own :focus-visible. Zero-specificity :where() so the
+   existing per-element focus rules (graph nodes, reader controls, resizer)
+   still win. Text fields keep their softer box-shadow ring above. */
+:where(button, a[href], [role="button"], summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+.primary-button,
+.secondary-button,
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 36px;
+  border-radius: 7px;
+  font-weight: 500;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.primary-button {
+  border: 1px solid var(--accent-strong);
+  background: var(--accent);
+  color: #ffffff;
+  padding: 0 14px;
+}
+
+.primary-button:hover {
+  background: var(--accent-strong);
+}
+
+.secondary-button {
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 12px;
+}
+
+.secondary-button:hover,
+.icon-button:hover {
+  border-color: var(--accent-border-hover);
+  background: var(--surface-soft);
+}
+
+.icon-button {
+  width: 38px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: var(--type-body-sm-size);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Pill text mixes the signal color toward --text: in light that darkens it
+   (passing 4.5:1 on the tint), in dark it lightens — raising contrast against
+   the tinted background in both themes. ok #2f7a4d / info #2f6aa8 were just
+   under AA at 12px/600 on their own 16% tint. */
+.status-pill--ok {
+  background: color-mix(in srgb, var(--green) 16%, transparent);
+  color: color-mix(in srgb, var(--green) 80%, var(--text));
+}
+
+.status-pill--info {
+  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  color: color-mix(in srgb, var(--blue) 80%, var(--text));
+}
+
+.status-pill--warn {
+  background: color-mix(in srgb, var(--amber) 18%, transparent);
+  color: var(--amber);
+}
+
+.status-pill--bad {
+  background: color-mix(in srgb, var(--red) 16%, transparent);
+  color: var(--red);
+}
+
+.status-pill--muted {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.notice {
+  display: flex;
+  gap: 10px;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.notice--bad {
+  border-color: color-mix(in srgb, var(--red) 56%, var(--line));
+  background: color-mix(in srgb, var(--red) 9%, var(--surface));
+  color: var(--red);
+}
+
+.notice--warn {
+  border-color: color-mix(in srgb, var(--amber) 56%, var(--line));
+  background: color-mix(in srgb, var(--amber) 9%, var(--surface));
+  color: var(--amber);
+}
+
+.notice--info {
+  border-color: color-mix(in srgb, var(--blue) 48%, var(--line));
+  background: color-mix(in srgb, var(--blue) 8%, var(--surface));
+  color: var(--blue);
+}
+
+.notice__title {
+  margin-bottom: 2px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.notice__code {
+  margin-bottom: 3px;
+  font-size: var(--type-body-sm-size);
+  font-weight: 600;
+}
+
+.empty-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 84px;
+  padding: 14px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  color: var(--muted);
+}
+
+.empty-state__title {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.empty-state__detail {
+  margin-top: 2px;
+  font-size: 13px;
+}
+
+.secondary-button--danger {
+  color: var(--danger);
+}
+
+.soft-label {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: var(--type-body-sm-size);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.frontmatter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: var(--type-body-sm-size);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.frontmatter-chip strong {
+  color: var(--muted);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.frontmatter-chip--tag {
+  color: var(--accent-strong);
+}
+
+.frontmatter-chip--source {
+  border-radius: 6px;
+  font-family: var(--font-mono);
+}
+
+.segmented-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.segmented-control button {
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--type-body-sm-size);
+  font-weight: 600;
+}
+
+/* Hover and selected must read differently: a hovered non-selected option gets
+   only a faint fill, while the selected one is a raised surface chip with a
+   petrol border — so selected ≠ hovered regardless of pointer position. */
+.segmented-control button:not(.is-active):hover {
+  background: var(--overlay-hover);
+  color: var(--accent-strong);
+}
+
+.segmented-control button.is-active {
+  border-color: var(--accent-border-hover);
+  background: var(--surface);
+  color: var(--accent-strong);
+}
+
+.segmented-control--settings {
+  width: fit-content;
+}
+
+/* Touch devices enlarge the compact toggles that are mouse-comfortable but
+   finger-fiddly to a 44px tap target (WCAG 2.5.5). Fine pointers (desktop
+   mouse) keep the dense sizing. */
+@media (pointer: coarse) {
+  .segmented-control button {
+    min-height: 44px;
+  }
+}
+
+.event-tape__pagination .secondary-button {
+  min-width: 72px;
+  justify-content: center;
+}
+
+html[data-theme="dark"] .metric-card {
+  background-color: var(--surface);
+}
+
+html[data-theme="dark"] .metric-card__value {
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  .field--inline {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .button-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .field--small {
+    width: 100%;
+  }
+
+  .metric-card__value {
+    font-size: 22px;
+  }
+}
+
+/* ============================================================
+   PR1 · Type role overrides
+   ─ Big headings + numeric metrics use editorial serif
+   ─ Labels / IDs / paths use mono uppercase
+   ─ Status pills lose 800 weight, gain hairline edge
+   ============================================================ */
+
+/* The editorial serif is used in exactly three places: the document reader prose
+   (`.markdown-body h1/h2`, fallback + reader-header title), the assistant reply
+   prose (agent markdown headings), and the two stat-number tiers (27 hero metric
+   value, 18 summary stat). Page H1s and all panel/card/detail headings stay sans
+   (title role) so the serif moment stays special to reading. See DESIGN.md §3. */
+.metric-card__value {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+
+/* Mono uppercase on all eyebrow labels */
+.metric-card__label,
+.field span,
+.frontmatter-chip strong {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Cards: drop heavy shadow, keep hairline border only */
+.metric-card {
+  box-shadow: none;
+}
+
+/* Status pills: hairline edge + dot, no more 800 weight */
+.status-pill {
+  font-weight: 500;
+  border: 1px solid transparent;
+}
+.status-pill--ok {
+  border-color: color-mix(in srgb, var(--green) 25%, transparent);
+}
+.status-pill--info {
+  border-color: color-mix(in srgb, var(--blue) 25%, transparent);
+}
+.status-pill--warn {
+  border-color: color-mix(in srgb, var(--amber) 25%, transparent);
+}
+.status-pill--bad {
+  border-color: color-mix(in srgb, var(--red) 25%, transparent);
+}
+.status-pill--muted {
+  border-color: var(--line);
+}
+
+/* Frontmatter chip: square corners + mono — looks like a data tag, not a button */
+.frontmatter-chip {
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--type-body-sm-size);
+}
+
+/* Tabular numerals everywhere a number is displayed */
+.metric-card__value {
+  font-variant-numeric: tabular-nums;
+}
+
+.metric-card__label {
+  /* PR3 ramp — mono labels feel like column headers, not bold UI text */
+  margin-bottom: 2px;
+}
+.metric-card__value {
+  margin-top: 12px;
+  /* Size is the 27px hero-number role from the base rule (DESIGN.md §3) — this
+     block only owns the grid placement, not a competing size. */
+  line-height: 1;
+  align-self: end;
+}
+.metric-card__detail {
+  margin-top: 10px;
+  align-self: end;
+}
+
+/* MetricCard renders bare <dt>/<dd> (it lives inside a <dl>); kill the UA dd
+   inline indent so values stay flush wherever the card is used (block margins
+   above are unchanged). */
+.metric-card dt,
+.metric-card dd {
+  margin-inline: 0;
+}
+
+/* Clickable metric → quiet stretched link covering the whole cell (no button
+   chrome): value keeps the ink color, a subtle hover tint signals it acts. */
+.metric-card--link {
+  position: relative;
+}
+.metric-card__link {
+  color: inherit;
+  text-decoration: none;
+}
+.metric-card__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.metric-card--link:hover {
+  background: var(--surface-soft);
+}
+.metric-card__link:focus-visible {
+  outline: none;
+}
+.metric-card__link:focus-visible::after {
+  outline: var(--focus-outline);
+  outline-offset: -2px;
+}
+
+/* Loading skeletons: value + detail placeholders that hold the strip/panel
+   height so real data swaps in without a layout pop-in. Pulses opacity only. */
+.metric-skeleton {
+  display: block;
+  width: 3.25rem;
+  height: 1.5rem;
+  border-radius: 4px;
+  background: var(--surface-2);
+  animation: metric-skeleton-pulse 1.4s var(--ease-standard) infinite;
+}
+.metric-card__detail .metric-skeleton,
+.detail-list .metric-skeleton {
+  width: 6rem;
+  height: 0.8rem;
+}
+@keyframes metric-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .metric-skeleton {
+    animation: none;
+  }
+}
+.soft-label {
+  font-family: var(--font-mono);
+  font-size: var(--type-label-size);
+  font-weight: 500;
+  letter-spacing: var(--type-label-ls);
+  text-transform: uppercase;
+}
+
+.reader-back-to-top:focus-visible {
+  outline: 2px solid var(--reader-link);
+  outline-offset: 2px;
+}
+
+.status-pill--wisdom-draft {
+  background: color-mix(in srgb, var(--amber) 14%, transparent);
+  color: var(--amber);
+}
+
+.status-pill--wisdom-published {
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+  color: var(--green);
+}
+
+.status-pill--wisdom-favorite {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent-strong);
+}
+
+.status-pill--wisdom-archived {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.trace-session:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.trace-span-row__label:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+}

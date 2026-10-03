@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertCircle, Check, FileText, Loader2, RotateCw, X } from "lucide-react";
-import { Button } from "../../components/Button";
+import { Button } from "@opendikw/web-ui/controls";
 import type { ConversionFileState, ConversionState } from "../../state/import-pipeline";
 import { formatBytes, formatElapsed, type ImportCopy } from "./format";
 

@@ -14,7 +14,7 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { MarkdownView } from "../components/MarkdownView";
+import { MarkdownView } from "@opendikw/web-ui/reader";
 import type { MbNote, NoteKind, NoteSync } from "./MbApp";
 
 interface Props {

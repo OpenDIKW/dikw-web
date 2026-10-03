@@ -1,5 +1,5 @@
 import { BookOpen, CheckCircle2, Info, Network, Upload } from "lucide-react";
-import { Button } from "../../components/Button";
+import { Button } from "@opendikw/web-ui/controls";
 import type { PipelineState } from "../../state/import-pipeline";
 import { formatBytes, type ImportCopy } from "./format";
 

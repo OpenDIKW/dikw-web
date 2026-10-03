@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Activity, Boxes } from "lucide-react";
-import { EmptyState } from "../components/EmptyState";
+import { EmptyState } from "@opendikw/web-ui/controls";
 import { translations, type Locale } from "../i18n";
 import type { AgentClientLike } from "./agentTypes";
 import type { AgentMessage, AgentSession, SessionSummary } from "@opendikw/web-client/types";

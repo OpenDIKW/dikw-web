@@ -1,181 +1,3 @@
-:root,
-html[data-theme="light"] {
-  color-scheme: light;
-  /* PR1: Fonts — UI sans, editorial serif for titles, mono for IDs/paths */
-  --font-ui:
-    "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Source Han Sans CN", "Noto Sans CJK SC",
-    sans-serif;
-  --font-serif:
-    "IBM Plex Serif", ui-serif, Georgia, "Songti SC", "Source Han Serif CN", "Noto Serif CJK SC",
-    serif;
-  --font-mono:
-    "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", "Sarasa Mono SC",
-    "Microsoft YaHei Mono", monospace;
-  font-family: var(--font-ui);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  /* PR1: Warm-stone neutrals (no green tint) — accent stands alone */
-  --bg: #f5f3ee;
-  --surface: #ffffff;
-  --surface-soft: #faf9f5;
-  --surface-2: #f0eee8;
-  --line: #e2dfd6;
-  --line-strong: #cdc9bd;
-  --hairline: #ebe8df;
-  --text: #1a1d1c;
-  --muted: #6c6f6a;
-  --subtle: #95968f;
-  /* PR1: Single deep petrol accent — higher contrast against warm-stone */
-  --accent: #0d5e57;
-  --accent-strong: #094540;
-  --accent-soft: #e2eeec;
-  --green: #2f7a4d;
-  --amber: #8a5a14;
-  --red: #a8362c;
-  --blue: #2f6aa8;
-  --scan-gray: #dfe6e8;
-  --reader-bg: #ffffff;
-  --reader-text: #1f2624;
-  --reader-muted: #6c6f6a;
-  --reader-heading: #14181b;
-  --reader-link: #094540;
-  --reader-code-bg: #14181b;
-  --reader-border: #e2dfd6;
-  --reader-quote-bg: #eef5f3;
-  --reader-table-bg: #f0eee8;
-  /* PR1: Replaced 24px blur shadow (invisible on warm-stone) with 1px hairline */
-  --shadow: 0 1px 0 rgba(20, 29, 28, 0.04);
-  --radius: 8px;
-  /* Focus: single source of truth, derived from --accent so it tracks the
-     theme automatically. --focus-ring is the soft box-shadow ring for text
-     fields; --focus-outline is the crisp keyboard outline for other controls. */
-  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 24%, transparent);
-  --focus-outline: 2px solid var(--accent);
-  /* --danger aliases --red so destructive controls (.secondary-button--danger,
-     .agent-session-menu__item--danger) actually recolor. Defined once: it tracks
-     the theme through --red, which the dark block overrides. */
-  --danger: var(--red);
-  /* Type roles — collapse ad-hoc sizes onto six roles across the three voices.
-     CSS has no compound type token, so each role is size / line-height / tracking. */
-  --type-display-size: 32px;
-  --type-display-lh: 1.18;
-  --type-display-ls: -0.01em;
-  --type-title-page-size: 30px;
-  --type-title-page-lh: 1.1;
-  --type-title-page-ls: -0.01em;
-  --type-title-size: 17px;
-  --type-title-lh: 1.3;
-  --type-title-ls: -0.005em;
-  --type-body-size: 15px;
-  --type-body-lh: 1.55;
-  --type-body-ls: 0;
-  --type-body-sm-size: 13px;
-  --type-body-sm-lh: 1.45;
-  --type-body-sm-ls: 0;
-  --type-label-size: 11px;
-  --type-label-lh: 1.2;
-  --type-label-ls: 0.04em;
-  /* Spacing — 4px base. Half-steps (-1h/-2h/-3h) record entrenched 6/10/14px
-     usage; never reach past them for a NEW layout decision. Rhythm: 8 inside a
-     group (--space-2), 16 between groups (--space-4), 32–40 between sections. */
-  --space-0: 0;
-  --space-1: 4px;
-  --space-1h: 6px;
-  --space-2: 8px;
-  --space-2h: 10px;
-  --space-3: 12px;
-  --space-3h: 14px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  /* Motion — durations reconcile the de-facto 120/140/240ms; 100/160/180 retire.
-     --ease-emphasis is the slight-overshoot curve, reserved for deliberate
-     enter/select moments, never color fades. Pair with prefers-reduced-motion. */
-  --dur-fast: 120ms;
-  --dur-state: 140ms;
-  --dur-popover: 180ms;
-  --dur-overlay: 240ms;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --ease-emphasis: cubic-bezier(0.175, 0.885, 0.32, 1.1);
-  /* Alpha line / overlay — layer over any surface and track the theme via
-     color-mix, retiring scattered literals (#cbd8d4 / #c5dad5 / #9fb0aa /
-     rgba(255,255,255,.7)). No dark override: all derive from --text / --accent. */
-  --line-alpha: color-mix(in srgb, var(--text) 12%, transparent);
-  --line-alpha-strong: color-mix(in srgb, var(--text) 22%, transparent);
-  --overlay-hover: color-mix(in srgb, var(--text) 5%, transparent);
-  --overlay-active: color-mix(in srgb, var(--text) 9%, transparent);
-  --accent-border-hover: color-mix(in srgb, var(--accent) 35%, var(--line));
-}
-
-html[data-theme="dark"] {
-  color-scheme: dark;
-  /* PR1: Warm-dark neutrals, accent shifted to petrol family */
-  --bg: #14140f;
-  --surface: #1b1b15;
-  --surface-soft: #161611;
-  --surface-2: #25241d;
-  --line: #2f2d24;
-  --line-strong: #4e4a3c;
-  --hairline: #232017;
-  --text: #f0eee7;
-  --muted: #b0aca0;
-  --subtle: #87826f;
-  --accent: #4eb8a6;
-  --accent-strong: #92e3d4;
-  --accent-soft: #142a26;
-  --green: #5ec78a;
-  --amber: #e3ad4c;
-  --red: #ef7f75;
-  --blue: #75aee9;
-  --scan-gray: #3a382e;
-  --reader-bg: #1b1b15;
-  --reader-text: #e2dccc;
-  --reader-muted: #ada89b;
-  --reader-heading: #f4f1e7;
-  --reader-link: #92e3d4;
-  --reader-code-bg: #11110c;
-  --reader-border: #2f2d24;
-  --reader-quote-bg: #1f2a26;
-  --reader-table-bg: #25241d;
-  --shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  /* Base the cascade on the body type role (15px) so unsized text and
-     `font: inherit` controls (buttons/inputs/selects) ride the six-role scale
-     instead of the 16px UA default. Line-height stays per-element. */
-  font-size: var(--type-body-size);
-  background: var(--bg);
-  color: var(--text);
-}
-
-button,
-input,
-select,
-textarea {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
-}
-
 .app-shell {
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
@@ -378,8 +200,7 @@ button:disabled {
 
 .connection-form,
 .filter-bar,
-.query-form,
-.button-row {
+.query-form {
   display: flex;
   align-items: end;
   gap: 10px;
@@ -447,7 +268,6 @@ button:disabled {
 }
 
 .panel,
-.metric-card,
 .answer-panel,
 .wisdom-card {
   border: 1px solid var(--line);
@@ -479,13 +299,6 @@ button:disabled {
   gap: 12px;
 }
 
-.metric-card {
-  min-height: 104px;
-  padding: 13px;
-}
-
-.metric-card__label,
-.field span,
 .detail-list dt,
 .compact-dl dt {
   color: var(--muted);
@@ -493,20 +306,6 @@ button:disabled {
   font-weight: 600;
   letter-spacing: 0;
   text-transform: uppercase;
-}
-
-.metric-card__value {
-  margin-top: 12px;
-  color: var(--text);
-  font-size: 27px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.metric-card__detail {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 13px;
 }
 
 .two-column-grid {
@@ -547,218 +346,6 @@ button:disabled {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
-}
-
-.field {
-  display: grid;
-  gap: 6px;
-}
-
-.field--grow {
-  flex: 1;
-  min-width: 220px;
-}
-
-.field--small {
-  width: 92px;
-}
-
-.field--inline {
-  grid-template-columns: auto minmax(160px, 260px);
-  align-items: center;
-}
-
-.field--token input {
-  max-width: 180px;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background: var(--surface);
-  color: var(--text);
-  outline: none;
-}
-
-input,
-select {
-  height: 36px;
-  padding: 0 10px;
-}
-
-textarea {
-  min-height: 82px;
-  resize: vertical;
-  padding: 10px;
-}
-
-input:focus,
-select:focus,
-textarea:focus {
-  border-color: var(--accent);
-  box-shadow: var(--focus-ring);
-}
-
-/* Keyboard focus: one branded ring across interactive controls that don't
-   already define their own :focus-visible. Zero-specificity :where() so the
-   existing per-element focus rules (graph nodes, reader controls, resizer)
-   still win. Text fields keep their softer box-shadow ring above. */
-:where(button, a[href], [role="button"], summary, [tabindex]:not([tabindex="-1"])):focus-visible {
-  outline: var(--focus-outline);
-  outline-offset: 2px;
-}
-
-.primary-button,
-.secondary-button,
-.icon-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 36px;
-  border-radius: 7px;
-  font-weight: 500;
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease;
-}
-
-.primary-button {
-  border: 1px solid var(--accent-strong);
-  background: var(--accent);
-  color: #ffffff;
-  padding: 0 14px;
-}
-
-.primary-button:hover {
-  background: var(--accent-strong);
-}
-
-.secondary-button {
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  color: var(--text);
-  padding: 0 12px;
-}
-
-.secondary-button:hover,
-.icon-button:hover {
-  border-color: var(--accent-border-hover);
-  background: var(--surface-soft);
-}
-
-.icon-button {
-  width: 38px;
-  border: 1px solid var(--line-strong);
-  background: var(--surface);
-  color: var(--text);
-}
-
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  width: fit-content;
-  max-width: 100%;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: var(--type-body-sm-size);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-/* Pill text mixes the signal color toward --text: in light that darkens it
-   (passing 4.5:1 on the tint), in dark it lightens — raising contrast against
-   the tinted background in both themes. ok #2f7a4d / info #2f6aa8 were just
-   under AA at 12px/600 on their own 16% tint. */
-.status-pill--ok {
-  background: color-mix(in srgb, var(--green) 16%, transparent);
-  color: color-mix(in srgb, var(--green) 80%, var(--text));
-}
-
-.status-pill--info {
-  background: color-mix(in srgb, var(--blue) 16%, transparent);
-  color: color-mix(in srgb, var(--blue) 80%, var(--text));
-}
-
-.status-pill--warn {
-  background: color-mix(in srgb, var(--amber) 18%, transparent);
-  color: var(--amber);
-}
-
-.status-pill--bad {
-  background: color-mix(in srgb, var(--red) 16%, transparent);
-  color: var(--red);
-}
-
-.status-pill--muted {
-  background: var(--surface-2);
-  color: var(--muted);
-}
-
-.notice {
-  display: flex;
-  gap: 10px;
-  padding: 12px 13px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-
-.notice--bad {
-  border-color: color-mix(in srgb, var(--red) 56%, var(--line));
-  background: color-mix(in srgb, var(--red) 9%, var(--surface));
-  color: var(--red);
-}
-
-.notice--warn {
-  border-color: color-mix(in srgb, var(--amber) 56%, var(--line));
-  background: color-mix(in srgb, var(--amber) 9%, var(--surface));
-  color: var(--amber);
-}
-
-.notice--info {
-  border-color: color-mix(in srgb, var(--blue) 48%, var(--line));
-  background: color-mix(in srgb, var(--blue) 8%, var(--surface));
-  color: var(--blue);
-}
-
-.notice__title {
-  margin-bottom: 2px;
-  color: var(--text);
-  font-weight: 600;
-}
-
-.notice__code {
-  margin-bottom: 3px;
-  font-size: var(--type-body-sm-size);
-  font-weight: 600;
-}
-
-.empty-state {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 84px;
-  padding: 14px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius);
-  background: var(--surface-soft);
-  color: var(--muted);
-}
-
-.empty-state__title {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.empty-state__detail {
-  margin-top: 2px;
-  font-size: 13px;
 }
 
 .startup-error {
@@ -1014,30 +601,12 @@ textarea:focus {
   text-transform: uppercase;
 }
 
-.secondary-button--danger {
-  color: var(--danger);
-}
-
 .live-dot {
   width: 8px;
   height: 8px;
   border-radius: 999px;
   background: var(--green);
   box-shadow: 0 0 0 4px rgba(36, 122, 77, 0.13);
-}
-
-.soft-label {
-  display: inline-flex;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  padding: 3px 7px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--muted);
-  font-size: var(--type-body-sm-size);
-  font-weight: 500;
-  overflow-wrap: anywhere;
 }
 
 .citation-list,
@@ -1515,144 +1084,6 @@ body.is-col-resizing {
   min-width: 0;
 }
 
-.markdown-view {
-  max-width: 760px;
-  margin: 0 auto;
-  color: var(--reader-text);
-  line-height: 1.76;
-}
-
-.markdown-fallback-title {
-  margin: 0 0 18px;
-  color: var(--reader-heading);
-  font-size: var(--type-display-size);
-  line-height: var(--type-display-lh);
-  letter-spacing: var(--type-display-ls);
-}
-
-.frontmatter-summary {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 7px;
-  margin: 0 0 14px;
-  padding: 0 0 12px;
-  border-bottom: 1px solid var(--reader-border);
-  background: transparent;
-}
-
-.frontmatter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  max-width: 100%;
-  padding: 4px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--surface-2);
-  color: var(--text);
-  font-size: var(--type-body-sm-size);
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.frontmatter-chip strong {
-  color: var(--muted);
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.frontmatter-chip--tag {
-  color: var(--accent-strong);
-}
-
-.frontmatter-chip--source {
-  border-radius: 6px;
-  font-family: var(--font-mono);
-}
-
-/* Cap the reading measure so prose stays at a comfortable line length on wide
-   panes (DESIGN.md: body 65–75ch) instead of running edge-to-edge. Narrower
-   surfaces (chat replies, bilingual columns) sit under this width already, so
-   the cap is a no-op there. */
-.markdown-body {
-  max-width: 72ch;
-}
-
-.markdown-body h1,
-.markdown-body h2,
-.markdown-body h3,
-.markdown-body h4 {
-  margin: 1.25em 0 0.45em;
-  color: var(--reader-heading);
-  line-height: 1.25;
-}
-
-.markdown-body h1 {
-  font-size: var(--type-display-size);
-  letter-spacing: var(--type-display-ls);
-}
-
-.markdown-body h1:first-child,
-.markdown-body h2:first-child {
-  margin-top: 0;
-}
-
-.markdown-body h2 {
-  padding-bottom: 6px;
-  border-bottom: 1px solid var(--reader-border);
-  font-size: 22px;
-}
-
-.markdown-body h3 {
-  font-size: var(--type-title-size);
-}
-
-.markdown-body p {
-  margin: 0.7em 0;
-}
-
-/* Pin markdown emphasis to a concrete weight. The UA default
-   `strong { font-weight: bolder }` is relative — inside an already-bold (700)
-   context it compounds to 900, a 5th weight that breaks the Two-Weight Rule
-   (and exceeds IBM Plex's Bold ceiling). 600 is the system's emphasis weight. */
-.markdown-body strong,
-.markdown-body b {
-  font-weight: 600;
-}
-
-.markdown-body a,
-.inline-wikilink {
-  color: var(--reader-link);
-  font-weight: 700;
-  text-decoration: none;
-}
-
-.inline-wikilink {
-  display: inline;
-  padding: 0 1px;
-  border: 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--reader-link) 55%, transparent);
-  border-radius: 0;
-  background: transparent;
-  line-height: inherit;
-  cursor: pointer;
-}
-
-.inline-wikilink:hover {
-  color: var(--accent-strong);
-  border-bottom-color: var(--accent-strong);
-}
-
-.markdown-body code {
-  padding: 2px 5px;
-  border-radius: 5px;
-  background: var(--reader-table-bg);
-  color: var(--reader-text);
-  font-family: var(--font-mono);
-  font-size: 0.92em;
-}
-
-.markdown-body pre,
 .event-tape pre {
   overflow: auto;
   padding: 12px;
@@ -1660,59 +1091,6 @@ body.is-col-resizing {
   border-radius: var(--radius);
   background: var(--reader-code-bg);
   color: #eef8f5;
-}
-
-.markdown-body pre code {
-  padding: 0;
-  background: transparent;
-  color: inherit;
-}
-
-.code-block {
-  margin: 14px 0;
-  overflow: hidden;
-  border: 1px solid var(--reader-border);
-  border-radius: var(--radius);
-  background: var(--reader-code-bg);
-}
-
-.code-block pre {
-  margin: 0;
-  border: 0;
-  border-radius: 0;
-}
-
-.code-label {
-  padding: 6px 10px;
-  border-bottom: 1px solid var(--reader-border);
-  color: #a8c9c2;
-  font-size: var(--type-label-size);
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.markdown-body blockquote {
-  margin: 1em 0;
-  padding: 8px 12px;
-  border-left: 3px solid var(--accent);
-  background: var(--reader-quote-bg);
-  color: var(--reader-text);
-}
-
-.markdown-body hr {
-  border: 0;
-  border-top: 1px solid var(--reader-border);
-  margin: 18px 0;
-}
-
-.markdown-body ul,
-.markdown-body ol {
-  margin: 0.7em 0;
-  padding-left: 1.35em;
-}
-
-.markdown-body li + li {
-  margin-top: 0.24em;
 }
 
 .wiki-reader-tabs {
@@ -1844,256 +1222,6 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
   outline-offset: -2px;
   border-radius: 6px;
-}
-
-/* Bilingual reading status bar (translating / cached / re-translate / cancel). */
-.bi-statusbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin: 0 auto 14px;
-  max-width: 760px;
-  padding: 8px 12px;
-  border: 1px solid var(--reader-border);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--accent-soft) 60%, var(--reader-bg));
-  font-size: var(--type-body-sm-size);
-  color: var(--reader-text);
-}
-.bi-statusbar--error {
-  background: color-mix(in srgb, var(--red) 12%, var(--reader-bg));
-  border-color: color-mix(in srgb, var(--red) 35%, var(--reader-border));
-}
-.bi-statusbar__left {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-}
-.bi-chip {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--green) 18%, transparent);
-  color: var(--green);
-  font-size: 11px;
-  font-weight: 600;
-}
-.bi-statusbar__action {
-  border: 0;
-  background: transparent;
-  color: var(--reader-link);
-  font: inherit;
-  font-size: var(--type-body-sm-size);
-  font-weight: 600;
-  cursor: pointer;
-}
-.bi-statusbar__action:hover {
-  color: var(--accent-strong);
-  text-decoration: underline;
-}
-.bi-spinner {
-  width: 13px;
-  height: 13px;
-  border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: bi-spin 0.7s linear infinite;
-}
-@keyframes bi-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* Paragraph-aligned dual columns. The dual view is two reading measures side by
-   side, so it must override the single-column 72ch cap it inherits from
-   `.markdown-body` — otherwise both columns crush into one measure on the left
-   and leave the pane's right half empty. Fill the reader pane on normal widths;
-   past two measures, cap and center so columns never run past a comfortable
-   line length on an ultra-wide monitor. */
-.bilingual-cols {
-  position: relative;
-  max-width: calc(72ch * 2 + 40px);
-  margin-inline: auto;
-}
-.bilingual-cols::before {
-  content: "";
-  position: absolute;
-  top: 30px;
-  bottom: 0;
-  left: 50%;
-  width: 1px;
-  transform: translateX(-0.5px);
-  background: var(--reader-border);
-}
-.bi-colhead {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  column-gap: 40px;
-  margin-bottom: 8px;
-}
-.bi-colhead span {
-  padding: 0 4px 6px;
-  color: var(--reader-muted);
-  font-size: 11px;
-  /* Mono ships 400/500 only — 500 is the canonical label weight; 600 was a
-     no-op that silently rendered as 500. */
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-family: var(--font-mono);
-}
-.bilingual-stack {
-  display: grid;
-  row-gap: 6px;
-  line-height: 1.76;
-  color: var(--reader-text);
-}
-.bi-pair {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  column-gap: 40px;
-  align-items: start;
-  padding: 6px 4px 6px 12px;
-  border-radius: 6px;
-  transition: background 0.12s ease;
-}
-.bi-pair::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 2px;
-  border-radius: 2px;
-  background: transparent;
-  transition: background 0.12s ease;
-}
-.bi-pair:hover {
-  background: var(--accent-soft);
-}
-.bi-pair:hover::before {
-  background: var(--accent);
-}
-.bi-block {
-  min-width: 0;
-}
-.bi-block > :first-child {
-  margin-top: 0;
-}
-.bi-block > :last-child {
-  margin-bottom: 0;
-}
-.bi-skeleton {
-  display: none;
-}
-.bi-pair.is-loading .bi-skeleton {
-  display: block;
-  padding-top: 2px;
-}
-.bi-pair.is-loading .bi-tr-text {
-  display: none;
-}
-.bi-skeleton span {
-  display: block;
-  height: 0.78em;
-  margin: 0.55em 0;
-  border-radius: 5px;
-  background: linear-gradient(
-    90deg,
-    var(--reader-table-bg) 0%,
-    color-mix(in srgb, var(--reader-table-bg) 55%, var(--reader-bg)) 50%,
-    var(--reader-table-bg) 100%
-  );
-  background-size: 200% 100%;
-  animation: bi-shimmer 1.25s ease-in-out infinite;
-}
-.bi-skeleton span:nth-child(2) {
-  width: 92%;
-}
-.bi-skeleton span:nth-child(3) {
-  width: 64%;
-}
-.bi-tr-text {
-  animation: bi-fade 0.45s ease;
-}
-@keyframes bi-shimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-@keyframes bi-fade {
-  from {
-    opacity: 0;
-    transform: translateY(3px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* Special blocks (code/table/chart/math/rule): a single CENTERED shared
-   instance — not spanning both columns, masking the center hairline. */
-.bi-pair--special {
-  position: relative;
-  z-index: 1;
-  margin: 2px 0;
-  padding: 4px 0;
-  background: var(--reader-bg);
-}
-.bi-special {
-  max-width: 600px;
-  margin: 0 auto;
-}
-.bi-special .code-block,
-.bi-special .markdown-chart,
-.bi-special .markdown-table-wrap {
-  margin: 0 auto;
-}
-
-/* Narrow screens: collapse the two columns into a stacked single column. */
-@media (max-width: 1100px) {
-  /* Stacked = a single column again, so restore the single-column reading
-     measure — the two-measure cap above is only for the side-by-side layout and
-     would let a stacked paragraph run far past a comfortable line length. */
-  .bilingual-cols {
-    max-width: 72ch;
-  }
-  .bilingual-cols::before {
-    display: none;
-  }
-  .bi-colhead {
-    display: none;
-  }
-  .bi-pair {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: 2px;
-  }
-  .bi-block.bi-block--tr {
-    margin-top: 4px;
-    padding: 4px 10px;
-    border-left: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-    background: color-mix(in srgb, var(--accent-soft) 55%, var(--reader-bg));
-    border-radius: 0 6px 6px 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .bi-skeleton span,
-  .bi-tr-text,
-  .bi-spinner {
-    animation: none;
-  }
-  .bi-pair,
-  .bi-pair::before {
-    transition: none;
-  }
 }
 
 .wiki-info-panel,
@@ -2247,188 +1375,6 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   tab-size: 2;
 }
 
-.markdown-table-wrap {
-  overflow: auto;
-  margin: 16px 0;
-  border: 1px solid var(--reader-border);
-  border-radius: var(--radius);
-  background: var(--reader-bg);
-}
-
-.markdown-table-wrap table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--type-body-sm-size);
-}
-
-.markdown-table-wrap caption {
-  padding: 10px 12px;
-  border-bottom: 1px solid var(--reader-border);
-  color: var(--reader-muted);
-  font-family: var(--font-mono);
-  font-size: var(--type-label-size);
-  font-weight: 500;
-  text-align: left;
-  text-transform: uppercase;
-  letter-spacing: var(--type-label-ls);
-}
-
-.markdown-table-wrap th,
-.markdown-table-wrap td {
-  padding: 9px 11px;
-  border-bottom: 1px solid var(--reader-border);
-  border-right: 1px solid var(--reader-border);
-  text-align: left;
-  vertical-align: top;
-}
-
-.markdown-table-wrap th {
-  background: var(--reader-table-bg);
-  color: var(--reader-muted);
-  font-size: var(--type-body-sm-size);
-  font-weight: 600;
-  /* User markdown table headers render verbatim — no force-uppercase (that both
-     altered authored content and read as a sans "eyebrow"). Weight + muted color
-     + table-bg keep the header row distinct. */
-}
-
-.markdown-table-wrap tr:last-child td {
-  border-bottom: 0;
-}
-
-.markdown-table-wrap th:last-child,
-.markdown-table-wrap td:last-child {
-  border-right: 0;
-}
-
-.markdown-body .katex {
-  color: var(--reader-text);
-  font-size: 1.02em;
-}
-
-.markdown-body .katex-display {
-  overflow-x: auto;
-  overflow-y: hidden;
-  margin: 18px 0;
-  padding: 8px 0;
-  color: var(--reader-text);
-}
-
-.markdown-body .katex-display > .katex {
-  max-width: 100%;
-  white-space: nowrap;
-}
-
-.markdown-details {
-  margin: 16px 0;
-  overflow: hidden;
-  border: 1px solid var(--reader-border);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--reader-bg) 88%, var(--reader-table-bg));
-  color: var(--reader-text);
-}
-
-.markdown-details summary {
-  padding: 10px 12px;
-  color: var(--reader-heading);
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.markdown-details[open] summary {
-  border-bottom: 1px solid var(--reader-border);
-}
-
-.markdown-details__body {
-  padding: 12px 14px;
-}
-
-.markdown-details__body > :first-child {
-  margin-top: 0;
-}
-
-.markdown-details__body > :last-child {
-  margin-bottom: 0;
-}
-
-.markdown-image {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 12px auto;
-  border-radius: var(--radius);
-  border: 1px solid var(--reader-border);
-  background: var(--reader-bg);
-}
-
-.md-broken-image {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  margin: 6px 0;
-  border: 1px dashed var(--reader-border);
-  border-radius: var(--radius);
-  color: var(--reader-text);
-  background: color-mix(in srgb, var(--reader-bg) 90%, var(--reader-table-bg));
-  font-size: 0.9em;
-  word-break: break-all;
-}
-
-.markdown-chart {
-  margin: 16px 0;
-  padding: 12px;
-  border: 1px solid var(--reader-border);
-  border-radius: var(--radius);
-  background: var(--reader-bg);
-}
-
-.markdown-chart__canvas {
-  width: 100%;
-  min-height: 280px;
-}
-
-.markdown-chart__caption {
-  margin-top: 8px;
-  font-size: var(--type-body-sm-size);
-  color: var(--reader-text);
-  opacity: 0.75;
-}
-
-.mermaid-diagram {
-  overflow: auto;
-  margin: 14px 0;
-  padding: 14px;
-  border: 1px solid var(--reader-border);
-  border-radius: var(--radius);
-  background: var(--reader-bg);
-  color: var(--reader-text);
-}
-
-.mermaid-diagram svg {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 0 auto;
-  background: transparent !important;
-}
-
-.mermaid-diagram__loading,
-.mermaid-diagram__error {
-  color: var(--reader-muted);
-  font-size: 13px;
-}
-
-.mermaid-diagram__error {
-  margin-bottom: 10px;
-  color: var(--red);
-}
-
-.mermaid-fallback {
-  margin: 0;
-  overflow: auto;
-}
-
 .wiki-preview {
   position: sticky;
   top: 84px;
@@ -2506,50 +1452,10 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   padding: 10px;
 }
 
-.segmented-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-soft);
-}
-
-.segmented-control button {
-  min-height: 28px;
-  padding: 0 10px;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font-size: var(--type-body-sm-size);
-  font-weight: 600;
-}
-
-/* Hover and selected must read differently: a hovered non-selected option gets
-   only a faint fill, while the selected one is a raised surface chip with a
-   petrol border — so selected ≠ hovered regardless of pointer position. */
-.segmented-control button:not(.is-active):hover {
-  background: var(--overlay-hover);
-  color: var(--accent-strong);
-}
-
-.segmented-control button.is-active {
-  border-color: var(--accent-border-hover);
-  background: var(--surface);
-  color: var(--accent-strong);
-}
-
-.segmented-control--settings {
-  width: fit-content;
-}
-
 /* Touch devices enlarge the compact toggles that are mouse-comfortable but
    finger-fiddly to a 44px tap target (WCAG 2.5.5). Fine pointers (desktop
    mouse) keep the dense sizing. */
 @media (pointer: coarse) {
-  .segmented-control button,
   .wiki-reader-tabs button,
   .graph-zoom .icon-button,
   .wiki-tree__item,
@@ -4003,11 +2909,6 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
   border-top: 1px solid var(--line);
 }
 
-.event-tape__pagination .secondary-button {
-  min-width: 72px;
-  justify-content: center;
-}
-
 .task-list__more {
   display: flex;
   justify-content: center;
@@ -4275,7 +3176,6 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 
 html[data-theme="dark"] .brand__mark,
 html[data-theme="dark"] .panel,
-html[data-theme="dark"] .metric-card,
 html[data-theme="dark"] .answer-panel,
 html[data-theme="dark"] .wisdom-card,
 html[data-theme="dark"] .wiki-sidebar,
@@ -4285,19 +3185,12 @@ html[data-theme="dark"] .graph-detail {
 }
 
 html[data-theme="dark"] .nav-item,
-html[data-theme="dark"] .markdown-view,
-html[data-theme="dark"] .markdown-body h1,
-html[data-theme="dark"] .markdown-body h2,
-html[data-theme="dark"] .markdown-body h3,
-html[data-theme="dark"] .markdown-body h4,
-html[data-theme="dark"] .markdown-fallback-title,
 html[data-theme="dark"] .reader-header h2,
 html[data-theme="dark"] .task-detail__header h2,
 html[data-theme="dark"] .wisdom-card h2,
 html[data-theme="dark"] .wisdom-detail h2,
 html[data-theme="dark"] .summary-metric dd,
-html[data-theme="dark"] .task-summary-grid dd,
-html[data-theme="dark"] .metric-card__value {
+html[data-theme="dark"] .task-summary-grid dd {
   color: var(--text);
 }
 
@@ -4327,19 +3220,12 @@ html[data-theme="dark"] .task-summary-grid div {
   color: var(--text);
 }
 
-html[data-theme="dark"] .markdown-table-wrap th,
 html[data-theme="dark"] .metrics-table__head,
 html[data-theme="dark"] .result-table__head {
   background: var(--surface-2);
   color: var(--muted);
 }
 
-html[data-theme="dark"] .markdown-body blockquote {
-  background: color-mix(in srgb, var(--accent) 13%, var(--surface));
-  color: var(--text);
-}
-
-html[data-theme="dark"] .markdown-body code,
 html[data-theme="dark"] .graph-svg {
   background-color: var(--surface-2);
 }
@@ -4355,27 +3241,13 @@ html[data-theme="dark"] .graph-svg__nodes text {
   stroke: rgba(15, 20, 19, 0.9);
 }
 
-html[data-theme="dark"] .wiki-reader,
-html[data-theme="dark"] .markdown-table-wrap {
+html[data-theme="dark"] .wiki-reader {
   background: var(--reader-bg);
   color: var(--reader-text);
 }
 
-html[data-theme="dark"] .markdown-view {
-  color: var(--reader-text);
-}
-
-html[data-theme="dark"] .markdown-body h1,
-html[data-theme="dark"] .markdown-body h2,
-html[data-theme="dark"] .markdown-body h3,
-html[data-theme="dark"] .markdown-body h4,
-html[data-theme="dark"] .markdown-fallback-title {
-  color: var(--reader-heading);
-}
-
 html[data-theme="dark"] .reader-header__path,
-html[data-theme="dark"] .wiki-reader-tabs button,
-html[data-theme="dark"] .markdown-table-wrap th {
+html[data-theme="dark"] .wiki-reader-tabs button {
   color: var(--reader-muted);
 }
 
@@ -4386,16 +3258,6 @@ html[data-theme="dark"] .wiki-reader-tabs {
 html[data-theme="dark"] .wiki-reader-tabs button.is-active {
   background: var(--reader-bg);
   color: var(--reader-link);
-}
-
-html[data-theme="dark"] .markdown-body code,
-html[data-theme="dark"] .markdown-table-wrap th {
-  background: var(--reader-table-bg);
-}
-
-html[data-theme="dark"] .markdown-body blockquote {
-  background: var(--reader-quote-bg);
-  color: var(--reader-text);
 }
 
 @media (max-width: 1180px) {
@@ -4490,10 +3352,6 @@ html[data-theme="dark"] .markdown-body blockquote {
     padding: 16px;
   }
 
-  .field--inline {
-    grid-template-columns: 1fr;
-  }
-
   .two-column-grid,
   .two-column-grid--wide-left,
   .wiki-layout,
@@ -4565,8 +3423,7 @@ html[data-theme="dark"] .markdown-body blockquote {
 
   .query-form,
   .filter-bar,
-  .graph-canvas__header,
-  .button-row {
+  .graph-canvas__header {
     align-items: stretch;
     flex-direction: column;
   }
@@ -4580,10 +3437,6 @@ html[data-theme="dark"] .markdown-body blockquote {
     grid-template-columns: 1fr;
   }
 
-  .field--small {
-    width: 100%;
-  }
-
   .result-table__row,
   .metrics-table__row,
   .task-summary-grid,
@@ -4595,10 +3448,6 @@ html[data-theme="dark"] .markdown-body blockquote {
   .page-header {
     align-items: start;
     flex-direction: column;
-  }
-
-  .metric-card__value {
-    font-size: 22px;
   }
 }
 
@@ -4614,10 +3463,6 @@ html[data-theme="dark"] .markdown-body blockquote {
    prose (agent markdown headings), and the two stat-number tiers (27 hero metric
    value, 18 summary stat). Page H1s and all panel/card/detail headings stay sans
    (title role) so the serif moment stays special to reading. See DESIGN.md §3. */
-.metric-card__value,
-.markdown-body h1,
-.markdown-body h2,
-.markdown-fallback-title,
 .reader-header h2,
 .summary-metric dd {
   font-family: var(--font-serif);
@@ -4634,18 +3479,14 @@ html[data-theme="dark"] .markdown-body blockquote {
 }
 
 /* Mono uppercase on all eyebrow labels */
-.metric-card__label,
 .detail-list dt,
 .compact-dl dt,
 .task-summary-grid dt,
 .summary-metric dt,
 .wiki-info-grid dt,
-.field span,
 .result-table__head,
 .metrics-table__head,
-.frontmatter-chip strong,
-.graph-detail__section strong,
-.code-label {
+.graph-detail__section strong {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
@@ -4663,34 +3504,12 @@ html[data-theme="dark"] .markdown-body blockquote {
 
 /* Cards: drop heavy shadow, keep hairline border only */
 .panel,
-.metric-card,
 .answer-panel,
 .wisdom-card,
 .agent-sessions,
 .agent-workspace,
 .query-form {
   box-shadow: none;
-}
-
-/* Status pills: hairline edge + dot, no more 800 weight */
-.status-pill {
-  font-weight: 500;
-  border: 1px solid transparent;
-}
-.status-pill--ok {
-  border-color: color-mix(in srgb, var(--green) 25%, transparent);
-}
-.status-pill--info {
-  border-color: color-mix(in srgb, var(--blue) 25%, transparent);
-}
-.status-pill--warn {
-  border-color: color-mix(in srgb, var(--amber) 25%, transparent);
-}
-.status-pill--bad {
-  border-color: color-mix(in srgb, var(--red) 25%, transparent);
-}
-.status-pill--muted {
-  border-color: var(--line);
 }
 
 /* Page H1: UI sans display title (not the editorial serif used for reader /
@@ -4702,31 +3521,6 @@ html[data-theme="dark"] .markdown-body blockquote {
   line-height: var(--type-title-page-lh);
   font-weight: 600;
   letter-spacing: var(--type-title-page-ls);
-}
-
-/* Reader: longer measure + taller leading on Markdown body */
-.markdown-view {
-  font-size: 15px;
-  line-height: 1.78;
-}
-.markdown-body h1 {
-  font-size: 32px;
-}
-.markdown-body h2 {
-  font-size: 22px;
-}
-.markdown-body h3 {
-  font-size: 17px;
-  font-family: var(--font-serif);
-  font-weight: 600;
-  letter-spacing: -0.005em;
-}
-
-/* Frontmatter chip: square corners + mono — looks like a data tag, not a button */
-.frontmatter-chip {
-  border-radius: 4px;
-  font-family: var(--font-mono);
-  font-size: var(--type-body-sm-size);
 }
 
 /* Agent: user bubble flips to solid accent for clearer turn-taking */
@@ -4765,7 +3559,6 @@ html[data-theme="dark"] .markdown-body blockquote {
 }
 
 /* Tabular numerals everywhere a number is displayed */
-.metric-card__value,
 .summary-metric dd,
 .task-summary-grid dd,
 .task-list__id,
@@ -5088,85 +3881,6 @@ html[data-theme="dark"] .brand__mark {
   color: var(--accent);
 }
 
-.metric-card__label {
-  /* PR3 ramp — mono labels feel like column headers, not bold UI text */
-  margin-bottom: 2px;
-}
-.metric-card__value {
-  margin-top: 12px;
-  /* Size is the 27px hero-number role from the base rule (DESIGN.md §3) — this
-     block only owns the grid placement, not a competing size. */
-  line-height: 1;
-  align-self: end;
-}
-.metric-card__detail {
-  margin-top: 10px;
-  align-self: end;
-}
-
-/* MetricCard renders bare <dt>/<dd> (it lives inside a <dl>); kill the UA dd
-   inline indent so values stay flush wherever the card is used (block margins
-   above are unchanged). */
-.metric-card dt,
-.metric-card dd {
-  margin-inline: 0;
-}
-
-/* Clickable metric → quiet stretched link covering the whole cell (no button
-   chrome): value keeps the ink color, a subtle hover tint signals it acts. */
-.metric-card--link {
-  position: relative;
-}
-.metric-card__link {
-  color: inherit;
-  text-decoration: none;
-}
-.metric-card__link::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-}
-.metric-card--link:hover {
-  background: var(--surface-soft);
-}
-.metric-card__link:focus-visible {
-  outline: none;
-}
-.metric-card__link:focus-visible::after {
-  outline: var(--focus-outline);
-  outline-offset: -2px;
-}
-
-/* Loading skeletons: value + detail placeholders that hold the strip/panel
-   height so real data swaps in without a layout pop-in. Pulses opacity only. */
-.metric-skeleton {
-  display: block;
-  width: 3.25rem;
-  height: 1.5rem;
-  border-radius: 4px;
-  background: var(--surface-2);
-  animation: metric-skeleton-pulse 1.4s var(--ease-standard) infinite;
-}
-.metric-card__detail .metric-skeleton,
-.detail-list .metric-skeleton {
-  width: 6rem;
-  height: 0.8rem;
-}
-@keyframes metric-skeleton-pulse {
-  0%,
-  100% {
-    opacity: 0.5;
-  }
-  50% {
-    opacity: 0.85;
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .metric-skeleton {
-    animation: none;
-  }
-}
-
 /* When a metric value is a pill (e.g. server health), align it like a value */
 .overview-grid > .metric-card .metric-card__value .status-pill {
   font-size: var(--type-body-sm-size);
@@ -5261,13 +3975,6 @@ html[data-theme="dark"] .brand__mark {
   font-weight: 600;
   letter-spacing: var(--type-title-ls);
   font-size: var(--type-title-size);
-}
-.soft-label {
-  font-family: var(--font-mono);
-  font-size: var(--type-label-size);
-  font-weight: 500;
-  letter-spacing: var(--type-label-ls);
-  text-transform: uppercase;
 }
 
 /* ---- Markdown table-of-contents callout (also touched by reader spacing) ---- */
@@ -6461,11 +5168,6 @@ html[data-theme="dark"] .graph-pixi-stage {
   transform: translateY(-2px);
 }
 
-.reader-back-to-top:focus-visible {
-  outline: 2px solid var(--reader-link);
-  outline-offset: 2px;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .reader-back-to-top {
     transition: none;
@@ -6809,26 +5511,6 @@ html[data-theme="dark"] .graph-pixi-stage {
   gap: 8px;
 }
 
-.status-pill--wisdom-draft {
-  background: color-mix(in srgb, var(--amber) 14%, transparent);
-  color: var(--amber);
-}
-
-.status-pill--wisdom-published {
-  background: color-mix(in srgb, var(--green) 14%, transparent);
-  color: var(--green);
-}
-
-.status-pill--wisdom-favorite {
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-  color: var(--accent-strong);
-}
-
-.status-pill--wisdom-archived {
-  background: var(--surface-2);
-  color: var(--muted);
-}
-
 .wisdom-star {
   display: inline-flex;
   align-items: center;
@@ -6974,11 +5656,6 @@ html[data-theme="dark"] .graph-pixi-stage {
   background: var(--surface-soft);
 }
 
-.trace-session:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
 .trace-session strong {
   font-size: 13px;
   overflow: hidden;
@@ -7110,11 +5787,6 @@ html[data-theme="dark"] .graph-pixi-stage {
 .trace-span-row__label:hover,
 .trace-span-row__label.is-selected {
   background: var(--surface-2);
-}
-
-.trace-span-row__label:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .trace-span-dot {

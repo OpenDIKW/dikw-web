@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Play, RefreshCw, Square } from "lucide-react";
 import { DikwClient, DikwClientError } from "@opendikw/web-client/core";
-import { Button } from "../components/Button";
-import { EmptyState } from "../components/EmptyState";
-import { Field } from "../components/Field";
-import { IconButton } from "../components/IconButton";
-import { Notice } from "../components/Notice";
-import { SoftLabel } from "../components/SoftLabel";
-import { StatusPill } from "../components/StatusPill";
-import { useCanEdit } from "../config/auth";
+import { Button } from "@opendikw/web-ui/controls";
+import { EmptyState } from "@opendikw/web-ui/controls";
+import { Field } from "@opendikw/web-ui/controls";
+import { IconButton } from "@opendikw/web-ui/controls";
+import { Notice } from "@opendikw/web-ui/controls";
+import { SoftLabel } from "@opendikw/web-ui/controls";
+import { StatusPill } from "@opendikw/web-ui/controls";
+import { useCanEdit } from "@opendikw/web-ui/auth";
 import { translations, type Locale } from "../i18n";
 import type {
   IngestError,

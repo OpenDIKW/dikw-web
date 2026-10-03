@@ -8,15 +8,15 @@ import {
   PanelRightOpen,
 } from "lucide-react";
 import type { DikwClient } from "@opendikw/web-client/core";
-import { useCanEdit } from "../config/auth";
-import { MarkdownView } from "../components/MarkdownView";
+import { useCanEdit } from "@opendikw/web-ui/auth";
+import { MarkdownView } from "@opendikw/web-ui/reader";
 import {
   renderMarkdownBlockHtml,
   useMarkdownEffects,
   type MarkdownContext,
-} from "../components/markdown-runtime";
-import type { BilingualBlock } from "../components/BilingualView";
-import { useBilingualReader } from "../hooks/useBilingualReader";
+} from "@opendikw/web-ui/reader";
+import type { BilingualBlock } from "@opendikw/web-ui/reader";
+import { useBilingualReader } from "@opendikw/web-ui/hooks";
 import type { TranslateCache } from "@opendikw/web-client/translate";
 import { isEnglishBody } from "@opendikw/web-client/document";
 import { parseMarkdownDocument } from "@opendikw/web-client/document";

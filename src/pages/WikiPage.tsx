@@ -17,17 +17,17 @@ import {
   X,
 } from "lucide-react";
 import { DikwClient, DikwClientError } from "@opendikw/web-client/core";
-import { Button } from "../components/Button";
-import { IconButton } from "../components/IconButton";
-import { EmptyState } from "../components/EmptyState";
-import { FrontmatterChip } from "../components/FrontmatterChip";
-import { MarkdownView } from "../components/MarkdownView";
-import { BilingualView, type BilingualSide } from "../components/BilingualView";
-import { Notice } from "../components/Notice";
-import { SoftLabel } from "../components/SoftLabel";
-import { useAsyncResource } from "../hooks/useAsyncResource";
-import { useBilingualReader, type BilingualReader } from "../hooks/useBilingualReader";
-import { usePreviewTranslation } from "../hooks/usePreviewTranslation";
+import { Button } from "@opendikw/web-ui/controls";
+import { IconButton } from "@opendikw/web-ui/controls";
+import { EmptyState } from "@opendikw/web-ui/controls";
+import { FrontmatterChip } from "@opendikw/web-ui/controls";
+import { MarkdownView } from "@opendikw/web-ui/reader";
+import { BilingualView, type BilingualSide } from "@opendikw/web-ui/reader";
+import { Notice } from "@opendikw/web-ui/controls";
+import { SoftLabel } from "@opendikw/web-ui/controls";
+import { useAsyncResource } from "@opendikw/web-ui/hooks";
+import { useBilingualReader, type BilingualReader } from "@opendikw/web-ui/hooks";
+import { usePreviewTranslation } from "@opendikw/web-ui/hooks";
 import { isEnglishBody } from "@opendikw/web-client/document";
 import {
   fetchTranslateEnabled,

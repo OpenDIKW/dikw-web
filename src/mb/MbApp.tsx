@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { DikwClient, normalizeBaseUrl } from "@opendikw/web-client/core";
 import { AgentClient } from "@opendikw/web-client/agent";
-import { useAuth, useCanEdit } from "../config/auth";
+import { useAuth, useCanEdit } from "@opendikw/web-ui/auth";
 import {
   fetchTranslateEnabled,
   tryOpenDefaultTranslateCache,

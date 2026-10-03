@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { AlertTriangle, FileText, Image as ImageIcon, Play, X } from "lucide-react";
-import { Button } from "../../components/Button";
+import { Button } from "@opendikw/web-ui/controls";
 import type { ImportBundleResult } from "@opendikw/web-client/import";
 import { formatBytes, skippedTag, type ImportCopy } from "./format";
 

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pause, Upload } from "lucide-react";
 import { DikwClient, DikwClientError } from "@opendikw/web-client/core";
-import { Button } from "../components/Button";
-import { Notice } from "../components/Notice";
+import { Button } from "@opendikw/web-ui/controls";
+import { Notice } from "@opendikw/web-ui/controls";
 import { translations, type Locale } from "../i18n";
 import { buildImportBundle, lowerExt, type ImportBundleResult } from "@opendikw/web-client/import";
 import {

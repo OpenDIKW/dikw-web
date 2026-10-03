@@ -3,10 +3,13 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { StartupError } from "./components/StartupError";
 import { MbApp } from "./mb/MbApp";
-import { AuthContext, installUnauthorizedRedirect, loadAuth } from "./config/auth";
+import { AuthContext, installUnauthorizedRedirect, loadAuth } from "@opendikw/web-ui/auth";
 import { loadBranding, type Branding } from "./config/branding";
 import { loadTelemetry } from "./config/telemetry";
 import { initBrowserOtel } from "./telemetry/initBrowserOtel";
+import "@opendikw/web-ui/tokens.css";
+import "@opendikw/web-ui/controls.css";
+import "@opendikw/web-ui/reader.css";
 import "./styles.css";
 
 // Browser RUM is opt-in (a `telemetry` block in /config.json). Fire-and-forget so

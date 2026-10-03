@@ -88,10 +88,66 @@
       "destination": "packages/web-client/src/translate/translate.test.ts",
       "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
       "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/components/MarkdownView.test.tsx",
+      "destination": "packages/web-ui/src/reader/MarkdownView.test.tsx",
+      "behavior": "Existing assertions retained; public package/source entry imports updated",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/components/BilingualView.test.tsx",
+      "destination": "packages/web-ui/src/reader/BilingualView.test.tsx",
+      "behavior": "Existing assertions retained; public package/source entry imports updated",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/chart-spec.test.ts",
+      "destination": "packages/web-ui/src/reader/chart-spec.test.ts",
+      "behavior": "Existing assertions retained; public package/source entry imports updated",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/hooks/useAsyncResource.test.tsx",
+      "destination": "packages/web-ui/src/hooks/useAsyncResource.test.tsx",
+      "behavior": "Existing assertions retained; public package/source entry imports updated",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/hooks/useBilingualReader.test.ts",
+      "destination": "packages/web-ui/src/hooks/useBilingualReader.test.ts",
+      "behavior": "Existing assertions retained; public package/source entry imports updated",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/config/auth.test.ts",
+      "destination": "packages/web-ui/src/auth/index.test.ts",
+      "behavior": "Existing assertions retained; public package/source entry imports updated",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/components/controls.test.tsx",
+      "destination": "packages/web-ui/src/controls/controls.test.tsx",
+      "behavior": "Existing assertions retained; public package/source entry imports updated",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/components/components.test.tsx",
+      "destination": "packages/web-ui/src/controls/components.test.tsx",
+      "behavior": "Existing assertions retained; public package/source entry imports updated",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/markdown.test.tsx",
+      "destination": "packages/web-ui/src/reader/markdown-document.test.tsx",
+      "behavior": "Existing assertions retained; public package/source entry imports updated",
+      "ci": "dikw-web CI / vitest"
     }
   ],
   "addedTests": [
     "packages/web-client/src/core/public-api.test.ts",
-    "packages/web-client/src/core/cache-api.test.ts"
+    "packages/web-client/src/core/cache-api.test.ts",
+    "packages/web-ui/src/reader/consumer.test.tsx",
+    "packages/web-ui/src/theme/theme.test.tsx"
   ]
 }

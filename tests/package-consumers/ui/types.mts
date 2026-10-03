@@ -1,0 +1,13 @@
+import { createElement } from "react";
+import { MarkdownView, BilingualView } from "@opendikw/web-ui/reader";
+import { Button, Field } from "@opendikw/web-ui/controls";
+import { AuthContext, loadAuth } from "@opendikw/web-ui/auth";
+import { useAsyncResource } from "@opendikw/web-ui/hooks";
+import { useTheme, type ThemePreference } from "@opendikw/web-ui/theme";
+import "@opendikw/web-ui/tokens.css";
+import "@opendikw/web-ui/controls.css";
+import "@opendikw/web-ui/reader.css";
+const preference: ThemePreference = "system";
+createElement(MarkdownView, { body: "# typed" });
+createElement(Button, { disabled: true });
+void [Field, BilingualView, AuthContext, loadAuth, useAsyncResource, useTheme, preference];

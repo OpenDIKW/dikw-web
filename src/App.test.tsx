@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { AuthContext, type AuthState } from "./config/auth";
+import { AuthContext, type AuthState } from "@opendikw/web-ui/auth";
 import {
   healthFixture,
   infoFixture,

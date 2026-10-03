@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { FileText, Upload } from "lucide-react";
-import { Button } from "../../components/Button";
-import { Notice } from "../../components/Notice";
+import { Button } from "@opendikw/web-ui/controls";
+import { Notice } from "@opendikw/web-ui/controls";
 import { ImportBundleError, lowerExt, type ImportBundleResult } from "@opendikw/web-client/import";
 import { isSelectableExt } from "../../utils/import-extensions";
 import { BundlePreview } from "./BundlePreview";

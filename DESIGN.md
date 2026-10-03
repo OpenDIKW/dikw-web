@@ -27,7 +27,7 @@ colors:
   overlay-active: "color-mix(in srgb, {colors.graphite} 9%, transparent)"
   accent-border-hover: "color-mix(in srgb, {colors.deep-petrol} 35%, {colors.line})"
 typography:
-  # Six roles across three voices. Each maps to --type-<role>-{size,lh,ls} in styles.css.
+  # Six roles across three voices. Tokens live in packages/web-ui/styles/tokens.css.
   display: # IBM Plex Serif — reader article H1/H2 (the one editorial voice)
     fontFamily: "IBM Plex Serif, ui-serif, Georgia, Songti SC, Source Han Serif CN, serif"
     fontSize: "32px"

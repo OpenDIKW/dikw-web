@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
 import { Check, Globe2, MonitorCog, PlugZap, UserRound } from "lucide-react";
-import { Button } from "../components/Button";
-import { Field } from "../components/Field";
-import { SegmentedControl } from "../components/SegmentedControl";
+import { Button } from "@opendikw/web-ui/controls";
+import { Field } from "@opendikw/web-ui/controls";
+import { SegmentedControl } from "@opendikw/web-ui/controls";
 import type { Locale, ResolvedTheme, ThemePreference } from "../i18n";
 import { translations } from "../i18n";
 import { defaultServerUrl } from "../config/connection";
-import type { AuthRole, AuthUser } from "../config/auth";
+import type { AuthRole, AuthUser } from "@opendikw/web-ui/auth";
 
 interface SettingsPageProps {
   locale: Locale;

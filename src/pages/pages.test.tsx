@@ -31,7 +31,7 @@ import {
 } from "../test/fixtures";
 import { createMockClient } from "../test/mockClient";
 import { DikwClientError } from "@opendikw/web-client/core";
-import { AuthContext } from "../config/auth";
+import { AuthContext } from "@opendikw/web-ui/auth";
 import type {
   DocumentRecord,
   PageLinksResult,
@@ -1944,7 +1944,7 @@ describe("read console pages", () => {
     const context = await screen.findByRole("complementary", { name: "Session context" });
     expect(within(context).queryByRole("link", { name: /javascript:/ })).toBeNull();
     expect(within(context).queryByRole("link", { name: /localhost/ })).toBeNull();
-    expect(within(context).getByText("javascript:alert(1)")).toBeInTheDocument();
+    expect(await within(context).findByText("javascript:alert(1)")).toBeInTheDocument();
     expect(within(context).getByText("http://localhost/admin")).toBeInTheDocument();
     const safeLink = within(context).getByRole("link", { name: /example\.com\/ok/ });
     expect(safeLink).toHaveAttribute("href", "https://example.com/ok");
