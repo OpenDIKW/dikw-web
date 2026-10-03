@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { BilingualBlock } from "../components/BilingualView";
-import { splitMarkdownBlocks } from "../utils/markdown-blocks";
-import { TranslateError, translateBlocks, type TranslateCache } from "../utils/translate";
+import { splitMarkdownBlocks } from "@opendikw/web-client/document";
+import {
+  TranslateError,
+  translateBlocks,
+  type TranslateCache,
+} from "@opendikw/web-client/translate";
 
 interface UseBilingualReaderOptions {
   /** Frontmatter-stripped markdown to read (same content the mono view renders). */

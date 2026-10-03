@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, RefreshCw } from "lucide-react";
 import type { PipelineStage } from "../../state/import-pipeline";
-import type { TaskEvent } from "../../types";
+import type { TaskEvent } from "@opendikw/web-client/types";
 import { formatBytes, formatElapsed, stageRank, stepMeta, STEPS, type ImportCopy } from "./format";
 
 interface PipelineStepsProps {

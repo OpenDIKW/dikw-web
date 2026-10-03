@@ -3,17 +3,28 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ImportPage } from "./ImportPage";
 import { createMockClient, type MockDikwClient } from "../test/mockClient";
-import { DikwClientError } from "../api/client";
+import { DikwClientError } from "@opendikw/web-client/core";
 import { PIPELINE_STORAGE_KEY, type PipelineState } from "../state/import-pipeline";
-import { convertSource, MineruConvertError, type ConvertedSource } from "../utils/mineru-convert";
-import type { ApplyReport, FixProposal, ImportResponse, TaskEvent, TaskHandle } from "../types";
+import {
+  convertSource,
+  MineruConvertError,
+  type ConvertedSource,
+} from "@opendikw/web-client/convert";
+import type {
+  ApplyReport,
+  FixProposal,
+  ImportResponse,
+  TaskEvent,
+  TaskHandle,
+} from "@opendikw/web-client/types";
 
 // Mock only the network-touching convertSource; everything else (convertedToFiles,
 // MineruConvertError, MINERU_EXTENSIONS, tryOpenDefaultCache) stays real so the
 // partition + finalize + on-mount cache probe behave normally.
-vi.mock("../utils/mineru-convert", async () => {
-  const actual =
-    await vi.importActual<typeof import("../utils/mineru-convert")>("../utils/mineru-convert");
+vi.mock("@opendikw/web-client/convert", async () => {
+  const actual = await vi.importActual<typeof import("@opendikw/web-client/convert")>(
+    "@opendikw/web-client/convert",
+  );
   return { ...actual, convertSource: vi.fn() };
 });
 

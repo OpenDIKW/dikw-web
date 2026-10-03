@@ -60,10 +60,17 @@ the Vite proxy to avoid CORS; any other URL is requested directly.
 macOS / Linux use `npm`; Windows PowerShell uses `npm.cmd` (see the shell
 convention above). Commands themselves are identical across platforms.
 
+The repository uses npm workspaces. Dev, typecheck, test and build commands
+explicitly compile the shared packages first because install scripts are disabled.
+Direct `npx vitest` commands require `npm run build:packages` after changing a package.
+
 | Command | What it does |
 |---|---|
 | `npm run dev` | Vite dev server on `127.0.0.1:4321` (`--strictPort`) |
 | `npm run typecheck` | `tsc --noEmit` |
+| `npm run build:packages` | Compile shared ESM packages and their TypeScript declarations |
+| `npm run pack:shared` | Build and pack public packages into `.tmp/shared-packages/` with an integrity manifest |
+| `npm run verify:packages` | Install the tarballs in a fresh consumer and check runtime behavior and NodeNext declarations |
 | `npm run lint` | ESLint flat config, `--max-warnings 0` (hook deps, unused symbols, no browser `console`) |
 | `npm run format` / `format:check` | Prettier across code (`.ts/.tsx/.js/.mjs/.css/.json`; markdown excluded) |
 | `npm run test` | Vitest once (unit + component + server) |

@@ -17,8 +17,12 @@ import MarkdownIt, {
   type Token,
 } from "markdown-it";
 import { useEffect, type RefObject } from "react";
-import { parseDetailsOpenAttribute, rawDetailsPattern, uniqueHeadingSlug } from "../utils/markdown";
-import type { PageAsset } from "../types";
+import {
+  parseDetailsOpenAttribute,
+  rawDetailsPattern,
+  uniqueHeadingSlug,
+} from "@opendikw/web-client/document";
+import type { PageAsset } from "@opendikw/web-client/types";
 import {
   buildChartOption,
   isChartSpec,
@@ -26,9 +30,9 @@ import {
   parseChartFromDetails,
   type ChartType,
 } from "../utils/chart-spec";
-import { buildRequestUrl } from "../api/client";
-import { basename } from "../utils/format";
-import { isRemoteRef } from "../utils/md-asset-refs";
+import { buildRequestUrl } from "@opendikw/web-client/core";
+import { basename } from "@opendikw/web-client/document";
+import { isRemoteRef } from "@opendikw/web-client/import";
 
 export interface MarkdownContext {
   assets: PageAsset[];

@@ -14,8 +14,8 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import type { DikwClient } from "../api/client";
-import { AgentClient } from "../api/agentClient";
+import type { DikwClient } from "@opendikw/web-client/core";
+import { AgentClient } from "@opendikw/web-client/agent";
 import { Button } from "../components/Button";
 import { IconButton } from "../components/IconButton";
 import { Field } from "../components/Field";
@@ -31,7 +31,7 @@ import type {
   AgentSource,
   AgentToolEvent,
   SessionSummary,
-} from "../agent/types";
+} from "@opendikw/web-client/types";
 
 interface ChatPageProps {
   client?: DikwClient;

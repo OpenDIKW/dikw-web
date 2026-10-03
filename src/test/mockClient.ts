@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import type { DikwClient } from "../api/client";
+import type { DikwClient } from "@opendikw/web-client/core";
 
 type AnyMock = ReturnType<typeof vi.fn>;
 

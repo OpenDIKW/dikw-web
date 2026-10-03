@@ -7,4 +7,4 @@
 // saved, survives a tab close / restart and is shared across tabs.
 export const serverUrlStorageKey = "dikw-web.serverUrl";
 export const tokenStorageKey = "dikw-web.token";
-export const defaultServerUrl = "http://127.0.0.1:8765";
+export { defaultServerUrl } from "@opendikw/web-client/connection";

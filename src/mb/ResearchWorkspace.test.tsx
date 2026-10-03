@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ResearchWorkspace } from "./ResearchWorkspace";
 import { createMockClient } from "../test/mockClient";
-import type { AgentClient } from "../api/agentClient";
+import type { AgentClient } from "@opendikw/web-client/agent";
 import { AuthContext, type AuthState } from "../config/auth";
 
 function makeAgentClient(answer: string): AgentClient {

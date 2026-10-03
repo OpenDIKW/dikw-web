@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from "react";
 import { PanelLeftOpen, PanelRightOpen } from "lucide-react";
-import type { DikwClient } from "../api/client";
-import type { AgentClient } from "../api/agentClient";
-import type { TranslateCache } from "../utils/translate";
-import { MINERU_EXTENSIONS, tryOpenDefaultCache, type ConvertCache } from "../utils/mineru-convert";
-import { lowerExt } from "../utils/import-bundle";
+import type { DikwClient } from "@opendikw/web-client/core";
+import type { AgentClient } from "@opendikw/web-client/agent";
+import type { TranslateCache } from "@opendikw/web-client/translate";
+import {
+  MINERU_EXTENSIONS,
+  tryOpenDefaultCache,
+  type ConvertCache,
+} from "@opendikw/web-client/convert";
+import { lowerExt } from "@opendikw/web-client/import";
 import type { CurrentPaper } from "./MbApp";
 import { friendlyUploadError, uploadPaper, type UploadStage } from "./upload";
 import { PaperLibrary, type UploadItem } from "./PaperLibrary";

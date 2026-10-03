@@ -4,8 +4,8 @@
 // folder). localStorage stays the snappy UI store; this is the best-effort
 // mirror. Mirrors WisdomPage's POST /v1/base/wisdom + task-poll flow.
 
-import type { DikwClient } from "../api/client";
-import type { TaskHandle } from "../types";
+import type { DikwClient } from "@opendikw/web-client/core";
+import type { TaskHandle } from "@opendikw/web-client/types";
 import type { MbNote } from "./MbApp";
 
 interface WisdomWriteReport {

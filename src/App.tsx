@@ -13,8 +13,8 @@ import {
   Settings,
   Upload,
 } from "lucide-react";
-import { DikwClient, normalizeBaseUrl } from "./api/client";
-import { AgentClient } from "./api/agentClient";
+import { DikwClient, normalizeBaseUrl } from "@opendikw/web-client/core";
+import { AgentClient } from "@opendikw/web-client/agent";
 import { EmptyState } from "./components/EmptyState";
 import { useAuth, useCanEdit } from "./config/auth";
 import { defaultBranding, type Branding } from "./config/branding";

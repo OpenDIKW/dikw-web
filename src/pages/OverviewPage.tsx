@@ -1,14 +1,14 @@
 import { useCallback } from "react";
 import { RefreshCw, Server, Shield, Waypoints } from "lucide-react";
-import { DikwClient } from "../api/client";
+import { DikwClient } from "@opendikw/web-client/core";
 import { IconButton } from "../components/IconButton";
 import { MetricCard } from "../components/MetricCard";
 import { Notice } from "../components/Notice";
 import { StatusPill } from "../components/StatusPill";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { translations, type Locale } from "../i18n";
-import type { HealthReport, InfoResponse, StorageCounts } from "../types";
-import { formatClockTime, formatNumber, formatUnixSeconds } from "../utils/format";
+import type { HealthReport, InfoResponse, StorageCounts } from "@opendikw/web-client/types";
+import { formatClockTime, formatNumber, formatUnixSeconds } from "@opendikw/web-client/document";
 
 interface OverviewPageProps {
   client: DikwClient;

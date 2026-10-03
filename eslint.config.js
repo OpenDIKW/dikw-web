@@ -23,7 +23,7 @@ const noUnusedVars = [
 export default tseslint.config(
   {
     ignores: [
-      "dist/**",
+      "**/dist/**",
       "dist-server/**",
       "coverage/**",
       "playwright-report/**",
@@ -46,7 +46,7 @@ export default tseslint.config(
   },
   // Browser app: React hook correctness + no raw console in the shipped bundle.
   {
-    files: ["src/**/*.{ts,tsx}"],
+    files: ["src/**/*.{ts,tsx}", "packages/web-client/src/**/*.{ts,tsx}"],
     plugins: { "react-hooks": reactHooks },
     languageOptions: { globals: { ...globals.browser } },
     rules: {
@@ -60,7 +60,13 @@ export default tseslint.config(
   // `*.js` glob matters because `no-undef` is active for plain JS (tseslint turns
   // it off for .ts), so a future Node global there would otherwise falsely error.
   {
-    files: ["server/**/*.ts", "scripts/**/*.{mjs,js,mts}", "*.{js,cjs,mjs}", "*.config.ts"],
+    files: [
+      "server/**/*.ts",
+      "scripts/**/*.{mjs,js,mts}",
+      "tests/package-consumers/**/*.{mjs,mts,ts,tsx}",
+      "*.{js,cjs,mjs}",
+      "*.config.ts",
+    ],
     languageOptions: { globals: { ...globals.node } },
   },
   // Tests run under Node + jsdom/Playwright: mock generators legitimately never

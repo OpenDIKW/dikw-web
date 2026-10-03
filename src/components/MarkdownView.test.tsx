@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import mermaid from "mermaid";
 import { MarkdownView } from "./MarkdownView";
-import type { PageAsset } from "../types";
+import type { PageAsset } from "@opendikw/web-client/types";
 
 vi.mock("mermaid", () => ({
   default: {

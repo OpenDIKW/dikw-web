@@ -64,7 +64,7 @@ Run a second core version in parallel:
 
 1. **Write pipeline** (`scripts/seed-core.mts`) — bundles the
    `tests/fixtures/live-base/` markdown exactly as the browser does (it imports
-   `src/utils/import-bundle.ts` + `src/api/client.ts` via `tsx`, so the wire
+   `@opendikw/web-client/import` + `@opendikw/web-client/core` via `tsx`, so the wire
    shape can't drift from the app), then drives `/v1/import → ingest → synth →
    lint propose → lint apply`, polling each task to a terminal state. Any
    non-`succeeded` task fails the run.

@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock3, HelpCircle, XCircle } from "lucide-react";
-import { statusTone } from "../utils/format";
+import { statusTone } from "@opendikw/web-client/document";
 
 interface StatusPillProps {
   status: string;

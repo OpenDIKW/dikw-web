@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { PaperLibrary } from "./PaperLibrary";
-import { DikwClientError } from "../api/client";
+import { DikwClientError } from "@opendikw/web-client/core";
 import { createMockClient } from "../test/mockClient";
 
 function renderLib(client: ReturnType<typeof createMockClient>) {

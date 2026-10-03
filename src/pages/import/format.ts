@@ -2,9 +2,9 @@
 // so the lint-tone / stage-rank / formatter logic can be tested in isolation.
 
 import { translations } from "../../i18n";
-import type { LintKind, TaskEvent } from "../../types";
+import type { LintKind, TaskEvent } from "@opendikw/web-client/types";
 import type { PipelineStage } from "../../state/import-pipeline";
-import type { SkippedFile } from "../../utils/import-bundle";
+import type { SkippedFile } from "@opendikw/web-client/import";
 
 export type ImportCopy = (typeof translations)["en"]["pages"]["import"];
 

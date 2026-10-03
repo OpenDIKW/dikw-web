@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pause, Upload } from "lucide-react";
-import { DikwClient, DikwClientError } from "../api/client";
+import { DikwClient, DikwClientError } from "@opendikw/web-client/core";
 import { Button } from "../components/Button";
 import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
-import { buildImportBundle, lowerExt, type ImportBundleResult } from "../utils/import-bundle";
+import { buildImportBundle, lowerExt, type ImportBundleResult } from "@opendikw/web-client/import";
 import {
   activeTaskId,
   clearPipelineState,
@@ -22,9 +22,9 @@ import {
   tryOpenDefaultCache,
   type ConvertCache,
   type ConvertedSource,
-} from "../utils/mineru-convert";
-import { kebabStem } from "../utils/kebab-source-name";
-import type { ApplyReport, FixProposalReport, TaskEvent } from "../types";
+} from "@opendikw/web-client/convert";
+import { kebabStem } from "@opendikw/web-client/import";
+import type { ApplyReport, FixProposalReport, TaskEvent } from "@opendikw/web-client/types";
 import { IdlePicker } from "./import/IdlePicker";
 import { PipelineSteps } from "./import/PipelineSteps";
 import { LintReview } from "./import/LintReview";

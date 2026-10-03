@@ -11,7 +11,7 @@ import type {
   TaskListPage,
   TaskRow,
   TaskRowSummary,
-} from "../types";
+} from "@opendikw/web-client/types";
 
 export const infoFixture: InfoResponse = {
   engine_version: "0.0.1",

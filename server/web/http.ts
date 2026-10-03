@@ -8,7 +8,7 @@ import { gzip } from "node:zlib";
 import { promisify } from "node:util";
 import { extname } from "node:path";
 import { createHash } from "node:crypto";
-import { buildTar } from "../../src/utils/tar.js";
+import { buildTar } from "@opendikw/web-client/import";
 import { MineruClient, MineruClientError } from "./mineruClient.js";
 import { extractResultZip, MineruConvertError } from "./mineruConvert.js";
 import {

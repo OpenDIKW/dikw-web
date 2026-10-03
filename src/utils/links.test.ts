@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { DerivedPage, DocumentRecord, IncomingLink } from "../types";
+import type { DerivedPage, DocumentRecord, IncomingLink } from "@opendikw/web-client/types";
 import { mergeSourceReferences, resolveBacklinks, resolveDerivedPages } from "./links";
 
 function doc(path: string, layer: DocumentRecord["layer"], title: string | null): DocumentRecord {

@@ -8,7 +8,7 @@ import { RetrievePage } from "./RetrievePage";
 import { TasksPage } from "./TasksPage";
 import { WikiPage } from "./WikiPage";
 import type { AgentClientLike } from "./agentTypes";
-import type { AgentStreamEvent } from "../agent/types";
+import type { AgentStreamEvent } from "@opendikw/web-client/types";
 import {
   createAsyncEvents,
   graphResultFixture,
@@ -30,7 +30,7 @@ import {
   wikiPagesFixture,
 } from "../test/fixtures";
 import { createMockClient } from "../test/mockClient";
-import { DikwClientError } from "../api/client";
+import { DikwClientError } from "@opendikw/web-client/core";
 import { AuthContext } from "../config/auth";
 import type {
   DocumentRecord,
@@ -39,7 +39,7 @@ import type {
   TaskEvent,
   TaskListPage,
   TaskRow,
-} from "../types";
+} from "@opendikw/web-client/types";
 
 describe("read console pages", () => {
   it("loads overview status from the client", async () => {

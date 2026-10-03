@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { DikwClientError } from "../api/client";
+import { DikwClientError } from "@opendikw/web-client/core";
 import { EmptyState } from "./EmptyState";
 import { MetricCard } from "./MetricCard";
 import { Notice } from "./Notice";

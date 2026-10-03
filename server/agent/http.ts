@@ -9,9 +9,9 @@ import { AdkAgentRunner } from "./adkRunner.js";
 import { SpanStore } from "./spanStore.js";
 import { initAgentTelemetry } from "./telemetry.js";
 import { createLogger } from "../shared/logger.js";
-import { defaultServerUrl } from "../../src/config/connection.js";
+import { defaultServerUrl } from "@opendikw/web-client/connection";
 import type { AgentRunner } from "./runtime.js";
-import type { AgentMaintenanceAction, AgentStreamEvent } from "../../src/agent/types.js";
+import type { AgentMaintenanceAction, AgentStreamEvent } from "@opendikw/web-client/types";
 
 const log = createLogger("agent");
 

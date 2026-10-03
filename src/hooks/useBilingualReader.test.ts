@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { useBilingualReader } from "./useBilingualReader";
-import { TranslateError, type TranslateOptions } from "../utils/translate";
+import { TranslateError, type TranslateOptions } from "@opendikw/web-client/translate";
 
 // 3 text blocks + 1 special (code fence) between blocks 2 and 4.
 const BODY = "# Title\n\nFirst para.\n\n```js\nx;\n```\n\nSecond para.";

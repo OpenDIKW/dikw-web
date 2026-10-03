@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Check, CheckCircle2, XCircle } from "lucide-react";
 import { Button } from "../../components/Button";
-import type { FixProposal, LintKind } from "../../types";
+import type { FixProposal, LintKind } from "@opendikw/web-client/types";
 import { lintKindTone, type ImportCopy } from "./format";
 
 interface LintReviewProps {

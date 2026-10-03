@@ -57,158 +57,244 @@ export async function mockDikwApi(page: Page) {
     proposals: [] as unknown[],
   };
 
-  await page.route("**/agent/**", async (route) => {
-    const url = new URL(route.request().url());
-    const path = url.pathname;
+  await page.route(
+    (url) => url.pathname.startsWith("/agent/"),
+    async (route) => {
+      const url = new URL(route.request().url());
+      const path = url.pathname;
 
-    // Trace-only sessions: the hidden #trace page lists/opens these and renders
-    // their span waterfalls. Kept separate from the chat `session-1` flow so the
-    // chat e2e's session list is unaffected.
-    const traceDetailMatch = /^\/agent\/sessions\/(trace-[^/]+)$/.exec(path);
-    if (traceDetailMatch) {
-      const session = traceSessions[traceDetailMatch[1]];
-      await route.fulfill(
-        session ? { json: session } : { status: 404, body: "unknown trace session" },
-      );
-      return;
-    }
-    const traceWaterfallMatch = /^\/agent\/sessions\/(trace-[^/]+)\/traces$/.exec(path);
-    if (traceWaterfallMatch) {
-      const view = traceViews[traceWaterfallMatch[1]];
-      await route.fulfill({
-        json: view ?? { sessionId: traceWaterfallMatch[1], invocations: [] },
-      });
-      return;
-    }
-
-    if (path === "/agent/sessions") {
-      if (route.request().method() === "POST") {
-        hasAgentSession = true;
+      // Trace-only sessions: the hidden #trace page lists/opens these and renders
+      // their span waterfalls. Kept separate from the chat `session-1` flow so the
+      // chat e2e's session list is unaffected.
+      const traceDetailMatch = /^\/agent\/sessions\/(trace-[^/]+)$/.exec(path);
+      if (traceDetailMatch) {
+        const session = traceSessions[traceDetailMatch[1]];
+        await route.fulfill(
+          session ? { json: session } : { status: 404, body: "unknown trace session" },
+        );
+        return;
+      }
+      const traceWaterfallMatch = /^\/agent\/sessions\/(trace-[^/]+)\/traces$/.exec(path);
+      if (traceWaterfallMatch) {
+        const view = traceViews[traceWaterfallMatch[1]];
         await route.fulfill({
-          json: agentSession,
+          json: view ?? { sessionId: traceWaterfallMatch[1], invocations: [] },
         });
         return;
       }
-      await route.fulfill({ json: hasAgentSession ? [toSessionSummary(agentSession)] : [] });
-      return;
-    }
 
-    if (path === "/agent/sessions/session-1") {
-      if (route.request().method() === "DELETE") {
-        hasAgentSession = false;
-        await route.fulfill({ status: 204, body: "" });
+      if (path === "/agent/sessions") {
+        if (route.request().method() === "POST") {
+          hasAgentSession = true;
+          await route.fulfill({
+            json: agentSession,
+          });
+          return;
+        }
+        await route.fulfill({ json: hasAgentSession ? [toSessionSummary(agentSession)] : [] });
         return;
       }
-      if (route.request().method() === "PATCH") {
-        const body = route.request().postDataJSON() as { title?: string };
-        agentSession = {
-          ...agentSession,
-          title: String(body.title ?? "").trim(),
-          updatedAt: "2026-05-13T00:00:02.000Z",
-        };
-      } else if (!hasAgentSession) {
-        hasAgentSession = true;
-        agentSession = {
-          ...agentSession,
-          title: "What is DIKW?",
-          updatedAt: "2026-05-13T00:00:01.000Z",
-          messageCount: 2,
-          lastMessagePreview: "Layered answer.",
-          messages: [
+
+      if (path === "/agent/sessions/session-1") {
+        if (route.request().method() === "DELETE") {
+          hasAgentSession = false;
+          await route.fulfill({ status: 204, body: "" });
+          return;
+        }
+        if (route.request().method() === "PATCH") {
+          const body = route.request().postDataJSON() as { title?: string };
+          agentSession = {
+            ...agentSession,
+            title: String(body.title ?? "").trim(),
+            updatedAt: "2026-05-13T00:00:02.000Z",
+          };
+        } else if (!hasAgentSession) {
+          hasAgentSession = true;
+          agentSession = {
+            ...agentSession,
+            title: "What is DIKW?",
+            updatedAt: "2026-05-13T00:00:01.000Z",
+            messageCount: 2,
+            lastMessagePreview: "Layered answer.",
+            messages: [
+              {
+                id: "m1",
+                role: "user",
+                content: "What is DIKW?",
+                createdAt: "2026-05-13T00:00:00.000Z",
+              },
+              {
+                id: "m2",
+                role: "assistant",
+                content: "Layered answer.",
+                createdAt: "2026-05-13T00:00:01.000Z",
+              },
+            ],
+            toolEvents: [
+              {
+                id: "tool-1",
+                type: "tool_call",
+                name: "retrieve_knowledge",
+                status: "succeeded",
+                createdAt: "2026-05-13T00:00:00.500Z",
+              },
+            ],
+            sources: [
+              {
+                path: "knowledge/concepts/architecture.md",
+                title: "Architecture",
+                layer: "knowledge",
+              },
+            ],
+          };
+        }
+        await route.fulfill({ json: agentSession });
+        return;
+      }
+
+      if (path === "/agent/sessions/session-1/messages") {
+        const body = route.request().postDataJSON() as { message?: string };
+        const userMessage = String(body.message ?? "What is DIKW?");
+        const turnNumber = Math.floor(agentSession.messages.length / 2) + 1;
+        const isWebTools = userMessage.toLowerCase().includes("web tools demo");
+        if (isWebTools) {
+          const assistantMessage = "Found two web sources and fetched one page.";
+          const toolEvents = [
             {
-              id: "m1",
-              role: "user",
-              content: "What is DIKW?",
-              createdAt: "2026-05-13T00:00:00.000Z",
-            },
-            {
-              id: "m2",
-              role: "assistant",
-              content: "Layered answer.",
-              createdAt: "2026-05-13T00:00:01.000Z",
-            },
-          ],
-          toolEvents: [
-            {
-              id: "tool-1",
+              id: `tool-${turnNumber}-search`,
               type: "tool_call",
-              name: "retrieve_knowledge",
+              name: "web_search",
               status: "succeeded",
               createdAt: "2026-05-13T00:00:00.500Z",
+              input: { q: "DIKW" },
+              output: {
+                query: "DIKW",
+                results: [
+                  {
+                    title: "Example A",
+                    url: "https://example.com/a",
+                    description: "external snippet a",
+                  },
+                  {
+                    title: "Example B",
+                    url: "https://example.com/b",
+                    description: "external snippet b",
+                  },
+                ],
+              },
             },
-          ],
-          sources: [
             {
-              path: "knowledge/concepts/architecture.md",
-              title: "Architecture",
+              id: `tool-${turnNumber}-fetch`,
+              type: "tool_call",
+              name: "web_fetch",
+              status: "succeeded",
+              createdAt: "2026-05-13T00:00:01.000Z",
+              input: { url: "https://example.com/a" },
+              output: { url: "https://example.com/a", content: "page body", truncated: false },
+            },
+          ];
+          const sources = [
+            {
+              path: "https://example.com/a",
+              title: "Example A",
+              excerpt: "external snippet a",
+              layer: null,
+              score: null,
+              kind: "web",
+            },
+            {
+              path: "https://example.com/b",
+              title: "Example B",
+              excerpt: "external snippet b",
+              layer: null,
+              score: null,
+              kind: "web",
+            },
+          ];
+          agentSession = {
+            ...agentSession,
+            title:
+              agentSession.title === "New chat" ? userMessage.slice(0, 40) : agentSession.title,
+            updatedAt: "2026-05-13T00:00:03.000Z",
+            messageCount: agentSession.messages.length + 2,
+            lastMessagePreview: assistantMessage,
+            messages: [
+              ...agentSession.messages,
+              {
+                id: `m${turnNumber * 2 - 1}`,
+                role: "user",
+                content: userMessage,
+                createdAt: "2026-05-13T00:00:00.000Z",
+              },
+              {
+                id: `m${turnNumber * 2}`,
+                role: "assistant",
+                content: assistantMessage,
+                createdAt: "2026-05-13T00:00:01.000Z",
+              },
+            ],
+            toolEvents: [...agentSession.toolEvents, ...toolEvents],
+            sources: [...agentSession.sources, ...sources],
+          };
+          await route.fulfill({
+            contentType: "application/x-ndjson",
+            body: [
+              ...toolEvents.map((event) =>
+                JSON.stringify({ type: "tool_event", sessionId: "session-1", event }),
+              ),
+              JSON.stringify({
+                type: "message_delta",
+                sessionId: "session-1",
+                delta: assistantMessage,
+              }),
+              ...sources.map((source) =>
+                JSON.stringify({ type: "source", sessionId: "session-1", source }),
+              ),
+              JSON.stringify({ type: "agent_end", sessionId: "session-1" }),
+            ].join("\n"),
+          });
+          return;
+        }
+        const isAutoScrollStress = userMessage.toLowerCase().includes("auto-scroll stress");
+        const assistantMessage = isAutoScrollStress
+          ? Array.from(
+              { length: 48 },
+              (_, index) =>
+                `Auto scroll line ${turnNumber}-${index + 1}: evidence-backed chat output keeps growing.`,
+            ).join("\n\n")
+          : "Layered answer.";
+        const toolEvents = isAutoScrollStress
+          ? Array.from({ length: 24 }, (_, index) => ({
+              id: `tool-${turnNumber}-${index + 1}`,
+              type: "tool_call",
+              name: `retrieve_knowledge_${index + 1}`,
+              status: "succeeded",
+              createdAt: "2026-05-13T00:00:00.500Z",
+            }))
+          : [
+              {
+                id: `tool-${turnNumber}`,
+                type: "tool_call",
+                name: "retrieve_knowledge",
+                status: "succeeded",
+                createdAt: "2026-05-13T00:00:00.500Z",
+              },
+            ];
+        const sources = isAutoScrollStress
+          ? Array.from({ length: 24 }, (_, index) => ({
+              // Turn-distinct paths (like the tool ids above) so a later turn adds
+              // net-new sources — the right rail dedups identical pages across turns.
+              path: `knowledge/concepts/auto-scroll-source-${turnNumber}-${index + 1}.md`,
+              title: `Auto Scroll Source ${turnNumber}-${index + 1}`,
               layer: "knowledge",
-            },
-          ],
-        };
-      }
-      await route.fulfill({ json: agentSession });
-      return;
-    }
-
-    if (path === "/agent/sessions/session-1/messages") {
-      const body = route.request().postDataJSON() as { message?: string };
-      const userMessage = String(body.message ?? "What is DIKW?");
-      const turnNumber = Math.floor(agentSession.messages.length / 2) + 1;
-      const isWebTools = userMessage.toLowerCase().includes("web tools demo");
-      if (isWebTools) {
-        const assistantMessage = "Found two web sources and fetched one page.";
-        const toolEvents = [
-          {
-            id: `tool-${turnNumber}-search`,
-            type: "tool_call",
-            name: "web_search",
-            status: "succeeded",
-            createdAt: "2026-05-13T00:00:00.500Z",
-            input: { q: "DIKW" },
-            output: {
-              query: "DIKW",
-              results: [
-                {
-                  title: "Example A",
-                  url: "https://example.com/a",
-                  description: "external snippet a",
-                },
-                {
-                  title: "Example B",
-                  url: "https://example.com/b",
-                  description: "external snippet b",
-                },
-              ],
-            },
-          },
-          {
-            id: `tool-${turnNumber}-fetch`,
-            type: "tool_call",
-            name: "web_fetch",
-            status: "succeeded",
-            createdAt: "2026-05-13T00:00:01.000Z",
-            input: { url: "https://example.com/a" },
-            output: { url: "https://example.com/a", content: "page body", truncated: false },
-          },
-        ];
-        const sources = [
-          {
-            path: "https://example.com/a",
-            title: "Example A",
-            excerpt: "external snippet a",
-            layer: null,
-            score: null,
-            kind: "web",
-          },
-          {
-            path: "https://example.com/b",
-            title: "Example B",
-            excerpt: "external snippet b",
-            layer: null,
-            score: null,
-            kind: "web",
-          },
-        ];
+            }))
+          : [
+              {
+                path: `knowledge/concepts/architecture-${turnNumber}.md`,
+                title: `Architecture ${turnNumber}`,
+                layer: "knowledge",
+              },
+            ];
         agentSession = {
           ...agentSession,
           title: agentSession.title === "New chat" ? userMessage.slice(0, 40) : agentSession.title,
@@ -245,108 +331,26 @@ export async function mockDikwApi(page: Page) {
               delta: assistantMessage,
             }),
             ...sources.map((source) =>
-              JSON.stringify({ type: "source", sessionId: "session-1", source }),
+              JSON.stringify({
+                type: "source",
+                sessionId: "session-1",
+                source,
+              }),
             ),
             JSON.stringify({ type: "agent_end", sessionId: "session-1" }),
           ].join("\n"),
         });
         return;
       }
-      const isAutoScrollStress = userMessage.toLowerCase().includes("auto-scroll stress");
-      const assistantMessage = isAutoScrollStress
-        ? Array.from(
-            { length: 48 },
-            (_, index) =>
-              `Auto scroll line ${turnNumber}-${index + 1}: evidence-backed chat output keeps growing.`,
-          ).join("\n\n")
-        : "Layered answer.";
-      const toolEvents = isAutoScrollStress
-        ? Array.from({ length: 24 }, (_, index) => ({
-            id: `tool-${turnNumber}-${index + 1}`,
-            type: "tool_call",
-            name: `retrieve_knowledge_${index + 1}`,
-            status: "succeeded",
-            createdAt: "2026-05-13T00:00:00.500Z",
-          }))
-        : [
-            {
-              id: `tool-${turnNumber}`,
-              type: "tool_call",
-              name: "retrieve_knowledge",
-              status: "succeeded",
-              createdAt: "2026-05-13T00:00:00.500Z",
-            },
-          ];
-      const sources = isAutoScrollStress
-        ? Array.from({ length: 24 }, (_, index) => ({
-            // Turn-distinct paths (like the tool ids above) so a later turn adds
-            // net-new sources — the right rail dedups identical pages across turns.
-            path: `knowledge/concepts/auto-scroll-source-${turnNumber}-${index + 1}.md`,
-            title: `Auto Scroll Source ${turnNumber}-${index + 1}`,
-            layer: "knowledge",
-          }))
-        : [
-            {
-              path: `knowledge/concepts/architecture-${turnNumber}.md`,
-              title: `Architecture ${turnNumber}`,
-              layer: "knowledge",
-            },
-          ];
-      agentSession = {
-        ...agentSession,
-        title: agentSession.title === "New chat" ? userMessage.slice(0, 40) : agentSession.title,
-        updatedAt: "2026-05-13T00:00:03.000Z",
-        messageCount: agentSession.messages.length + 2,
-        lastMessagePreview: assistantMessage,
-        messages: [
-          ...agentSession.messages,
-          {
-            id: `m${turnNumber * 2 - 1}`,
-            role: "user",
-            content: userMessage,
-            createdAt: "2026-05-13T00:00:00.000Z",
-          },
-          {
-            id: `m${turnNumber * 2}`,
-            role: "assistant",
-            content: assistantMessage,
-            createdAt: "2026-05-13T00:00:01.000Z",
-          },
-        ],
-        toolEvents: [...agentSession.toolEvents, ...toolEvents],
-        sources: [...agentSession.sources, ...sources],
-      };
-      await route.fulfill({
-        contentType: "application/x-ndjson",
-        body: [
-          ...toolEvents.map((event) =>
-            JSON.stringify({ type: "tool_event", sessionId: "session-1", event }),
-          ),
-          JSON.stringify({
-            type: "message_delta",
-            sessionId: "session-1",
-            delta: assistantMessage,
-          }),
-          ...sources.map((source) =>
-            JSON.stringify({
-              type: "source",
-              sessionId: "session-1",
-              source,
-            }),
-          ),
-          JSON.stringify({ type: "agent_end", sessionId: "session-1" }),
-        ].join("\n"),
-      });
-      return;
-    }
 
-    if (path === "/agent/sessions/session-1/abort") {
-      await route.fulfill({ status: 204, body: "" });
-      return;
-    }
+      if (path === "/agent/sessions/session-1/abort") {
+        await route.fulfill({ status: 204, body: "" });
+        return;
+      }
 
-    await route.fulfill({ status: 404, body: `No agent mock for ${path}` });
-  });
+      await route.fulfill({ status: 404, body: `No agent mock for ${path}` });
+    },
+  );
 
   // /web/* — dikw-web's own sidecar namespace, separate from /agent/* and
   // /v1/*. Default to "mineru disabled" so legacy ImportPage tests don't

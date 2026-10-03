@@ -1,7 +1,12 @@
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation } from "d3-force";
 import type { SimulationLinkDatum, SimulationNodeDatum } from "d3-force";
-import type { DocumentRecord, GraphResult, Layer, PageReadResult } from "../types";
-import { basename, displayTitle } from "./format";
+import type {
+  DocumentRecord,
+  GraphResult,
+  Layer,
+  PageReadResult,
+} from "@opendikw/web-client/types";
+import { basename, displayTitle } from "@opendikw/web-client/document";
 
 export interface GraphNode {
   id: string;

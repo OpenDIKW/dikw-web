@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Play, RefreshCw, Square } from "lucide-react";
-import { DikwClient, DikwClientError } from "../api/client";
+import { DikwClient, DikwClientError } from "@opendikw/web-client/core";
 import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Field";
@@ -17,14 +17,14 @@ import type {
   TaskRow,
   TaskRowSummary,
   TaskStatus,
-} from "../types";
+} from "@opendikw/web-client/types";
 import {
   formatDuration,
   formatIso,
   formatNumber,
   formatScore,
   isTerminalTask,
-} from "../utils/format";
+} from "@opendikw/web-client/document";
 
 interface TasksPageProps {
   client: DikwClient;

@@ -1,6 +1,7 @@
 import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "node:url";
 import { agentSidecarPlugin } from "./server/agent/vitePlugin";
 import { webApiPlugin } from "./server/web/vitePlugin";
 
@@ -9,10 +10,35 @@ export default defineConfig(({ mode }) => {
   const target = env.VITE_DIKW_PROXY_TARGET || "http://127.0.0.1:8765";
 
   return {
+    // Tests exercise package source so extracted code remains in coverage.
+    // Production builds and the independent tarball fixture use real exports.
+    resolve:
+      mode === "test"
+        ? {
+            alias: Object.fromEntries(
+              [
+                "core",
+                "agent",
+                "types",
+                "import",
+                "convert",
+                "translate",
+                "document",
+                "connection",
+              ].map((entry) => [
+                `@opendikw/web-client/${entry}`,
+                fileURLToPath(
+                  new URL(`./packages/web-client/src/${entry}/index.ts`, import.meta.url),
+                ),
+              ]),
+            ),
+          }
+        : undefined,
     plugins: [react(), agentSidecarPlugin(), webApiPlugin()],
     test: {
       include: [
         "src/**/*.{test,spec}.{ts,tsx}",
+        "packages/web-client/src/**/*.{test,spec}.{ts,tsx}",
         "server/**/*.{test,spec}.ts",
         "scripts/**/*.{test,spec}.mjs",
       ],
@@ -23,9 +49,9 @@ export default defineConfig(({ mode }) => {
         provider: "v8",
         reporter: ["text", "html"],
         reportsDirectory: "coverage",
-        include: ["src/**/*.{ts,tsx}"],
+        include: ["src/**/*.{ts,tsx}", "packages/web-client/src/**/*.{ts,tsx}"],
         exclude: [
-          "src/**/*.test.{ts,tsx}",
+          "**/*.test.{ts,tsx}",
           "src/test/**",
           "src/main.tsx",
           "src/types.ts",

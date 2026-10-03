@@ -18,7 +18,7 @@ import { AdkAgentRunner, mapAdkEvent, type RunnerLike } from "./adkRunner";
 import { recordAgentTurnDuration } from "../shared/metrics.js";
 import type { AgentConfig } from "./config";
 import type { AdkSessionStore } from "./adkSessionStore";
-import type { AgentStreamEvent } from "../../src/agent/types";
+import type { AgentStreamEvent } from "@opendikw/web-client/types";
 
 const SESSION_ID = "session-1";
 

@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { WikiPage } from "./WikiPage";
 import { createMockClient } from "../test/mockClient";
-import type { DocumentRecord, PageReadResult } from "../types";
+import type { DocumentRecord, PageReadResult } from "@opendikw/web-client/types";
 
 const TOGGLE_ARIA = "在原文旁显示 AI 中文翻译";
 
