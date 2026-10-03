@@ -18,6 +18,10 @@ export function useTheme({ storageKey }: { storageKey: string }) {
     const stored = localStorage.getItem(storageKey);
     return isThemePreference(stored) ? stored : "system";
   });
+  useEffect(() => {
+    const stored = localStorage.getItem(storageKey);
+    updatePreference(isThemePreference(stored) ? stored : "system");
+  }, [storageKey]);
   const [resolved, setResolved] = useState(() => resolveTheme(preference));
   useEffect(() => {
     const media = window.matchMedia?.("(prefers-color-scheme: dark)");

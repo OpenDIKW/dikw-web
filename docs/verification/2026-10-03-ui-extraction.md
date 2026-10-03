@@ -36,15 +36,34 @@ Settings theme selection applies immediately. No new console errors appeared
 after a stable reload. Rebuilding package output while Vite was open produced
 existing Fast Refresh/createRoot warnings; these are development reload behavior,
 not failures in the packed production consumer.
+The existing MB application also renders the same real source in both themes;
+its paper library, three-column reader and notes view retain their layout.
 
 Chrome DevTools MCP is unavailable in this session. Google Chrome's official
 Lighthouse CLI is used for comparable light/dark Base and Settings audits.
-The initial Base/light result is accessibility 0.92 and CLS 0.00445; complete
-comparison results are recorded before merge.
+The baseline is main commit `f245ec4`, served with the same Core connection,
+translation availability and font access. The results are:
+
+| Page / theme | Baseline accessibility | Extracted accessibility | Baseline CLS | Extracted CLS |
+| --- | ---: | ---: | ---: | ---: |
+| Base / light | 0.92 | 0.92 | 0.00310 | 0.00445 |
+| Base / dark | 0.95 | 0.95 | 0.00042 | 0.00310 |
+| Settings / light | 1.00 | 1.00 | 0.00010 | 0.00010 |
+| Settings / dark | 1.00 | 1.00 | 0.00010 | 0.00010 |
+
+All accessibility scores exceed 0.90 and CLS remains below 0.10. Base's existing
+tab-list role, contrast and accessible-name findings are identical on main.
+Development-server LCP is 12.9–14.0 seconds, versus 11.9–14.7 seconds on main;
+this soft measurement is recorded without claiming production performance.
 
 The independent reviewer found missing shared field focus rules and unreachable
 CSS declarations. Both were fixed and validated in the external consumer.
 The final review independently compiled all eight entries and had no findings.
+CodeRabbit additionally found preference leakage when a consumer changes its
+theme storage key. A failing regression reproduced it; the hook now reloads the
+new key and validates its value. Auth tests also reject numeric issuer/coreId.
+The focused follow-up run passes 22 tests. Public auth-provider and trusted
+asset-configuration obligations are documented in the package README.
 
 This increment does not publish to npm or move MB business code. Docker Desktop
 still does not answer its local engine API; real Casdoor and production image

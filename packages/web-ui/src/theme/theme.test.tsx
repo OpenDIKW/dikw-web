@@ -30,3 +30,24 @@ it("follows the OS without overwriting system and saves only the application's k
   unmount();
   expect(listeners.size).toBe(0);
 });
+
+it("reloads each application's preference when its storage key changes", () => {
+  vi.stubGlobal("matchMedia", () => ({ matches: false }));
+  localStorage.setItem("switch-a.theme", "dark");
+  localStorage.setItem("switch-b.theme", "light");
+  localStorage.setItem("switch-invalid.theme", "invalid");
+  const { result, rerender } = renderHook(({ storageKey }) => useTheme({ storageKey }), {
+    initialProps: { storageKey: "switch-a.theme" },
+  });
+  expect(result.current.resolved).toBe("dark");
+  rerender({ storageKey: "switch-b.theme" });
+  expect(result.current.preference).toBe("light");
+  expect(result.current.resolved).toBe("light");
+  act(() => result.current.setPreference("dark"));
+  expect(localStorage.getItem("switch-b.theme")).toBe("dark");
+  expect(localStorage.getItem("switch-a.theme")).toBe("dark");
+  rerender({ storageKey: "switch-invalid.theme" });
+  expect(result.current.preference).toBe("system");
+  expect(result.current.resolved).toBe("light");
+  expect(localStorage.getItem("switch-invalid.theme")).toBe("invalid");
+});

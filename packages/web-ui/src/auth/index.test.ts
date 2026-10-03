@@ -61,7 +61,12 @@ describe("loadAuth", () => {
     await expect(loadAuth()).resolves.toEqual(me);
   });
 
-  it.each(["issuer", "coreId"])("rejects an unusable public %s", async (field) => {
+  it.each([
+    ["issuer", ""],
+    ["coreId", ""],
+    ["issuer", 42],
+    ["coreId", 42],
+  ])("rejects an unusable public %s (%s)", async (field, value) => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -69,7 +74,7 @@ describe("loadAuth", () => {
           enabled: true,
           user: { sub: "alice" },
           role: "viewer",
-          [field]: "",
+          [field]: value,
         }),
       ),
     );

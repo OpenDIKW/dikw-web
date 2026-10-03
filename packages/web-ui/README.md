@@ -27,6 +27,16 @@ explicit selection to that application's key. Mounting does not overwrite a
 stored system preference. `loadAuth` preserves optional public issuer/coreId
 metadata alongside the existing enabled/user/role response.
 
+Authenticated applications must mount `AuthContext.Provider` with the result
+of `loadAuth`. `useCanEdit` controls presentation; the server must enforce
+authorization on every request. Without a provider, the context defaults to
+the existing auth-off development mode.
+
+Credentialed readers must receive a trusted Core asset base URL and its matching
+token. Asset configuration is supplied by the application and must not come
+from untrusted document metadata; the reader does not enforce an origin policy
+on that configuration.
+
 Build explicitly with `npm run build:packages`; CSS is copied explicitly because
 install scripts are disabled. npm publishes compiled ESM, declarations, styles,
 README and the MIT license. Use public exports rather than source deep imports.
