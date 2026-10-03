@@ -1,10 +1,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { AuthGate } from "../auth/gate.js";
 import { withServerSpan } from "../shared/withServerSpan.js";
+import {
+  canonicalRequestUrl,
+  isRequestAllowed,
+  type ApplicationProfile,
+} from "../runtime/profile.js";
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 
 export interface RequestRouterOptions {
+  profile?: ApplicationProfile;
   agent: Handler;
   web: Handler;
   serveStatic: Handler;
@@ -18,11 +24,23 @@ export interface RequestRouterOptions {
  * first — on its full, unstripped path — and the gate answers `/web/auth/*`
  * and every rejection itself; `/v1/*` then goes to the core proxy.
  */
-export function createRequestRouter({ agent, web, serveStatic, auth }: RequestRouterOptions) {
+export function createRequestRouter({
+  agent,
+  web,
+  serveStatic,
+  auth,
+  profile = "workbench",
+}: RequestRouterOptions) {
   return async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (profile === "mbweb") {
+      const canonical = canonicalRequestUrl(req.url ?? "/");
+      if (!canonical) return forbidden(res);
+      req.url = canonical;
+    }
     const url = new URL(req.url ?? "/", "http://localhost");
     const method = req.method ?? "GET";
     if (url.pathname === "/healthz") {
+      if (!isRequestAllowed(profile, method, url.pathname)) return forbidden(res);
       res.statusCode = 200;
       res.setHeader("Content-Type", "application/json; charset=utf-8");
       res.end(JSON.stringify({ status: "ok" }));
@@ -32,6 +50,9 @@ export function createRequestRouter({ agent, web, serveStatic, auth }: RequestRo
       if (!(await auth.gate.authorize(req, res))) {
         return;
       }
+    }
+    if (!isRequestAllowed(profile, method, url.pathname)) return forbidden(res);
+    if (auth) {
       if (url.pathname.startsWith("/v1/")) {
         // One route template: core paths carry page paths / task ids.
         const span = { method, pathname: "/v1/*", headers: req.headers, res };
@@ -52,4 +73,17 @@ export function createRequestRouter({ agent, web, serveStatic, auth }: RequestRo
     }
     await serveStatic(req, res);
   };
+}
+
+function forbidden(res: ServerResponse): void {
+  res.statusCode = 403;
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.end(
+    JSON.stringify({
+      error: {
+        code: "capability_forbidden",
+        message: "request is unavailable for this application",
+      },
+    }),
+  );
 }

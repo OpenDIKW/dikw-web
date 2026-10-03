@@ -109,13 +109,19 @@ export function proposalFromTool(
   };
 }
 
-export function systemPrompt(): string {
+export function systemPrompt(profile: "workbench" | "mbweb" = "workbench"): string {
   return [
     "You are a helpful knowledge base agent.",
     "dikw-core is the source of truth. Prefer retrieve_knowledge, read_page, page_links, list_wisdom, and dikw_health for any question core can answer.",
-    "Use web_search and web_fetch only when core retrieval cannot answer (current events, external references, or explicit user request). Pass full https URLs to web_fetch, ideally from web_search results.",
+    profile === "mbweb"
+      ? "Use configured external search tools only when core retrieval cannot answer or the user explicitly requests external references."
+      : "Use web_search and web_fetch only when core retrieval cannot answer (current events, external references, or explicit user request). Pass full https URLs to web_fetch, ideally from web_search results.",
     "Do not claim that core generated the answer; core returns evidence and you compose the response.",
-    "Maintenance actions must be proposed through the maintenance proposal tool and require user confirmation.",
+    ...(profile === "workbench"
+      ? [
+          "Maintenance actions must be proposed through the maintenance proposal tool and require user confirmation.",
+        ]
+      : []),
   ].join("\n");
 }
 

@@ -1,13 +1,11 @@
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { defaultResource, resourceFromAttributes, type Resource } from "@opentelemetry/resources";
 import {
   ATTR_SERVICE_INSTANCE_ID,
   ATTR_SERVICE_NAME,
   ATTR_SERVICE_VERSION,
 } from "@opentelemetry/semantic-conventions";
-import { version as packageVersion } from "../../package.json";
-
-const DEFAULT_SERVICE_NAME = "dikw-web";
 
 // service.instance.id identifies ONE running process; per OTel semantic
 // conventions it must stay stable for the process lifetime. Generate it once at
@@ -29,10 +27,13 @@ const SERVICE_INSTANCE_ID = randomUUID();
  * Merged over `defaultResource()` so the SDK's own `telemetry.sdk.*` attributes
  * are preserved while our service identity takes precedence on collisions.
  */
-export function buildDikwResource(): Resource {
+export function buildDikwResource(appId = "dikw-web"): Resource {
+  const { version: packageVersion } = JSON.parse(
+    readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+  ) as { version: string };
   return defaultResource().merge(
     resourceFromAttributes({
-      [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME?.trim() || DEFAULT_SERVICE_NAME,
+      [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME?.trim() || appId,
       [ATTR_SERVICE_VERSION]: packageVersion,
       [ATTR_SERVICE_INSTANCE_ID]: SERVICE_INSTANCE_ID,
     }),

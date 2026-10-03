@@ -29,7 +29,7 @@ The deployment that asked for this already runs a self-hosted OIDC provider
 Add an **opt-in** auth mode, `DIKW_WEB_AUTH_MODE=oidc`, that turns the standalone
 Node server into a Backend-for-Frontend. With the variable unset, nothing changes.
 
-**Login** — `server/auth/oidc.ts` wraps
+**Login** — `packages/web-server/src/auth/oidc.ts` wraps
 [`openid-client`](https://github.com/panva/openid-client) v6 (OpenID-certified;
 its only dependencies are `jose` and `oauth4webapi`). Authorization Code + PKCE
 (S256) with `state` and `nonce`; a confidential client (`client_secret_post`).
@@ -66,7 +66,7 @@ in-flight login (`state`, `nonce`, PKCE verifier, return path) travels in a
 second sealed, 10-minute cookie scoped to `/web/auth`, so `/login` holds no
 server-side state.
 
-**The gate** (`server/auth/gate.ts`) owns `/web/auth/{login,callback,logout,signed-out,me}`
+**The gate** (`packages/web-server/src/auth/gate.ts`) owns `/web/auth/{login,callback,logout,signed-out,me}`
 and decides for every other request:
 
 - no session → a page load gets a tiny page that sends the browser to login with
@@ -76,7 +76,7 @@ and decides for every other request:
 - any non-GET/HEAD/OPTIONS request must carry an `Origin` that equals
   `DIKW_WEB_PUBLIC_URL` exactly — `SameSite=Lax` alone does not cover a same-site
   origin on another port;
-- `requiredRole(method, path)` (`server/auth/roles.ts`) must be met. This one
+- `requiredRole(method, path)` (`packages/web-server/src/auth/roles.ts`) must be met. This one
   pure function encodes the issue's capability matrix. Viewer writes are an
   **allowlist** (`POST /v1/retrieve`, `POST /v1/doc/search`), so a new core write
   endpoint is denied to viewers by default. Paths are split on `/` with empty
@@ -107,7 +107,7 @@ No mapped role means 403 `no_role` on app APIs; `/me` reports role null. Missing
 unverifiable UserInfo ends the session. The previous logout ID-token hint is kept
 when no new ID token arrives; access tokens are never persisted.
 
-**Core access** — `server/auth/coreProxy.ts` forwards same-origin `/v1/*` to
+**Core access** — `packages/web-server/src/auth/coreProxy.ts` forwards same-origin `/v1/*` to
 `DIKW_CORE_URL` with `Authorization: Bearer $DIKW_SERVER_TOKEN`. The browser's own
 `Cookie` / `Authorization` never cross and core's `Set-Cookie` never comes back.
 Request and response bodies stream (NDJSON retrieve, task-event long-poll,

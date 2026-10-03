@@ -1,4 +1,5 @@
 import { ProxyAgent } from "undici";
+import type { ApplicationProfile } from "../runtime/profile.js";
 
 const webProxyUrl =
   process.env.HTTPS_PROXY ||
@@ -8,6 +9,7 @@ const webProxyUrl =
 const webProxyDispatcher = webProxyUrl ? new ProxyAgent(webProxyUrl) : undefined;
 
 export interface DikwToolsOptions {
+  profile?: ApplicationProfile;
   coreUrl: string;
   token?: string;
   braveApiKey?: string;
@@ -89,15 +91,20 @@ export class CoreToolClient {
   private readonly fetchImpl: typeof fetch;
   private readonly coreUrl: string;
   private readonly token: string;
+  private readonly signal?: AbortSignal;
 
   constructor(options: DikwToolsOptions) {
     this.fetchImpl = options.fetchImpl ?? fetch;
     this.coreUrl = options.coreUrl.replace(/\/$/, "");
     this.token = options.token ?? "";
+    this.signal = options.signal;
   }
 
   async getJson(path: string, params?: Record<string, unknown>): Promise<unknown> {
-    const response = await this.fetchImpl(this.url(path, params), { headers: this.headers(false) });
+    const response = await this.fetchImpl(this.url(path, params), {
+      headers: this.headers(false),
+      signal: this.signal,
+    });
     return readJsonResponse(response);
   }
 
@@ -106,6 +113,7 @@ export class CoreToolClient {
       method: "POST",
       headers: this.headers(true),
       body: JSON.stringify({ q, limit }),
+      signal: this.signal,
     });
     if (!response.ok) {
       throw new Error(await response.text());

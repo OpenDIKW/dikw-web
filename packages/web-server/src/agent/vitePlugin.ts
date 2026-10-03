@@ -2,6 +2,8 @@ import type { Plugin } from "vite";
 import { createDefaultAgentHandler } from "./http.js";
 import { withServerSpan } from "../shared/withServerSpan.js";
 import { createLogger } from "../shared/logger.js";
+import { applicationContext } from "../shared/logger.js";
+import type { ApplicationId, ApplicationProfile } from "../runtime/profile.js";
 
 const log = createLogger("agent-sidecar");
 
@@ -27,37 +29,57 @@ export function resolveDevProxyTarget(raw: unknown): string | undefined {
   }
 }
 
-export function agentSidecarPlugin(): Plugin {
+export function agentSidecarPlugin(
+  options: { appId?: ApplicationId; profile?: ApplicationProfile } = {},
+): Plugin {
   // The dev `/v1` proxy target, so the sidecar's outbound `/agent` core calls can
   // mirror it (see applyDevProxyTarget in http.ts). Resolved from Vite's own env
   // — which loadEnv populates from `.env.local`/`.env` AND process.env — so it
   // matches what the `server.proxy` block in vite.config.ts actually uses,
   // instead of only seeing a shell-exported value.
   let devProxyTarget: string | undefined;
+  let cwd = process.cwd();
+  let handlerPromise: ReturnType<typeof createDefaultAgentHandler> | null = null;
+  const pending = new Set<Promise<void>>();
 
   return {
     name: "dikw-agent-sidecar",
     configResolved(config) {
+      cwd = config.root;
       devProxyTarget = resolveDevProxyTarget(config.env?.VITE_DIKW_PROXY_TARGET);
     },
     configureServer(server) {
-      let handlerPromise: ReturnType<typeof createDefaultAgentHandler> | null = null;
       server.middlewares.use("/agent", async (req, res, next) => {
         try {
-          handlerPromise ??= createDefaultAgentHandler(process.cwd(), { devProxyTarget });
+          handlerPromise ??= createDefaultAgentHandler(cwd, { devProxyTarget, ...options });
           const handler = await handlerPromise;
           // Connect strips the "/agent" mount prefix from req.url; rebuild the
           // full path for the route template.
           const sub = new URL(req.url ?? "/", "http://localhost").pathname;
           const pathname = sub === "/" ? "/agent" : `/agent${sub}`;
-          await withServerSpan(
-            { method: req.method ?? "GET", pathname, headers: req.headers, res },
-            () => handler(req, res, next),
+          const request = applicationContext.run(options.appId ?? "dikw-web", () =>
+            withServerSpan(
+              { method: req.method ?? "GET", pathname, headers: req.headers, res },
+              () => handler(req, res, next),
+            ),
           );
+          pending.add(request);
+          try {
+            await request;
+          } finally {
+            pending.delete(request);
+          }
         } catch (error) {
           next(error);
         }
       });
+    },
+    async closeBundle() {
+      if (!handlerPromise) return;
+      const handler = await handlerPromise;
+      handler.abort();
+      await Promise.allSettled([...pending]);
+      await handler.close();
     },
   };
 }

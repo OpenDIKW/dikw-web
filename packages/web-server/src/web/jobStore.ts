@@ -88,6 +88,8 @@ function isTerminal(status: JobStatus): boolean {
 }
 
 export class JobStore {
+  private closed = false;
+  private readonly pending = new Set<Promise<void>>();
   private readonly jobs = new Map<string, Job>();
   private readonly now: () => number;
   private readonly terminalTtlMs: number;
@@ -103,6 +105,7 @@ export class JobStore {
   }
 
   create(controller: AbortController, family: JobFamily, owner?: string): Job {
+    if (this.closed) throw new JobLimitError("job store is closed");
     this.sweep();
     // Cap only LIVE (pending/running) conversions. Terminal jobs awaiting a
     // result fetch or the TTL sweep must NOT lock out new submits — otherwise a
@@ -180,6 +183,23 @@ export class JobStore {
 
   size(): number {
     return this.jobs.size;
+  }
+
+  /** Retain detached work until shutdown has aborted and drained it. */
+  track(work: Promise<void>): void {
+    this.pending.add(work);
+    void work.then(
+      () => this.pending.delete(work),
+      () => this.pending.delete(work),
+    );
+  }
+
+  async close(): Promise<void> {
+    this.closed = true;
+    for (const job of this.jobs.values()) job.controller.abort();
+    await Promise.allSettled([...this.pending]);
+    this.jobs.clear();
+    this.totalResultBytes = 0;
   }
 
   private countLive(): number {

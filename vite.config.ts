@@ -2,8 +2,7 @@ import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
-import { agentSidecarPlugin } from "./server/agent/vitePlugin";
-import { webApiPlugin } from "./server/web/vitePlugin";
+import { createApplicationPlugins } from "@opendikw/web-server/vite";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -16,6 +15,9 @@ export default defineConfig(({ mode }) => {
       mode === "test"
         ? {
             alias: {
+              "@opendikw/web-server/runtime": fileURLToPath(
+                new URL("./packages/web-server/src/runtime/index.ts", import.meta.url),
+              ),
               ...Object.fromEntries(
                 [
                   "core",
@@ -44,13 +46,14 @@ export default defineConfig(({ mode }) => {
             },
           }
         : undefined,
-    plugins: [react(), agentSidecarPlugin(), webApiPlugin()],
+    plugins: [react(), ...createApplicationPlugins()],
     test: {
       include: [
         "src/**/*.{test,spec}.{ts,tsx}",
         "packages/web-client/src/**/*.{test,spec}.{ts,tsx}",
         "packages/web-ui/src/**/*.{test,spec}.{ts,tsx}",
         "server/**/*.{test,spec}.ts",
+        "packages/web-server/src/**/*.{test,spec}.ts",
         "scripts/**/*.{test,spec}.mjs",
       ],
       exclude: ["tests/e2e/**", "node_modules/**", "dist/**"],
@@ -64,6 +67,7 @@ export default defineConfig(({ mode }) => {
           "src/**/*.{ts,tsx}",
           "packages/web-client/src/**/*.{ts,tsx}",
           "packages/web-ui/src/**/*.{ts,tsx}",
+          "packages/web-server/src/runtime/**/*.ts",
         ],
         exclude: [
           "**/*.test.{ts,tsx}",

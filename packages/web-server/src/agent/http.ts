@@ -2,6 +2,9 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { mkdir } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { DatabaseSessionService } from "@google/adk";
+import type { MikroORM } from "@mikro-orm/core";
+import { SqliteDriver } from "@mikro-orm/sqlite";
+import type { ApplicationId, ApplicationProfile } from "../runtime/profile.js";
 import { loadAgentConfig } from "./config.js";
 import { parseSessionTitle, SESSION_TITLE_ERROR_MESSAGES } from "./sessionStore.js";
 import { AdkSessionStore, DEFAULT_USER_ID, SessionNotFoundError } from "./adkSessionStore.js";
@@ -47,7 +50,11 @@ export interface AgentHandlerOptions {
 type DefaultAgentHandlerOptions = Pick<
   AgentHandlerOptions,
   "sessionsDir" | "devProxyTarget" | "subjectFor" | "legacySessionsOwner" | "serverCore"
->;
+> & {
+  env?: Record<string, string | undefined>;
+  appId?: ApplicationId;
+  profile?: ApplicationProfile;
+};
 
 export function resolveSessionsDir(cwd: string, override?: string): string {
   const raw = (override ?? process.env.DIKW_AGENT_SESSIONS_DIR ?? "").trim();
@@ -61,24 +68,55 @@ export async function createDefaultAgentHandler(
   cwd = process.cwd(),
   options: DefaultAgentHandlerOptions = {},
 ) {
-  const config = await loadAgentConfig({ cwd });
+  const config = await loadAgentConfig({ cwd, env: options.env });
   const dir = resolveSessionsDir(cwd, options.sessionsDir);
   await mkdir(dir, { recursive: true }); // sqlite3 creates the file, not the dir
   // POSIX slashes — Windows backslashes break the sqlite:// URI parse.
-  const dbUri = `sqlite://${dir.replace(/\\/g, "/")}/agent.sqlite`;
-  const sessionService = new DatabaseSessionService(dbUri);
+  let ownedOrm: MikroORM | undefined;
+  const sessionService = new DatabaseSessionService({
+    driver: SqliteDriver,
+    dbName: join(dir, "agent.sqlite"),
+    // ADK has no public close method. Its public ORM extension API gives the
+    // runtime ownership of the connection without reading private ADK fields.
+    extensions: [
+      {
+        register(orm) {
+          ownedOrm = orm;
+        },
+      },
+    ],
+  });
+  // Initialize once before concurrent HTTP requests can enter ADK's lazy init.
+  // A returned runtime owns exactly one validated, closable SQLite connection.
+  try {
+    await sessionService.init();
+  } catch (error) {
+    await ownedOrm?.close(true);
+    throw error;
+  }
   const store = new AdkSessionStore({
     sessionService,
-    appName: "dikw-web",
+    appName: options.appId ?? "dikw-web",
     userId: DEFAULT_USER_ID,
   });
   // Register telemetry BEFORE building the runner so the first turn's spans are
   // captured; initAgentTelemetry owns the process-global SpanStore (see
   // telemetry.ts) so a dev /web request before any /agent request still
   // registers the provider, and #trace reads from this same store.
-  const spanStore = initAgentTelemetry();
-  const runner = new AdkAgentRunner({ config, store, sessionService });
-  return createAgentHandler({ ...options, cwd, store, runner, spanStore });
+  const spanStore = initAgentTelemetry(options.appId);
+  const runner = new AdkAgentRunner({
+    config,
+    store,
+    sessionService,
+    appId: options.appId,
+    profile: options.profile,
+  });
+  const handler = createAgentHandler({ ...options, cwd, store, runner, spanStore });
+  return Object.assign(handler, {
+    async close() {
+      await ownedOrm?.close(true);
+    },
+  });
 }
 
 export function createAgentHandler(options: AgentHandlerOptions = {}) {
@@ -96,13 +134,19 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       "createAgentHandler requires both store and runner (use createDefaultAgentHandler)",
     );
   }
-  const activeControllers = new Map<string, AbortController>();
+  const activeControllers = new Map<string, Set<AbortController>>();
+  const shutdown = new AbortController();
+  const admitted = new Set<IncomingMessage>();
 
-  return async function agentHandler(
+  const handler = async function agentHandler(
     req: IncomingMessage,
     res: ServerResponse,
     next?: (error?: unknown) => void,
   ) {
+    if (shutdown.signal.aborted) {
+      return errorJson(res, 503, "application_closed", "application is closed");
+    }
+    admitted.add(req);
     try {
       const url = new URL(req.url ?? "/", "http://localhost");
       const parts = url.pathname.split("/").filter(Boolean);
@@ -160,7 +204,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       }
       if (req.method === "POST" && parts.length === 3 && parts[2] === "abort") {
         await store.ownerOf(sessionId);
-        activeControllers.get(sessionId)?.abort();
+        for (const controller of activeControllers.get(sessionId) ?? []) controller.abort();
         return noContent(res);
       }
       if (req.method === "POST" && parts.length === 3 && parts[2] === "messages") {
@@ -176,7 +220,9 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         // ADK runs under the user the session is stored under.
         const owner = await store.ownerOf(sessionId);
         const controller = new AbortController();
-        activeControllers.set(sessionId, controller);
+        const controllers = activeControllers.get(sessionId) ?? new Set<AbortController>();
+        controllers.add(controller);
+        activeControllers.set(sessionId, controllers);
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
         const writeEvent = (event: AgentStreamEvent) => {
@@ -189,7 +235,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
             message: body.message.trim(),
             coreUrl: connection.coreUrl,
             token: connection.token,
-            signal: controller.signal,
+            signal: AbortSignal.any([controller.signal, shutdown.signal]),
             onEvent: writeEvent,
           });
         } catch (error) {
@@ -200,7 +246,8 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
             message: error instanceof Error ? error.message : String(error),
           });
         } finally {
-          activeControllers.delete(sessionId);
+          controllers.delete(controller);
+          if (!controllers.size) activeControllers.delete(sessionId);
           res.end();
         }
         return;
@@ -225,6 +272,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
             proposal.action,
             proposal.params ?? {},
             connection,
+            shutdown.signal,
           );
           proposal.status = "succeeded";
           proposal.taskId = task.task_id;
@@ -233,6 +281,10 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       }
       return notFound(res);
     } catch (error) {
+      if (shutdown.signal.aborted) {
+        res.destroy();
+        return;
+      }
       if (error instanceof SessionNotFoundError) {
         return errorJson(res, 404, "not_found", "session not found");
       }
@@ -242,8 +294,18 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       }
       log.error("unhandled handler error", { error });
       return errorJson(res, 500, "agent_http_error", "internal agent error");
+    } finally {
+      admitted.delete(req);
     }
   };
+  return Object.assign(handler, {
+    abort() {
+      shutdown.abort();
+      for (const req of admitted) {
+        if (!req.complete) req.destroy();
+      }
+    },
+  });
 }
 
 interface CoreConnection {
@@ -272,6 +334,7 @@ async function runMaintenanceProposal(
   action: AgentMaintenanceAction,
   params: Record<string, unknown>,
   connection: CoreConnection,
+  signal?: AbortSignal,
 ): Promise<{ task_id?: string }> {
   const endpoint = maintenanceEndpoint(action);
   const headers: Record<string, string> = {
@@ -285,6 +348,7 @@ async function runMaintenanceProposal(
     method: "POST",
     headers,
     body: JSON.stringify(params),
+    signal,
   });
   if (!response.ok) {
     throw new Error(await response.text());

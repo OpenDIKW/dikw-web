@@ -52,8 +52,16 @@ describe("createCoreProxy", () => {
     );
     const proxy = createCoreProxy({ coreUrl, token: TOKEN });
     const webUrl = await listen(createServer((req, res) => void proxy(req, res)));
-    return { webUrl, seen };
+    return { webUrl, seen, proxy };
   }
+
+  it("rejects requests that reach the proxy after shutdown", async () => {
+    const { webUrl, seen, proxy } = await setup((_req, _seen, res) => res.end("unexpected"));
+    proxy.abort();
+    const response = await fetch(`${webUrl}/v1/health`);
+    expect(response.status).toBe(503);
+    expect(seen).toHaveLength(0);
+  });
 
   it("forwards the request with the server-held bearer token and no browser credentials", async () => {
     const { webUrl, seen } = await setup((_req, _seen, res) => {

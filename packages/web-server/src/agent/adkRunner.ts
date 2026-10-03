@@ -19,7 +19,7 @@ import type { AgentRunner, RunAgentMessageOptions } from "./runtime.js";
 import type { AgentStreamEvent } from "@opendikw/web-client/types";
 import { recordAgentTurnDuration, type TurnOutcome } from "../shared/metrics.js";
 
-const APP_NAME = "dikw-web";
+import type { ApplicationId, ApplicationProfile } from "../runtime/profile.js";
 
 /**
  * Minimal slice of the ADK `Runner` we depend on, so tests can inject a fake
@@ -42,6 +42,8 @@ interface CreateRunnerParams {
 }
 
 export interface AdkAgentRunnerOptions {
+  appId?: ApplicationId;
+  profile?: ApplicationProfile;
   config: AgentConfig;
   store: AdkSessionStore;
   sessionService: DatabaseSessionService;
@@ -146,12 +148,16 @@ export function mapAdkEvent(sessionId: string, event: Event): AgentStreamEvent[]
  * persist manually.
  */
 export class AdkAgentRunner implements AgentRunner {
+  private readonly appId: ApplicationId;
+  private readonly profile: ApplicationProfile;
   private readonly config: AgentConfig;
   private readonly store: AdkSessionStore;
   private readonly sessionService: DatabaseSessionService;
   private readonly createRunner: (params: CreateRunnerParams) => RunnerLike;
 
   constructor(opts: AdkAgentRunnerOptions) {
+    this.appId = opts.appId ?? "dikw-web";
+    this.profile = opts.profile ?? "workbench";
     this.config = opts.config;
     this.store = opts.store;
     this.sessionService = opts.sessionService;
@@ -176,6 +182,7 @@ export class AdkAgentRunner implements AgentRunner {
       // by the same catch as the run loop (non-abort errors rethrow → http.ts
       // emits the wire `error` event).
       const tools = createDikwTools({
+        profile: this.profile,
         coreUrl,
         token,
         braveApiKey: this.config.braveApiKey,
@@ -200,13 +207,13 @@ export class AdkAgentRunner implements AgentRunner {
         name: "dikw_agent",
         description: "A helpful knowledge base agent over dikw-core.",
         model,
-        instruction: systemPrompt(),
+        instruction: systemPrompt(this.profile),
         tools,
         ...(compactor ? { contextCompactors: [compactor] } : {}),
       });
 
       const runner = this.createRunner({
-        appName: APP_NAME,
+        appName: this.appId,
         agent,
         sessionService: this.sessionService,
       });

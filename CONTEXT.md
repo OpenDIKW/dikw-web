@@ -6,6 +6,25 @@ contract, where the wire vocabulary is easy to confuse.
 
 ## Language
 
+**Workbench**:
+The public management application in `dikw-web`. It administers the shared Core
+base and consumes the public web client, UI and server packages.
+
+**MB application**:
+The business application being extracted into private `dikw-mbweb`. It shares
+the Core base with the workbench, while owning its BFF, roles and browser data.
+
+**Application profile**:
+A server capability policy fixed by an application's entry point. `workbench`
+preserves management APIs; `mbweb` permits the business API allowlist. Profiles
+restrict capabilities in addition to authenticated roles; they do not partition
+Core content by user.
+
+**Core ID**:
+The stable, non-secret deployment identity `DIKW_WEB_CORE_ID`, distinct from its
+URL. The MB auth response uses it with issuer and subject to partition local
+browser records. Changing a URL alone must not silently reassign those records.
+
 **Task summary**:
 A list-projection row from `GET /v1/tasks` (`TaskRowSummary`) — metadata only,
 with no `result`/`error`. Exists to find tasks, not to read their bodies.

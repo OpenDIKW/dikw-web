@@ -20,8 +20,6 @@ import { createLogger } from "../shared/logger.js";
 
 const log = createLogger("auth");
 
-const SESSION_COOKIE = "dikw_session";
-const LOGIN_COOKIE = "dikw_login";
 /** The gate's own routes; also the login cookie's Path. */
 const AUTH_PATH = "/web/auth";
 const LOGIN_TTL_SECONDS = 600;
@@ -35,6 +33,8 @@ export interface Principal {
 }
 
 export interface AuthGateOptions {
+  cookiePrefix?: "dikw" | "dikw_mbweb";
+  publicIdentity?: { issuer: string; coreId: string };
   config: AuthConfig;
   oidc: OidcClient;
   sessions: AuthSessionStore;
@@ -73,7 +73,11 @@ export function createAuthGate({
   oidc,
   sessions,
   now = Date.now,
+  cookiePrefix = "dikw",
+  publicIdentity,
 }: AuthGateOptions): AuthGate {
+  const SESSION_COOKIE = `${cookiePrefix}_session`;
+  const LOGIN_COOKIE = `${cookiePrefix}_login`;
   const principals = new WeakMap<IncomingMessage, Principal>();
   const loginSealer = createSealer(config.sessionSecret, "login-transaction");
   const secure = config.publicUrl.startsWith("https:");
@@ -257,7 +261,12 @@ export function createAuthGate({
       const current = await currentSession(req, res);
       if (!current) return unauthenticated(res);
       const { sub, name, email, role } = current.session;
-      return sendJson(res, 200, { enabled: true, user: { sub, name, email }, role });
+      return sendJson(res, 200, {
+        enabled: true,
+        user: { sub, name, email },
+        role,
+        ...publicIdentity,
+      });
     }
     return sendJson(res, 404, { error: { code: "not_found", message: "auth route not found" } });
   }

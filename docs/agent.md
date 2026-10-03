@@ -8,7 +8,7 @@ persisted session metadata. The `/agent/*` HTTP API and the
 runtime — the chat UI is unaffected by the migration off Pi Agent.
 
 The same sidecar process also serves `/web/*` for non-agent browser
-helpers (see `server/web/` — currently the mineru-backed PDF / Office
+helpers (see `packages/web-server/src/web/` — currently the mineru-backed PDF / Office
 converter consumed by ImportPage). Those routes do not call the agent and
 do not touch `dikw-core`; they exist purely so the browser can offload
 external-API calls that would otherwise hit CORS or expose vendor keys.
@@ -16,7 +16,14 @@ Keep new browser-helper endpoints under `/web/*`, not under `/agent/*`.
 
 ## Runtime
 
-The runtime lives in `server/agent/` and is wired together by
+The production application calls `createWebRuntime` from
+`@opendikw/web-server/runtime`; the Vite application uses
+`createApplicationPlugins` from `/vite`. The package owns databases and detached
+jobs, while application entries own listening and shutdown. MB uses a separate
+Agent app name/database, registers knowledge tools and configured external
+tools, and cannot propose maintenance or use management HTTP endpoints.
+
+The runtime lives in `packages/web-server/src/agent/` and is wired together by
 `createDefaultAgentHandler` (`http.ts`):
 
 - **`MiniMaxLlm`** (`minimaxLlm.ts`) — a custom `extends BaseLlm` adapter
@@ -90,7 +97,7 @@ not currently wired to any registered tool — the Brave client is
 retained in `WebToolClient.search` for future provider rotation.
 
 `DIKW_WEB_MINERU_API_KEY` is optional and is read by
-`server/web/config.ts`, not by `AgentConfig` — mineru is a browser-helper
+`packages/web-server/src/web/config.ts`, not by `AgentConfig` — mineru is a browser-helper
 concern, not an agent tool. Missing key → `POST /web/mineru/convert`
 returns `503 mineru_disabled` and ImportPage degrades to `.md/.pdf` only.
 The `DIKW_WEB_*` prefix marks it as a `/web/*` sidecar variable, distinct
@@ -243,8 +250,8 @@ calling core maintenance endpoints.
 
 ## Tools
 
-ADK `FunctionTool`s are assembled in `server/agent/adkTools.ts`, reusing
-the `CoreToolClient` / `WebToolClient` clients in `server/agent/tools.ts`.
+ADK `FunctionTool`s are assembled in `packages/web-server/src/agent/adkTools.ts`, reusing
+the `CoreToolClient` / `WebToolClient` clients in `packages/web-server/src/agent/tools.ts`.
 They run inside the Node sidecar and never receive browser-side secrets.
 
 Core tools (call `dikw-core`):

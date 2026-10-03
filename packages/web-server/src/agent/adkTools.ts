@@ -220,7 +220,13 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         }
       },
     }),
-  ];
+  ].filter(
+    (tool) =>
+      options.profile !== "mbweb" ||
+      (tool.name !== "propose_maintenance_action" &&
+        (tool.name !== "web_search" || Boolean(options.tavilyApiKey)) &&
+        (tool.name !== "web_fetch" || Boolean(options.jinaApiKey))),
+  );
 }
 
 /**

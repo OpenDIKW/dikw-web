@@ -33,7 +33,17 @@ export interface CoreProxyOptions {
 }
 
 export function createCoreProxy({ coreUrl, token }: CoreProxyOptions) {
-  return async function coreProxy(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const active = new Map<AbortController, ServerResponse>();
+  let closed = false;
+  const handler = async function coreProxy(
+    req: IncomingMessage,
+    res: ServerResponse,
+  ): Promise<void> {
+    if (closed) {
+      res.statusCode = 503;
+      res.end("application is closed");
+      return;
+    }
     const url = new URL(req.url ?? "/", "http://localhost");
     const headers: Record<string, string> = {
       Authorization: `Bearer ${token}`,
@@ -49,7 +59,11 @@ export function createCoreProxy({ coreUrl, token }: CoreProxyOptions) {
     // Browser went away (or the response finished — then this is a no-op):
     // stop the upstream request instead of letting it run on.
     const controller = new AbortController();
-    res.on("close", () => controller.abort());
+    active.set(controller, res);
+    res.on("close", () => {
+      controller.abort();
+      active.delete(controller);
+    });
 
     const method = req.method ?? "GET";
     const hasBody = method !== "GET" && method !== "HEAD";
@@ -96,6 +110,16 @@ export function createCoreProxy({ coreUrl, token }: CoreProxyOptions) {
       // Browser disconnect or upstream reset mid-stream: nothing left to send.
     }
   };
+  return Object.assign(handler, {
+    abort() {
+      closed = true;
+      for (const [controller, res] of active) {
+        controller.abort();
+        res.destroy();
+      }
+      active.clear();
+    },
+  });
 }
 
 /** Core's caching policy, minus anything that lets a shared cache store it. */

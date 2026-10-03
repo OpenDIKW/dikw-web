@@ -13,6 +13,7 @@
 // Nothing here touches dikw-core.
 
 import { trace } from "@opentelemetry/api";
+import { AsyncLocalStorage } from "node:async_hooks";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 
 export type LogLevel = "info" | "warn" | "error";
@@ -25,6 +26,7 @@ export interface Logger {
 }
 
 const LOGGER_NAME = "dikw-web";
+export const applicationContext = new AsyncLocalStorage<string>();
 // Field names that must never carry a value into a log line. Defense in depth on
 // top of the discipline that callers log booleans/ids, never raw secrets.
 const SENSITIVE_KEY = /key|token|auth|secret|password|credential/i;
@@ -34,11 +36,13 @@ const SEVERITY: Record<LogLevel, SeverityNumber> = {
   error: SeverityNumber.ERROR,
 };
 
-export function createLogger(scope: string): Logger {
+export function createLogger(scope: string, appId?: string): Logger {
   const at =
     (level: LogLevel) =>
     (msg: string, fields?: LogFields): void =>
-      emit(level, scope, msg, fields);
+      appId
+        ? applicationContext.run(appId, () => emit(level, scope, msg, fields))
+        : emit(level, scope, msg, fields);
   return { info: at("info"), warn: at("warn"), error: at("error") };
 }
 
@@ -50,6 +54,7 @@ function emit(level: LogLevel, scope: string, msg: string, fields?: LogFields): 
     level,
     scope,
     msg,
+    ...(applicationContext.getStore() ? { appId: applicationContext.getStore() } : {}),
     ...(spanContext ? { trace_id: spanContext.traceId, span_id: spanContext.spanId } : {}),
     ...safe,
   };
@@ -58,7 +63,7 @@ function emit(level: LogLevel, scope: string, msg: string, fields?: LogFields): 
   // OTel logs bridge — no-op until a global LoggerProvider is registered. The SDK
   // stamps trace_id/span_id onto the LogRecord from the active context, so the
   // attributes carry only scope + caller fields.
-  logs.getLogger(LOGGER_NAME).emit({
+  logs.getLogger(applicationContext.getStore() ?? LOGGER_NAME).emit({
     severityNumber: SEVERITY[level],
     severityText: level.toUpperCase(),
     body: msg,

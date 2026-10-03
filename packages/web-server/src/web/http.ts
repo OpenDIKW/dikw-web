@@ -70,14 +70,20 @@ export interface WebHandlerOptions {
 
 export async function createDefaultWebHandler(
   cwd = process.cwd(),
-  options: Pick<WebHandlerOptions, "subjectFor"> = {},
-): Promise<WebHandler> {
-  const config = await loadWebConfig({ cwd });
+  options: Pick<WebHandlerOptions, "subjectFor"> & {
+    env?: Record<string, string | undefined>;
+    appId?: string;
+  } = {},
+) {
+  const config = await loadWebConfig({ cwd, env: options.env });
   // Register the OTel provider so /web SERVER spans export even when a /web
   // request arrives before any /agent request (dev server). Idempotent; shares
   // the agent handler's process-global provider + SpanStore.
-  initAgentTelemetry();
-  return createWebHandler({ ...options, cwd, config });
+  initAgentTelemetry(options.appId);
+  const jobStore = new JobStore();
+  return Object.assign(createWebHandler({ ...options, cwd, config, jobStore }), {
+    close: () => jobStore.close(),
+  });
 }
 
 export type WebHandler = (
@@ -265,15 +271,17 @@ async function handleConvert(
     fetch: fetchFn,
     signal: controller.signal,
   });
-  void runConversion(jobStore, job.id, {
-    client,
-    fileBytes,
-    fileName,
-    modelVersion,
-    stem,
-    dataId,
-    originalFilename,
-  });
+  jobStore.track(
+    runConversion(jobStore, job.id, {
+      client,
+      fileBytes,
+      fileName,
+      modelVersion,
+      stem,
+      dataId,
+      originalFilename,
+    }),
+  );
   return json(res, { jobId: job.id, status: "pending" }, 202);
 }
 
@@ -401,11 +409,13 @@ async function handleTranslateSubmit(
     signal: controller.signal,
     client: anthropic,
   });
-  void runTranslation(jobStore, job.id, {
-    client,
-    blocks: blocks as string[],
-    targetLang: lang,
-  });
+  jobStore.track(
+    runTranslation(jobStore, job.id, {
+      client,
+      blocks: blocks as string[],
+      targetLang: lang,
+    }),
+  );
   return json(res, { jobId: job.id, status: "pending" }, 202);
 }
 

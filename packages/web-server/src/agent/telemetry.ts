@@ -24,7 +24,7 @@ let sharedStore: SpanStore | null = null;
  * export: only the in-memory SpanStore (the #trace UI) is fed, exactly as
  * before.
  */
-export function initAgentTelemetry(): SpanStore {
+export function initAgentTelemetry(appId = "dikw-web"): SpanStore {
   // ADK captures full LLM request/response + tool I/O into span attributes by
   // default (ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS defaults to "true"). The
   // #trace page only needs span structure/timing/tokens, and the curated
@@ -37,7 +37,10 @@ export function initAgentTelemetry(): SpanStore {
     return sharedStore;
   }
   const store = new SpanStore();
-  maybeSetOtelProviders([{ spanProcessors: [new DikwSpanProcessor(store)] }], buildDikwResource());
+  maybeSetOtelProviders(
+    [{ spanProcessors: [new DikwSpanProcessor(store)] }],
+    buildDikwResource(appId),
+  );
   sharedStore = store;
   return store;
 }

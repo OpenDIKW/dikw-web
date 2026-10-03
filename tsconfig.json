@@ -16,5 +16,12 @@
     "noEmit": true,
     "jsx": "react-jsx"
   },
-  "include": ["src", "server", "vite.config.ts", "packages/web-client/src", "packages/web-ui/src"]
+  "include": [
+    "src",
+    "server",
+    "vite.config.ts",
+    "packages/web-client/src",
+    "packages/web-ui/src",
+    "packages/web-server/src"
+  ]
 }
