@@ -9,6 +9,15 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Per-user conversion and translation jobs in OIDC mode, [#204](https://github.com/OpenDIKW/dikw-web/issues/204).**
+  Job status (including partial translated blocks), result and cancellation now
+  require the creator's OIDC subject. Another user's id returns the same
+  `404 not_found` as a missing job, and cannot be used to abort it. Auth off/dev
+  retains the shared flow; the 16-live-job cap remains process-wide across users
+  and both job families.
+
 ## [0.10.0] - 2026-10-02
 
 ### Added
@@ -2070,4 +2079,3 @@ real `MinerUAPIKey` and burns mineru quota. The e2e suite mocks the
   development surface; unique guidance (sidecar `coreUrl` rejection, token-never-displayed
   rule, `.env.agent.local` containment, generated-artifact ignore list) was integrated
   into `CLAUDE.md` rather than left in a parallel file.
-

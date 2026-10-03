@@ -32,6 +32,8 @@ export type JobFamily = "mineru" | "translate";
 export interface Job {
   id: string;
   family: JobFamily;
+  /** Creator's OIDC subject in auth mode; unset when auth is off. */
+  owner?: string;
   status: JobStatus;
   /** Coarse progress hint for the status endpoint; the browser drives its own
    *  substage off `status`, not this. Present only while running. */
@@ -68,6 +70,8 @@ const TERMINAL_TTL_MS = 10 * 60_000;
 // Bound concurrent detached conversions. The browser caps its own batch at 2
 // workers/tab; this guards a shared singleton against many tabs / a buggy
 // client spawning unbounded 10-min pipelines (each burns MinerU quota).
+// Process-wide across users and both families: bound total upstream work,
+// rather than multiplying the resource budget by the number of signed-in users.
 const MAX_LIVE_JOBS = 16;
 // Bound the in-memory footprint of held results.
 const MAX_TOTAL_RESULT_BYTES = 512 * 1024 * 1024;
@@ -98,7 +102,7 @@ export class JobStore {
     this.maxTotalResultBytes = opts.maxTotalResultBytes ?? MAX_TOTAL_RESULT_BYTES;
   }
 
-  create(controller: AbortController, family: JobFamily): Job {
+  create(controller: AbortController, family: JobFamily, owner?: string): Job {
     this.sweep();
     // Cap only LIVE (pending/running) conversions. Terminal jobs awaiting a
     // result fetch or the TTL sweep must NOT lock out new submits — otherwise a
@@ -110,6 +114,7 @@ export class JobStore {
     const job: Job = {
       id: randomUUID(),
       family,
+      owner,
       status: "pending",
       controller,
       createdAt: this.now(),

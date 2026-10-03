@@ -64,15 +64,20 @@ export interface WebHandlerOptions {
   /** Test seam: inject a fake Anthropic transport for /web/translate so tests
    *  never hit the network. Defaults to a real client built per submit. */
   anthropic?: AnthropicLike;
+  /** Auth mode: the OIDC subject admitted by the gate. Unset keeps jobs shared. */
+  subjectFor?: (req: IncomingMessage) => string;
 }
 
-export async function createDefaultWebHandler(cwd = process.cwd()): Promise<WebHandler> {
+export async function createDefaultWebHandler(
+  cwd = process.cwd(),
+  options: Pick<WebHandlerOptions, "subjectFor"> = {},
+): Promise<WebHandler> {
   const config = await loadWebConfig({ cwd });
   // Register the OTel provider so /web SERVER spans export even when a /web
   // request arrives before any /agent request (dev server). Idempotent; shares
   // the agent handler's process-global provider + SpanStore.
   initAgentTelemetry();
-  return createWebHandler({ cwd, config });
+  return createWebHandler({ ...options, cwd, config });
 }
 
 export type WebHandler = (
@@ -102,6 +107,7 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
       if (family !== "mineru" && family !== "translate") {
         return notFound(res);
       }
+      const subject = options.subjectFor?.(req);
 
       if (family === "mineru") {
         if (req.method === "GET" && parts[1] === "health") {
@@ -119,7 +125,7 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
               "DIKW_WEB_MINERU_API_KEY is not configured on this sidecar",
             );
           }
-          return handleConvert(req, res, url, config.mineruApiKey, fetchFn, jobStore);
+          return handleConvert(req, res, url, config.mineruApiKey, fetchFn, jobStore, subject);
         }
       }
 
@@ -136,7 +142,7 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
               "DIKW_AGENT_API_KEY is not configured on this sidecar",
             );
           }
-          return handleTranslateSubmit(req, res, config, jobStore, options.anthropic);
+          return handleTranslateSubmit(req, res, config, jobStore, options.anthropic, subject);
         }
       }
 
@@ -146,8 +152,10 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
       // JSON, mineru → tar.gz); status / cancel are content-type agnostic.
       if (parts[1] === "jobs" && parts[2]) {
         const jobId = parts[2];
-        // One store holds both families; a job is only served under its own.
-        if (jobStore.get(jobId)?.family !== family) {
+        // One store holds both families and users. Foreign jobs are indistinguishable
+        // from unknown ids, before status, result or cancellation can be reached.
+        const job = jobStore.get(jobId);
+        if (!job || job.family !== family || job.owner !== subject) {
           return notFound(res);
         }
         if (req.method === "GET" && parts.length === 3) {
@@ -181,6 +189,7 @@ async function handleConvert(
   apiKey: string,
   fetchFn: typeof fetch,
   jobStore: JobStore,
+  owner?: string,
 ): Promise<void> {
   const claimedInputSha = url.searchParams.get("inputSha");
   if (!claimedInputSha) {
@@ -244,7 +253,7 @@ async function handleConvert(
   const controller = new AbortController();
   let job: Job;
   try {
-    job = jobStore.create(controller, "mineru");
+    job = jobStore.create(controller, "mineru", owner);
   } catch (err) {
     if (err instanceof JobLimitError) {
       return errorJson(res, 503, "too_many_jobs", err.message);
@@ -326,6 +335,7 @@ async function handleTranslateSubmit(
   config: WebConfig,
   jobStore: JobStore,
   anthropic: AnthropicLike | undefined,
+  owner?: string,
 ): Promise<void> {
   let raw: Uint8Array;
   try {
@@ -376,7 +386,7 @@ async function handleTranslateSubmit(
   const controller = new AbortController();
   let job: Job;
   try {
-    job = jobStore.create(controller, "translate");
+    job = jobStore.create(controller, "translate", owner);
   } catch (err) {
     if (err instanceof JobLimitError) {
       return errorJson(res, 503, "too_many_jobs", err.message);

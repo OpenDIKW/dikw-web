@@ -269,6 +269,8 @@ turns that server into a Backend-for-Frontend:
 - users sign in through your OpenID Connect provider;
 - the dikw-core token stays server-side, and `/v1` is proxied same-origin;
 - agent sessions are per user;
+- conversion and translation job progress, results and cancellation are per user
+  (foreign ids return 404); their 16-live-job cap is shared across the process;
 - viewer / editor roles are enforced server-side.
 
 `/healthz` stays open for health checks. See the auth-mode section of

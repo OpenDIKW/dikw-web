@@ -113,6 +113,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 - dikw-core 的 token **只在服务端**：浏览器同源访问 `/v1/*`，dikw-web 校验会话和角色后用 `DIKW_SERVER_TOKEN` 转发给 `DIKW_CORE_URL`（NDJSON 流式检索、任务事件长轮询、multipart 导入都是流式透传；响应一律改成 `Cache-Control: private`，前面的 CDN / 共享缓存不会把登录用户的内容转给别人）。Settings 页不再显示 Server URL / Token，改为显示当前账户、角色和「退出登录」。
 - `/agent/*`、`/web/*` 和 SPA 本身都需要登录；未登录的页面访问会跳转登录（登录后回到原来的 `#路由`），API 请求返回 401。只有 `/healthz` 免登录。
 - 聊天会话**按用户隔离**（ADK `userId` = `oidc:<sub>`，加前缀是为了让任何 IdP 的 `sub` 都不可能等于旧的 `demo`）：别人的会话 id 一律 404。
+- 文档转换和翻译任务也**按用户隔离**：查询进度（含部分译文）、下载结果、取消任务都只允许创建者；别人的任务 id 与不存在的 id 一样返回 `404 not_found`，越权取消不会中止任务。两类任务的并发上限仍是进程共享的 **16 个**，用于限制整体上游资源消耗；单个用户可占满，其他用户此时提交会得到 `503 too_many_jobs`。关闭鉴权或使用 dev 时继续共享任务。
 - 两级角色 **viewer / editor**（editor 包含 viewer），由服务端强制；界面只是把 viewer 用不了的操作藏起来。
 
 | 能力 | viewer | editor |
