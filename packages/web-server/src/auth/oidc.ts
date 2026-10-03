@@ -58,9 +58,10 @@ export const CALLBACK_PATH = "/web/auth/callback";
 
 export function createOidcClient(
   settings: OidcSettings,
-  options: { fetch?: typeof fetch } = {},
+  options: { fetch?: typeof fetch; signal?: AbortSignal } = {},
 ): OidcClient {
   const fetchImpl = options.fetch ?? fetch;
+  const shutdownSignal = options.signal;
   const issuerOrigin = new URL(settings.issuer).origin;
   const redirectUri = `${settings.publicUrl}${CALLBACK_PATH}`;
 
@@ -70,7 +71,10 @@ export function createOidcClient(
   const backChannelFetch: client.CustomFetch = (url, options) => {
     // CustomFetchOptions is a RequestInit subset; only its Uint8Array body type
     // is spelled more loosely than lib.dom's BodyInit.
-    const init = options as RequestInit;
+    const init = { ...options } as RequestInit;
+    if (shutdownSignal) {
+      init.signal = init.signal ? AbortSignal.any([init.signal, shutdownSignal]) : shutdownSignal;
+    }
     const target = new URL(url);
     if (settings.internalUrl && target.origin === issuerOrigin) {
       return fetchImpl(new URL(`${target.pathname}${target.search}`, settings.internalUrl), init);

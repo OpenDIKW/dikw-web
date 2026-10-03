@@ -41,14 +41,27 @@ JSON request test verifies that shutdown disconnects unread bodies. The Core
 proxy also rejects late requests after closure rather than opening new upstream
 connections. Each regression failed before its corresponding fix.
 
+Remote review additionally identified pending OIDC work and inconsistent Vite
+application identity. OIDC discovery, token exchange, JWKS, refresh, UserInfo and
+revocation use the same transport, which now combines its existing request
+signal with runtime shutdown cancellation. A hanging-discovery public HTTP
+regression failed before the fix and now closes successfully. Vite rejects
+app/profile mismatches before constructing a sidecar. CodeQL found the moved
+auth-config trailing-slash regex's quadratic scan; a single backward scan keeps
+the exact URL behavior. Nine additional config cases preserve the old contract.
+The 32,000-slash adversarial input took 657 ms in the old loader and 0.56 ms in
+the replacement on this machine; CI verifies removal of the security alert.
+
 ## Package installation
 
-The final deterministic run passes 94 Vitest files / 1,216 tests, with coverage
+The initial extraction run passes 94 Vitest files / 1,216 tests, with coverage
 77.31% statements, 67.76% branches, 77.44% functions and 79.08% lines. Thresholds
 remain 60/45/55/60. The final Windows coverage run uses one worker: a two-worker
 run timed out in the existing ADK compaction and dependency-install-script
 checks, and both checks passed separately without changing their timeout or
-assertions. Lint, formatting, typecheck and production builds pass.
+assertions. Lint, formatting, typecheck and production builds pass. The remote
+review fixes additionally pass 225 tests across ten auth/runtime files, including
+the new regressions; CI repeats the complete gate for the follow-up commit.
 The browser suite passes 57 tests; two existing opt-in network cases are skipped.
 Bundle gzip remains 277.4 KB entry JS / 280 KB, 1,853.1 KB total JS / 1,950 KB and
 30.4 KB CSS / 35 KB. No gate, coverage or retry policy is weakened.

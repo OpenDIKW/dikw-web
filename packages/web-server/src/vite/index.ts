@@ -14,6 +14,12 @@ export function createApplicationPlugins(
 ): Plugin[] {
   const profile = options.profile ?? "workbench";
   const appId = options.appId ?? (profile === "mbweb" ? "dikw-mbweb" : "dikw-web");
+  if (
+    !(["workbench", "mbweb"] as string[]).includes(profile) ||
+    appId !== (profile === "mbweb" ? "dikw-mbweb" : "dikw-web")
+  ) {
+    throw new Error("appId and profile must identify the same application");
+  }
   const guard: Plugin = {
     name: "dikw-application-profile",
     enforce: "pre",

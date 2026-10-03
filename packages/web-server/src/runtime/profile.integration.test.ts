@@ -380,3 +380,53 @@ it("applies the MB guard before Vite's Core proxy and sidecars", async () => {
     expect((await fetch(`${url}${path}`)).status).toBe(403);
   expect(forwarded).toBe(1);
 });
+
+it.each([
+  { appId: "dikw-web", profile: "mbweb" },
+  { appId: "dikw-mbweb", profile: "workbench" },
+] as const)("rejects conflicting Vite identities $appId / $profile", (options) => {
+  expect(() => createApplicationPlugins(options)).toThrow("appId and profile");
+});
+
+it("cancels OIDC discovery before draining admitted requests on shutdown", async () => {
+  let startDiscovery: () => void;
+  const discoveryStarted = new Promise<void>((resolve) => {
+    startDiscovery = resolve;
+  });
+  const idp = createServer(() => startDiscovery());
+  const issuer = await listen(idp);
+  const cwd = await workspace();
+  const url = await listen(
+    createServer((req, res) => {
+      void runtime.handler(req, res);
+    }),
+  );
+  const runtime = await createWebRuntime({
+    cwd,
+    appId: "dikw-web",
+    profile: "workbench",
+    env: {
+      NODE_ENV: "production",
+      DIKW_WEB_AUTH_MODE: "oidc",
+      DIKW_WEB_PUBLIC_URL: url,
+      DIKW_WEB_OIDC_ISSUER: issuer,
+      DIKW_WEB_OIDC_CLIENT_ID: "shutdown-fixture",
+      DIKW_WEB_OIDC_CLIENT_SECRET: "fixture-secret",
+      DIKW_WEB_SESSION_SECRET: "s".repeat(32),
+      DIKW_WEB_ROLE_VIEWER: "viewer",
+      DIKW_WEB_ROLE_EDITOR: "editor",
+      DIKW_CORE_URL: "http://127.0.0.1:9",
+      DIKW_SERVER_TOKEN: "fixture-token",
+      DIKW_AGENT_API_KEY: "fixture-only",
+      DIKW_AGENT_BASE_URL: "http://127.0.0.1:9",
+      DIKW_AGENT_MODEL: "fixture",
+    },
+  });
+  cleanups.push(() => runtime.close());
+  cleanups.push(async () => idp.closeAllConnections());
+  const login = fetch(`${url}/web/auth/login`, { redirect: "manual" }).catch(() => undefined);
+  await discoveryStarted;
+  await runtime.close();
+  await login;
+  expect((await fetch(`${url}/web/auth/me`)).status).toBe(503);
+});

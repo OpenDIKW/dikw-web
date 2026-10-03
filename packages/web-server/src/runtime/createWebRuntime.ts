@@ -63,6 +63,7 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
   let closing: Promise<void> | undefined;
   const pending = new Set<Promise<void>>();
   const admitted = new Set<IncomingMessage>();
+  const shutdown = new AbortController();
   const log = createLogger("server");
   try {
     let auth: RequestRouterOptions["auth"];
@@ -76,7 +77,7 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
       auth = {
         gate: createAuthGate({
           config: authConfig,
-          oidc: createOidcClient(authConfig),
+          oidc: createOidcClient(authConfig, { signal: shutdown.signal }),
           sessions,
           ...(options.profile === "mbweb"
             ? ({
@@ -146,6 +147,7 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
       close() {
         closing ??= (async () => {
           closed = true;
+          shutdown.abort();
           for (const req of admitted) {
             if (!req.complete) req.destroy();
           }
@@ -164,6 +166,7 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
       },
     };
   } catch (error) {
+    shutdown.abort();
     agent?.abort();
     await web?.close();
     await agent?.close();

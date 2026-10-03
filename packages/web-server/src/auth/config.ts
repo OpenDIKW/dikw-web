@@ -95,7 +95,7 @@ export async function loadAuthConfig(
   const rolesOwner = readOptional(env, "DIKW_WEB_OIDC_ROLES_OWNER");
   const legacySessionsOwner = readOptional(env, "DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER");
   const authorizationParams = readAuthorizationParams(env);
-  return {
+  const config: AuthConfig = {
     publicUrl: readOrigin(value("DIKW_WEB_PUBLIC_URL"), "DIKW_WEB_PUBLIC_URL"),
     issuer: readHttpUrl(value("DIKW_WEB_OIDC_ISSUER"), "DIKW_WEB_OIDC_ISSUER"),
     ...(internalUrl ? { internalUrl: readOrigin(internalUrl, "DIKW_WEB_OIDC_INTERNAL_URL") } : {}),
@@ -115,10 +115,16 @@ export async function loadAuthConfig(
     ),
     sessionMaxSeconds: readSeconds(env, "DIKW_WEB_SESSION_MAX_SECONDS", 7 * 24 * 60 * 60),
     sessionRefreshSeconds: readSeconds(env, "DIKW_WEB_SESSION_REFRESH_SECONDS", 15 * 60),
-    coreUrl: readHttpUrl(value("DIKW_CORE_URL"), "DIKW_CORE_URL").replace(/\/+$/, ""),
+    coreUrl: readHttpUrl(value("DIKW_CORE_URL"), "DIKW_CORE_URL"),
     serverToken: value("DIKW_SERVER_TOKEN"),
     ...(legacySessionsOwner ? { legacySessionsOwner } : {}),
   };
+  let coreUrlEnd = config.coreUrl.length;
+  while (coreUrlEnd > 0 && config.coreUrl[coreUrlEnd - 1] === "/") {
+    coreUrlEnd -= 1;
+  }
+  config.coreUrl = config.coreUrl.slice(0, coreUrlEnd);
+  return config;
 }
 
 function readList(env: Record<string, string | undefined>, key: string): string[] {

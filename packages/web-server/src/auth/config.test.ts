@@ -80,6 +80,36 @@ describe("loadAuthConfig", () => {
     });
   });
 
+  it.each([
+    ["http://dikw-core:8765", "http://dikw-core:8765"],
+    ["http://dikw-core:8765///", "http://dikw-core:8765"],
+    ["http://dikw-core:8765/base//nested///", "http://dikw-core:8765/base//nested"],
+    ["http://dikw-core:8765/?next=/base//nested", "http://dikw-core:8765/?next=/base//nested"],
+    ["http://dikw-core:8765/?next=/base///", "http://dikw-core:8765/?next=/base"],
+    ["http://dikw-core:8765/#/base//nested", "http://dikw-core:8765/#/base//nested"],
+    ["http://dikw-core:8765/#/base///", "http://dikw-core:8765/#/base"],
+    ["https://CORE.example:443/base%2F", "https://CORE.example:443/base%2F"],
+  ])("strips only literal trailing slashes from DIKW_CORE_URL %s", async (coreUrl, expected) => {
+    await withCwd(async (cwd) => {
+      const config = await loadAuthConfig({ cwd, env: oidcEnv({ DIKW_CORE_URL: coreUrl }) });
+      expect(config?.coreUrl).toBe(expected);
+    });
+  });
+
+  it("preserves long non-terminal slash runs when trimming the core URL", async () => {
+    await withCwd(async (cwd) => {
+      const slashes = "/".repeat(16_000);
+      const coreUrl = `http://dikw-core:8765/base${slashes}item?next=${slashes}next#${slashes}section`;
+      for (const suffix of ["", slashes]) {
+        const config = await loadAuthConfig({
+          cwd,
+          env: oidcEnv({ DIKW_CORE_URL: coreUrl + suffix }),
+        });
+        expect(config?.coreUrl).toBe(coreUrl);
+      }
+    });
+  });
+
   it("parses the optional knobs", async () => {
     await withCwd(async (cwd) => {
       const config = await loadAuthConfig({
