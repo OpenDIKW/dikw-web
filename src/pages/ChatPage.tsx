@@ -16,12 +16,12 @@ import {
 } from "lucide-react";
 import type { DikwClient } from "@opendikw/web-client/core";
 import { AgentClient } from "@opendikw/web-client/agent";
-import { Button } from "../components/Button";
-import { IconButton } from "../components/IconButton";
-import { Field } from "../components/Field";
-import { EmptyState } from "../components/EmptyState";
-import { MarkdownView } from "../components/MarkdownView";
-import { Notice } from "../components/Notice";
+import { Button } from "@opendikw/web-ui/controls";
+import { IconButton } from "@opendikw/web-ui/controls";
+import { Field } from "@opendikw/web-ui/controls";
+import { EmptyState } from "@opendikw/web-ui/controls";
+import { MarkdownView } from "@opendikw/web-ui/reader";
+import { Notice } from "@opendikw/web-ui/controls";
 import { normalizeKnowledgePath } from "../utils/knowledge-path";
 import { translations, type Locale } from "../i18n";
 import type { AgentClientLike } from "./agentTypes";

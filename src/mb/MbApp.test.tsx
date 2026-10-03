@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MbApp } from "./MbApp";
-import { AuthContext } from "../config/auth";
+import { AuthContext } from "@opendikw/web-ui/auth";
 
 afterEach(() => {
   vi.unstubAllGlobals();

@@ -9,10 +9,10 @@
 // header toggle that commits an explicit light/dark back to that shared key via
 // `persistTheme`, so a flip in MB-Web is reflected in the workbench too. The
 // toggle never re-selects `"system"` — only the workbench panel does.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useTheme } from "@opendikw/web-ui/theme";
 import {
   isThemePreference,
-  resolveTheme,
   themeStorageKey,
   type ResolvedTheme,
   type ThemePreference,
@@ -40,28 +40,9 @@ export function persistTheme(theme: ResolvedTheme): void {
  *  *only* on an explicit toggle, which commits a concrete light/dark to the
  *  shared `dikw-web.theme`. */
 export function useSharedTheme(): [ResolvedTheme, () => void] {
-  const [preference, setPreference] = useState<ThemePreference>(() => loadThemePreference());
-  const [resolved, setResolved] = useState<ResolvedTheme>(() => resolveTheme(preference));
-
-  useEffect(() => {
-    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
-    const apply = () => {
-      const next = resolveTheme(preference);
-      setResolved(next);
-      document.documentElement.dataset.theme = next;
-      document.documentElement.style.colorScheme = next;
-    };
-    apply();
-    if (preference !== "system" || !media) return;
-    media.addEventListener?.("change", apply);
-    return () => media.removeEventListener?.("change", apply);
-  }, [preference]);
-
+  const { resolved, setPreference } = useTheme({ storageKey: themeStorageKey });
   const toggle = useCallback(() => {
-    const next: ResolvedTheme = resolved === "dark" ? "light" : "dark";
-    setPreference(next);
-    persistTheme(next);
-  }, [resolved]);
-
+    setPreference(resolved === "dark" ? "light" : "dark");
+  }, [resolved, setPreference]);
   return [resolved, toggle];
 }

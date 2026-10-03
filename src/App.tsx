@@ -15,25 +15,16 @@ import {
 } from "lucide-react";
 import { DikwClient, normalizeBaseUrl } from "@opendikw/web-client/core";
 import { AgentClient } from "@opendikw/web-client/agent";
-import { EmptyState } from "./components/EmptyState";
-import { useAuth, useCanEdit } from "./config/auth";
+import { EmptyState } from "@opendikw/web-ui/controls";
+import { useAuth, useCanEdit } from "@opendikw/web-ui/auth";
+import { useTheme } from "@opendikw/web-ui/theme";
 import { defaultBranding, type Branding } from "./config/branding";
 import {
   defaultServerUrl,
   serverUrlStorageKey as serverKey,
   tokenStorageKey as tokenKey,
 } from "./config/connection";
-import {
-  isLocale,
-  isThemePreference,
-  localeStorageKey,
-  resolveTheme,
-  themeStorageKey,
-  translations,
-  type Locale,
-  type ResolvedTheme,
-  type ThemePreference,
-} from "./i18n";
+import { isLocale, localeStorageKey, themeStorageKey, translations, type Locale } from "./i18n";
 import { OverviewPage } from "./pages/OverviewPage";
 import { GraphPage } from "./pages/GraphPage";
 import { ChatPage } from "./pages/ChatPage";
@@ -114,10 +105,11 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
     () => localStorage.getItem(tokenKey) ?? sessionStorage.getItem(tokenKey) ?? "",
   );
   const [locale, setLocale] = useState<Locale>(() => readLocale());
-  const [theme, setTheme] = useState<ThemePreference>(() => readThemePreference());
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
-    resolveTheme(readThemePreference()),
-  );
+  const {
+    preference: theme,
+    resolved: resolvedTheme,
+    setPreference: setTheme,
+  } = useTheme({ storageKey: themeStorageKey });
   const [wikiInitialPath, setWikiInitialPath] = useState<string | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => readSidebarCollapsed());
   const auth = useAuth();
@@ -173,21 +165,6 @@ export function App({ branding = defaultBranding }: { branding?: Branding }) {
 
   useEffect(() => {
     localStorage.setItem(themeStorageKey, theme);
-    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
-    const applyTheme = () => {
-      const nextTheme = resolveTheme(theme);
-      setResolvedTheme(nextTheme);
-      document.documentElement.dataset.theme = nextTheme;
-      document.documentElement.style.colorScheme = nextTheme;
-    };
-
-    applyTheme();
-    if (theme !== "system" || !media) {
-      return;
-    }
-
-    media.addEventListener?.("change", applyTheme);
-    return () => media.removeEventListener?.("change", applyTheme);
   }, [theme]);
 
   useEffect(() => {
@@ -415,11 +392,6 @@ function readLocale(): Locale {
 
 function readSidebarCollapsed(): boolean {
   return localStorage.getItem(sidebarCollapsedKey) === "true";
-}
-
-function readThemePreference(): ThemePreference {
-  const value = localStorage.getItem(themeStorageKey);
-  return isThemePreference(value) ? value : "system";
 }
 
 function viewFromHash(): ViewId {

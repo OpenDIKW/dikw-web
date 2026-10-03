@@ -8,8 +8,8 @@ import {
   themeStorageKey,
   translations,
 } from "../i18n";
-import { Button } from "./Button";
-import { EmptyState } from "./EmptyState";
+import { Button } from "@opendikw/web-ui/controls";
+import { EmptyState } from "@opendikw/web-ui/controls";
 
 /**
  * Rendered instead of the app when the boot probe can't tell whether auth mode

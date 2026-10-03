@@ -1,10 +1,10 @@
 import { useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
 import { DikwClient } from "@opendikw/web-client/core";
-import { Button } from "../components/Button";
-import { EmptyState } from "../components/EmptyState";
-import { Field } from "../components/Field";
-import { Notice } from "../components/Notice";
+import { Button } from "@opendikw/web-ui/controls";
+import { EmptyState } from "@opendikw/web-ui/controls";
+import { Field } from "@opendikw/web-ui/controls";
+import { Notice } from "@opendikw/web-ui/controls";
 import { translations, type Locale } from "../i18n";
 import type { Hit, PageRef, RetrieveResult } from "@opendikw/web-client/types";
 import { formatScore } from "@opendikw/web-client/document";

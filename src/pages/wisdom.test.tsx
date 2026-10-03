@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { WisdomPage } from "./WisdomPage";
-import { AuthContext } from "../config/auth";
+import { AuthContext } from "@opendikw/web-ui/auth";
 import { createMockClient, type MockDikwClient } from "../test/mockClient";
 import { WISDOM_WRITE_STORAGE_KEY } from "../state/wisdom-write";
 

@@ -4,6 +4,13 @@
 compact, and inspection-focused: dense enough for repeated use, but not
 styled like a generic admin dashboard.
 
+Shared CSS lives in `packages/web-ui/styles`: tokens and element resets in
+`tokens.css`, reusable controls in `controls.css`, and Markdown/bilingual reader
+styles in `reader.css`. Applications import these in that order before their own
+CSS. Workbench shell, route layout and MB business selectors stay in `src/styles.css`.
+The shared theme hook receives the application's storage key; it does not own
+application preferences or translated copy.
+
 ## Shell
 
 - Primary routes live in the sidebar.

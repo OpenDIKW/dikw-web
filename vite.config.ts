@@ -15,23 +15,33 @@ export default defineConfig(({ mode }) => {
     resolve:
       mode === "test"
         ? {
-            alias: Object.fromEntries(
-              [
-                "core",
-                "agent",
-                "types",
-                "import",
-                "convert",
-                "translate",
-                "document",
-                "connection",
-              ].map((entry) => [
-                `@opendikw/web-client/${entry}`,
-                fileURLToPath(
-                  new URL(`./packages/web-client/src/${entry}/index.ts`, import.meta.url),
-                ),
-              ]),
-            ),
+            alias: {
+              ...Object.fromEntries(
+                [
+                  "core",
+                  "agent",
+                  "types",
+                  "import",
+                  "convert",
+                  "translate",
+                  "document",
+                  "connection",
+                ].map((entry) => [
+                  `@opendikw/web-client/${entry}`,
+                  fileURLToPath(
+                    new URL(`./packages/web-client/src/${entry}/index.ts`, import.meta.url),
+                  ),
+                ]),
+              ),
+              ...Object.fromEntries(
+                ["controls", "reader", "hooks", "auth", "theme"].map((entry) => [
+                  `@opendikw/web-ui/${entry}`,
+                  fileURLToPath(
+                    new URL(`./packages/web-ui/src/${entry}/index.ts`, import.meta.url),
+                  ),
+                ]),
+              ),
+            },
           }
         : undefined,
     plugins: [react(), agentSidecarPlugin(), webApiPlugin()],
@@ -39,6 +49,7 @@ export default defineConfig(({ mode }) => {
       include: [
         "src/**/*.{test,spec}.{ts,tsx}",
         "packages/web-client/src/**/*.{test,spec}.{ts,tsx}",
+        "packages/web-ui/src/**/*.{test,spec}.{ts,tsx}",
         "server/**/*.{test,spec}.ts",
         "scripts/**/*.{test,spec}.mjs",
       ],
@@ -49,7 +60,11 @@ export default defineConfig(({ mode }) => {
         provider: "v8",
         reporter: ["text", "html"],
         reportsDirectory: "coverage",
-        include: ["src/**/*.{ts,tsx}", "packages/web-client/src/**/*.{ts,tsx}"],
+        include: [
+          "src/**/*.{ts,tsx}",
+          "packages/web-client/src/**/*.{ts,tsx}",
+          "packages/web-ui/src/**/*.{ts,tsx}",
+        ],
         exclude: [
           "**/*.test.{ts,tsx}",
           "src/test/**",

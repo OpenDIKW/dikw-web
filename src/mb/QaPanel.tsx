@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Bookmark, FileText, Loader2, MessageSquareText } from "lucide-react";
 import type { AgentClient } from "@opendikw/web-client/agent";
-import { MarkdownView } from "../components/MarkdownView";
+import { MarkdownView } from "@opendikw/web-ui/reader";
 import { basename } from "@opendikw/web-client/document";
 import type { AgentSource } from "@opendikw/web-client/types";
 import type { CurrentPaper } from "./MbApp";

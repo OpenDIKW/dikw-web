@@ -46,7 +46,11 @@ export default tseslint.config(
   },
   // Browser app: React hook correctness + no raw console in the shipped bundle.
   {
-    files: ["src/**/*.{ts,tsx}", "packages/web-client/src/**/*.{ts,tsx}"],
+    files: [
+      "src/**/*.{ts,tsx}",
+      "packages/web-client/src/**/*.{ts,tsx}",
+      "packages/web-ui/src/**/*.{ts,tsx}",
+    ],
     plugins: { "react-hooks": reactHooks },
     languageOptions: { globals: { ...globals.browser } },
     rules: {
@@ -72,7 +76,15 @@ export default tseslint.config(
   // Tests run under Node + jsdom/Playwright: mock generators legitimately never
   // yield, and console output is a normal debugging aid.
   {
-    files: ["**/*.test.{ts,tsx}", "tests/**/*.ts"],
+    files: ["tests/package-consumers/ui/**/*.jsx"],
+    languageOptions: {
+      parserOptions: { ecmaFeatures: { jsx: true } },
+      globals: { ...globals.browser },
+    },
+    rules: { "no-unused-vars": "off" },
+  },
+  {
+    files: ["**/*.test.{ts,tsx}", "tests/**/*.ts", "tests/package-consumers/ui/**/*.{jsx,mjs}"],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
     rules: { "require-yield": "off", "no-console": "off" },
   },
