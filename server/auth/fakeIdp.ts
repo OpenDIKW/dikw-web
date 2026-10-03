@@ -13,6 +13,9 @@ export interface FakeIdpOptions {
   issuer?: string;
   /** Advertise an end_session_endpoint (RP-initiated logout). Default true. */
   endSession?: boolean;
+  refreshTokens?: boolean;
+  rotateRefreshTokens?: boolean;
+  revocation?: boolean;
 }
 
 interface PendingCode {
@@ -39,6 +42,18 @@ export interface FakeIdp {
   ): { code: string; state: string };
   /** Paths the IdP received (to assert which host served back-channel calls). */
   requests: string[];
+  /** Controls the next refresh response without replacing the real OIDC boundary. */
+  refresh: {
+    claims?: Record<string, unknown>;
+    forge?: boolean;
+    error?: string;
+    idToken?: boolean;
+    omitRefreshToken?: boolean;
+    wait?: Promise<void>;
+  };
+  refreshTokens: string[];
+  revokedTokens: string[];
+  refreshRequests: number;
   close(): Promise<void>;
 }
 
@@ -48,6 +63,12 @@ export async function startFakeIdp(options: FakeIdpOptions): Promise<FakeIdp> {
   const jwk = { ...publicKey.export({ format: "jwk" }), kid: "k1", alg: "RS256", use: "sig" };
   const codes = new Map<string, PendingCode>();
   const requests: string[] = [];
+  const refresh: FakeIdp["refresh"] = {};
+  const refreshTokens: string[] = [];
+  const revokedTokens: string[] = [];
+  const grants = new Map<string, Record<string, unknown>>();
+  const accessTokens = new Map<string, Record<string, unknown>>();
+  let refreshRequests = 0;
   let issuer = options.issuer ?? "";
 
   const server: Server = createServer(async (req, res) => {
@@ -64,6 +85,8 @@ export async function startFakeIdp(options: FakeIdpOptions): Promise<FakeIdp> {
         authorization_endpoint: `${issuer}/authorize`,
         token_endpoint: `${issuer}/token`,
         jwks_uri: `${issuer}/jwks`,
+        userinfo_endpoint: `${issuer}/userinfo`,
+        ...(options.revocation ? { revocation_endpoint: `${issuer}/revoke` } : {}),
         ...(options.endSession === false ? {} : { end_session_endpoint: `${issuer}/logout` }),
         response_types_supported: ["code"],
         subject_types_supported: ["public"],
@@ -74,10 +97,62 @@ export async function startFakeIdp(options: FakeIdpOptions): Promise<FakeIdp> {
     if (url.pathname === "/jwks") {
       return send(200, { keys: [jwk] });
     }
+    if (url.pathname === "/userinfo") {
+      const claims = accessTokens.get((req.headers.authorization ?? "").replace(/^Bearer /i, ""));
+      return claims ? send(200, claims) : send(401, { error: "invalid_token" });
+    }
+    if (url.pathname === "/revoke" && req.method === "POST" && options.revocation) {
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
+      const form = new URLSearchParams(raw);
+      if (
+        form.get("client_id") !== options.clientId ||
+        form.get("client_secret") !== options.clientSecret
+      ) {
+        return send(401, { error: "invalid_client" });
+      }
+      const token = form.get("token") ?? "";
+      revokedTokens.push(token);
+      grants.delete(token);
+      return send(200, {});
+    }
     if (url.pathname === "/token" && req.method === "POST") {
       let raw = "";
       for await (const chunk of req) raw += chunk;
       const form = new URLSearchParams(raw);
+      if (form.get("grant_type") === "refresh_token") {
+        refreshRequests++;
+        const token = form.get("refresh_token") ?? "";
+        const saved = grants.get(token);
+        if (
+          !saved ||
+          refresh.error ||
+          form.get("client_id") !== options.clientId ||
+          form.get("client_secret") !== options.clientSecret
+        ) {
+          return send(400, { error: refresh.error ?? "invalid_grant" });
+        }
+        if (options.rotateRefreshTokens) grants.delete(token);
+        await refresh.wait;
+        const claims = { ...saved, ...refresh.claims };
+        const now = Math.floor(Date.now() / 1000);
+        const accessToken = randomBytes(16).toString("hex");
+        accessTokens.set(accessToken, claims);
+        return send(200, {
+          access_token: accessToken,
+          token_type: "Bearer",
+          expires_in: 300,
+          ...(refresh.omitRefreshToken ? {} : { refresh_token: issueRefreshToken(claims) }),
+          ...(refresh.idToken === false
+            ? {}
+            : {
+                id_token: signJwt(
+                  { iss: issuer, aud: options.clientId, iat: now, exp: now + 300, ...claims },
+                  refresh.forge ? forgeryKey : privateKey,
+                ),
+              }),
+        });
+      }
       const code = form.get("code") ?? "";
       const pending = codes.get(code);
       codes.delete(code);
@@ -108,10 +183,20 @@ export async function startFakeIdp(options: FakeIdpOptions): Promise<FakeIdp> {
         token_type: "Bearer",
         expires_in: 300,
         id_token: signJwt(claims, pending.forge ? forgeryKey : privateKey),
+        ...(options.refreshTokens
+          ? { refresh_token: issueRefreshToken({ sub: "user-1", ...pending.claims }) }
+          : {}),
       });
     }
     send(404, { error: "not_found" });
   });
+
+  function issueRefreshToken(claims: Record<string, unknown>): string {
+    const token = `refresh-${randomBytes(24).toString("hex")}`;
+    grants.set(token, claims);
+    refreshTokens.push(token);
+    return token;
+  }
 
   function signJwt(claims: Record<string, unknown>, key: KeyObject): string {
     const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -129,6 +214,12 @@ export async function startFakeIdp(options: FakeIdpOptions): Promise<FakeIdp> {
     url,
     issuer,
     requests,
+    refresh,
+    refreshTokens,
+    revokedTokens,
+    get refreshRequests() {
+      return refreshRequests;
+    },
     approve(authorizeUrl, claims = {}, { forge = false } = {}) {
       const params = new URL(authorizeUrl).searchParams;
       if (params.get("code_challenge_method") !== "S256") {

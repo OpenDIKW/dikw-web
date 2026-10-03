@@ -28,14 +28,30 @@ export interface OidcClient {
   completeLogin(
     callbackUrl: URL,
     tx: LoginTransaction,
-  ): Promise<{ claims: Record<string, unknown>; idToken: string }>;
+  ): Promise<{ claims: Record<string, unknown>; idToken: string; refreshToken?: string }>;
+  refresh(
+    refreshToken: string,
+    sub: string,
+  ): Promise<{
+    claims: Record<string, unknown>;
+    idToken?: string;
+    refreshToken?: string;
+  }>;
+  /** Best-effort logout caller; no request when the provider has no revocation endpoint. */
+  revoke(refreshToken: string): Promise<void>;
   /** RP-initiated logout URL, or `null` when the IdP advertises no end_session_endpoint. */
   logoutUrl(idToken: string): Promise<string | null>;
 }
 
 type OidcSettings = Pick<
   AuthConfig,
-  "publicUrl" | "issuer" | "internalUrl" | "clientId" | "clientSecret" | "scopes"
+  | "publicUrl"
+  | "issuer"
+  | "internalUrl"
+  | "clientId"
+  | "clientSecret"
+  | "scopes"
+  | "authorizationParams"
 >;
 
 export const CALLBACK_PATH = "/web/auth/callback";
@@ -99,6 +115,7 @@ export function createOidcClient(
         returnTo,
       };
       const url = client.buildAuthorizationUrl(config, {
+        ...settings.authorizationParams,
         redirect_uri: redirectUri,
         scope: settings.scopes,
         code_challenge: await client.calculatePKCECodeChallenge(tx.codeVerifier),
@@ -124,7 +141,33 @@ export function createOidcClient(
       if (claims.azp !== undefined && claims.azp !== settings.clientId) {
         throw new Error('unexpected ID token "azp" (authorized party) claim value');
       }
-      return { claims: { ...claims }, idToken: tokens.id_token };
+      return {
+        claims: { ...claims },
+        idToken: tokens.id_token,
+        ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
+      };
+    },
+
+    async refresh(refreshToken, sub) {
+      const config = await getConfiguration();
+      const tokens = await client.refreshTokenGrant(config, refreshToken);
+      const claims =
+        tokens.claims() ?? (await client.fetchUserInfo(config, tokens.access_token, sub));
+      if (claims.sub !== sub || (claims.azp !== undefined && claims.azp !== settings.clientId)) {
+        throw new Error("unexpected refreshed identity");
+      }
+      return {
+        claims: { ...claims },
+        ...(tokens.id_token ? { idToken: tokens.id_token } : {}),
+        ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
+      };
+    },
+
+    async revoke(refreshToken) {
+      const config = await getConfiguration();
+      if (config.serverMetadata().revocation_endpoint) {
+        await client.tokenRevocation(config, refreshToken, { token_type_hint: "refresh_token" });
+      }
     },
 
     async logoutUrl(idToken) {

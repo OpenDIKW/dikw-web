@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it } from "vitest";
-import { startFakeIdp, type FakeIdp } from "./fakeIdp";
+import { startFakeIdp, type FakeIdp, type FakeIdpOptions } from "./fakeIdp";
 import { createOidcClient, type OidcClient } from "./oidc";
+import type { AuthConfig } from "./config";
 
 const CLIENT_ID = "dikw-web";
 const CLIENT_SECRET = "client-secret-value";
@@ -14,12 +15,19 @@ describe("createOidcClient", () => {
   });
 
   async function setup(
-    options: { internal?: boolean; endSession?: boolean; fetch?: typeof fetch } = {},
+    options: Partial<FakeIdpOptions> & {
+      internal?: boolean;
+      fetch?: typeof fetch;
+      authorizationParams?: AuthConfig["authorizationParams"];
+    } = {},
   ) {
     const idp = await startFakeIdp({
       clientId: CLIENT_ID,
       clientSecret: CLIENT_SECRET,
       endSession: options.endSession,
+      refreshTokens: options.refreshTokens,
+      rotateRefreshTokens: options.rotateRefreshTokens,
+      revocation: options.revocation,
       // Behind an internal URL the IdP advertises its *public* issuer, which this
       // test process can't resolve — every back-channel call must be rewritten.
       ...(options.internal ? { issuer: "https://iam.example.test" } : {}),
@@ -33,6 +41,9 @@ describe("createOidcClient", () => {
         clientId: CLIENT_ID,
         clientSecret: CLIENT_SECRET,
         scopes: "openid profile email",
+        ...(options.authorizationParams
+          ? { authorizationParams: options.authorizationParams }
+          : {}),
       },
       options.fetch ? { fetch: options.fetch } : {},
     );
@@ -76,6 +87,62 @@ describe("createOidcClient", () => {
     const result = await login(idp, oidc, { name: "Ada", roles: ["kb_editor"] });
     expect(result.claims).toMatchObject({ sub: "user-1", name: "Ada", roles: ["kb_editor"] });
     expect(result.idToken.split(".")).toHaveLength(3);
+  });
+
+  it("requests provider offline access only when explicitly configured", async () => {
+    const { oidc } = await setup({
+      authorizationParams: { access_type: "offline", prompt: "consent" },
+    });
+    const { url, tx } = await oidc.beginLogin("/");
+    const params = new URL(url).searchParams;
+    expect(params.get("access_type")).toBe("offline");
+    expect(params.get("prompt")).toBe("consent");
+    expect(params.get("scope")).toBe("openid profile email");
+    expect(params.get("nonce")).toBe(tx.nonce);
+  });
+
+  it("renews tokens through the internal URL and returns changed roles and the rotated token", async () => {
+    const { idp, oidc } = await setup({
+      internal: true,
+      refreshTokens: true,
+      rotateRefreshTokens: true,
+    });
+    const signedIn = await login(idp, oidc, { roles: ["kb_editor"] });
+    expect(signedIn.refreshToken).toBe(idp.refreshTokens[0]);
+    idp.refresh.claims = { roles: ["kb_viewer"] };
+    const renewed = await oidc.refresh(signedIn.refreshToken!, "user-1");
+    expect(renewed.claims).toMatchObject({ sub: "user-1", roles: ["kb_viewer"] });
+    expect(renewed.refreshToken).toBe(idp.refreshTokens[1]);
+    expect(renewed.idToken?.split(".")).toHaveLength(3);
+    await expect(oidc.refresh(signedIn.refreshToken!, "user-1")).rejects.toThrow();
+  });
+
+  it.each([
+    ["a changed subject", { sub: "another-user" }, false],
+    ["a foreign issuer", { iss: "https://evil.example.com" }, false],
+    ["a foreign audience", { aud: "someone-else" }, false],
+    ["a foreign authorized party", { azp: "someone-else" }, false],
+    ["an expired token", { exp: Math.floor(Date.now() / 1000) - 3600 }, false],
+    ["a forged signature", {}, true],
+  ])("rejects refreshed ID tokens with %s", async (_label, claims, forge) => {
+    const { idp, oidc } = await setup({ refreshTokens: true });
+    const signedIn = await login(idp, oidc);
+    idp.refresh.claims = claims;
+    idp.refresh.forge = forge;
+    await expect(oidc.refresh(signedIn.refreshToken!, "user-1")).rejects.toThrow();
+  });
+
+  it("uses subject-checked UserInfo when refresh returns no ID token", async () => {
+    const { idp, oidc } = await setup({ internal: true, refreshTokens: true });
+    const signedIn = await login(idp, oidc, { roles: ["kb_editor"] });
+    idp.refresh.idToken = false;
+    idp.refresh.claims = { roles: ["kb_viewer"] };
+    const renewed = await oidc.refresh(signedIn.refreshToken!, "user-1");
+    expect(renewed.claims).toMatchObject({ sub: "user-1", roles: ["kb_viewer"] });
+    expect(renewed.idToken).toBeUndefined();
+    expect(idp.requests).toContain("/userinfo");
+    idp.refresh.claims = { sub: "another-user" };
+    await expect(oidc.refresh(renewed.refreshToken!, "user-1")).rejects.toThrow();
   });
 
   it.each([
@@ -128,5 +195,19 @@ describe("createOidcClient", () => {
   it("returns null for logout when the IdP has no end_session_endpoint", async () => {
     const { oidc } = await setup({ endSession: false });
     expect(await oidc.logoutUrl("id.token.value")).toBeNull();
+  });
+
+  it("revokes refresh tokens through the advertised internal endpoint", async () => {
+    const { idp, oidc } = await setup({ internal: true, refreshTokens: true, revocation: true });
+    const signedIn = await login(idp, oidc);
+    await oidc.revoke(signedIn.refreshToken!);
+    expect(idp.revokedTokens).toEqual([signedIn.refreshToken]);
+    await expect(oidc.refresh(signedIn.refreshToken!, "user-1")).rejects.toThrow();
+  });
+
+  it("skips token revocation when the provider advertises no endpoint", async () => {
+    const { idp, oidc } = await setup();
+    await expect(oidc.revoke("refresh-value")).resolves.toBeUndefined();
+    expect(idp.requests).not.toContain("/revoke");
   });
 });

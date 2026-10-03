@@ -76,19 +76,59 @@ describe("AuthSessionStore", () => {
     expect(store.get(id)).toBeNull();
   });
 
+  it("updates a live session with a stable id but never revives an expired or deleted session", () => {
+    let now = 1_000_000;
+    const store = new AuthSessionStore({ path: ":memory:", secret: SECRET, now: () => now });
+    const id = store.create(session, 60);
+    now += 59_000;
+    const changed = { ...session, role: "viewer" as const };
+    expect(store.update(id, changed, now + 60_000)).toBe(true);
+    now += 59_000;
+    expect(store.get(id)).toEqual(changed);
+    now += 1_000;
+    expect(store.update(id, session, now + 60_000)).toBe(false);
+    expect(store.get(id)).toBeNull();
+    const deleted = store.create(session, 60);
+    store.delete(deleted);
+    expect(store.update(deleted, session, now + 60_000)).toBe(false);
+    expect(store.get(deleted)).toBeNull();
+    store.close();
+  });
+
   it("persists only a hash of the id and an encrypted record", async () => {
     await withDbFile(async (path) => {
       const store = new AuthSessionStore({ path, secret: SECRET });
-      const id = store.create(session, 60);
+      const renewable = {
+        ...session,
+        renewal: {
+          refreshToken: "refresh-token-secret-marker",
+          startedAt: Date.now(),
+          refreshedAt: Date.now(),
+        },
+      };
+      const id = store.create(renewable, 60);
+      const rotated = {
+        ...renewable,
+        renewal: { ...renewable.renewal, refreshToken: "rotated-refresh-secret-marker" },
+      };
+      expect(store.update(id, rotated, Date.now() + 60_000)).toBe(true);
       store.close();
 
       const raw = (await readFile(path)).toString("latin1");
-      for (const plaintext of [id, session.sub, session.email!, session.idToken, "editor"]) {
+      for (const plaintext of [
+        id,
+        session.sub,
+        session.email!,
+        session.idToken,
+        "editor",
+        renewable.renewal.refreshToken,
+        rotated.renewal.refreshToken,
+      ]) {
         expect(raw).not.toContain(plaintext);
       }
 
       const reopened = new AuthSessionStore({ path, secret: SECRET });
-      expect(reopened.get(id)).toEqual(session);
+      expect(reopened.get(id)).toEqual(rotated);
       reopened.close();
     });
   });

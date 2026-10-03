@@ -12,6 +12,12 @@ export interface AuthSession {
   role: AuthRole | null;
   /** Kept only as the `id_token_hint` for RP-initiated logout. */
   idToken: string;
+  /** Refresh credentials and clocks stay inside the AES-GCM-sealed record. */
+  renewal?: {
+    refreshToken: string;
+    startedAt: number;
+    refreshedAt: number;
+  };
 }
 
 export interface AuthSessionStoreOptions {
@@ -37,6 +43,7 @@ export class AuthSessionStore {
   private readonly insert: StatementSync;
   private readonly select: StatementSync;
   private readonly remove: StatementSync;
+  private readonly replace: StatementSync;
 
   constructor(options: AuthSessionStoreOptions) {
     this.db = new DatabaseSync(options.path);
@@ -50,6 +57,9 @@ export class AuthSessionStore {
     );
     this.select = this.db.prepare("SELECT data, expires_at FROM auth_sessions WHERE id_hash = ?");
     this.remove = this.db.prepare("DELETE FROM auth_sessions WHERE id_hash = ?");
+    this.replace = this.db.prepare(
+      "UPDATE auth_sessions SET data = ?, expires_at = ? WHERE id_hash = ? AND expires_at > ?",
+    );
     this.sealer = createSealer(options.secret, "session-record");
     this.now = options.now ?? Date.now;
   }
@@ -77,6 +87,13 @@ export class AuthSessionStore {
 
   delete(id: string): void {
     this.remove.run(hashId(id));
+  }
+
+  /** Replace only a live record; a late refresh cannot resurrect a signed-out session. */
+  update(id: string, session: AuthSession, expiresAt: number): boolean {
+    const now = this.now();
+    if (expiresAt <= now) return false;
+    return this.replace.run(this.sealer.seal(session), expiresAt, hashId(id), now).changes === 1;
   }
 
   close(): void {

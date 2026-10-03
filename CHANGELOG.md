@@ -9,6 +9,20 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-10-03
+
+### Added
+
+- **Renewable OIDC sessions and role synchronization, [#205](https://github.com/OpenDIKW/dikw-web/issues/205).**
+  Activity slides the session's 8h idle timeout; a 7-day absolute cap remains.
+  Request-driven renewal defaults to every 15 minutes, uses subject-checked
+  ID tokens or UserInfo to update roles, shares concurrent refreshes and persists
+  rotated tokens only inside the encrypted server record. Refresh failure signs
+  out with 401; logout revokes tokens when supported, including late refreshes.
+  Providers without refresh tokens retain the fixed TTL; default scopes are
+  unchanged. Deployment docs cover explicit offline-access setup, optional
+  `DIKW_WEB_OIDC_AUTH_PARAMS`, session limits and reload-time SPA role updates.
+
 ### Fixed
 
 - **Per-user conversion and translation jobs in OIDC mode, [#204](https://github.com/OpenDIKW/dikw-web/issues/204).**
