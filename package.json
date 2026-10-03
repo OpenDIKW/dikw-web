@@ -7,28 +7,31 @@
     "node": ">=24.0.0"
   },
   "scripts": {
-    "dev": "vite --host 127.0.0.1 --port 4321 --strictPort",
-    "build": "tsc --noEmit && vite build && npm run build:server",
+    "dev": "npm run build:packages && vite --host 127.0.0.1 --port 4321 --strictPort",
+    "build": "npm run build:packages && tsc --noEmit && vite build && npm run build:server",
     "build:server": "esbuild server/agent/standalone.ts --bundle --packages=external --platform=node --target=node24 --format=esm --outfile=dist-server/standalone.mjs --legal-comments=none --banner:js=\"import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);\"",
     "preview": "vite preview --host 127.0.0.1",
     "start": "node dist-server/standalone.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "npm run build:packages && tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test",
+    "test": "npm run build:packages && vitest run",
+    "test:watch": "npm run build:packages && vitest",
+    "test:coverage": "npm run build:packages && vitest run --coverage",
+    "test:e2e": "npm run build:packages && playwright test",
     "smoke:core": "node scripts/smoke-core.mjs",
     "live:up": "node scripts/live-core/up.mjs",
     "live:down": "node scripts/live-core/down.mjs",
-    "live:seed": "tsx scripts/seed-core.mts",
+    "live:seed": "npm run build:packages && tsx scripts/seed-core.mts",
     "live:smoke": "node scripts/live-core/smoke.mjs",
-    "live:verify": "node scripts/live-core/run.mjs",
+    "live:verify": "npm run build:packages && node scripts/live-core/run.mjs",
     "check:bundle": "node scripts/check-bundle.mjs",
     "check:gate": "node scripts/check-gate-integrity.mjs",
-    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e"
+    "verify": "npm run lint && npm run format:check && npm run typecheck && npm run test:coverage && npm run build && npm run test:e2e && npm run verify:packages",
+    "build:packages": "node scripts/build-shared-packages.mjs",
+    "pack:shared": "node scripts/pack-shared-packages.mjs",
+    "verify:packages": "npm run pack:shared && node scripts/verify-package-consumers.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
@@ -60,7 +63,8 @@
     "pixi.js": "^8.21.0",
     "react": "^19.2.6",
     "react-dom": "^19.3.0",
-    "undici": "^8.10.0"
+    "undici": "^8.10.0",
+    "@opendikw/web-client": "0.1.0"
   },
   "overrides": {
     "adm-zip": "^0.6.1",
@@ -98,5 +102,8 @@
     "typescript-eslint": "^8.71.0",
     "vite": "^8.3.1",
     "vitest": "^5.0.1"
-  }
+  },
+  "workspaces": [
+    "packages/*"
+  ]
 }

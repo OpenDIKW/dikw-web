@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { validateAndNormalizeHttpUrl } from "./tools.js";
-import type { AgentProposal, AgentSource, AgentStreamEvent } from "../../src/agent/types.js";
+import type { AgentProposal, AgentSource, AgentStreamEvent } from "@opendikw/web-client/types";
 
 export interface RunAgentMessageOptions {
   sessionId: string;

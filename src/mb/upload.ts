@@ -3,20 +3,20 @@
 // ingest → synth. Reuses the proven dikw-web utilities so the wire shapes
 // (manifest, package_sha256, kebab normalization) stay identical to ImportPage.
 
-import type { DikwClient } from "../api/client";
+import type { DikwClient } from "@opendikw/web-client/core";
 import {
   convertSource,
   convertedToFiles,
   MineruConvertError,
   MINERU_EXTENSIONS,
   type ConvertCache,
-} from "../utils/mineru-convert";
-import { buildImportBundle, lowerExt } from "../utils/import-bundle";
-import { getMarkdownTitle, parseMarkdownDocument } from "../utils/markdown";
-import { splitMarkdownBlocks } from "../utils/markdown-blocks";
-import { isEnglishBody } from "../utils/lang";
-import { translateBlocks, type TranslateCache } from "../utils/translate";
-import type { PageReadResult } from "../types";
+} from "@opendikw/web-client/convert";
+import { buildImportBundle, lowerExt } from "@opendikw/web-client/import";
+import { getMarkdownTitle, parseMarkdownDocument } from "@opendikw/web-client/document";
+import { splitMarkdownBlocks } from "@opendikw/web-client/document";
+import { isEnglishBody } from "@opendikw/web-client/document";
+import { translateBlocks, type TranslateCache } from "@opendikw/web-client/translate";
+import type { PageReadResult } from "@opendikw/web-client/types";
 
 export type UploadStage =
   "converting" | "uploading" | "indexing" | "analyzing" | "translating" | "done";

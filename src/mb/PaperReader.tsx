@@ -7,7 +7,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
 } from "lucide-react";
-import type { DikwClient } from "../api/client";
+import type { DikwClient } from "@opendikw/web-client/core";
 import { useCanEdit } from "../config/auth";
 import { MarkdownView } from "../components/MarkdownView";
 import {
@@ -17,11 +17,11 @@ import {
 } from "../components/markdown-runtime";
 import type { BilingualBlock } from "../components/BilingualView";
 import { useBilingualReader } from "../hooks/useBilingualReader";
-import type { TranslateCache } from "../utils/translate";
-import { isEnglishBody } from "../utils/lang";
-import { parseMarkdownDocument } from "../utils/markdown";
-import { basename } from "../utils/format";
-import type { PageReadResult } from "../types";
+import type { TranslateCache } from "@opendikw/web-client/translate";
+import { isEnglishBody } from "@opendikw/web-client/document";
+import { parseMarkdownDocument } from "@opendikw/web-client/document";
+import { basename } from "@opendikw/web-client/document";
+import type { PageReadResult } from "@opendikw/web-client/types";
 import type { CurrentPaper } from "./MbApp";
 
 interface Props {

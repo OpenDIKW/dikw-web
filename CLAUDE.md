@@ -113,6 +113,14 @@ node node_modules\vite\bin\vite.js --host 127.0.0.1 --port 4321 --strictPort --c
 
 ## Architecture
 
+The root is an npm workspace application. Shared browser protocols and tools live
+in `packages/web-client` (MIT) and are consumed through `@opendikw/web-client`
+subpath exports; do not import package source paths or restore copies under `src`.
+Dev, typecheck, test and build explicitly run `build:packages`; direct Vitest
+iteration needs a package build after source changes. `verify:packages` installs
+real tarballs in an independent consumer. Package source and migrated tests remain
+in the root coverage/test discovery, with the existing thresholds unchanged.
+
 React/Vite knowledge workbench over `dikw-core`. The browser talks to `dikw-core` over HTTP `/v1` — predominantly reads, plus a few explicit write surfaces (Import, the Wisdom editor's save/favorite `POST /v1/base/wisdom`, the Tasks-page maintenance ops, agent-proposed maintenance, and MB-Web paper upload); the filesystem of a sibling `../dikw-core` checkout is **not** an app data source.
 
 ### Two-process model in one Vite dev server

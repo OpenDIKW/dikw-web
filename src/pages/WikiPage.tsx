@@ -16,7 +16,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { DikwClient, DikwClientError } from "../api/client";
+import { DikwClient, DikwClientError } from "@opendikw/web-client/core";
 import { Button } from "../components/Button";
 import { IconButton } from "../components/IconButton";
 import { EmptyState } from "../components/EmptyState";
@@ -28,19 +28,19 @@ import { SoftLabel } from "../components/SoftLabel";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { useBilingualReader, type BilingualReader } from "../hooks/useBilingualReader";
 import { usePreviewTranslation } from "../hooks/usePreviewTranslation";
-import { isEnglishBody } from "../utils/lang";
+import { isEnglishBody } from "@opendikw/web-client/document";
 import {
   fetchTranslateEnabled,
   tryOpenDefaultTranslateCache,
   type TranslateCache,
-} from "../utils/translate";
+} from "@opendikw/web-client/translate";
 import { translations, type Locale } from "../i18n";
 import type {
   DocumentRecord,
   PageLinksResult,
   PageProvenanceResult,
   PageReadResult,
-} from "../types";
+} from "@opendikw/web-client/types";
 import { findPageForTarget } from "../utils/graph";
 import {
   mergeSourceReferences,
@@ -53,9 +53,14 @@ import {
   getMarkdownTitle,
   parseMarkdownDocument,
   type HeadingEntry,
-} from "../utils/markdown";
-import { basename, displayTitle, formatUnixSeconds, truncateMiddle } from "../utils/format";
-import { injectInlineRefs } from "../utils/source-inline-refs";
+} from "@opendikw/web-client/document";
+import {
+  basename,
+  displayTitle,
+  formatUnixSeconds,
+  truncateMiddle,
+} from "@opendikw/web-client/document";
+import { injectInlineRefs } from "@opendikw/web-client/document";
 
 interface WikiPageProps {
   client: DikwClient;

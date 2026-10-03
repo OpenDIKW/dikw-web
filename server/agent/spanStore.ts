@@ -2,7 +2,7 @@ import type {
   SessionTraceView,
   TraceInvocationView,
   TraceSpanView,
-} from "../../src/agent/traceTypes.js";
+} from "@opendikw/web-client/types";
 
 /**
  * Flat span row extracted from a finished OTel span by DikwSpanProcessor.

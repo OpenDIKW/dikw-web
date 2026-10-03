@@ -6,6 +6,11 @@ editor's `POST /v1/base/wisdom`, the Tasks maintenance ops; see the `## Import`
 and `## Task list` sections below).
 This document records the web-facing subset that current tests lock.
 
+The shared `@opendikw/web-client/core`, `/agent` and `/types` exports implement
+these contracts. Archive, conversion, translation and document utilities have
+separate public entries. Extraction changes code ownership only; HTTP paths,
+payloads, error handling, cancellation and NDJSON semantics remain unchanged.
+
 `scripts/smoke-core.mjs` (`npm run smoke:core`, the `dikw-web-smoke-core` skill)
 asserts the core invariants documented here against a **live** core — the e2e
 suite mocks `/v1`, so this script is what actually catches contract drift. Keep

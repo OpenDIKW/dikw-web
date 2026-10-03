@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { translateBlocks, type TranslateCache } from "../utils/translate";
+import { translateBlocks, type TranslateCache } from "@opendikw/web-client/translate";
 
 interface UsePreviewTranslationOptions {
   /** Fire only when warranted (translated-column click on an English target —

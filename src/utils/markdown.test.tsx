@@ -6,7 +6,7 @@ import {
   parseMarkdownDocument,
   slugifyHeading,
   uniqueHeadingSlug,
-} from "./markdown";
+} from "@opendikw/web-client/document";
 import { MarkdownView } from "../components/MarkdownView";
 
 describe("parseMarkdownDocument", () => {

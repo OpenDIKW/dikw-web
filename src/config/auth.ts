@@ -5,15 +5,8 @@
 
 import { createContext, useContext } from "react";
 
-export type AuthRole = "viewer" | "editor";
-
-export interface AuthUser {
-  sub: string;
-  name?: string;
-  email?: string;
-}
-
-export type AuthState = { enabled: false } | { enabled: true; user: AuthUser; role: AuthRole };
+import type { AuthState, AuthUser } from "@opendikw/web-client/types";
+export type { AuthRole, AuthUser, AuthState } from "@opendikw/web-client/types";
 
 const AUTH_OFF: AuthState = { enabled: false };
 const GUARDED_API = /^\/(v1|agent|web)\//;

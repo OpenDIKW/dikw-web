@@ -296,7 +296,7 @@ export const wikiPageBodiesFixture = {
   },
 };
 
-import type { PageLinksResult, PageProvenanceResult } from "../../src/types";
+import type { PageLinksResult, PageProvenanceResult } from "@opendikw/web-client/types";
 
 export const wikiPageLinksFixture: Record<string, PageLinksResult> = {
   "sources/architecture.md": {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RefreshCw, Search } from "lucide-react";
-import type { DikwClient } from "../api/client";
+import type { DikwClient } from "@opendikw/web-client/core";
 import { GraphCanvas } from "../components/GraphCanvas";
 import { Button } from "../components/Button";
 import { IconButton } from "../components/IconButton";
@@ -8,7 +8,7 @@ import { EmptyState } from "../components/EmptyState";
 import { Notice } from "../components/Notice";
 import { SoftLabel } from "../components/SoftLabel";
 import { translations, type Locale } from "../i18n";
-import type { GraphResult } from "../types";
+import type { GraphResult } from "@opendikw/web-client/types";
 import { filterKnowledgeGraph, toKnowledgeGraph, type KnowledgeGraph } from "../utils/graph";
 import { toGalaxyGraph } from "../utils/galaxyGraph";
 

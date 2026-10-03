@@ -1,0 +1,97 @@
+{
+  "baselineCommit": "c924b157747f737be56f8c3361068d3d543c86e9",
+  "baseline": {
+    "files": 85,
+    "tests": 1136
+  },
+  "migrations": [
+    {
+      "source": "src/api/client.test.ts",
+      "destination": "packages/web-client/src/core/client.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/api/ndjson.test.ts",
+      "destination": "packages/web-client/src/core/ndjson.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/api/agentClient.test.ts",
+      "destination": "packages/web-client/src/agent/agentClient.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/import-bundle.test.ts",
+      "destination": "packages/web-client/src/import/import-bundle.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/frontmatter-merge.test.ts",
+      "destination": "packages/web-client/src/import/frontmatter-merge.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/kebab-source-name.test.ts",
+      "destination": "packages/web-client/src/import/kebab-source-name.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/md-asset-refs.test.ts",
+      "destination": "packages/web-client/src/import/md-asset-refs.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/tar-reader.test.ts",
+      "destination": "packages/web-client/src/import/tar-reader.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/markdown-blocks.test.ts",
+      "destination": "packages/web-client/src/document/markdown-blocks.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/source-inline-refs.test.ts",
+      "destination": "packages/web-client/src/document/source-inline-refs.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/lang.test.ts",
+      "destination": "packages/web-client/src/document/lang.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/format.test.ts",
+      "destination": "packages/web-client/src/document/format.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/mineru-convert.test.ts",
+      "destination": "packages/web-client/src/convert/mineru-convert.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    },
+    {
+      "source": "src/utils/translate.test.ts",
+      "destination": "packages/web-client/src/translate/translate.test.ts",
+      "behavior": "Existing assertions retained verbatim; relative imports updated to package modules",
+      "ci": "dikw-web CI / vitest"
+    }
+  ],
+  "addedTests": [
+    "packages/web-client/src/core/public-api.test.ts",
+    "packages/web-client/src/core/cache-api.test.ts"
+  ]
+}

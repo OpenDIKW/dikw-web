@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { AlertTriangle, FileText, Image as ImageIcon, Play, X } from "lucide-react";
 import { Button } from "../../components/Button";
-import type { ImportBundleResult } from "../../utils/import-bundle";
+import type { ImportBundleResult } from "@opendikw/web-client/import";
 import { formatBytes, skippedTag, type ImportCopy } from "./format";
 
 interface BundlePreviewProps {

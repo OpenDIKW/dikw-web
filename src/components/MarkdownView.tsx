@@ -1,6 +1,10 @@
 import { useMemo, useRef } from "react";
-import { parseMarkdownDocument, slugifyHeading, type FrontmatterMeta } from "../utils/markdown";
-import type { PageAsset } from "../types";
+import {
+  parseMarkdownDocument,
+  slugifyHeading,
+  type FrontmatterMeta,
+} from "@opendikw/web-client/document";
+import type { PageAsset } from "@opendikw/web-client/types";
 import { FrontmatterChip } from "./FrontmatterChip";
 import { renderMarkdown, useMarkdownEffects, type MarkdownContext } from "./markdown-runtime";
 

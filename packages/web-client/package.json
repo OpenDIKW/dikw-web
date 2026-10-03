@@ -1,0 +1,60 @@
+{
+  "name": "@opendikw/web-client",
+  "version": "0.1.0",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "exports": {
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
+    "./agent": {
+      "types": "./dist/agent/index.d.ts",
+      "import": "./dist/agent/index.js"
+    },
+    "./types": {
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/types/index.js"
+    },
+    "./import": {
+      "types": "./dist/import/index.d.ts",
+      "import": "./dist/import/index.js"
+    },
+    "./convert": {
+      "types": "./dist/convert/index.d.ts",
+      "import": "./dist/convert/index.js"
+    },
+    "./translate": {
+      "types": "./dist/translate/index.d.ts",
+      "import": "./dist/translate/index.js"
+    },
+    "./document": {
+      "types": "./dist/document/index.d.ts",
+      "import": "./dist/document/index.js"
+    },
+    "./connection": {
+      "types": "./dist/connection/index.d.ts",
+      "import": "./dist/connection/index.js"
+    }
+  },
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OpenDIKW/dikw-web.git",
+    "directory": "packages/web-client"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "markdown-it": "15.0.2"
+  }
+}

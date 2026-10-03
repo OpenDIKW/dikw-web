@@ -14,9 +14,9 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { loadState, REPO_ROOT } from "./live-core/harness.mjs";
-import { buildImportBundle } from "../src/utils/import-bundle.ts";
-import { DikwClient } from "../src/api/client.ts";
-import type { TaskHandle } from "../src/types.ts";
+import { buildImportBundle } from "@opendikw/web-client/import";
+import { DikwClient } from "@opendikw/web-client/core";
+import type { TaskHandle } from "@opendikw/web-client/types";
 
 const FIXTURE_DIR = join(REPO_ROOT, "tests", "fixtures", "live-base", "sources");
 

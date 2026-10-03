@@ -1,5 +1,5 @@
 import { AlertTriangle, Info } from "lucide-react";
-import { DikwClientError } from "../api/client";
+import { DikwClientError } from "@opendikw/web-client/core";
 
 interface NoticeProps {
   title?: string;

@@ -1,5 +1,5 @@
-import type { DerivedPage, DocumentRecord, IncomingLink, Layer } from "../types";
-import { displayTitle } from "./format";
+import type { DerivedPage, DocumentRecord, IncomingLink, Layer } from "@opendikw/web-client/types";
+import { displayTitle } from "@opendikw/web-client/document";
 
 export interface BacklinkRef {
   path: string;

@@ -10,7 +10,7 @@ import {
   Star,
   X,
 } from "lucide-react";
-import { DikwClient, DikwClientError } from "../api/client";
+import { DikwClient, DikwClientError } from "@opendikw/web-client/core";
 import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Field";
@@ -20,8 +20,8 @@ import { SoftLabel } from "../components/SoftLabel";
 import { useAsyncResource } from "../hooks/useAsyncResource";
 import { useCanEdit } from "../config/auth";
 import { translations, type Locale } from "../i18n";
-import { basename, formatUnixSeconds, truncateMiddle } from "../utils/format";
-import { injectInlineRefs } from "../utils/source-inline-refs";
+import { basename, formatUnixSeconds, truncateMiddle } from "@opendikw/web-client/document";
+import { injectInlineRefs } from "@opendikw/web-client/document";
 import {
   clearWisdomWriteState,
   loadWisdomWriteState,

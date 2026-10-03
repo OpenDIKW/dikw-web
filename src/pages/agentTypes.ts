@@ -1,5 +1,5 @@
-import type { AgentSession, AgentStreamEvent, SessionSummary } from "../agent/types";
-import type { SessionTraceView } from "../agent/traceTypes";
+import type { AgentSession, AgentStreamEvent, SessionSummary } from "@opendikw/web-client/types";
+import type { SessionTraceView } from "@opendikw/web-client/types";
 
 export interface AgentClientLike {
   listSessions(signal?: AbortSignal): Promise<SessionSummary[]>;

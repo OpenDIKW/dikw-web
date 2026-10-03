@@ -1,13 +1,13 @@
 import { useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
-import { DikwClient } from "../api/client";
+import { DikwClient } from "@opendikw/web-client/core";
 import { Button } from "../components/Button";
 import { EmptyState } from "../components/EmptyState";
 import { Field } from "../components/Field";
 import { Notice } from "../components/Notice";
 import { translations, type Locale } from "../i18n";
-import type { Hit, PageRef, RetrieveResult } from "../types";
-import { formatScore } from "../utils/format";
+import type { Hit, PageRef, RetrieveResult } from "@opendikw/web-client/types";
+import { formatScore } from "@opendikw/web-client/document";
 
 interface RetrievePageProps {
   client: DikwClient;

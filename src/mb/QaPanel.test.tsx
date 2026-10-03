@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { QaPanel } from "./QaPanel";
-import type { AgentClient } from "../api/agentClient";
+import type { AgentClient } from "@opendikw/web-client/agent";
 import type { CurrentPaper } from "./MbApp";
 
 function makeAgentClient(answer: string): AgentClient {

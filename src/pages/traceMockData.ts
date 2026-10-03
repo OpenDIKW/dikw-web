@@ -3,8 +3,8 @@
 // getSessionTraces), so wiring the real endpoints later only swaps the data
 // source — the render tree stays put. Not shipped behind any real network call.
 
-import type { AgentSession } from "../agent/types";
-import type { SessionTraceView } from "../agent/traceTypes";
+import type { AgentSession } from "@opendikw/web-client/types";
+import type { SessionTraceView } from "@opendikw/web-client/types";
 
 const T0 = 1_717_488_000_000; // arbitrary fixed epoch ms — keeps tests deterministic
 

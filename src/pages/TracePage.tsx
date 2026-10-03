@@ -3,8 +3,12 @@ import { Activity, Boxes } from "lucide-react";
 import { EmptyState } from "../components/EmptyState";
 import { translations, type Locale } from "../i18n";
 import type { AgentClientLike } from "./agentTypes";
-import type { AgentMessage, AgentSession, SessionSummary } from "../agent/types";
-import type { SessionTraceView, TraceInvocationView, TraceSpanView } from "../agent/traceTypes";
+import type { AgentMessage, AgentSession, SessionSummary } from "@opendikw/web-client/types";
+import type {
+  SessionTraceView,
+  TraceInvocationView,
+  TraceSpanView,
+} from "@opendikw/web-client/types";
 
 interface TracePageProps {
   // Live data source (Phase 3): listSessions + getSession + getSessionTraces.

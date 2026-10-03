@@ -10,7 +10,7 @@
 // Upload itself is a single POST — if the user refreshes mid-upload we can't
 // recover the request, so we reset to ``idle`` on next mount.
 
-import type { ApplyReport, FixProposal, ImportResponse } from "../types";
+import type { ApplyReport, FixProposal, ImportResponse } from "@opendikw/web-client/types";
 
 export type PipelineStage =
   | "idle"

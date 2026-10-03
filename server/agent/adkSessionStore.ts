@@ -14,7 +14,7 @@ import type {
   AgentSource,
   AgentToolEvent,
   SessionSummary,
-} from "../../src/agent/types.js";
+} from "@opendikw/web-client/types";
 import { validateSessionTitle } from "./sessionStore.js";
 import { proposalFromTool, sourcesFromTool } from "./runtime.js";
 

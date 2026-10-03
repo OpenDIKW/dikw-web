@@ -4,8 +4,8 @@ import { describe, expect, it } from "vitest";
 import { TracePage } from "./TracePage";
 import { mockTraceSessions, mockTraceViews } from "./traceMockData";
 import type { AgentClientLike } from "./agentTypes";
-import type { AgentSession, SessionSummary } from "../agent/types";
-import type { SessionTraceView } from "../agent/traceTypes";
+import type { AgentSession, SessionSummary } from "@opendikw/web-client/types";
+import type { SessionTraceView } from "@opendikw/web-client/types";
 
 // Fake client serving the existing mock fixtures over the live data-flow path
 // (listSessions → getSession + getSessionTraces). The render tree is unchanged

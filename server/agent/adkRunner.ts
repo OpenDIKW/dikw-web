@@ -16,7 +16,7 @@ import { MiniMaxLlm } from "./minimaxLlm.js";
 import { DEFAULT_USER_ID, type AdkSessionStore } from "./adkSessionStore.js";
 import { proposalFromTool, sourcesFromTool, systemPrompt } from "./runtime.js";
 import type { AgentRunner, RunAgentMessageOptions } from "./runtime.js";
-import type { AgentStreamEvent } from "../../src/agent/types.js";
+import type { AgentStreamEvent } from "@opendikw/web-client/types";
 import { recordAgentTurnDuration, type TurnOutcome } from "../shared/metrics.js";
 
 const APP_NAME = "dikw-web";

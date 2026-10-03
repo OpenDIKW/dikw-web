@@ -11,7 +11,7 @@ import { deflateRawSync, gunzipSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import { createWebHandler, type WebHandler } from "./http";
 import { JobStore } from "./jobStore";
-import { readTar } from "../../src/utils/tar-reader";
+import { readTar } from "@opendikw/web-client/import";
 
 function sha256Hex(buf: Buffer | Uint8Array): string {
   return createHash("sha256").update(buf).digest("hex");

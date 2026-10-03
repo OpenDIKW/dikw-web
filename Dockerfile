@@ -20,6 +20,7 @@
 FROM node:24-slim AS builder
 WORKDIR /app
 COPY package.json package-lock.json* ./
+COPY packages/web-client/package.json ./packages/web-client/package.json
 # --ignore-scripts: `npm ci` works from lockfile metadata, which drops
 # better-sqlite3's `gypfile: false`, so it would run an implicit
 # `node-gyp rebuild` (needs python + a C++ toolchain this slim image lacks) —
@@ -34,6 +35,7 @@ RUN npm run build
 FROM node:24-slim AS prod-deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
+COPY packages/web-client/package.json ./packages/web-client/package.json
 # --omit=dev drops vite/esbuild/playwright/etc.; package.json `overrides`
 # (e.g. adm-zip) are honored by npm ci and clear the HIGH npm-audit CVEs.
 # better-sqlite3's bundled linux-x64 (glibc) prebuilt is what the runtime loads;
@@ -67,6 +69,8 @@ ENV NODE_ENV=production \
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/dist-server/standalone.mjs ./dist-server/standalone.mjs
 COPY --from=prod-deps /app/node_modules ./node_modules
+COPY packages/web-client/package.json ./packages/web-client/package.json
+COPY --from=builder /app/packages/web-client/dist ./packages/web-client/dist
 # package.json is required at runtime: Node ESM reads "type":"module" and uses it
 # to resolve the bare imports inside standalone.mjs.
 COPY package.json ./package.json

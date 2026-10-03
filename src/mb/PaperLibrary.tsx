@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { FileText, Loader2, PencilLine, RotateCw, Upload, X } from "lucide-react";
-import { DikwClientError, type DikwClient } from "../api/client";
+import { DikwClientError, type DikwClient } from "@opendikw/web-client/core";
 import { useCanEdit } from "../config/auth";
 import { useAsyncResource } from "../hooks/useAsyncResource";
-import { basename } from "../utils/format";
-import type { DocumentRecord } from "../types";
+import { basename } from "@opendikw/web-client/document";
+import type { DocumentRecord } from "@opendikw/web-client/types";
 import type { CurrentPaper } from "./MbApp";
 import { STAGE_LABEL, type UploadStage } from "./upload";
 

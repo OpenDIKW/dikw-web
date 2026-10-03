@@ -9,14 +9,14 @@ import {
   MessageSquareText,
   Settings,
 } from "lucide-react";
-import { DikwClient, normalizeBaseUrl } from "../api/client";
-import { AgentClient } from "../api/agentClient";
+import { DikwClient, normalizeBaseUrl } from "@opendikw/web-client/core";
+import { AgentClient } from "@opendikw/web-client/agent";
 import { useAuth, useCanEdit } from "../config/auth";
 import {
   fetchTranslateEnabled,
   tryOpenDefaultTranslateCache,
   type TranslateCache,
-} from "../utils/translate";
+} from "@opendikw/web-client/translate";
 import { ResearchWorkspace } from "./ResearchWorkspace";
 import { NotesView } from "./NotesView";
 import { defaultServerUrl, loadConnection, type MbConnection } from "./connection";
