@@ -35,7 +35,10 @@ export function createApplicationPlugins(
             new URL(canonical, "http://localhost").pathname,
           )
         ) {
-          req.url = canonical;
+          // Vite dispatches its /@vite, /@id and scoped-package resources by
+          // their original spelling. Canonicalize only our API namespaces;
+          // the capability check above still validates every request path.
+          if (/^\/(?:v1|agent|web)(?:\/|$)/.test(canonical)) req.url = canonical;
           return next();
         }
         res.statusCode = 403;

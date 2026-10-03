@@ -71,6 +71,9 @@ Direct `npx vitest` commands require `npm run build:packages` after changing a p
 | `npm run build:packages` | Compile shared ESM packages and their TypeScript declarations |
 | `npm run pack:shared` | Build and pack public packages into `.tmp/shared-packages/` with an integrity manifest |
 | `npm run verify:packages` | Install the tarballs in a fresh consumer and check runtime behavior and NodeNext declarations |
+| `npm run version:shared -- <version>` | Update the three package versions and exact internal/application dependencies; update the lockfile afterwards |
+| `npm run publish:shared -- --tag next` | Publish the verified candidate tarballs from a clean matching source commit |
+| `npm run verify:registry` | Download the published cohort, verify integrity and run independent consumers |
 | `npm run lint` | ESLint flat config, `--max-warnings 0` (hook deps, unused symbols, no browser `console`) |
 | `npm run format` / `format:check` | Prettier across code (`.ts/.tsx/.js/.mjs/.css/.json`; markdown excluded) |
 | `npm run test` | Vitest once (unit + component + server) |
@@ -78,7 +81,7 @@ Direct `npx vitest` commands require `npm run build:packages` after changing a p
 | `npm run test:coverage` | Vitest with coverage thresholds (60 / 45 / 55 / 60) |
 | `npm run test:e2e` | Playwright (Chromium); auto-starts dev server if needed |
 | `npm run build` | `tsc --noEmit` + `vite build` (browser to `dist/`) + `build:server` (esbuild to `dist-server/standalone.mjs`) |
-| `npm run verify` | Full gate: lint + format:check + typecheck + coverage + build + e2e |
+| `npm run verify` | Full gate: lint + format:check + typecheck + coverage + build + e2e + independent package consumers |
 | `npm run check:bundle` | gzip bundle budget (entry JS / total JS / CSS) against `dist/`; runs in CI after `verify` |
 | `npm run smoke:core` | Live `/v1` contract smoke against a reachable `dikw-core` (not a CI gate; run after a core bump or before a demo) |
 | `npm run live:verify` | Live integration: boot a **real `dikw-core`** (GHCR image + Postgres, dynamic ports), seed the write pipeline, then run read smoke + a `live` Playwright project + an agent↔core check against it. Needs Docker + `.env.core` (copy `.env.core.example`). Not part of `verify`. See [`docs/integration-verification.md`](docs/integration-verification.md) |
@@ -315,6 +318,8 @@ Jaeger + Prometheus + Loki + Grafana) — and the full env reference are in
 [`docs/observability.md`](docs/observability.md).
 
 ## Where canonical docs live
+
+- [`docs/shared-packages.md`](docs/shared-packages.md) — public exports, verified artifacts, candidate/stable releases and npm trusted publishing.
 
 - `CLAUDE.md` — operational guide for Claude Code sessions (working
   principles, architecture, testing, patch intake).

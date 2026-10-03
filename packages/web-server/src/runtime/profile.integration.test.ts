@@ -365,6 +365,8 @@ it("applies the MB guard before Vite's Core proxy and sidecars", async () => {
     }),
   );
   const cwd = await workspace();
+  await mkdir(join(cwd, "public/assets/@fixture"), { recursive: true });
+  await writeFile(join(cwd, "public/assets/@fixture/theme.css"), ":root { color: teal; }");
   const vite = await createViteServer({
     configFile: false,
     root: cwd,
@@ -374,6 +376,17 @@ it("applies the MB guard before Vite's Core proxy and sidecars", async () => {
   await vite.listen();
   cleanups.push(() => vite.close());
   const url = `http://127.0.0.1:${(vite.httpServer!.address() as { port: number }).port}`;
+  const viteClient = await fetch(url + "/@vite/client");
+  expect(viteClient.status).toBe(200);
+  expect(viteClient.headers.get("content-type")).toContain("javascript");
+  expect(await viteClient.text()).toContain("WebSocket");
+  const scopedStyles = await fetch(`${url}/assets/@fixture/theme.css`, {
+    headers: { Accept: "text/css" },
+  });
+  expect({ status: scopedStyles.status, body: await scopedStyles.text() }).toMatchObject({
+    status: 200,
+    body: expect.stringContaining("teal"),
+  });
   expect((await fetch(`${url}/v1/health`)).status).toBe(200);
   expect(forwarded).toBe(1);
   for (const path of ["/v1/tasks", "/agent/sessions/a/traces", "/web/unknown"])

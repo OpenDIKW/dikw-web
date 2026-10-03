@@ -65,8 +65,8 @@ export function tryOpenDefaultTranslateCache(
 ): Promise<TranslateCache | null>;
 ```
 
-- [ ] 记录当前基线并创建 `codex/` 实施分支；生成“原测试文件 → 目标文件 → 行为 → CI”迁移清单。先跑当前 verify、bundle、gate，失败必须先区分基线问题。
-- [ ] 新增包入口的行为测试，首次运行应因包/入口不存在而失败；验证真实 HTTP 请求参数与返回数据，不检查文件布局。
+- [x] 记录当前基线并创建 `codex/` 实施分支；生成“原测试文件 → 目标文件 → 行为 → CI”迁移清单。先跑当前 verify、bundle、gate，失败必须先区分基线问题。
+- [x] 新增包入口的行为测试，首次运行应因包/入口不存在而失败；验证真实 HTTP 请求参数与返回数据，不检查文件布局。
 
 ```ts
 import { afterEach, expect, it, vi } from "vitest";
@@ -89,7 +89,7 @@ it("preserves the core URL, bearer header and JSON result", async () => {
 });
 ```
 
-- [ ] 建立 workspace 与 ESM/声明构建；移动代码和依赖闭包，更新 imports。根应用保持 private；包公开入口使用以下结构，不通过 `src` deep import 消费。
+- [x] 建立 workspace 与 ESM/声明构建；移动代码和依赖闭包，更新 imports。根应用保持 private；包公开入口使用以下结构，不通过 `src` deep import 消费。
 
 ```json
 {
@@ -105,8 +105,8 @@ export { DikwClient, DikwClientError, normalizeBaseUrl, buildRequestUrl } from "
 export type { DikwClientConfig, JsonRequestOptions } from "./client.js";
 ```
 
-- [ ] 将根 coverage/test discovery 扩展到迁入包的代码与测试；保留全部现有断言。client 核心入口做无 DOM 的 Node import smoke，浏览器工具按子入口验证。显式 `npm.cmd run build:packages` 后再运行原应用 build。
-- [ ] 运行定向协议测试和全 gate，更新 README/Core contract 中的包入口说明；提交 `refactor(client): extract shared web client package`。
+- [x] 将根 coverage/test discovery 扩展到迁入包的代码与测试；保留全部现有断言。client 核心入口做无 DOM 的 Node import smoke，浏览器工具按子入口验证。显式 `npm.cmd run build:packages` 后再运行原应用 build。
+- [x] 运行定向协议测试和全 gate，更新 README/Core contract 中的包入口说明；提交 `refactor(client): extract shared web client package`。
 
 **验证命令：** `npm.cmd run typecheck`、`npx.cmd vitest run packages/web-client/src`、`npm.cmd run verify`、`npm.cmd run check:bundle`、`npm.cmd run check:gate`。如果 CI/coverage 配置改变触发 gate，提交迁移证据，走现有 `gate-change` 维护者流程。
 
@@ -122,7 +122,7 @@ export type { DikwClientConfig, JsonRequestOptions } from "./client.js";
 
 **接口：** 消费任务 1 的协议/文档/翻译入口。输出现有组件/hook 签名、同一个 AuthContext/useAuth/useCanEdit、loadAuth/installUnauthorizedRedirect；新增 `useTheme({ storageKey })`，结果为 `{ preference, resolved, setPreference }`，分别为 `ThemePreference`、`ResolvedTheme`、`(value: ThemePreference) => void`。
 
-- [ ] 写公共消费边界测试，导入新子入口；包未实现时应失败。
+- [x] 写公共消费边界测试，导入新子入口；包未实现时应失败。
 
 ```tsx
 import { render, screen } from "@testing-library/react";
@@ -139,8 +139,8 @@ it("renders a heading and preserves sanitized HTML behavior", () => {
 });
 ```
 
-- [ ] 迁移组件和 hooks，使用 client 包入口消除应用依赖；AuthState 可选标识由 loadAuth 校验后保留，工作台忽略可选字段。共享 UI 不导入 CurrentPaper/MbNote、工作台导航或翻译字典。
-- [ ] 拆分 CSS，应用按层引入；在 package.json 标记 CSS 副作用并让 React 外置。工作台 i18n 可暂时 re-export 主题类型以减少一次性 call-site 改动，最终机制只有一份。
+- [x] 迁移组件和 hooks，使用 client 包入口消除应用依赖；AuthState 可选标识由 loadAuth 校验后保留，工作台忽略可选字段。共享 UI 不导入 CurrentPaper/MbNote、工作台导航或翻译字典。
+- [x] 拆分 CSS，应用按层引入；在 package.json 标记 CSS 副作用并让 React 外置。工作台 i18n 可暂时 re-export 主题类型以减少一次性 call-site 改动，最终机制只有一份。
 
 ```json
 {
@@ -157,12 +157,14 @@ import "@opendikw/web-ui/reader.css";
 import "./styles.css";
 ```
 
-- [ ] 从真实 tarball 安装 UI 的消费 fixture，使用同一 Provider 渲染权限控件和 reader，确认没有双 React/双 Context；验证 KaTeX 字体、Mermaid/ECharts 动态块及受保护图片加载。这里的重依赖留在 reader 子入口，GraphCanvas 留在工作台。
-- [ ] 跑定向测试、两应用真实浏览器亮暗主题、完整 gate；更新 DESIGN/UI system 的样式归属，提交 `refactor(ui): extract shared controls and reader package`。
+- [x] 从真实 tarball 安装 UI 的消费 fixture，使用同一 Provider 渲染权限控件和 reader，确认没有双 React/双 Context；验证 KaTeX 字体、Mermaid/ECharts 动态块及受保护图片加载。这里的重依赖留在 reader 子入口，GraphCanvas 留在工作台。
+- [x] 跑定向测试、两应用真实浏览器亮暗主题、完整 gate；更新 DESIGN/UI system 的样式归属，提交 `refactor(ui): extract shared controls and reader package`。
 
 **验证：** `npm.cmd run build:packages`、`npx.cmd vitest run packages/web-ui/src`、`npm.cmd run verify`、`npm.cmd run check:bundle`；浏览器覆盖工作台 Base/Settings/Graph 与旧 MB 研究/笔记。主题 system 状态及 OS 变化行为保持；基础控件消费产物不包含 Mermaid/ECharts/Node runtime。
 
 ## 任务 3 提取共享服务端并建立应用 profile
+
+**实施状态（2026-10-03）：** PR #213/#214/#215 已合并。服务端 Node/tarball/OIDC fake IdP/持久化/并发关闭与全 gate 已通过；真实 Docker/Casdoor 验证仍待部署阶段完成，不能计作已验收。
 
 **文件：**
 
@@ -197,7 +199,7 @@ export function isRequestAllowed(
 
 消费 client 类型与默认连接值；`/instrumentation` 公开现有 registerOutboundInstrumentation。`/vite` 公开 `createApplicationPlugins(options?: { appId?: "dikw-web" | "dikw-mbweb"; profile?: ApplicationProfile }): Plugin[]`，返回前置 profile middleware 与现有两个 sidecar 插件；缺省保持工作台兼容。Plugin 是 Vite 类型，Vite 为可选 peer，生产 `/runtime` 不导入 `/vite`。
 
-- [ ] 迁移现有 OIDC/Core proxy/Agent/Web job 外部行为测试，添加 profile 公共策略测试，先运行验证不存在新入口或 MB 限制时失败。
+- [x] 迁移现有 OIDC/Core proxy/Agent/Web job 外部行为测试，添加 profile 公共策略测试，先运行验证不存在新入口或 MB 限制时失败。
 
 ```ts
 import { expect, it } from "vitest";
@@ -218,14 +220,16 @@ it("preserves the existing MB upload pipeline", () => {
 });
 ```
 
-- [ ] 提取 createWebRuntime；import 时不监听端口、不读应用静态目录、不安装退出 hook。工作台入口显式初始化 instrumentation 后调用它；保留原 listen/error/SIGTERM 行为。env 注入必须传递到现有三个 config loader，不能只在接口上声明。
-- [ ] 实现 MB 白名单、统一路径处理、角色检查；列表逐项来自设计矩阵与代码实际调用闭包。禁止未知 API 落入 SPA fallback。Vite profile middleware 位于 `/v1` proxy 和 sidecar 之前，测试开发服务器同样拒绝管理接口。将 `DIKW_WEB_CORE_ID` 作为 MB 生产必需的非敏感部署标识，MB `/web/auth/me` 增加经过验证的 issuer/coreId；工作台旧响应保持兼容。
-- [ ] 给工具构建及 runner 传递 profile；MB 不注册维护 proposal tool、不输出维护提示；HTTP 拒绝 proposal 操作和管理 traces。增加从实际运行 runtime 发请求的测试：viewer/editor、允许的阅读/上传、禁止的管理操作、异常路径、旧 proposal、伪造 browser coreUrl/token。两个实例各自使用临时目录，交叉 Cookie 不能登录，用户 A/B 的 jobs/sessions 互不可读。
+- [x] 提取 createWebRuntime；import 时不监听端口、不读应用静态目录、不安装退出 hook。工作台入口显式初始化 instrumentation 后调用它；保留原 listen/error/SIGTERM 行为。env 注入必须传递到现有三个 config loader，不能只在接口上声明。
+- [x] 实现 MB 白名单、统一路径处理、角色检查；列表逐项来自设计矩阵与代码实际调用闭包。禁止未知 API 落入 SPA fallback。Vite profile middleware 位于 `/v1` proxy 和 sidecar 之前，测试开发服务器同样拒绝管理接口。将 `DIKW_WEB_CORE_ID` 作为 MB 生产必需的非敏感部署标识，MB `/web/auth/me` 增加经过验证的 issuer/coreId；工作台旧响应保持兼容。
+- [x] 给工具构建及 runner 传递 profile；MB 不注册维护 proposal tool、不输出维护提示；HTTP 拒绝 proposal 操作和管理 traces。增加从实际运行 runtime 发请求的测试：viewer/editor、允许的阅读/上传、禁止的管理操作、异常路径、旧 proposal、伪造 browser coreUrl/token。两个实例各自使用临时目录，交叉 Cookie 不能登录，用户 A/B 的 jobs/sessions 互不可读。
 - [ ] 修 Docker workspace 安装顺序与生产复制；保留 instrumentation 早于 outbound 请求、ADK/SQLite 外部依赖和原有 HTTP wire shapes。执行打包后 Node 消费/standalone、OIDC、持久化重启、生产镜像 smoke，然后全 gate；提交 `refactor(server): extract shared runtime with application profiles`。
 
 **#205 必须保留的测试：** 有效签名/issuer/aud/sub、单次并发刷新、rotated refresh token、活跃滑动、空闲超时、绝对上限、角色降级/失去角色、刷新失败删除、旧会话固定 TTL、退出竞态、凭证不进 Cookie/日志/响应。#204 保留 Web job 创建、跟随、取消的归属检查。此任务不复制或改写 sqlite schema。
 
 ## 任务 4 建立真实包消费与 npm 发布流水线
+
+**实施状态（2026-10-03）：** 发布流程、候选 cohort 与本地独立消费均已实现并验证；新增 workflow 待维护者审查 gate-change，npm 发布及 registry 消费待账户/scope 权限。私有仓库已创建并确认 Private，应用实现继续进行。
 
 **文件：**
 
