@@ -24,7 +24,22 @@ Native Windows runs have intermittent process-launch overruns; no deadline,
 coverage floor, budget or retry was raised. Static config recognition is for
 the declared literal discovery settings, not arbitrary configuration evaluation.
 
-Two independent generic-gate review passes resolved directory and direct-property
-findings. Final release review, full verify, bundle/audit and hosted CI remain
-pending for the complete stable preparation diff. Public MB business removal is
-a later change after stable private installation and image acceptance.
+Three independent review passes resolved discovery/parser findings and accepted
+the final complete diff. The complete local gate set passed: WSL Linux lint,
+format, typecheck, full coverage (1288 tests in 104 files), build,
+bundle, production high-severity audit and gate; Windows Chromium and independent
+packed Node/React/production consumers passed against the same source hashes.
+Chromium: 58 passed, two existing opt-in live-tool tests skipped, zero retries.
+Entry/total JS/CSS: 278.0/1854.4/30.4 KB gzip within 280/1950/35 budgets.
+The high-severity production audit passed with four existing moderate findings.
+No test, timeout, coverage floor, budget or retry setting was weakened.
+
+Local validation used both operating systems; it does not claim npm run verify
+completed on a single local host. Additional WSL browser installation is optional
+and is not a publication prerequisite. Hosted CI and the release workflow run
+the unchanged complete npm run verify on Ubuntu. Final-head hosted CI, remote
+review, stable publication and registry bytes remain pending.
+
+Private security PR #2 merged at d7dc421af99ef17f5e43afed9d72012f122a9136;
+its exact main CI run 37203240889 passed. Public MB business removal remains a
+later change after stable private installation and final image acceptance.
