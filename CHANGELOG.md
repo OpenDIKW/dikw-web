@@ -11,8 +11,10 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 - Remove the embedded MB business application from the public workbench. The private `dikw-mbweb` application consumes the three MIT npm packages at exact `0.1.0`; shared package versions and APIs are unchanged.
 - Keep case-insensitive `#MB-Web` and `#/mb-web` links as a lazy migration notice with a read-only legacy notes/aliases backup download and a validated fixed destination. No authentication probe is needed for this local backup. Returning to the workbench still requires its normal authentication probe.
+- Start workbench authentication concurrently with branding, keeping stalled configuration from delaying sign-in or extending the auth timeout.
 - Reflect the maintainer's removal of private Settings/import/export: the notice offers a local backup and does not promise an import entry. Keep old browser bytes intact.
 - Check public source, static assets, bundled module paths and sourcemap sources against the finite former MB business boundary during builds. Retain shared readers, the server profile, migration bridge and generic design assets.
+- Reject symbolic links in inspected trees. The public standalone host serves only its built shell/UI assets and non-secret branding before authentication so anonymous legacy backups can load; backend APIs keep the shared gate and the private host is unchanged.
 - Map removed business regression tests to their private counterparts and keep the workbench/shared tests, discovery, coverage, timing, retry and bundle limits unchanged.
 
 ## [0.11.4] - 2026-10-04

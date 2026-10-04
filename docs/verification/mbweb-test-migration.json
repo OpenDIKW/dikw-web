@@ -428,6 +428,7 @@
     "packages/web-server/src/agent/coreCancellation.test.ts",
     "src/migrations/LegacyMbMigration.test.tsx",
     "scripts/workbench-boundary.test.mjs",
-    "tests/e2e/legacy-entry.spec.ts"
+    "tests/e2e/legacy-entry.spec.ts",
+    "server/agent/workbenchHandler.test.ts"
   ]
 }

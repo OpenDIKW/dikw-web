@@ -29,6 +29,14 @@ credentials, query or fragment. An invalid value is treated as unconfigured.
 The old page's query, fragment and credentials are never appended to this target.
 The screen retains the export action even if no target has been configured.
 
+The public standalone host serves built HTML, UI assets and non-secret
+`config.json` before the shared auth gate, allowing unsigned browser page loads.
+This policy belongs to the public host, not the shared package or private app.
+Core, Agent and Web APIs, static writes, maps and other files still use the gate.
+Symbolic links are rejected by both build inspection and the public host.
+The authenticated Vite development adapter retains its existing gate; validate
+the anonymous backup contract against the standalone production build.
+
 The notice works without an auth probe or Core connection. It follows the
 workbench's theme preference and uses Chinese document language; workbench
 locale handling applies when navigating back. Source, static assets, bundled

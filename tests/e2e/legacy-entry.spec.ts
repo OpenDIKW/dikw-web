@@ -1,6 +1,36 @@
 import { test, expect } from "./harness";
 import { mockDikwApi } from "./mockApi";
 
+test("starts workbench authentication while branding is still pending", async ({ page }) => {
+  await mockDikwApi(page);
+  // Freeze the branding timeout so this checks request concurrency, rather than
+  // eventually passing after the branding fallback starts authentication.
+  await page.clock.install({ time: new Date("2026-10-05T00:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-10-05T00:00:01Z"));
+  let probes = 0;
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/config.json", async (route) => {
+    await held;
+    await route.fulfill({ json: {} }).catch(() => {});
+  });
+  await page.route("**/web/auth/me", (route) => {
+    probes++;
+    return route.fulfill({ json: { enabled: false } });
+  });
+  try {
+    await page.goto("/#overview");
+    await expect.poll(() => probes).toBeGreaterThan(0);
+    await expect(page.getByRole("heading", { name: "Overview", exact: true })).toHaveCount(0);
+    release();
+    await expect(page.getByRole("heading", { name: "Overview", exact: true })).toBeVisible();
+  } finally {
+    release();
+  }
+});
+
 test("isolates the local backup document from pending workbench authentication", async ({
   page,
 }) => {

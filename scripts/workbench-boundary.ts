@@ -1,5 +1,5 @@
 import type { Plugin } from "vite";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 // Finite former business paths. The legacy exporter, server profile, shared
@@ -18,10 +18,19 @@ function assertPublicPath(path: string): void {
 
 function inspectTree(path: string): void {
   if (!existsSync(path)) return;
+  const directory = lstatSync(path);
+  if (directory.isSymbolicLink())
+    throw new Error(`Symlinks are not allowed in scanned trees: ${path}`);
+  if (!directory.isDirectory()) throw new Error(`Expected scanned directory: ${path}`);
   for (const entry of readdirSync(path, { withFileTypes: true })) {
     const child = join(path, entry.name);
-    if (entry.isDirectory()) inspectTree(child);
-    else {
+    const metadata = lstatSync(child);
+    if (metadata.isSymbolicLink())
+      throw new Error(`Symlinks are not allowed in scanned trees: ${child}`);
+    if (entry.isDirectory()) {
+      if (!metadata.isDirectory()) throw new Error(`Directory changed during inspection: ${child}`);
+      inspectTree(child);
+    } else {
       assertPublicPath(child);
       // Vite copies publicDir directly; those maps never enter generateBundle.
       if (child.endsWith(".map"))

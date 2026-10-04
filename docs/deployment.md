@@ -182,6 +182,20 @@ DIKW_SERVER_TOKEN=...
 
 用 docker compose 时，把这些变量加进 `dikw-web` 服务的 `environment:`（`docker-compose.yml` 默认只透传 LLM / 工具相关变量）。
 
+### Public workbench shell
+
+The public standalone entry serves built HTML, required UI assets and non-secret
+`config.json` before authentication. This makes the legacy `#MB-Web` local-backup
+page usable when signed out or when the IdP is unavailable. Normal workbench
+startup still performs its authentication probe concurrently with branding.
+Core, Agent and Web APIs remain behind the shared gate; static writes, maps and
+other files are not anonymous. Both the build and host reject symbolic links.
+Keep credentials in server environment variables, never in `config.json`.
+
+This application-owned policy leaves the published shared packages and private
+MB host unchanged. The authenticated Vite development adapter retains its
+existing gate; use the production standalone build to verify anonymous backup.
+
 ### Session renewal and provider setup
 
 Default scopes remain `openid profile email`. Existing sessions, and providers

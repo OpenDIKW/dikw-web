@@ -298,7 +298,12 @@ turns that server into a Backend-for-Frontend:
   (foreign ids return 404); their 16-live-job cap is shared across the process;
 - viewer / editor roles are enforced server-side.
 
-`/healthz` stays open for health checks. See the auth-mode section of
+`/healthz` stays open for health checks. The public workbench's standalone host
+also serves its built HTML, UI assets and non-secret branding configuration
+before authentication, so old `#MB-Web` links can download a local backup without
+the IdP. Normal workbench startup still authenticates; Core, Agent and Web APIs
+remain behind the shared gate. The private application's hosting policy is unchanged.
+See the auth-mode section of
 [`docs/deployment.md`](docs/deployment.md) and
 [ADR 0006](docs/adr/0006-oidc-auth-bff.md).
 

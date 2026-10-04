@@ -17,6 +17,7 @@ import "@opendikw/web-ui/reader.css";
 import "./styles.css";
 
 void loadTelemetry().then(initBrowserOtel);
+const startupBranding = loadBranding();
 
 const LegacyMbMigration = lazy(() =>
   import("./migrations/LegacyMbMigration").then((module) => ({
@@ -30,7 +31,7 @@ function isLegacyMbHash(): boolean {
 
 let unauthorizedRedirectInstalled = false;
 
-function WorkbenchEntry({ branding }: { branding: Branding }) {
+function WorkbenchEntry({ branding }: { branding: Branding | null }) {
   const [auth, setAuth] = useState<AuthState | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -53,7 +54,7 @@ function WorkbenchEntry({ branding }: { branding: Branding }) {
     };
   }, []);
   if (failed) return <StartupError />;
-  if (!auth) return <main aria-busy="true" />;
+  if (!auth || !branding) return <main aria-busy="true" />;
   return (
     <AuthContext.Provider value={auth}>
       <App branding={branding} />
@@ -61,8 +62,18 @@ function WorkbenchEntry({ branding }: { branding: Branding }) {
   );
 }
 
-function Root({ branding }: { branding: Branding }) {
+function Root() {
   const legacy = isLegacyMbHash();
+  const [branding, setBranding] = useState<Branding | null>(null);
+  useEffect(() => {
+    let active = true;
+    void startupBranding.then((value) => {
+      if (active) setBranding(value);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
   useEffect(() => {
     // Switching application entries replaces the document: pending probes and
     // the workbench's global 401 handler cannot affect the local backup page.
@@ -73,20 +84,20 @@ function Root({ branding }: { branding: Branding }) {
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, [legacy]);
-  return legacy ? (
-    <Suspense fallback={<main aria-busy="true" />}>
-      <LegacyMbMigration mbWebUrl={branding.mbWebUrl} />
-    </Suspense>
-  ) : (
-    <WorkbenchEntry branding={branding} />
-  );
+  if (legacy) {
+    if (!branding) return <main aria-busy="true" />;
+    return (
+      <Suspense fallback={<main aria-busy="true" />}>
+        <LegacyMbMigration mbWebUrl={branding.mbWebUrl} />
+      </Suspense>
+    );
+  }
+  return <WorkbenchEntry branding={branding} />;
 }
 
 const root = createRoot(document.getElementById("root")!);
-void loadBranding().then((branding) =>
-  root.render(
-    <StrictMode>
-      <Root branding={branding} />
-    </StrictMode>,
-  ),
+root.render(
+  <StrictMode>
+    <Root />
+  </StrictMode>,
 );

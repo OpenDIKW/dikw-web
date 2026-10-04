@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
@@ -75,6 +75,21 @@ it("rejects a neutral-named public sourcemap that would copy business source int
     }),
   );
   await expect(compile(root, [], true)).rejects.toThrow(/MB business/);
+});
+it("rejects a neutral public symlink that Vite would copy from outside the scanned trees", async () => {
+  const root = fixture();
+  mkdirSync(join(root, "private-fixture"));
+  writeFileSync(join(root, "private-fixture/neutral.js"), "export const privateBusiness = true;");
+  mkdirSync(join(root, "public"));
+  symlinkSync(join(root, "private-fixture"), join(root, "public/neutral"), "junction");
+  await expect(compile(root, [], true)).rejects.toThrow(/symlink/i);
+});
+it("rejects a scanned directory that is itself a symlink", async () => {
+  const root = fixture();
+  mkdirSync(join(root, "private-fixture"));
+  writeFileSync(join(root, "private-fixture/neutral.js"), "export const privateBusiness = true;");
+  symlinkSync(join(root, "private-fixture"), join(root, "public"), "junction");
+  await expect(compile(root, [], true)).rejects.toThrow(/symlink/i);
 });
 it("keeps the migration bridge, shared profile and generic design assets", async () => {
   const root = fixture();

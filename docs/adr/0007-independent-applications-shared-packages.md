@@ -52,6 +52,12 @@ finite former business modules, static assets and sourcemap paths while preservi
 shared profile/reader code. Business tests move to private CI with the recorded
 transfer ledger; public tests and quality thresholds remain in force.
 
+The public standalone host owns a narrow anonymous built-shell policy so the
+legacy hash can load without the IdP; required UI assets and non-secret branding
+config are public, while Core/Agent/Web APIs and static writes retain the shared
+auth gate. Source/static inspection and this host reject symbolic links. No
+published `0.1.0` package or private hosting policy changes for this exception.
+
 Package releases are versioned together for the first cohort. Neither shared
 source deep imports nor sibling `file:` dependencies remain in the delivered
 private app. Existing test assertions, #204/#205 regressions and quality gates
