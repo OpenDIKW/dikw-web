@@ -68,12 +68,16 @@ unchanged. Per the existing delivery workflow, a maintainer must review the
 concrete PR and add `gate-change`; the implementation does not set a local
 override or alter the gate.
 
-The npm account/scope has not yet been authenticated in this environment. Actual
-publication, npm trusted-publisher configuration and registry-download verification
-are pending. The documentation gives the authenticated first-publication procedure;
-subsequent CI publication uses OIDC. Local tarball consumers do not count as registry
-acceptance. Stable publication and public MB removal remain gated on validation
-by the private application.
+Update on 2026-10-04: PR #216 is merged. The owner completed npm login and 2FA;
+all three `0.1.0-rc.1` packages were published under `next` from the clean reviewed
+commit `7ae8fcc5a4919053c1acb84fb8fc4e04b5627160`. Registry metadata, downloaded
+tarball SHA-512 integrity and independent Node/React/production consumers passed.
+The owner authorized the three Trusted Publisher connections, and each npm Settings
+page confirmed GitHub repository `OpenDIKW/dikw-web`, `publish-packages.yml`, blank
+environment and npm publish permission. Actual GitHub OIDC publication remains
+pending the next new cohort; skipping an existing version is not proof of that flow.
+Stable publication and public MB removal remain gated on private application and
+image acceptance. Credentials and account verification screenshots are not committed.
 
 `OpenDIKW/dikw-mbweb` has been created and its visibility verified as Private.
 Its sibling checkout has an independent history and migration provenance; source

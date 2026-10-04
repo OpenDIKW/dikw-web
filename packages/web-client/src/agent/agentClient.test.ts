@@ -154,3 +154,19 @@ describe("AgentClient", () => {
     expect(paths).toEqual(["/agent/sessions/s1/traces"]);
   });
 });
+
+it("creates a page-scoped session without changing legacy unscoped requests", async () => {
+  const fetcher = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+    Response.json({ id: "session" }),
+  );
+  vi.stubGlobal("fetch", fetcher);
+  const client = new AgentClient();
+  const controller = new AbortController();
+  await client.createSession(controller.signal, { pagePath: "sources/original.md" });
+  expect(JSON.parse(String(fetcher.mock.calls[0][1]?.body))).toEqual({
+    scope: { pagePath: "sources/original.md" },
+  });
+  expect(fetcher.mock.calls[0][1]?.signal).toBe(controller.signal);
+  await client.createSession();
+  expect(fetcher.mock.calls[1][1]?.body).toBeUndefined();
+});

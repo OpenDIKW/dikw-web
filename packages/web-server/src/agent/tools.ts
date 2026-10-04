@@ -1,5 +1,6 @@
 import { ProxyAgent } from "undici";
 import type { ApplicationProfile } from "../runtime/profile.js";
+import type { AgentSessionScope } from "@opendikw/web-client/types";
 
 const webProxyUrl =
   process.env.HTTPS_PROXY ||
@@ -10,6 +11,7 @@ const webProxyDispatcher = webProxyUrl ? new ProxyAgent(webProxyUrl) : undefined
 
 export interface DikwToolsOptions {
   profile?: ApplicationProfile;
+  scope?: AgentSessionScope;
   coreUrl: string;
   token?: string;
   braveApiKey?: string;

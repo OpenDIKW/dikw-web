@@ -1,6 +1,6 @@
 {
   "name": "dikw-web",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "private": true,
   "type": "module",
   "engines": {
@@ -67,9 +67,9 @@
     "react": "^19.2.6",
     "react-dom": "^19.3.0",
     "undici": "^8.10.0",
-    "@opendikw/web-client": "0.1.0-rc.1",
-    "@opendikw/web-ui": "0.1.0-rc.1",
-    "@opendikw/web-server": "0.1.0-rc.1"
+    "@opendikw/web-client": "0.1.0-rc.2",
+    "@opendikw/web-ui": "0.1.0-rc.2",
+    "@opendikw/web-server": "0.1.0-rc.2"
   },
   "overrides": {
     "adm-zip": "^0.6.1",

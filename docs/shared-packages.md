@@ -3,8 +3,10 @@
 The public workbench maintains three MIT packages. The independent private MB
 application installs exact versions from public npm; public CI never checks out
 that repository. Each release uses one version for all three packages and their
-internal dependencies. The first candidate is `0.1.0-rc.1` (`next`); stable
-`0.1.0` (`latest`) follows validation by both applications.
+internal dependencies. The first candidate, `0.1.0-rc.1`, is published under
+`next`. Candidate `0.1.0-rc.2` adds immutable page-scoped Agent sessions; its
+publication and independent MB registry acceptance are pending. Stable `0.1.0`
+(`latest`) follows validation by both applications.
 
 | Package | Public entries | Runtime requirements |
 | --- | --- | --- |

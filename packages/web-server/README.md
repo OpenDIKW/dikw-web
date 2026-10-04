@@ -68,3 +68,9 @@ scripts are needed. Published files contain compiled ESM, declarations, this
 README and the MIT license; test IdP fixtures and application code are excluded.
 Source provenance: OpenDIKW/dikw-web commit
 `162e619d6052d43b8fdc77048b23a60a7b2d4b02`; history/authors remain there.
+
+Optional page-scoped Agent sessions bind a canonical Markdown page path at
+creation and persist it in SQLite. Scoped turns allow only health and reading
+that exact page; they expose no global retrieval, listing or external tools.
+The message body cannot change the session scope. Unscoped sessions preserve the
+existing tool set. Page evidence produces the existing source citation event.

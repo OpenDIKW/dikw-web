@@ -7,6 +7,11 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.11.2] - 2026-10-04
+
+- Add immutable page-scoped Agent sessions for selected-document Q&A, with server-enforced reader limits and stable source citations. Unscoped workbench conversations retain whole-base retrieval.
+- Prepare shared package candidate 0.1.0-rc.2 for independent MB acceptance through npm Trusted Publisher.
+
 ## [Unreleased]
 
 ## [0.11.1] - 2026-10-03

@@ -1,5 +1,10 @@
 import { decodeNdjsonStream } from "../core/ndjson.js";
-import type { AgentSession, AgentStreamEvent, SessionSummary } from "../types/agent.js";
+import type {
+  AgentSession,
+  AgentSessionScope,
+  AgentStreamEvent,
+  SessionSummary,
+} from "../types/agent.js";
 import type { SessionTraceView } from "../types/trace.js";
 
 export interface AgentClientOptions {
@@ -26,8 +31,12 @@ export class AgentClient {
     return requestJson<SessionSummary[]>("/agent/sessions", { signal });
   }
 
-  async createSession(signal?: AbortSignal): Promise<AgentSession> {
-    return requestJson<AgentSession>("/agent/sessions", { method: "POST", signal });
+  async createSession(signal?: AbortSignal, scope?: AgentSessionScope): Promise<AgentSession> {
+    return requestJson<AgentSession>("/agent/sessions", {
+      method: "POST",
+      ...(scope ? { body: JSON.stringify({ scope }) } : {}),
+      signal,
+    });
   }
 
   async getSession(sessionId: string, signal?: AbortSignal): Promise<AgentSession> {

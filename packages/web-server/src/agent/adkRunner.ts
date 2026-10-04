@@ -166,6 +166,7 @@ export class AdkAgentRunner implements AgentRunner {
 
   async runMessage({
     sessionId,
+    scope,
     userId = DEFAULT_USER_ID,
     message,
     coreUrl,
@@ -183,6 +184,7 @@ export class AdkAgentRunner implements AgentRunner {
       // emits the wire `error` event).
       const tools = createDikwTools({
         profile: this.profile,
+        scope,
         coreUrl,
         token,
         braveApiKey: this.config.braveApiKey,
@@ -207,7 +209,8 @@ export class AdkAgentRunner implements AgentRunner {
         name: "dikw_agent",
         description: "A helpful knowledge base agent over dikw-core.",
         model,
-        instruction: systemPrompt(this.profile),
+        // A page path is literal data; ADK string instructions interpolate {state}.
+        instruction: scope ? () => systemPrompt(this.profile, scope) : systemPrompt(this.profile),
         tools,
         ...(compactor ? { contextCompactors: [compactor] } : {}),
       });

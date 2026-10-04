@@ -122,3 +122,15 @@ describe("proposalFromTool", () => {
     expect(proposalFromTool("retrieve_knowledge", { page_refs: [] })).toBeNull();
   });
 });
+
+it("projects successful read_page evidence into source citations", () => {
+  expect(
+    sourcesFromTool("read_page", {
+      path: "sources/original.md",
+      title: "Original",
+      layer: "source",
+      body: "Evidence",
+    }),
+  ).toEqual([{ path: "sources/original.md", title: "Original", layer: "source", score: null }]);
+  expect(sourcesFromTool("read_page", { error: "outside scope" })).toEqual([]);
+});
