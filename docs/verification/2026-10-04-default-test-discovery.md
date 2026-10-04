@@ -46,6 +46,17 @@ The shared npm cohort remains 0.1.0 and its runtime/API is unchanged.
   are recorded in the PR. No business source or public hash routing is removed
   by this gate-only change.
 
+## Maintainer gate judgment
+
+[PR #220](https://github.com/OpenDIKW/dikw-web/pull/220) carries the visible
+`gate-change` label under the maintainer's authorization to complete subsequent
+operations. The unlabelled local check reported only `gate-machinery-modified`;
+no tests, assertions, coverage floors, budgets or retries were weakened.
+The initial CI event started before the label was attached and therefore had
+`GATE_HAS_OVERRIDE=false`. This documentation commit records the judgment and
+creates a new synchronization event with the existing label. The original
+failure is retained in run `37211879556`; it is not a flaky-test rerun.
+
 ## Stable release and remaining cutover
 
 All three shared packages were actually published as 0.1.0/latest from public
