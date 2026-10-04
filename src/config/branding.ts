@@ -1,8 +1,10 @@
+import { resolveMbWebUrl } from "./mbWebUrl";
 import type { Locale } from "../i18n";
 
 export type LocalizedText = Record<Locale, string>;
 
 export interface Branding {
+  mbWebUrl?: string;
   name: LocalizedText;
 }
 
@@ -43,7 +45,13 @@ export function resolveBranding(raw: unknown): Branding {
   const brand = raw && typeof raw === "object" ? (raw as Record<string, unknown>).brand : undefined;
   const name =
     brand && typeof brand === "object" ? (brand as Record<string, unknown>).name : undefined;
-  return { name: resolveLocalized(name, defaultBranding.name) };
+  const destination = resolveMbWebUrl(
+    raw && typeof raw === "object" ? (raw as Record<string, unknown>).mbWebUrl : undefined,
+  );
+  return {
+    name: resolveLocalized(name, defaultBranding.name),
+    ...(destination ? { mbWebUrl: destination } : {}),
+  };
 }
 
 async function fetchBranding(): Promise<Branding> {

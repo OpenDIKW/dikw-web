@@ -9,6 +9,16 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-10-03
+
+### Added
+
+- The existing MB app can explicitly export local notes and paper aliases for
+  the independent private application, using a bounded versioned JSON file.
+  Credentials and caches are excluded; old data and the existing MB app remain.
+- Optional fixed `mbWebUrl` branding and a tested migration bridge prepared for
+  activation after private application acceptance. Unsafe targets are rejected.
+
 ## [0.11.0] - 2026-10-03
 
 ### Added

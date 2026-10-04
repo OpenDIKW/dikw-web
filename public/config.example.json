@@ -5,6 +5,7 @@
       "zh-CN": "示例知识库"
     }
   },
+  "mbWebUrl": "https://papers.example.com",
   "telemetry": {
     "endpoint": ""
   }

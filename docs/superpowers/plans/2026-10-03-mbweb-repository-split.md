@@ -164,7 +164,7 @@ import "./styles.css";
 
 ## 任务 3 提取共享服务端并建立应用 profile
 
-**实施状态（2026-10-03）：** PR #213/#214/#215 已合并。服务端 Node/tarball/OIDC fake IdP/持久化/并发关闭与全 gate 已通过；真实 Docker/Casdoor 验证仍待部署阶段完成，不能计作已验收。
+**实施状态（2026-10-04）：** PR #213/#214/#215 已合并，共享服务端完整门禁已通过。隔离真实 Casdoor Docker 与双 BFF 已验证登录、角色刷新升降级、viewer 写入限制、跨应用 Cookie 拒绝及 SQLite 会话重启；生产镜像、Core token、IdP SSO/logout 和回退仍待验收。
 
 **文件：**
 
@@ -229,7 +229,7 @@ it("preserves the existing MB upload pipeline", () => {
 
 ## 任务 4 建立真实包消费与 npm 发布流水线
 
-**实施状态（2026-10-03）：** 发布流程、候选 cohort 与本地独立消费均已实现并验证；新增 workflow 待维护者审查 gate-change，npm 发布及 registry 消费待账户/scope 权限。私有仓库已创建并确认 Private，应用实现继续进行。
+**实施状态（2026-10-04）：** PR #216 经维护者同意 gate-change、CI 与审查通过后已合并。三个候选包从干净 main 提交构建并通过真实 tarball 独立消费；npm 登录/scope 权限、真实 registry 发布与下载 integrity 验证仍待完成。
 
 **文件：**
 
@@ -275,6 +275,8 @@ npm.cmd run verify:packages
 
 ## 任务 5 建立私有 MB 应用及独立配置
 
+**实施状态（2026-10-04）：** 私有兄弟仓库已核实 Private，独立应用与显式迁移导入已提交到草稿 PR OpenDIKW/dikw-mbweb#1（d1507dc）。本地真实候选 tarball 安装下，lint/format/types、20 文件 96 项单测、覆盖率、生产构建、6 条浏览器流程与 bundle 通过；三轮独立审查的有效问题已修复。未提交 file/workspace 依赖或伪造 lockfile；共享包发布前 npm ci、私有 hosted CI 与镜像验收仍无法完成，草稿不能合并。初始 CI/gate 文件触发维护者 gate-change 要求。
+
 **文件：**
 
 - 新仓库根：package.json/lockfile、.npmrc、tsconfig、Vite/ESLint/Prettier/Vitest/Playwright 配置、index.html、Dockerfile、docker-compose.yml、.env.example、.gitignore、README、CLAUDE、CHANGELOG 与私有 CI。
@@ -315,6 +317,8 @@ import { MarkdownView } from "@opendikw/web-ui/reader";
 **空克隆验收命令：** `npm.cmd ci`、`npm.cmd run verify`、`npm.cmd run check:bundle`、`npm.cmd run check:gate`、`docker build -t dikw-mbweb:verify .`。执行目录必须只含 MB 仓库，不能挂载 sibling web；先用候选包完成独立消费证据。
 
 ## 任务 6 建立浏览器数据迁移桥
+
+**实施状态（2026-10-04）：** 旧应用显式导出和未来有限迁移页已实现，旧业务入口继续可用。私有导入已在草稿 PR #1 中，两端真实不同 origin 的 Chromium 导出/重复导入/刷新/别名/旧 storage 保留及无 Core POST 流程已通过；公开迁移分支正完成最终门禁和 PR。正式包 0.1.0 发布与应用依赖切换仍待 registry/镜像验收。
 
 **文件：**
 
@@ -361,6 +365,8 @@ it("preserves target notes and imports a missing note exactly once", () => {
 
 ## 任务 7 移除公开仓库中的 MB 业务页面
 
+**实施状态（2026-10-04）：** 尚未开始删除或切换旧 hash；须先完成私有 CI、正式 registry 安装和 MB 镜像验收。
+
 **文件：**
 
 - 修改：`src/main.tsx`、App routing、README、CLAUDE、CONTEXT、docs/core-contract、UI/Agent/deployment 文档、CHANGELOG、Docker/CI release 必要配置。
@@ -390,6 +396,8 @@ test("keeps the old MB link usable for migration", async ({ page }) => {
 - [ ] 完整工作台 verify、bundle、gate、安全/镜像 checks 与 MB regression 再通过；独立审查，处理 CI/review 后合并 `refactor(app): remove embedded MB application from workbench`。按应用版本规则 bump，并保留兼容说明与正式包版本。
 
 ## 任务 8 双应用生产验证与切换
+
+**实施状态（2026-10-04）：** 已完成隔离 Core 0.6.8 数据读取、Casdoor 3.152.0 双 client 登录与 HTTP 权限、约 10 秒角色升降级同步及 BFF SQLite 重启验证。真实迁移与生产亮暗设置/阅读器检查通过。LLM/Core 授权、IdP SSO/logout、registry 构建镜像/private GHCR 与备份/回退仍未验收；不能视为整项完成。
 
 **文件与记录：** 两仓部署文档、私有 MB `docker-compose.verify.yml`、真实集成验证脚本、镜像/包/commit 验收记录、回退操作说明。记录不包含凭证或客户正文。
 

@@ -36,6 +36,12 @@ predominantly reads, plus explicit write surfaces (Import / paper upload,
 the Wisdom editor, the Tasks maintenance ops); see `CLAUDE.md` → "Routes and contracts
 (hash-based)" for the split.
 
+The existing MB app includes an explicit **导出笔记与论文别名** action for
+moving local data to the independent private application. It downloads only
+notes and paper aliases; it leaves the old browser data intact. See
+[MB data migration](docs/mb-data-migration.md). The old app remains available
+until the private application and shared package release are accepted.
+
 ## Quick start
 
 ```sh

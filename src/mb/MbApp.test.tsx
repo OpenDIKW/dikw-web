@@ -6,6 +6,34 @@ import { AuthContext } from "@opendikw/web-ui/auth";
 afterEach(() => {
   vi.unstubAllGlobals();
 });
+it.each([
+  ["dikw-mb.notes", ""],
+  ["dikw-mb.paperNames", ""],
+  ["dikw-mb.notes", "broken"],
+  ["dikw-mb.notes", "{}"],
+  ["dikw-mb.paperNames", "broken"],
+  ["dikw-mb.paperNames", "[]"],
+  ["dikw-mb.paperNames", '{"sources/paper.md":42}'],
+])("preserves damaged %s bytes when opening the actual export entry (%s)", async (key, raw) => {
+  localStorage.setItem(key, raw);
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const path = new URL(String(input), window.location.origin).pathname;
+      return new Response(JSON.stringify(path === "/v1/base/pages" ? [] : { enabled: false }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }),
+  );
+  render(
+    <AuthContext.Provider value={{ enabled: true, user: { sub: "u-1" }, role: "viewer" }}>
+      <MbApp />
+    </AuthContext.Provider>,
+  );
+  await screen.findByRole("button", { name: "导出笔记与论文别名" });
+  await waitFor(() => expect(fetch).toHaveBeenCalled());
+  expect(localStorage.getItem(key)).toBe(raw);
+});
 
 describe("MbApp in auth mode (issue #200)", () => {
   it("reads core only through the same-origin proxy and keeps viewers read-only", async () => {

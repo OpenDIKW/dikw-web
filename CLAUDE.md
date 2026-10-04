@@ -226,3 +226,12 @@ TDD for behavior changes: failing test first, smallest change to green, then ref
 ## Patch intake
 
 Don't blindly overwrite app files from external patches. Many older patches predate current decisions (`#chat` canonical route, Settings-owned connection config, the current `styles.css` token system). Adapt the useful parts into the current architecture and update tests/docs to match.
+
+## MB repository migration
+
+The existing MB header exposes an explicit local JSON export of notes and
+paper aliases; see `docs/mb-data-migration.md`. It never exports credentials,
+cache or panel state, and never deletes the old data. A minimal migration
+bridge is implemented but is not mounted while the private app is awaiting
+registry/CI/image acceptance. Optional branding `mbWebUrl` is a fixed HTTP(S)
+URL without credentials, query or fragment; legacy URL state is never forwarded.
