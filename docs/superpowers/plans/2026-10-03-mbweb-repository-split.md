@@ -365,7 +365,7 @@ it("preserves target notes and imports a missing note exactly once", () => {
 
 ## 任务 7 移除公开仓库中的 MB 业务页面
 
-**实施状态（2026-10-04）：** 尚未开始删除或切换旧 hash；须先完成私有 CI、正式 registry 安装和 MB 镜像验收。
+**实施状态（2026-10-05）：** 公开切换已在 `codex/remove-legacy-mb-application` 实现，18 个旧业务源码与测试文件已删除，原导出损坏数据断言保留在迁移页测试。新版迁移入口、静态/模块/sourcemap 边界检查完成真实失败回归与修复，三轮独立审查通过。独立 WSL 安装通过全部验证阶段：1296 项测试、62 条浏览器流程、三个独立包消费者及构建预算；两条原有 opt-in live 测试未启用，原测试限时、重试和预算不变。私有 `0.1.4` 最终镜像已通过真实登录、损坏数据保护、SQLite 备份/重启和已发布 `0.1.3` 回退验收。公开真实 UI、最终 PR 与 CI 仍在收尾。
 
 **文件：**
 
@@ -376,7 +376,7 @@ it("preserves target notes and imports a missing note exactly once", () => {
 
 **接口：** 工作台默认只启动管理应用；旧 `#MB-Web` 启动有限迁移页并提供已配置的新 MB 地址。公共包入口保持 `0.1.0` 契约，MB 使用同一正式发布批次。
 
-- [ ] 先添加浏览器失败测试：管理入口正常；旧 hash 展示迁移与导出；新 MB URL 未配置时仍能导出并看到说明。源码/包/产物检查针对 MB 页面、模块与资产，不用“任何 MB 字符串都禁止”的规则误杀兼容迁移桥。
+- [x] 先添加浏览器失败测试：管理入口正常；旧 hash 展示迁移与导出；新 MB URL 未配置时仍能导出并看到说明。源码/包/产物检查针对 MB 页面、模块与资产，不用“任何 MB 字符串都禁止”的规则误杀兼容迁移桥。
 
 ```ts
 import { expect, test } from "@playwright/test";
@@ -384,20 +384,20 @@ import { expect, test } from "@playwright/test";
 test("keeps the old MB link usable for migration", async ({ page }) => {
   await page.goto("/#MB-Web");
   await expect(page.getByRole("heading", { name: "迈博应用已迁移" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "导出旧数据" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "导出旧笔记与论文别名" })).toBeVisible();
   await expect(page.getByRole("button", { name: "上传论文" })).toHaveCount(0);
 });
 ```
 
 迁移页延续旧 MB 的中文界面，标题与按钮使用此测试文案；当前旧 MB 界面首次跑这个测试必须失败。
-- [ ] 将 main 对 MbApp 的 import/选择替换为懒加载 LegacyMbMigration，移除已迁移业务代码与孤立 imports。删除前核实私有 CI、正式包 registry 安装与 MB 镜像均已通过。
-- [ ] 完成测试迁移清单：每个公开删除的业务测试对应私有测试文件/通过的 commit；通用测试留在公共包。清理单测/e2e 发现配置，保持 coverage/bundle 预算，不跳过失败测试。触发 gate 时提供真实迁移证据和维护者 `gate-change`。
-- [ ] 公开产物检查覆盖 `src/mb`/MbApp/PaperLibrary/QaPanel/NotesView 对应模块、业务 demo/assets 和 sourcemap 来源；共享 tarball 检查不含客户业务代码。有限迁移页是明确保留项，报告注明。
+- [x] 将 main 对 MbApp 的 import/选择替换为懒加载 LegacyMbMigration，移除已迁移业务代码与孤立 imports。删除前核实私有 CI、正式包 registry 安装与 MB 镜像均已通过。
+- [x] 完成测试迁移清单：每个公开删除的业务测试对应私有测试文件/通过的 commit；通用测试留在公共包。保持原发现配置、coverage/bundle 预算，不跳过失败测试。公开门禁需通过已授权的可见 `gate-change` 标签记录本次私有迁移。
+- [x] 公开产物检查覆盖 `src/mb`/MbApp/PaperLibrary/QaPanel/NotesView 对应模块、业务 demo/assets 和 sourcemap 来源；共享 tarball 检查不含客户业务代码。有限迁移页是明确保留项，报告注明。
 - [ ] 完整工作台 verify、bundle、gate、安全/镜像 checks 与 MB regression 再通过；独立审查，处理 CI/review 后合并 `refactor(app): remove embedded MB application from workbench`。按应用版本规则 bump，并保留兼容说明与正式包版本。
 
 ## 任务 8 双应用生产验证与切换
 
-**实施状态（2026-10-04）：** 已完成隔离 Core 0.6.8 数据读取、Casdoor 3.152.0 双 client 登录与 HTTP 权限、约 10 秒角色升降级同步及 BFF SQLite 重启验证。真实迁移与生产亮暗设置/阅读器检查通过；真实 MiniMax 双语翻译及基于 Core 文档的 Agent 问答已通过。Core 授权、真实 Wisdom 写入、IdP SSO/logout、registry 构建镜像/private GHCR 与备份/回退仍未验收；不能视为整项完成。
+**实施状态（2026-10-05）：** 隔离 Core 0.6.8 的授权与读取、真实 Casdoor 双 client/SSO/logout、#204/#205 会话/角色边界、实际 Wisdom 写入与归档同步已验收。真实 MiniMax 双语翻译与问答沿用此前独立记录；`0.1.4` 不冒称重跑提供商问答。npm 三包正式 `0.1.0`、私有独立安装/CI/GHCR、最终 digest 的 SQLite 备份/重启与已发布旧镜像回退均通过。用户后续明确退役私有 Settings/导入导出，公开旧数据只提供保留原字节的本地备份。公开最终 PR/CI/真实 UI 仍在收尾；完整 Core 导入→ingest→synth 仍未验证，隔离 Core 缺提供商凭证，现有 embedding 密钥的服务商正在向用户确认。
 
 **文件与记录：** 两仓部署文档、私有 MB `docker-compose.verify.yml`、真实集成验证脚本、镜像/包/commit 验收记录、回退操作说明。记录不包含凭证或客户正文。
 
@@ -417,7 +417,7 @@ test("keeps the old MB link usable for migration", async ({ page }) => {
 | 可复用与包完整 | 三个 npm 正式版本、tarball 清单与 integrity；独立 Node/React/production 消费 |
 | 产品行为 | 两套应用实际浏览器流程、迁移的 tests 清单、控制台/主题/字体/阅读器报告 |
 | 能力与会话边界 | 双 profile HTTP、Agent tool、用户 A/B、跨应用 Cookie、#204/#205 回归 |
-| 数据可迁移 | 双 origin 导出/导入，笔记/别名保留，幂等、目标不覆盖、无自动 Wisdom 重写 |
+| 浏览器数据保留 | 按用户后续范围：旧 origin 显式本地备份不改写原字节，私有帐号笔记/别名保留；退役的导入 UI 不恢复，无自动 Wisdom 重写 |
 | 门禁保持 | 两仓 verify/bundle/gate；公开必需检查名不变，合理配置变化有 gate-change 证据 |
 | 生产与回退 | 真实 Core/Casdoor 集成、数据库重启、镜像摘要、备份与回退演练 |
 
@@ -447,3 +447,10 @@ test("keeps the old MB link usable for migration", async ({ page }) => {
 - 公开门禁补齐默认条件分支、ignore、quoted/spread/hidden-path 和默认 Vitest 排除，并在独立审查后补三类无法解析的发现配置拒绝规则；真实 Git 回归先红后绿，62 项专项检查通过。公开 Linux 独立安装完成全部验证阶段：1309 项测试、58 条 Chromium 流程、三个独立消费者及构建预算全绿；生产审计无 high/critical。两条原有 opt-in live 测试未启用，测试限时/断言未变。Hosted CI 和远程审查仍待本次 PR，旧业务入口和源码继续保留。
 - 公开 PR #220 的第三轮独立（远程）审查指出 Playwright 依赖目录遍历和未知环境条件的遗漏；两个真实 Git 回归先红后绿，补上显式 testDir/CI 正向保护后共 66 项门禁回归通过。最终源码的全量验证与 hosted CI 另行记录，不用早一版 1309 项结果替代。
 - 最终公开源码已在独立 Linux 安装完成 1313 项测试、58 条零重试浏览器流程、三个消费者、构建预算和 high+ 审计；精确结果见 `docs/verification/2026-10-04-default-test-discovery.md`。私有最终源码 `42dc43c` 的 main CI 与发布 run `37213165453` 已全绿，私有 digest `sha256:d91e25436880e6dfd0431908211942e56ec9d0df7ddaa879959f7db8107968d6` 实际拉取及登录、阅读、主题切换、双 SQLite 备份重启、旧安全镜像回退/恢复均通过；公开会话已只读核查关联、精确 CI/发布和明暗截图。
+
+## 2026-10-05 最终业务入口切换
+
+- 用户在 `mbweb-work` 明确退役私有 Settings 和导入导出，仅保留用户名、退出登录和主题。私有 PR #6 与 `0.1.3` 镜像已交付；公开迁移说明同步为只读本地备份，不再承诺私有导入入口。原双 origin 迁移验收保留为历史，已退役功能不恢复。
+- 最终测试映射发现原公开 `damaged-notes.test.tsx` 未迁移，私有损坏笔记告警阻断了整页论文阅读。已通过获授权的跨会话工具交接；全部原有断言保留，真实红→绿，PR #7 合并为 `701fdbf`，精确 main CI `37218183657` 成功。发布 `37218360516` 和最终 `0.1.4` digest `sha256:68c2f573087469a5c34780cb56d2a92f1c02408acb2f7ab0f23c96de9620de42` 已独立核验；真实 Casdoor/Core、损坏存储保护、SQLite 备份/重启、已发布 `0.1.3` digest 回退再恢复均通过。[永久验收证明](https://github.com/OpenDIKW/dikw-mbweb/pull/7#issuecomment-5982327255)。
+- 公开待交付应用版本为 `0.12.0`，三共享包仍精确 `0.1.0`，不重发既有版本。旧 hash 初次打开不探测鉴权；跨工作台/备份入口重载文档隔离旧 probe 和全局401处理器，普通工作台 hash 保持 SPA。初次迁移页缺失失败、独立审查两个红例和当前全量本地结果均有独立记录；最终 hosted CI 尚未运行。
+- 构建检查有限的原业务路径、组件、静态资产及 sourcemap（包括 Vite 直接复制的 public map）。保留通用设计资产、共享 profile 和本地备份协议。Vite extensionless TS import 的未来 native-loader 告警已审查为非当前阻断；当前加载器和类型检查通过。

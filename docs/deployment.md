@@ -340,3 +340,9 @@ The Vite entry `@opendikw/web-server/vite` provides a development capability
 guard and sidecars; local auth-off development is not production OIDC enforcement.
 Production browsers use the same-origin BFF Core proxy. Direct browser-to-Core
 connections in auth-off mode still require the Core deployment's CORS policy.
+
+The public image serves the workbench and a local-backup legacy notice only.
+Configure the fixed `mbWebUrl` in public `/config.json` to link the independently
+deployed private MB application; do not append old URL or browser state.
+The private app no longer offers a Settings/import/export UI. Preserve old browser
+data and downloaded backups. Shared packages remain exact cohort `0.1.0`.

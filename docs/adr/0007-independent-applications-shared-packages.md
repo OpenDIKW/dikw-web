@@ -1,6 +1,6 @@
 # ADR 0007: Independent applications with public shared packages
 
-Status: Accepted — staged implementation in progress.
+Status: Accepted.
 
 ## Context
 
@@ -33,8 +33,9 @@ response exposes issuer/Core ID for identity-scoped browser storage.
 Shared React remains a peer. UI exports provide controls, readers and theme
 mechanics; applications own navigation, translations, branding, layouts and
 business models. Browser notes, aliases and caches in independent MB are
-partitioned by issuer, subject and Core ID; legacy data requires explicit
-export/import rather than assignment to the first user.
+partitioned by issuer, subject and Core ID. Legacy data is never assigned to
+the first user. The maintainer later retired the private Settings/import/export
+UI (private PR #6); the public legacy link retains a local backup download.
 
 ## Rollout and consequences
 
@@ -43,6 +44,13 @@ works. Validate packed packages outside the checkout, publish a candidate,
 validate the private app, provide migration, then publish stable packages and
 remove public MB business code. Keep the legacy migration route during the
 transition. Backups and real Core/Casdoor acceptance precede deployment cutover.
+
+The public `#MB-Web` route is now a lazy local backup notice with a fixed,
+validated destination. It does not boot the business app or probe authentication.
+The workbench authenticates normally when selected. Build checks cover the
+finite former business modules, static assets and sourcemap paths while preserving
+shared profile/reader code. Business tests move to private CI with the recorded
+transfer ledger; public tests and quality thresholds remain in force.
 
 Package releases are versioned together for the first cohort. Neither shared
 source deep imports nor sibling `file:` dependencies remain in the delivered

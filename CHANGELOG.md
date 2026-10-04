@@ -7,6 +7,14 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.0] - 2026-10-05
+
+- Remove the embedded MB business application from the public workbench. The private `dikw-mbweb` application consumes the three MIT npm packages at exact `0.1.0`; shared package versions and APIs are unchanged.
+- Keep case-insensitive `#MB-Web` and `#/mb-web` links as a lazy migration notice with a read-only legacy notes/aliases backup download and a validated fixed destination. No authentication probe is needed for this local backup. Returning to the workbench still requires its normal authentication probe.
+- Reflect the maintainer's removal of private Settings/import/export: the notice offers a local backup and does not promise an import entry. Keep old browser bytes intact.
+- Check public source, static assets, bundled module paths and sourcemap sources against the finite former MB business boundary during builds. Retain shared readers, the server profile, migration bridge and generic design assets.
+- Map removed business regression tests to their private counterparts and keep the workbench/shared tests, discovery, coverage, timing, retry and bundle limits unchanged.
+
 ## [0.11.4] - 2026-10-04
 
 - Preserve default Playwright discovery when a Git rename moves an unchanged spec into an ignored live directory. Respect the ordinary conditional branch, quoted keys, literal spreads, regex/glob ignores and hidden paths; reject unsupported discovery expressions instead of accepting a broader test set.

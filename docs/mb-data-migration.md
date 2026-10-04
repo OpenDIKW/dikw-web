@@ -1,7 +1,7 @@
-# MB local data migration
+# MB legacy local backup
 
-The current `#MB-Web` app remains available during the repository split. Its
-header action **导出笔记与论文别名** downloads `dikw-mbweb-migration.json`.
+`#MB-Web` (also `#/mb-web`, case-insensitive) opens a minimal Chinese notice.
+**导出旧笔记与论文别名** downloads `dikw-mbweb-migration.json` as a local backup.
 This is an explicit local operation: it does not call Core, delete old data,
 export credentials, or automatically move browser data between origins.
 
@@ -11,28 +11,28 @@ and `paperNames`. Only the two existing local keys `dikw-mb.notes` and
 without modifying the original bytes. The file is limited to 10 MiB of UTF-8
 and 10,000 notes.
 
-In the independent private application, sign in to the intended account and
-Core base, open Settings, select the file, review the counts, and explicitly
-confirm importing it into that account. The target app validates every field,
-keeps current records when IDs or alias paths collide, and makes repeated import
-idempotent. Existing Wisdom provenance is retained. Import does not automatically
-publish or archive notes in Core. Retain the original file and browser data as a
-backup until the result has been checked.
+The maintainer explicitly retired the private app's Settings and import/export
+UI in private PR #6. Its existing account-scoped notes and aliases remain intact.
+There is no current import entry for this downloaded file. Retain it and the
+original browser bytes as a backup; the notice does not promise an import UI.
 
 Browser local storage belongs to an origin. Redirecting to the new app cannot
-read the old origin's notes, which is why migration uses a downloaded file.
+read the old origin's notes. This download does not move records between origins.
 The private app partitions records by verified OIDC issuer, subject and a stable
-public Core ID, so each target account must explicitly import its own file.
+public Core ID; unidentified legacy data is never assigned to the first user.
 
-## Future legacy entry
+## Legacy entry
 
-Optional `mbWebUrl` in `/config.json` prepares the fixed destination for the
+Optional `mbWebUrl` in `/config.json` provides the fixed destination for the
 minimal legacy migration screen. It must be an absolute HTTP(S) URL without
 credentials, query or fragment. An invalid value is treated as unconfigured.
 The old page's query, fragment and credentials are never appended to this target.
 The screen retains the export action even if no target has been configured.
 
-The bridge is tested but is not mounted in this increment. Removing the old MB
-business code waits for the private app's registry lockfile, CI, stable package
-cohort, production image and migration acceptance. Public CI does not check out
-the private repository or receive its credentials.
+The notice works without an auth probe or Core connection. It follows the
+workbench's theme preference and uses Chinese document language; workbench
+locale handling applies when navigating back. Source, static assets, bundled
+modules and sourcemap paths are checked against the finite former business
+boundary. Shared MB profiles and this exporter intentionally remain public.
+Public CI does not check out the private repository or receive its credentials.
+The transfer ledger is `docs/verification/mbweb-test-migration.json`.

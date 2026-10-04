@@ -127,7 +127,7 @@ iteration needs a package build after source changes. `verify:packages` installs
 real tarballs in an independent consumer. Package source and migrated tests remain
 in the root coverage/test discovery, with the existing thresholds unchanged.
 
-React/Vite knowledge workbench over `dikw-core`. The browser talks to `dikw-core` over HTTP `/v1` — predominantly reads, plus a few explicit write surfaces (Import, the Wisdom editor's save/favorite `POST /v1/base/wisdom`, the Tasks-page maintenance ops, agent-proposed maintenance, and MB-Web paper upload); the filesystem of a sibling `../dikw-core` checkout is **not** an app data source.
+React/Vite management workbench over `dikw-core`. The browser consumes HTTP `/v1`, predominantly reads plus explicit Import, Wisdom and maintenance writes. The private `dikw-mbweb` repository owns the paper business application; a sibling checkout is not a browser data source.
 
 ### Two-process model in one Vite dev server
 
@@ -142,7 +142,7 @@ Both prefixes are served by the same Node process in dev and in the standalone `
 
 - Default visible core URL: `http://127.0.0.1:8765`. When this exact default is in use, browser `/v1` calls go through the same-origin Vite proxy (see `vite.config.ts` `server.proxy`) to avoid CORS. Any non-default custom URL is requested directly.
   - The sidecar's outbound `/agent` core calls run server-side and **bypass** that browser proxy — they dial the core URL the browser sent. So in a proxied dev setup (`VITE_DIKW_PROXY_TARGET=… npm run dev`, or `live:verify`), where the browser keeps `serverUrl` at the default and relies on the proxy, the sidecar would otherwise dial the unused default port and every agent tool fails with `fetch failed`. `agentSidecarPlugin` (`packages/web-server/src/agent/vitePlugin.ts`) therefore **injects** the Vite-resolved `VITE_DIKW_PROXY_TARGET` (via `configResolved`, so it honors `.env.local` like the proxy itself, and warns on a malformed value) into the handler, and `applyDevProxyTarget` (`packages/web-server/src/agent/http.ts`) **mirrors the Vite `/v1` proxy**: a browser-sent *default* core URL is routed to that target. Dev-only **by construction** — the standalone production sidecar injects no target, so the rewrite can't happen in prod (and a custom, directly-reachable `serverUrl` is left untouched). The `live:verify` agent↔core check exercises this exact path (sends the default URL, asserts a core tool **succeeds**).
-- `serverUrl`, `token`, `locale`, `theme`, the app-sidebar collapsed state (`sidebarCollapsed`), and the Base directory-panel width (`wikiSidebarWidth`) all live in `localStorage`, namespaced `dikw-web.*` (the shared connection keys + default URL are single-sourced in `src/config/connection.ts`). The connection is owned by the workbench **Settings page**: it buffers the Server URL + Token and commits them only on an explicit **Save** (Clear resets to the default URL + empty token immediately, no Save needed). Persisting to `localStorage` (not per-tab `sessionStorage`) means a saved connection is shared across tabs and survives a browser restart. The **MB-Web** variant only *reads* the connection keys (`serverUrl` / `token`) — its header gear navigates to `#settings` to edit them — so a cold-opened `#MB-Web` link recovers the connection from `localStorage` without any per-tab handoff (issue #97). The bearer token is therefore at rest in `localStorage` by default. MB-Web shares the `theme` preference the same way: it reads `dikw-web.theme` (the old standalone `dikw-mb.theme` is gone) and resolves a stored `system` value via the shared `resolveTheme` in `src/i18n.ts` — following live OS `prefers-color-scheme` changes while the preference stays `system`, the same as the workbench — but it keeps a one-tap header light/dark toggle that *writes* that shared key (committing an explicit `light`/`dark`, never re-selecting `system`) — so appearance is unified across both apps, switching apps no longer flips the theme between two independently-stored values, and merely opening MB-Web (or the OS flipping while it's open) never overwrites a stored `system` preference. Only the workbench Settings appearance panel sets the full 3-state `system`/`light`/`dark` preference (`src/mb/theme.ts` is MB-Web's read/write helper + `useSharedTheme` hook).
+- Workbench connection, locale, theme and panel state live in `localStorage`, namespaced `dikw-web.*`. Settings buffers server URL/token and commits on explicit Save; Clear resets immediately. The browser token is at rest by default, and auth mode ignores it in favor of the BFF. Independent MB owns its connection and identity-scoped browser storage. The legacy backup notice follows workbench theme via the shared `useTheme` hook; it does not read connection keys or call Core.
 - The top bar may show connection target/token posture but must never display the token value. In auth mode it shows the signed-in user + role instead.
 
 ### Auth mode (opt-in OIDC BFF, issue #200)
@@ -168,7 +168,7 @@ Both prefixes are served by the same Node process in dev and in the standalone `
 - Browser: `src/config/auth.ts` provides `loadAuth()` (from `GET /web/auth/me`, capped at 5 s; auth off → `{ enabled: false }`, which the `/web` handler answers even in dev, and a 404 / non-JSON reply also means a server without auth mode). It **fails closed**: an unreachable / 5xx / timed-out probe, or auth mode without a usable role, throws `AuthProbeError` and `main.tsx` renders the retryable `StartupError` screen instead of guessing auth off, which would re-enable the browser-held core token, plus `AuthContext` / `useAuth` / `useCanEdit` and `installUnauthorizedRedirect()`. The latter is a `fetch` wrapper: a 401 from same-origin `/v1|/agent|/web` → login once, back to the current page.
   - In auth mode, App and MbApp use an empty core URL + token (same-origin, no browser token) and ignore the stored connection.
   - Settings shows the account + a Sign out form POST.
-  - Viewers don't see Import, the Tasks toolbar / Stop, Wisdom New / favorite / Edit, or MB-Web upload / notes sync. The server enforces all of it; the UI only hides.
+  - Viewers do not see Import, the Tasks toolbar / Stop, or Wisdom New / favorite / Edit. The server enforces the roles and the UI hides these controls. Private MB enforces its own profile and roles.
 
 ### Branding (runtime config)
 
@@ -179,7 +179,7 @@ Both prefixes are served by the same Node process in dev and in the standalone `
 
 ### Routes and contracts (hash-based)
 
-`src/main.tsx` is a thin top-level switch (`Root`): the `#MB-Web` hash mounts the focused 论文知识库 (`src/mb/MbApp.tsx`); **every other hash** (`#chat`, `#base`, …) mounts the original multi-page workbench (`src/App.tsx`). Both ship in one bundle on port 4321 — the shareable MB link is `http://127.0.0.1:4321/#MB-Web`. The two never fight over the URL because `App` only rewrites its own legacy `query→chat` hash and leaves an unknown hash like `#MB-Web` untouched. Switching apps remounts (each owns its own React state, but the `theme` preference is now shared via `localStorage` — see Core connection above); MbApp's notes persist in `localStorage` but its in-memory Q&A is per-session. Because the shareable `#MB-Web` link is a cold-open entry point (a fresh tab that never visited the workbench Settings), MbApp's header gear and its actionable library-load error (which distinguishes a 401/403 auth failure from an unreachable core) both navigate to the workbench `#settings` page to set the connection; the connection itself persists in `localStorage` and is shared across tabs (see Core connection above), so a cold-opened link recovers it without a per-tab handoff (issue #97). MbApp reads core + the same sidecar (`/agent`, `/web/translate`, `/web/mineru`) and can also **upload a paper** into core — the `/v1/import` → ingest → synth pipeline in `src/mb/upload.ts` (reusing ImportPage's bundle/normalization utilities); its own UI lives under `src/mb/` (styled by `.mb-`-prefixed `mb.css`).
+`src/main.tsx` mounts the workbench for ordinary hashes and lazily mounts `src/migrations/LegacyMbMigration.tsx` for case-insensitive `#MB-Web`/`#/mb-web`. The legacy notice offers a bounded, read-only backup of old notes and aliases and a configured fixed destination; it performs no auth probe or Core operation. Returning to the workbench runs its normal auth probe and fails closed if the probe is unavailable. The paper business application and its tests are in private `dikw-mbweb`, consuming exact npm `0.1.0`. The public build checks source, static assets, bundle modules and sourcemap paths against the former business boundary.
 
 `src/App.tsx` is the workbench shell — sidebar groups, hash routing (`viewFromHash()`), `DikwClient` + `AgentClient` construction, i18n + theme wiring. Pages live in `src/pages/`.
 
@@ -229,9 +229,9 @@ Don't blindly overwrite app files from external patches. Many older patches pred
 
 ## MB repository migration
 
-The existing MB header exposes an explicit local JSON export of notes and
-paper aliases; see `docs/mb-data-migration.md`. It never exports credentials,
-cache or panel state, and never deletes the old data. A minimal migration
-bridge is implemented but is not mounted while the private app is awaiting
-registry/CI/image acceptance. Optional branding `mbWebUrl` is a fixed HTTP(S)
-URL without credentials, query or fragment; legacy URL state is never forwarded.
+The legacy notice offers an explicit local JSON backup of old notes and paper
+aliases; see `docs/mb-data-migration.md`. It never exports credentials, cache or
+panel state, and never deletes old bytes. The private Settings/import/export UI
+was retired by the maintainer; do not promise an import entry. Optional branding
+`mbWebUrl` is a fixed HTTP(S) URL without credentials, query or fragment; legacy
+URL state is never forwarded. Shared packages remain public MIT cohort `0.1.0`.

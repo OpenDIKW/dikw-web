@@ -11,7 +11,7 @@ The public management application in `dikw-web`. It administers the shared Core
 base and consumes the public web client, UI and server packages.
 
 **MB application**:
-The business application being extracted into private `dikw-mbweb`. It shares
+The independent business application in private `dikw-mbweb`. It shares
 the Core base with the workbench, while owning its BFF, roles and browser data.
 
 **Application profile**:

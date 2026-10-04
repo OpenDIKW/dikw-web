@@ -28,19 +28,17 @@ routes for chat plus `/web/*` routes for browser-side helpers (mineru-backed
 PDF / Office conversion for Import, and on-demand LLM markdown translation
 for the Base reader).
 
-This bundle ships **two front-ends** selected by the URL hash: visiting
-`#MB-Web` opens the focused 论文知识库 (paper knowledge base) reading variant
-(`src/mb/`, `MbApp`), while every other hash (`#chat`, `#base`, …) loads the
-original multi-page workbench. Both consume `dikw-core` over `/v1` —
-predominantly reads, plus explicit write surfaces (Import / paper upload,
-the Wisdom editor, the Tasks maintenance ops); see `CLAUDE.md` → "Routes and contracts
-(hash-based)" for the split.
+This repository ships the management workbench and three MIT shared packages.
+The paper research and notes application lives in private `dikw-mbweb`, with
+its own BFF, authentication and browser storage and exact npm `0.1.0` dependencies.
+Both applications use the shared Core base; see the
+[application boundary ADR](docs/adr/0007-independent-applications-shared-packages.md).
 
-The existing MB app includes an explicit **导出笔记与论文别名** action for
-moving local data to the independent private application. It downloads only
-notes and paper aliases; it leaves the old browser data intact. See
-[MB data migration](docs/mb-data-migration.md). The old app remains available
-until the private application and shared package release are accepted.
+Legacy `#MB-Web` links open a migration notice. **导出旧笔记与论文别名** downloads
+only old notes and aliases as a local backup, keeping the original browser data.
+The private app no longer offers Settings/import/export, so this is a backup,
+not an automatic migration. A configured `mbWebUrl` opens the new application
+without forwarding old URL state. See [MB local data backup](docs/mb-data-migration.md).
 
 ## Quick start
 
@@ -116,7 +114,7 @@ node node_modules\vite\bin\vite.js --host 127.0.0.1 --port 4321 --strictPort --c
 flowchart LR
     subgraph browser["Browser · React 19 · hand-rolled CSS tokens"]
         wb["Workbench<br/>#chat · #base · #graph · …"]
-        mb["论文知识库<br/>#MB-Web"]
+        legacy["Legacy MB notice<br/>local backup only"]
     end
 
     subgraph sidecar["Node sidecar · Vite middleware (dev) / standalone.mjs (prod)"]
@@ -243,17 +241,14 @@ Use `.env.example` as the template.
   Settings page, committed on an explicit Save (Clear resets to the default).
 - `dikw-web.token` (localStorage) — bearer token, never displayed in chrome.
   Persisted to `localStorage` so the connection is shared across tabs and
-  survives a restart (the token is therefore at rest by default). MB-Web reads
-  it and its gear opens `#settings` to edit it (issue #97). In the opt-in auth
+  survives a restart (the token is therefore at rest by default). In the opt-in auth
   mode both keys are ignored — `/v1` goes same-origin with no browser token — and
   Settings shows the signed-in account, role and Sign out instead.
 - `dikw-web.locale` (localStorage) — `en` or `zh-CN`, defaults to `en`.
 - `dikw-web.theme` (localStorage) — `system` / `light` / `dark`,
-  defaults to `system`. Applied as `html[data-theme="..."]`. Shared by the
-  workbench and MB-Web: MB-Web reads it (resolving `system` to light/dark) and
-  its one-tap header toggle writes an explicit `light`/`dark` back to this same
-  key, so appearance is unified across both apps. Only the workbench Settings
-  appearance panel sets the full 3-state preference.
+  defaults to `system`. Applied as `html[data-theme="..."]`. The legacy notice
+  follows this workbench preference. Independent MB owns its own theme key;
+  appearance is no longer shared across origins.
 
 ## Branding (white-label)
 
@@ -353,7 +348,7 @@ Jaeger + Prometheus + Loki + Grafana) — and the full env reference are in
 src/
   components/      workbench-specific GraphCanvas, navigation and panels
   pages/           one file per workbench route (Chat, Graph, Wiki/Base, Overview, Tasks, Settings, Trace, …)
-  mb/              the #MB-Web 论文知识库 front-end (MbApp + mb.css)
+  migrations/      lazy legacy MB notice and bounded read-only local backup
   config/          branding + telemetry runtime config, connection keys
   hooks/           workbench-specific resource and preview hooks
   state/           import-pipeline + wisdom-write client state

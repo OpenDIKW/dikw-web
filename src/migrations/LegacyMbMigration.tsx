@@ -1,8 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Notice } from "@opendikw/web-ui/controls";
+import { useTheme } from "@opendikw/web-ui/theme";
+import { themeStorageKey } from "../i18n";
 import { downloadLegacyMbData } from "./legacyMbExport";
 import { resolveMbWebUrl } from "../config/mbWebUrl";
 export function LegacyMbMigration({ mbWebUrl }: { mbWebUrl?: string }) {
+  useTheme({ storageKey: themeStorageKey });
+  useEffect(() => {
+    document.documentElement.lang = "zh-CN";
+  }, []);
   const [error, setError] = useState("");
   const target = resolveMbWebUrl(mbWebUrl);
   return (
@@ -12,10 +18,12 @@ export function LegacyMbMigration({ mbWebUrl }: { mbWebUrl?: string }) {
     >
       <h1>迈博应用已迁移</h1>
       <p>
-        论文研究与笔记应用已独立部署。请先导出这个浏览器中的旧笔记与论文别名，再登录新应用，在设置中导入文件。
+        论文研究与笔记应用已独立部署。你可以导出这个浏览器中的旧笔记与论文别名，留作本地备份，再打开新应用。
       </p>
+      <p>新应用不提供导入导出入口，旧数据不会自动迁移。</p>
       <p>导出会保留这里的原数据；文件只包含笔记与论文别名，不包含登录凭证、连接信息或缓存。</p>
       <Button
+        variant="secondary"
         onClick={() => {
           try {
             downloadLegacyMbData();
