@@ -413,6 +413,8 @@ it.each([
   "preserved",
   "coverage-outside",
   "coverage-preserved",
+  "unit-default-excluded",
+  "unit-empty-excludes-preserved",
 ])("checks configured test discovery: %s", (mode) => {
   const taskTemp = realpathSync.native(tmpdir());
   const checkout = mkdtempSync(join(taskTemp, "dikw-gate-discovery-"));
@@ -427,18 +429,25 @@ it.each([
   try {
     git("init", "--quiet");
     const source = mode === "e2e-outside" ? "tests/e2e/original.spec.ts" : "src/original.test.ts";
-    const target = mode.endsWith("preserved")
-      ? "src/nested/renamed behavior.test.ts"
-      : mode === "unit-excluded"
-        ? "src/excluded/renamed.test.ts"
-        : "archive/renamed" + (mode === "e2e-outside" ? ".spec.ts" : ".test.ts");
+    const target =
+      mode === "unit-default-excluded" || mode === "unit-empty-excludes-preserved"
+        ? "src/node_modules/pkg/renamed.test.ts"
+        : mode.endsWith("preserved")
+          ? "src/nested/renamed behavior.test.ts"
+          : mode === "unit-excluded"
+            ? "src/excluded/renamed.test.ts"
+            : "archive/renamed" + (mode === "e2e-outside" ? ".spec.ts" : ".test.ts");
     mkdirSync(join(checkout, dirname(source)), { recursive: true });
     mkdirSync(join(checkout, dirname(target)), { recursive: true });
     writeFileSync(
       join(checkout, "vite.config.ts"),
-      mode.startsWith("coverage-")
-        ? 'export default { test: { include: ["src/**/*.{test,spec}.{ts,tsx}"], server: { deps: { inline: ["katex"] } }, coverage: { include: ["src/**/*.{ts,tsx}"], exclude: ["**/*.test.{ts,tsx}", "src/test/**"], thresholds: { statements: 60, branches: 45, functions: 55, lines: 60 } } } };'
-        : 'export default { test: { include: ["src/**/*.{test,spec}.{ts,tsx}"], exclude: ["src/excluded/**"] } };',
+      mode === "unit-default-excluded" || mode === "unit-empty-excludes-preserved"
+        ? 'export default { test: { include: ["src/**/*.{test,spec}.{ts,tsx}"]' +
+            (mode.endsWith("preserved") ? ", exclude: []" : "") +
+            " } };"
+        : mode.startsWith("coverage-")
+          ? 'export default { test: { include: ["src/**/*.{test,spec}.{ts,tsx}"], server: { deps: { inline: ["katex"] } }, coverage: { include: ["src/**/*.{ts,tsx}"], exclude: ["**/*.test.{ts,tsx}", "src/test/**"], thresholds: { statements: 60, branches: 45, functions: 55, lines: 60 } } } };'
+          : 'export default { test: { include: ["src/**/*.{test,spec}.{ts,tsx}"], exclude: ["src/excluded/**"] } };',
     );
     writeFileSync(
       join(checkout, "playwright.config.ts"),
@@ -469,6 +478,190 @@ it.each([
       rmSync(owned, { recursive: true, force: true });
   }
 });
+
+it.each([
+  [
+    "conditional-live-loss",
+    'testDir: live ? "./tests/e2e/live" : "./tests/e2e", testIgnore: live ? undefined : ["**/live/**"]',
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+  ],
+  [
+    "static-ignore-loss",
+    'testDir: "./tests/e2e", testIgnore: ["**/live/**"]',
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+  ],
+  [
+    "quoted-ignore-loss",
+    'testDir: "./tests/e2e", "testIgnore": ["**/live/**"]',
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+  ],
+  [
+    "literal-spread-ignore-loss",
+    'testDir: "./tests/e2e", ...{ testIgnore: ["**/live/**"] }',
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+  ],
+  [
+    "unknown-spread-closed",
+    'testDir: "./tests/e2e", ...discovery',
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+    "Unsupported discovery object spread",
+  ],
+  [
+    "shorthand-closed",
+    'testDir: "./tests/e2e", testIgnore',
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+    "Unsupported shorthand discovery property",
+  ],
+  [
+    "getter-closed",
+    'testDir: "./tests/e2e", get testIgnore() { return ["**/live/**"]; }',
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+    "Unsupported accessor discovery property",
+  ],
+  [
+    "indirect-projects-closed",
+    'testDir: "./tests/e2e", projects',
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+    "Unsupported project-specific test discovery",
+    undefined,
+    'const projects = [{ testIgnore: ["**/live/**"] }];\nexport default { testDir: "./tests/e2e", projects };',
+  ],
+  [
+    "multi-config-closed",
+    "",
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+    "Unsupported Playwright config export",
+    undefined,
+    'import { defineConfig } from "@playwright/test";\nexport default defineConfig({ testDir: "./tests/e2e" }, { testIgnore: ["**/live/**"] });',
+  ],
+  [
+    "computed-key-closed",
+    'testDir: "./tests/e2e", [ignoreKey]: ["**/live/**"]',
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+    "Unsupported computed discovery property",
+  ],
+  [
+    "ordinary-spread-preserved",
+    'testDir: live ? "./tests/e2e/live" : "./tests/e2e", testIgnore: live ? undefined : ["**/live/**"], ...(live ? {} : { webServer: { command: "npm run dev" } })',
+    "tests/e2e/nested/renamed.spec.ts",
+    true,
+  ],
+  [
+    "regex-ignore-loss",
+    'testDir: "./tests/e2e", testIgnore: /[/\\\\]live[/\\\\]/',
+    "tests/e2e/live/renamed.spec.ts",
+    false,
+  ],
+  [
+    "default-branch-preserved",
+    'testDir: live ? "./tests/e2e/live" : "./tests/e2e", testIgnore: live ? undefined : ["**/live/**"]',
+    "tests/e2e/nested/renamed.spec.ts",
+    true,
+  ],
+  ["default-dir-preserved", "", "nested/renamed.spec.ts", true],
+  [
+    "empty-match-loss",
+    'testDir: "./tests/e2e", testMatch: "**/original.spec.ts"',
+    "tests/e2e/renamed.spec.ts",
+    false,
+  ],
+  [
+    "custom-match-preserved",
+    'testDir: "./tests/e2e", testMatch: ["**/*.spec.ts"]',
+    "tests/e2e/renamed.spec.ts",
+    true,
+  ],
+  [
+    "hidden-file-loss",
+    'testDir: "./tests/e2e"',
+    "archive/renamed.spec.ts",
+    false,
+    "test-file-deleted",
+    "tests/e2e/.original.spec.ts",
+  ],
+  [
+    "hidden-directory-loss",
+    'testDir: "./tests/e2e"',
+    "archive/renamed.spec.ts",
+    false,
+    "test-file-deleted",
+    "tests/e2e/.fixture/original.spec.ts",
+  ],
+  [
+    "hidden-ignore-loss",
+    'testDir: "./tests/e2e", testIgnore: ["**/.fixture/**"]',
+    "tests/e2e/.fixture/renamed.spec.ts",
+    false,
+  ],
+])(
+  "checks default Playwright discovery after a real Git rename: %s",
+  (
+    _mode,
+    config,
+    target,
+    preserved,
+    error = "test-file-deleted",
+    source = "tests/e2e/original.spec.ts",
+    configuration = 'const live = !!process.env.PLAYWRIGHT_LIVE;\nconst testIgnore = ["**/live/**"];\nexport default { ' +
+      config +
+      " };",
+  ) => {
+    const taskTemp = realpathSync.native(tmpdir());
+    const checkout = mkdtempSync(join(taskTemp, "dikw-gate-default-discovery-"));
+    const env = fixtureGitEnv();
+    const git = (...args) =>
+      execFileSync("git", args, {
+        cwd: checkout,
+        env,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    try {
+      git("init", "--quiet");
+      mkdirSync(join(checkout, dirname(source)), { recursive: true });
+      mkdirSync(join(checkout, dirname(target)), { recursive: true });
+      writeFileSync(
+        join(checkout, "vite.config.ts"),
+        'export default { test: { include: ["src/**/*.test.ts"] } };',
+      );
+      writeFileSync(join(checkout, "playwright.config.ts"), configuration);
+      writeFileSync(
+        join(checkout, source),
+        "// Existing coverage 中文\n".repeat(100) +
+          'test("behavior", () => { expect(1).toBe(1); });\n',
+      );
+      git("add", ".");
+      git("commit", "--quiet", "-m", "Default discovery baseline");
+      const base = git("rev-parse", "HEAD").trim();
+      renameSync(join(checkout, source), join(checkout, target));
+      git("add", ".");
+      git("commit", "--quiet", "-m", "Move unchanged spec");
+      expect(git("diff", "--name-status", base + "...HEAD")).toMatch(/^R\d+/);
+      const result = spawnSync(process.execPath, [resolve("scripts/check-gate-integrity.mjs")], {
+        cwd: checkout,
+        encoding: "utf8",
+        env: { ...env, GATE_BASE_REF: base, GATE_HAS_OVERRIDE: "false" },
+      });
+      expect(result.status).toBe(preserved ? 0 : 1);
+      if (!preserved) expect(result.stderr).toContain(error);
+      expect(readFileSync(join(checkout, target), "utf8")).toContain("expect(1)");
+    } finally {
+      const owned = realpathSync.native(checkout);
+      if (owned.startsWith(taskTemp) && owned.includes("dikw-gate-default-discovery-"))
+        rmSync(owned, { recursive: true, force: true });
+    }
+  },
+);
 
 describe("Git batch source protocol", () => {
   it("decodes multibyte bodies and explicit missing paths in order", () => {
