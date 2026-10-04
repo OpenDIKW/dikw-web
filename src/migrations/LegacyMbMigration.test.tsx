@@ -1,7 +1,11 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { LegacyMbMigration } from "./LegacyMbMigration";
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 it("keeps export usable without a configured target and preserves invalid source data", () => {
   localStorage.setItem("dikw-mb.notes", "broken");
   render(<LegacyMbMigration />);
@@ -12,6 +16,7 @@ it("keeps export usable without a configured target and preserves invalid source
   expect(localStorage.getItem("dikw-mb.notes")).toBe("broken");
 });
 it("downloads the fixed protocol and presents only a valid configured destination", () => {
+  vi.useFakeTimers();
   localStorage.setItem("dikw-mb.notes", "[]");
   localStorage.setItem("dikw-mb.paperNames", "{}");
   const create = vi.fn(() => "blob:test");
@@ -26,6 +31,8 @@ it("downloads the fixed protocol and presents only a valid configured destinatio
   fireEvent.click(screen.getByRole("button", { name: "导出旧笔记与论文别名" }));
   expect(create).toHaveBeenCalledWith(expect.any(Blob));
   expect(click).toHaveBeenCalledOnce();
+  expect(revoke).not.toHaveBeenCalled();
+  vi.advanceTimersByTime(1000);
   expect(revoke).toHaveBeenCalledWith("blob:test");
   expect(localStorage.getItem("dikw-mb.notes")).toBe("[]");
 });

@@ -45,6 +45,7 @@ export function downloadLegacyMbData(): void {
     anchor.click();
   } finally {
     anchor.remove();
-    URL.revokeObjectURL(url);
+    // Let deferred browser navigation resolve the blob before releasing it.
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 }

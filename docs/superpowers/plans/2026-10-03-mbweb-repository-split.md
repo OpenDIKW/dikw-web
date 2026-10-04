@@ -229,7 +229,7 @@ it("preserves the existing MB upload pipeline", () => {
 
 ## 任务 4 建立真实包消费与 npm 发布流水线
 
-**实施状态（2026-10-04）：** PR #216 经维护者同意 gate-change、CI 与审查通过后已合并。三个候选包从干净 main 提交构建并通过真实 tarball 独立消费；npm 登录/scope 权限、真实 registry 发布与下载 integrity 验证仍待完成。
+**实施状态（2026-10-04）：** PR #216 经维护者同意 gate-change、CI 与审查通过后已合并。三个候选包从干净 main 提交构建并通过真实 tarball 独立消费；npm 登录 helebest、用户创建 opendikw 后的 owner 权限及认证发布 dry-run 已通过。实际发布被 npm E403 拒绝，需要账户 2FA。真实 registry 发布与下载 integrity 验证仍待完成。
 
 **文件：**
 
@@ -275,7 +275,7 @@ npm.cmd run verify:packages
 
 ## 任务 5 建立私有 MB 应用及独立配置
 
-**实施状态（2026-10-04）：** 私有兄弟仓库已核实 Private，独立应用与显式迁移导入已提交到草稿 PR OpenDIKW/dikw-mbweb#1（d1507dc）。本地真实候选 tarball 安装下，lint/format/types、20 文件 96 项单测、覆盖率、生产构建、6 条浏览器流程与 bundle 通过；三轮独立审查的有效问题已修复。未提交 file/workspace 依赖或伪造 lockfile；共享包发布前 npm ci、私有 hosted CI 与镜像验收仍无法完成，草稿不能合并。初始 CI/gate 文件触发维护者 gate-change 要求。
+**实施状态（2026-10-04）：** 私有兄弟仓库已核实 Private，独立应用与显式迁移导入已提交到草稿 PR OpenDIKW/dikw-mbweb#1（最新 dd49eff）。本地真实候选 tarball 安装下，lint/format/types、21 文件 98 项单测、覆盖率、生产构建、6 条浏览器流程与 bundle 通过；三轮独立审查的有效问题已修复。已准备私有镜像发布 workflow 并通过 YAML/Bash 语法检查，尚未执行。未提交 file/workspace 依赖或伪造 lockfile；共享包发布前 npm ci、私有 hosted CI 与镜像验收仍无法完成，草稿不能合并。初始 CI/gate 和镜像 workflow 文件触发维护者 gate-change 要求。
 
 **文件：**
 
@@ -397,7 +397,7 @@ test("keeps the old MB link usable for migration", async ({ page }) => {
 
 ## 任务 8 双应用生产验证与切换
 
-**实施状态（2026-10-04）：** 已完成隔离 Core 0.6.8 数据读取、Casdoor 3.152.0 双 client 登录与 HTTP 权限、约 10 秒角色升降级同步及 BFF SQLite 重启验证。真实迁移与生产亮暗设置/阅读器检查通过。LLM/Core 授权、IdP SSO/logout、registry 构建镜像/private GHCR 与备份/回退仍未验收；不能视为整项完成。
+**实施状态（2026-10-04）：** 已完成隔离 Core 0.6.8 数据读取、Casdoor 3.152.0 双 client 登录与 HTTP 权限、约 10 秒角色升降级同步及 BFF SQLite 重启验证。真实迁移与生产亮暗设置/阅读器检查通过；真实 MiniMax 双语翻译及基于 Core 文档的 Agent 问答已通过。Core 授权、真实 Wisdom 写入、IdP SSO/logout、registry 构建镜像/private GHCR 与备份/回退仍未验收；不能视为整项完成。
 
 **文件与记录：** 两仓部署文档、私有 MB `docker-compose.verify.yml`、真实集成验证脚本、镜像/包/commit 验收记录、回退操作说明。记录不包含凭证或客户正文。
 
