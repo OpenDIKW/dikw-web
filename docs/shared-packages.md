@@ -22,7 +22,7 @@ retain extraction provenance and document runtime behavior.
 ## Verify before publishing
 
 ```sh
-npm run version:shared -- 0.1.0-rc.1
+npm run version:shared -- 0.1.0-rc.2
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
