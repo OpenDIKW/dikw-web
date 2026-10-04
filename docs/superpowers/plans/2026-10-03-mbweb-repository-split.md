@@ -428,5 +428,14 @@ test("keeps the old MB link usable for migration", async ({ page }) => {
 
 - 维护者确认论文问答默认仅使用当前论文，跨论文另设显式入口。共享服务增加创建时绑定的页面路径范围，后续消息与本地改名不能改变范围；私有 MB 保留两种模式的独立历史。
 - 范围是回答的证据选择，不是共享 Core 的用户 ACL。当前论文模式仅暴露 health 与固定 read_page，跨论文模式保留既有 mbweb profile 能力。
-- 首个 rc.1 批次已实际发布到公开 npm 并完成 registry 字节与独立消费者验证。三个 Trusted Publisher 均已获 owner 授权并在 npm 页面确认；新 rc.2 批次实际 OIDC 发布仍待合并后的 workflow。
+- 首个 rc.1 批次已实际发布到公开 npm 并完成 registry 字节与独立消费者验证。三个 Trusted Publisher 均已获 owner 授权并在 npm 页面确认；rc.2 批次已经由 GitHub OIDC 实际发布，并通过 registry 字节和独立消费者验证。
 - 私有 PR 的发布中删除笔记与论文范围两项远程审查已复现，正在完成修复验收。私有门禁维护者判断、镜像与正式版本验收仍待完成，公开 MB 业务入口继续保留。
+
+## 2026-10-04 候选验收与正式版本准备
+
+- 私有初始 PR #1 已合并，最终 CI、独立 registry clone、真实迁移、授权 Core 阅读及 Wisdom 写入/归档恢复验证通过。
+- 候选镜像的 Debian 安全更新已通过修复版本及真实登录会话、阅读器、SQLite 备份/重启验证。安全修复 PR #2 已合并，合并提交 d7dc421 的 main CI 37203240889 已通过；私有 GHCR 发布和最终 digest 验收仍待完成。
+- 本次准备公开共享包正式 cohort 0.1.0，正式 npm 发布、私有精确正式依赖与最终镜像仍未完成，旧公开 MB 业务入口继续保留。
+- 门禁已补真实重命名和发现目录回归；实际 coverage.exclude 不再误当 test.exclude。Windows 子进程启动有波动，WSL Linux 原有 5 秒限时下 41 项专项测试通过。完整公开验收与独立审查仍待本次执行。
+
+- 正式版发布准备的远程审查指出 Playwright 条件 testDir/default 分支和 testIgnore 的发现判定尚不完整。本次未移动或删减任何现有浏览器 spec，运行时/API 与 rc.2 一致，因此该既有盲点明确延期至公开业务清理之前完善；不得据此宣称门禁发现覆盖完整。完整本地门禁现在也已在 WSL 全部通过。

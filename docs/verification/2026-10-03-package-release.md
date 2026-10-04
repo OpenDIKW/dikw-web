@@ -74,8 +74,12 @@ commit `7ae8fcc5a4919053c1acb84fb8fc4e04b5627160`. Registry metadata, downloaded
 tarball SHA-512 integrity and independent Node/React/production consumers passed.
 The owner authorized the three Trusted Publisher connections, and each npm Settings
 page confirmed GitHub repository `OpenDIKW/dikw-web`, `publish-packages.yml`, blank
-environment and npm publish permission. Actual GitHub OIDC publication remains
-pending the next new cohort; skipping an existing version is not proof of that flow.
+environment and npm publish permission. Actual GitHub OIDC publication subsequently created all three rc.2 packages
+from reviewed commit 8e67238f6e66ecd741fed5f26f5a9e5ec4810578. Registry-byte
+verification and independent consumers passed in run 37178344897; an initial
+propagation 404 was followed by idempotent verification of identical published
+bytes. This is evidence of publication of a new cohort, not only skipping an
+already-existing version.
 Stable publication and public MB removal remain gated on private application and
 image acceptance. Credentials and account verification screenshots are not committed.
 

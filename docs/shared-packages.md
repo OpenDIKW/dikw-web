@@ -3,10 +3,14 @@
 The public workbench maintains three MIT packages. The independent private MB
 application installs exact versions from public npm; public CI never checks out
 that repository. Each release uses one version for all three packages and their
-internal dependencies. The first candidate, `0.1.0-rc.1`, is published under
-`next`. Candidate `0.1.0-rc.2` adds immutable page-scoped Agent sessions; its
-publication and independent MB registry acceptance are pending. Stable `0.1.0`
-(`latest`) follows validation by both applications.
+internal dependencies. Candidates `0.1.0-rc.1` and `0.1.0-rc.2` were published
+under `next`. The second adds immutable page-scoped Agent sessions and passed
+actual GitHub OIDC publication, registry-byte verification and independent
+consumers in [run 37178344897](https://github.com/OpenDIKW/dikw-web/actions/runs/37178344897).
+The private application passed independent registry installation, hosted CI,
+real data migration and an authenticated production-container reader/restart.
+This change prepares cohort `0.1.0` for `latest`; publication and private stable
+lockfile/image acceptance remain pending until the reviewed commit is released.
 
 | Package | Public entries | Runtime requirements |
 | --- | --- | --- |
@@ -22,7 +26,7 @@ retain extraction provenance and document runtime behavior.
 ## Verify before publishing
 
 ```sh
-npm run version:shared -- 0.1.0-rc.2
+npm run version:shared -- 0.1.0
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle

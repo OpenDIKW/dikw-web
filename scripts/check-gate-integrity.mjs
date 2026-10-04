@@ -21,6 +21,7 @@
 
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import { posix } from "node:path";
 
 // --- pure parsers ---------------------------------------------------------------
 
@@ -256,15 +257,103 @@ function git(args) {
   return execFileSync("git", args, { encoding: "utf8" });
 }
 
-function showAtRef(ref, path) {
-  try {
-    return execFileSync("git", ["show", `${ref}:${path}`], {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "ignore"],
-    });
-  } catch {
-    return null; // file absent at that ref
+/** Decode the NUL-delimited batch protocol using byte lengths, including UTF-8. */
+export function parseGitBatchSources(output, keys) {
+  const sources = new Map();
+  let offset = 0;
+  for (const key of keys) {
+    const end = output.indexOf(0, offset);
+    if (end < offset) throw new Error("Truncated Git batch header: " + key);
+    const header = output.subarray(offset, end).toString("utf8");
+    offset = end + 1;
+    if (header === key + " missing") {
+      sources.set(key, null);
+      continue;
+    }
+    const match = header.match(/^[a-f0-9]+ blob (\d+)$/);
+    if (!match) throw new Error("Unexpected Git batch response: " + header);
+    const length = Number(match[1]);
+    if (!Number.isSafeInteger(length) || output[offset + length] !== 0)
+      throw new Error("Truncated Git batch body: " + key);
+    sources.set(key, output.subarray(offset, offset + length).toString("utf8"));
+    offset += length + 1;
   }
+  if (offset !== output.length) throw new Error("Unexpected trailing Git batch output");
+  return sources;
+}
+
+function readSourcesAtRefs(keys) {
+  const unique = [...new Set(keys)];
+  // One process replaces per-file git show calls. Failures propagate; only an
+  // explicit missing-object response means the file does not exist at this ref.
+  const output = execFileSync("git", ["cat-file", "--batch", "-Z"], {
+    input: Buffer.from(unique.join("\0") + "\0"),
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  return parseGitBatchSources(output, unique);
+}
+
+// Keep only the direct object properties. Coverage excludes affect the
+// denominator, not test discovery; quoted glob braces must remain untouched.
+function directConfigProperties(block) {
+  if (!block) return null;
+  let depth = 0;
+  let quote = null;
+  let result = "";
+  for (let index = 0; index < block.length; index += 1) {
+    const char = block[index];
+    if (quote) {
+      if (depth <= 1) result += char;
+      if (char === "\\") {
+        if (depth <= 1) result += block[index + 1] ?? "";
+        index += 1;
+      } else if (char === quote) quote = null;
+      continue;
+    }
+    if (char === '"' || char === "'" || char.charCodeAt(0) === 96) {
+      quote = char;
+    } else if (char === "/" && block[index + 1] === "/") {
+      const end = block.indexOf("\n", index + 2);
+      index = end < 0 ? block.length : end;
+      if (depth <= 1) result += "\n";
+      continue;
+    } else if (char === "/" && block[index + 1] === "*") {
+      const end = block.indexOf("*/", index + 2);
+      index = end < 0 ? block.length : end + 1;
+      if (depth <= 1) result += " ";
+      continue;
+    } else if (char === "{") {
+      depth += 1;
+      if (depth === 2) result += "{}";
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth >= 1) continue;
+    }
+    if (depth <= 1) result += char;
+  }
+  return result;
+}
+
+function isDiscoveredTest(path, vite, playwright) {
+  const block = directConfigProperties(extractBlock(vite, "test:"));
+  const patterns = (key) =>
+    (
+      block?.match(new RegExp(key + ":\\s*\\[([\\s\\S]*?)\\]"))?.[1].match(/['"][^'"]*['"]/g) ?? []
+    ).map((value) => value.slice(1, -1));
+  const include = patterns("include");
+  const defaults = ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"];
+  const unit =
+    (include.length ? include : defaults).some((pattern) => posix.matchesGlob(path, pattern)) &&
+    !patterns("exclude").some((pattern) => posix.matchesGlob(path, pattern));
+  const dirs = playwright?.match(/testDir:\s*([^,\n]+)/)?.[1].match(/['"][^'"]*['"]/g) ?? [];
+  const browser = dirs.some((dir) =>
+    posix.matchesGlob(
+      path,
+      dir.slice(1, -1).replace(/^\.\//, "") + "/**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}",
+    ),
+  );
+  return unit || browser;
 }
 
 function main() {
@@ -273,28 +362,65 @@ function main() {
 
   // `<base>...HEAD` diffs against the merge base, so unrelated base movement is ignored.
   const range = `${baseRef}...HEAD`;
-  const nameStatus = git(["diff", "--name-status", range]).trim();
-
+  const nameStatus = git(["diff", "--name-status", "-z", range]);
+  const mergeBase = git(["merge-base", baseRef, "HEAD"]).trim();
+  const changes = [];
+  // NUL-separated records preserve spaces and provide both paths for renames.
+  const fields = nameStatus.split("\0");
+  for (let i = 0; i < fields.length && fields[i]; i += 1) {
+    const status = fields[i];
+    const source = fields[++i];
+    const renamed = status.startsWith("R");
+    const path = renamed || status.startsWith("C") ? fields[++i] : source;
+    if (!source || !path) throw new Error("Incomplete Git name-status record");
+    changes.push({ status, source, path, renamed });
+  }
+  const keys = ["vite.config.ts", "playwright.config.ts", "scripts/check-bundle.mjs"].flatMap(
+    (path) => [mergeBase + ":" + path, "HEAD:" + path],
+  );
+  for (const { status, source, path, renamed } of changes) {
+    if (
+      (renamed && TEST_FILE_RE.test(source)) ||
+      (status.startsWith("M") && TEST_FILE_RE.test(path))
+    )
+      keys.push(mergeBase + ":" + source, "HEAD:" + path);
+  }
+  const sources = readSourcesAtRefs(keys);
+  const showAtRef = (ref, path) => {
+    const key = ref + ":" + path;
+    if (!sources.has(key)) throw new Error("Git source was not requested: " + key);
+    return sources.get(key);
+  };
+  const baseVite = showAtRef(mergeBase, "vite.config.ts");
+  const headVite = showAtRef("HEAD", "vite.config.ts");
+  const basePlaywright = showAtRef(mergeBase, "playwright.config.ts");
+  const headPlaywright = showAtRef("HEAD", "playwright.config.ts");
   const deletedTests = [];
   const modifiedTestPaths = [];
   const machineryTouched = [];
-  for (const line of nameStatus ? nameStatus.split("\n") : []) {
-    const [status, ...rest] = line.split(/\s+/);
-    const path = rest[rest.length - 1];
-    if (!path) continue;
-    if (isMachineryPath(path)) machineryTouched.push(path);
-    if (TEST_FILE_RE.test(path)) {
-      // Deleted tests are always a violation. Only in-place MODIFY can weaken an
-      // existing test; added (A) files are new coverage, and a rename that also guts a
-      // test shows up as a separate D+A (the D trips test-file-deleted).
+  for (const { status, source, path, renamed } of changes) {
+    for (const touched of new Set([source, path]))
+      if (isMachineryPath(touched)) machineryTouched.push(touched);
+    if (renamed && TEST_FILE_RE.test(source)) {
+      const lostDiscovery =
+        isDiscoveredTest(source, baseVite, basePlaywright) &&
+        !isDiscoveredTest(path, headVite, headPlaywright);
+      if (!TEST_FILE_RE.test(path) || lostDiscovery) deletedTests.push(source);
+      else modifiedTestPaths.push({ path, basePath: source });
+    } else if (TEST_FILE_RE.test(path)) {
       if (status.startsWith("D")) deletedTests.push(path);
-      else if (status.startsWith("M")) modifiedTestPaths.push(path);
+      else if (status.startsWith("M")) modifiedTestPaths.push({ path, basePath: path });
     }
   }
 
-  const mergeBase = git(["merge-base", baseRef, "HEAD"]).trim();
-  const pair = (path) => ({ base: showAtRef(mergeBase, path), head: showAtRef("HEAD", path) });
-  const modifiedTests = modifiedTestPaths.map((path) => ({ path, ...pair(path) }));
+  const pair = (path, basePath = path) => ({
+    base: showAtRef(mergeBase, basePath),
+    head: showAtRef("HEAD", path),
+  });
+  const modifiedTests = modifiedTestPaths.map(({ path, basePath }) => ({
+    path,
+    ...pair(path, basePath),
+  }));
 
   const result = evaluateGate({
     coverage: pair("vite.config.ts"),
