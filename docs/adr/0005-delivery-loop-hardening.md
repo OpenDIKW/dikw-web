@@ -100,6 +100,18 @@ deliberately keeps `retries: 2` as a *general* backstop for timing-sensitive spe
 (no longer Pixi-specific), so the gate's `e2e-retries-raised` check guards that
 decision without forcing it to 1.
 
+The repository-split followup also models the ordinary Playwright discovery
+branch when evaluating a real Git rename. An unchanged spec moved into an
+ignored live directory is a lost test, not a preserved rename. Literal
+configuration is interpreted without executing repository code; unresolved
+discovery expressions, accessors, project inputs and additional `defineConfig`
+arguments stop the gate. Vitest discovery uses its default dependency/Git
+exclusions when the application does not declare its own exclusions. These
+checks do not alter coverage, bundle, retry or per-test timing limits.
+Playwright traversal skips child `node_modules` directories. Only the declared
+default CI/live environment conditions are interpreted; unknown environment
+conditions fail closed instead of assuming an unset value.
+
 ## Item 3 — measured perf + a11y in `verify-frontend`
 
 The `dikw-web-verify-frontend` skill verified real-browser behavior + a clean console,

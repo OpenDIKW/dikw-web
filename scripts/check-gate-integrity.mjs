@@ -335,24 +335,293 @@ function directConfigProperties(block) {
   return result;
 }
 
+// Read configuration literals without executing repository code inside the gate.
+// Unknown expressions fail closed rather than treating every branch as discovery.
+function configTokens(src) {
+  const tokens = [];
+  for (let i = 0; i < src.length;) {
+    if (/\s/.test(src[i])) {
+      i++;
+      continue;
+    }
+    if (src.startsWith("//", i)) {
+      const end = src.indexOf("\n", i);
+      i = end < 0 ? src.length : end;
+      continue;
+    }
+    if (src.startsWith("/*", i)) {
+      const end = src.indexOf("*/", i + 2);
+      if (end < 0) throw new Error("Unclosed config comment");
+      i = end + 2;
+      continue;
+    }
+    const start = i;
+    const quote = src[i];
+    if (quote === '"' || quote === "'" || quote === "`") {
+      i++;
+      while (i < src.length && src[i] !== quote) {
+        if (src[i] === "\\") i++;
+        i++;
+      }
+      if (i === src.length) throw new Error("Unclosed config string");
+      i++;
+    } else if (quote === "/") {
+      i++;
+      let inClass = false;
+      while (i < src.length) {
+        if (src[i] === "\\") {
+          i += 2;
+          continue;
+        }
+        if (src[i] === "[") inClass = true;
+        else if (src[i] === "]") inClass = false;
+        else if (src[i] === "/" && !inClass) break;
+        i++;
+      }
+      if (i === src.length) throw new Error("Unsupported config expression");
+      i++;
+      while (/[a-z]/i.test(src[i] ?? "") && i < src.length) i++;
+    } else {
+      const identifier = src.slice(i).match(/^[\w$]+/);
+      i += identifier ? identifier[0].length : 1;
+    }
+    tokens.push(src.slice(start, i));
+  }
+  return tokens;
+}
+
+function splitConfigTokens(tokens, separator) {
+  const parts = [[]];
+  let depth = 0;
+  for (const token of tokens) {
+    if (["{", "[", "("].includes(token)) depth++;
+    if (["}", "]", ")"].includes(token)) depth--;
+    if (depth === 0 && token === separator) parts.push([]);
+    else parts.at(-1).push(token);
+  }
+  return parts;
+}
+
+function defaultCondition(tokens, allTokens, seen = new Set()) {
+  const expression = tokens.join("");
+  if (expression === "true") return true;
+  if (expression === "false") return false;
+  const env = expression.match(/^(!{0,2})process\.env\.([\w]+)$/);
+  // The gate models the ordinary CI suite, with opt-in live variables unset.
+  if (env) {
+    const value =
+      env[2] === "CI"
+        ? true
+        : ["PLAYWRIGHT_LIVE", "LIVE_WEB_TOOLS"].includes(env[2])
+          ? false
+          : undefined;
+    if (value === undefined) throw new Error("Unsupported discovery condition: " + expression);
+    return env[1] === "!" ? !value : value;
+  }
+  if (tokens.length === 1 && /^[\w$]+$/.test(expression) && !seen.has(expression)) {
+    const index = allTokens.findIndex(
+      (token, i) =>
+        token === expression && allTokens[i - 1] === "const" && allTokens[i + 1] === "=",
+    );
+    const end = allTokens.indexOf(";", index + 2);
+    if (index >= 0 && end > index)
+      return defaultCondition(
+        allTokens.slice(index + 2, end),
+        allTokens,
+        new Set([...seen, expression]),
+      );
+  }
+  throw new Error("Unsupported discovery condition: " + expression);
+}
+
+function configLiteral(tokens, allTokens) {
+  const conditional = splitConfigTokens(tokens, "?");
+  if (conditional.length === 2) {
+    const branches = splitConfigTokens(conditional[1], ":");
+    if (branches.length === 2)
+      return configLiteral(
+        branches[defaultCondition(conditional[0], allTokens) ? 0 : 1],
+        allTokens,
+      );
+  }
+  if (tokens[0] === "[" && tokens.at(-1) === "]")
+    return splitConfigTokens(tokens.slice(1, -1), ",")
+      .filter((part) => part.length)
+      .map((part) => configLiteral(part, allTokens));
+  if (tokens.length === 1) {
+    const value = tokens[0];
+    if (value === "undefined") return undefined;
+    if (value.startsWith('"')) return JSON.parse(value);
+    if (value.startsWith("'") && !value.includes("\\")) return value.slice(1, -1);
+    if (value.startsWith("/")) {
+      const end = value.lastIndexOf("/");
+      return new RegExp(value.slice(1, end), value.slice(end + 1));
+    }
+  }
+  throw new Error("Unsupported discovery value: " + tokens.join(" "));
+}
+
+function playwrightDiscovery(src) {
+  if (!src) return null;
+  const tokens = configTokens(src);
+  const exported = tokens.findIndex(
+    (token, i) => token === "export" && tokens[i + 1] === "default",
+  );
+  const open = tokens.indexOf("{", exported + 2);
+  const prefix = tokens.slice(exported + 2, open).join("");
+  if (exported < 0 || open < 0 || !["", "defineConfig("].includes(prefix))
+    throw new Error("Unsupported Playwright config export");
+  let end = open + 1,
+    depth = 1;
+  for (; end < tokens.length && depth; end++) {
+    if (tokens[end] === "{") depth++;
+    else if (tokens[end] === "}") depth--;
+  }
+  const exportEnd = prefix ? end + 1 : end;
+  if (
+    depth ||
+    (prefix && tokens[end] !== ")") ||
+    (tokens[exportEnd] !== undefined && tokens[exportEnd] !== ";")
+  )
+    throw new Error("Unsupported Playwright config export");
+  const values = new Map();
+  const consumeObject = (object) => {
+    while (object[0] === "(" && object.at(-1) === ")") object = object.slice(1, -1);
+    const conditional = splitConfigTokens(object, "?");
+    if (conditional.length === 2) {
+      const branches = splitConfigTokens(conditional[1], ":");
+      if (branches.length === 2)
+        return consumeObject(branches[defaultCondition(conditional[0], tokens) ? 0 : 1]);
+    }
+    if (object[0] !== "{" || object.at(-1) !== "}")
+      throw new Error("Unsupported discovery object spread");
+    for (const property of splitConfigTokens(object.slice(1, -1), ",")) {
+      if (property.slice(0, 3).join("") === "...") {
+        consumeObject(property.slice(3));
+        continue;
+      }
+      if (property[0] === "[") throw new Error("Unsupported computed discovery property");
+      if (["get", "set"].includes(property[0])) {
+        const accessor =
+          property[1]?.startsWith('"') || property[1]?.startsWith("'")
+            ? configLiteral([property[1]], tokens)
+            : property[1];
+        if (["testDir", "testMatch", "testIgnore", "projects", "["].includes(accessor))
+          throw new Error("Unsupported accessor discovery property: " + accessor);
+      }
+      const key =
+        property[0]?.startsWith('"') || property[0]?.startsWith("'")
+          ? configLiteral([property[0]], tokens)
+          : property[0];
+      if (["testDir", "testMatch", "testIgnore"].includes(key)) {
+        if (property[1] !== ":")
+          throw new Error("Unsupported shorthand discovery property: " + key);
+        values.set(key, configLiteral(property.slice(2), tokens));
+      }
+      // Project-specific discovery needs explicit modelling, not an optimistic union.
+      if (key === "projects") {
+        if (
+          property[1] !== ":" ||
+          property[2] !== "[" ||
+          property.at(-1) !== "]" ||
+          property.some((token) =>
+            /^(?:["']?)(?:testDir|testMatch|testIgnore)(?:["']?)$/.test(token),
+          )
+        )
+          throw new Error("Unsupported project-specific test discovery");
+        for (const project of splitConfigTokens(property.slice(3, -1), ",")) {
+          if (!project.length) continue;
+          if (
+            project[0] !== "{" ||
+            project.at(-1) !== "}" ||
+            splitConfigTokens(project.slice(1, -1), ",").some(
+              (field) => field[0] === "[" || field.slice(0, 3).join("") === "...",
+            )
+          )
+            throw new Error("Unsupported project-specific test discovery");
+        }
+      }
+    }
+  };
+  consumeObject(tokens.slice(open, end));
+  const dir = values.get("testDir") ?? ".";
+  if (typeof dir !== "string") throw new Error("Unsupported testDir");
+  const patterns = (key, fallback) => {
+    const value = values.get(key) ?? fallback;
+    const result = Array.isArray(value) ? value : [value];
+    if (result.some((pattern) => typeof pattern !== "string" && !(pattern instanceof RegExp)))
+      throw new Error("Unsupported " + key);
+    return result;
+  };
+  return {
+    dir: posix.normalize(dir).replace(/\/$/, ""),
+    match: patterns("testMatch", [
+      "**/*.{spec,test}.{js,jsx,ts,tsx,mjs,cjs,mts,cts,mjsx,cjsx,mtsx,ctsx}",
+    ]),
+    ignore: patterns("testIgnore", []),
+  };
+}
+
+function matchesPlaywrightPattern(path, pattern) {
+  if (pattern instanceof RegExp) {
+    pattern.lastIndex = 0;
+    return pattern.test(posix.resolve("/", path));
+  }
+  const glob = pattern.startsWith("**/") ? pattern : "**/" + pattern;
+  // Playwright uses minimatch with dot:true. Prefix each single segment with a
+  // literal so Node's dot-file exclusion cannot apply, while handling globstar
+  // separately (including hidden directories). Keep matching dependency-free.
+  const parts = path.toLowerCase().split("/");
+  const patterns = glob.toLowerCase().split("/");
+  let braces = 0;
+  for (const part of patterns) {
+    for (const char of part) {
+      if (char === "{") braces++;
+      else if (char === "}") braces--;
+    }
+    if (braces !== 0) throw new Error("Unsupported discovery glob with cross-directory braces");
+  }
+  const cache = new Map();
+  const match = (fileAt, patternAt) => {
+    const key = fileAt + ":" + patternAt;
+    if (cache.has(key)) return cache.get(key);
+    const result =
+      patternAt === patterns.length
+        ? fileAt === parts.length
+        : patterns[patternAt] === "**"
+          ? match(fileAt, patternAt + 1) || (fileAt < parts.length && match(fileAt + 1, patternAt))
+          : fileAt < parts.length &&
+            posix.matchesGlob("gate" + parts[fileAt], "gate" + patterns[patternAt]) &&
+            match(fileAt + 1, patternAt + 1);
+    cache.set(key, result);
+    return result;
+  };
+  return match(0, 0);
+}
+
 function isDiscoveredTest(path, vite, playwright) {
   const block = directConfigProperties(extractBlock(vite, "test:"));
-  const patterns = (key) =>
-    (
-      block?.match(new RegExp(key + ":\\s*\\[([\\s\\S]*?)\\]"))?.[1].match(/['"][^'"]*['"]/g) ?? []
-    ).map((value) => value.slice(1, -1));
-  const include = patterns("include");
+  const patterns = (key) => {
+    const value = block?.match(new RegExp("\\b" + key + ":\\s*\\[([\\s\\S]*?)\\]"));
+    return value
+      ? (value[1].match(/['"][^'"]*['"]/g) ?? []).map((entry) => entry.slice(1, -1))
+      : null;
+  };
   const defaults = ["**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"];
   const unit =
-    (include.length ? include : defaults).some((pattern) => posix.matchesGlob(path, pattern)) &&
-    !patterns("exclude").some((pattern) => posix.matchesGlob(path, pattern));
-  const dirs = playwright?.match(/testDir:\s*([^,\n]+)/)?.[1].match(/['"][^'"]*['"]/g) ?? [];
-  const browser = dirs.some((dir) =>
-    posix.matchesGlob(
-      path,
-      dir.slice(1, -1).replace(/^\.\//, "") + "/**/*.{test,spec}.{js,jsx,ts,tsx,mjs,cjs,mts,cts}",
-    ),
-  );
+    (patterns("include") ?? defaults).some((pattern) => posix.matchesGlob(path, pattern)) &&
+    !(patterns("exclude") ?? ["**/node_modules/**", "**/.git/**"]).some((pattern) =>
+      posix.matchesGlob(path, pattern),
+    );
+  const discovery = playwrightDiscovery(playwright);
+  const relativeBrowserPath =
+    discovery?.dir === "." ? path : path.slice((discovery?.dir.length ?? 0) + 1);
+  const browser =
+    !!discovery &&
+    (discovery.dir === "." || path.startsWith(discovery.dir + "/")) &&
+    !relativeBrowserPath.split("/").slice(0, -1).includes("node_modules") &&
+    discovery.match.some((pattern) => matchesPlaywrightPattern(path, pattern)) &&
+    !discovery.ignore.some((pattern) => matchesPlaywrightPattern(path, pattern));
   return unit || browser;
 }
 

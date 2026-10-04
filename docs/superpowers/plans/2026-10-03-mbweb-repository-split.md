@@ -439,3 +439,11 @@ test("keeps the old MB link usable for migration", async ({ page }) => {
 - 门禁已补真实重命名和发现目录回归；实际 coverage.exclude 不再误当 test.exclude。Windows 子进程启动有波动，WSL Linux 原有 5 秒限时下 41 项专项测试通过。完整公开验收与独立审查仍待本次执行。
 
 - 正式版发布准备的远程审查指出 Playwright 条件 testDir/default 分支和 testIgnore 的发现判定尚不完整。本次未移动或删减任何现有浏览器 spec，运行时/API 与 rc.2 一致，因此该既有盲点明确延期至公开业务清理之前完善；不得据此宣称门禁发现覆盖完整。完整本地门禁现在也已在 WSL 全部通过。
+
+## 2026-10-04 正式发布与跨会话收尾
+
+- 公开 PR #219 已合并至 `165ed9c`，正式 npm 工作流 `37207050219` 全绿；三个包实际发布为 `0.1.0`，`latest`、registry 字节及独立消费者均已验收。工作台应用 Release `dikw-web-v0.11.3` 已发布。
+- 用户将私有交付交接给 `mbweb-work` 会话，那里拥有私有目录操作权限；公开会话只读其证明并负责公开仓库，避免两个会话同时修改私有文件。私有 PR #3 已合并为 `0160a4f`，精确正式 registry 依赖、140 项测试和七条 Chromium 流程已通过；最终私有镜像/回退验收仍在该会话推进。
+- 公开门禁补齐默认条件分支、ignore、quoted/spread/hidden-path 和默认 Vitest 排除，并在独立审查后补三类无法解析的发现配置拒绝规则；真实 Git 回归先红后绿，62 项专项检查通过。公开 Linux 独立安装完成全部验证阶段：1309 项测试、58 条 Chromium 流程、三个独立消费者及构建预算全绿；生产审计无 high/critical。两条原有 opt-in live 测试未启用，测试限时/断言未变。Hosted CI 和远程审查仍待本次 PR，旧业务入口和源码继续保留。
+- 公开 PR #220 的第三轮独立（远程）审查指出 Playwright 依赖目录遍历和未知环境条件的遗漏；两个真实 Git 回归先红后绿，补上显式 testDir/CI 正向保护后共 66 项门禁回归通过。最终源码的全量验证与 hosted CI 另行记录，不用早一版 1309 项结果替代。
+- 最终公开源码已在独立 Linux 安装完成 1313 项测试、58 条零重试浏览器流程、三个消费者、构建预算和 high+ 审计；精确结果见 `docs/verification/2026-10-04-default-test-discovery.md`。私有最终源码 `42dc43c` 的 main CI 与发布 run `37213165453` 已全绿，私有 digest `sha256:d91e25436880e6dfd0431908211942e56ec9d0df7ddaa879959f7db8107968d6` 实际拉取及登录、阅读、主题切换、双 SQLite 备份重启、旧安全镜像回退/恢复均通过；公开会话已只读核查关联、精确 CI/发布和明暗截图。

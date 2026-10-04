@@ -7,6 +7,12 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.11.4] - 2026-10-04
+
+- Preserve default Playwright discovery when a Git rename moves an unchanged spec into an ignored live directory. Respect the ordinary conditional branch, quoted keys, literal spreads, regex/glob ignores and hidden paths; reject unsupported discovery expressions instead of accepting a broader test set.
+- Reject indirect project discovery, discovery accessors and extra configuration inputs. Preserve Vitest's default node_modules and Git-directory exclusions when no explicit test exclusions are supplied. Retain all coverage, bundle, retry and test-time limits.
+- Respect Playwright's dependency-directory traversal exclusions and reject unknown environment conditions instead of assuming they are unset.
+
 ## [0.11.3] - 2026-10-04
 
 - Prepare the three shared MIT packages as exact stable cohort 0.1.0 after candidate registry, independent application and authenticated image verification. Stable publication remains a separate reviewed release action.
