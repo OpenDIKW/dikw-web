@@ -68,3 +68,14 @@ publish permission, following owner approval and completed 2FA. Actual new-versi
 GitHub OIDC publication and registry acceptance remain pending until merge and
 successful workflow dispatch. Stable publication and public MB removal remain
 gated on private application and image acceptance.
+
+## First hosted CI follow-up
+
+The first Linux CI run found a pre-existing random tamper-vector bug: the test
+checked the last character while replacing the penultimate character, sometimes
+supplying the original valid token. A fixed-IV vector reproduced it. The test
+selector now always changes the intended character; all original rejection and
+key/purpose assertions remain, and the new deterministic regression passes.
+Production sealing, scope code and verification settings are unchanged. The
+focused auth suite passed all ten tests, ESLint/format passed, and the third
+independent review was clean. Full CI is rerun on the corrected commit.
