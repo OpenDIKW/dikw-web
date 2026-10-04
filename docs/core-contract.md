@@ -36,9 +36,10 @@ The connection (`serverUrl` + `token`) is owned by the workbench Settings page,
 which commits it on an explicit **Save** (Clear resets to the default URL +
 empty token immediately). Persisting to `localStorage` (not per-tab
 `sessionStorage`) means a saved connection is shared across tabs and survives a
-browser restart, so a cold-opened `#MB-Web` link recovers it without a per-tab
-handoff — MB-Web only reads these keys and its gear navigates to `#settings`
-(issue #97). The bearer token is therefore at rest in `localStorage` by default.
+browser restart. The bearer token is therefore at rest in `localStorage` by default.
+The independent private MB app owns its BFF connection and identity-scoped storage;
+it does not read these workbench connection keys. The public `#MB-Web` entry only
+offers a local backup and the configured destination, without Core requests.
 
 The top bar may summarize connection target and token posture, but it
 must not display the token value. When the visible server URL is the

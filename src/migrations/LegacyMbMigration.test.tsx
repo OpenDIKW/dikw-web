@@ -6,6 +6,22 @@ afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
+// Original embedded-app byte-preservation cases remain public because the
+// read-only legacy backup is still offered here after the business split.
+it.each([
+  ["dikw-mb.notes", ""],
+  ["dikw-mb.paperNames", ""],
+  ["dikw-mb.notes", "broken"],
+  ["dikw-mb.notes", "{}"],
+  ["dikw-mb.paperNames", "broken"],
+  ["dikw-mb.paperNames", "[]"],
+  ["dikw-mb.paperNames", '{"sources/paper.md":42}'],
+])("preserves damaged %s bytes when opening the actual export entry (%s)", async (key, raw) => {
+  localStorage.setItem(key, raw);
+  render(<LegacyMbMigration />);
+  await screen.findByRole("button", { name: "导出旧笔记与论文别名" });
+  expect(localStorage.getItem(key)).toBe(raw);
+});
 it("keeps export usable without a configured target and preserves invalid source data", () => {
   localStorage.setItem("dikw-mb.notes", "broken");
   render(<LegacyMbMigration />);

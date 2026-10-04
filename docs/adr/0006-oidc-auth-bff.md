@@ -93,7 +93,12 @@ sign-out. Without an end-session endpoint it lands on
 `/web/auth/signed-out`, a static page with a Sign in link, not `/`: `/` would go
 straight back through login, and a live IdP session would sign the user in again.
 
-`/healthz` is the only route that stays open (the container `HEALTHCHECK`).
+The shared runtime keeps `/healthz` open for the container `HEALTHCHECK`.
+The public workbench's later application-owned hosting adapter additionally
+serves built HTML/UI assets and non-secret branding config before this gate,
+allowing the legacy local-backup entry to work without the IdP (ADR 0007).
+Its Core, Agent and Web APIs still pass through this gate, and the private MB
+host keeps the shared runtime's original policy.
 
 **Roles** come from the verified ID-token claims along `DIKW_WEB_OIDC_ROLES_CLAIM`
 (`roles`, `groups`, `realm_access.roles`, `roles[].name`). Role *objects* are

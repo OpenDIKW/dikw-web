@@ -29,7 +29,7 @@ test("explicitly exports legacy notes and paper names without credentials or del
   });
   await page.goto("/#MB-Web");
   const promise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "导出笔记与论文别名", exact: true }).click();
+  await page.getByRole("button", { name: "导出旧笔记与论文别名", exact: true }).click();
   const download = await promise;
   expect(download.suggestedFilename()).toBe("dikw-mbweb-migration.json");
   const path = await download.path();

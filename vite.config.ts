@@ -3,6 +3,7 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath } from "node:url";
 import { createApplicationPlugins } from "@opendikw/web-server/vite";
+import { workbenchBoundary } from "./scripts/workbench-boundary";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
@@ -46,7 +47,7 @@ export default defineConfig(({ mode }) => {
             },
           }
         : undefined,
-    plugins: [react(), ...createApplicationPlugins()],
+    plugins: [react(), ...createApplicationPlugins(), workbenchBoundary()],
     test: {
       include: [
         "src/**/*.{test,spec}.{ts,tsx}",

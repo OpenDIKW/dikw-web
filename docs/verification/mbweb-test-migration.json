@@ -340,6 +340,80 @@
       "destination": "packages/web-server/src/shared/withServerSpan.test.ts",
       "behavior": "Existing behavior assertions retained; runtime imports remain relative",
       "ci": "dikw-web CI / vitest"
+    },
+    {
+      "evidence": "https://github.com/OpenDIKW/dikw-mbweb/pull/7#issuecomment-5982327255",
+      "ci": "https://github.com/OpenDIKW/dikw-mbweb/actions/runs/37218183657",
+      "repository": "OpenDIKW/dikw-mbweb",
+      "behavior": "Five storage/default/trim/cold-open behaviors retained; independent MB owns its own development connection keys",
+      "source": "src/mb/connection.test.ts",
+      "commit": "701fdbf3a2b2e544d2e0d4d8a8ba9932153bffb9",
+      "destination": "src/config/connection.test.ts"
+    },
+    {
+      "evidence": "https://github.com/OpenDIKW/dikw-mbweb/pull/7#issuecomment-5982327255",
+      "ci": "https://github.com/OpenDIKW/dikw-mbweb/actions/runs/37218183657",
+      "repository": "OpenDIKW/dikw-mbweb",
+      "behavior": "Eight preference/system/OS/toggle behaviors retained with the MB-owned theme key",
+      "source": "src/mb/theme.test.ts",
+      "commit": "701fdbf3a2b2e544d2e0d4d8a8ba9932153bffb9",
+      "destination": "src/config/theme.test.ts"
+    },
+    {
+      "evidence": "https://github.com/OpenDIKW/dikw-mbweb/pull/7#issuecomment-5982327255",
+      "ci": "https://github.com/OpenDIKW/dikw-mbweb/actions/runs/37218183657",
+      "repository": "OpenDIKW/dikw-mbweb",
+      "behavior": "Same-origin auth proxy and viewer read-only assertions retained; seven legacy-export damage cases remain public in src/migrations/LegacyMbMigration.test.tsx, without the retired paper-fetch wait",
+      "source": "src/mb/MbApp.test.tsx",
+      "commit": "701fdbf3a2b2e544d2e0d4d8a8ba9932153bffb9",
+      "destination": "src/App.test.tsx"
+    },
+    {
+      "evidence": "https://github.com/OpenDIKW/dikw-mbweb/pull/7#issuecomment-5982327255",
+      "ci": "https://github.com/OpenDIKW/dikw-mbweb/actions/runs/37218183657",
+      "repository": "OpenDIKW/dikw-mbweb",
+      "behavior": "Auth/network error behavior retained; private Settings navigation explicitly retired by the maintainer in PR #6 and replaced by retry",
+      "source": "src/mb/PaperLibrary.test.tsx",
+      "commit": "701fdbf3a2b2e544d2e0d4d8a8ba9932153bffb9",
+      "destination": "src/features/research/PaperLibrary.test.tsx"
+    },
+    {
+      "evidence": "https://github.com/OpenDIKW/dikw-mbweb/pull/7#issuecomment-5982327255",
+      "ci": "https://github.com/OpenDIKW/dikw-mbweb/actions/runs/37218183657",
+      "repository": "OpenDIKW/dikw-mbweb",
+      "behavior": "Paper conversation restoration retained; fixed paper scope, cross-paper entry and storage identity covered by additional private regressions",
+      "source": "src/mb/QaPanel.test.tsx",
+      "commit": "701fdbf3a2b2e544d2e0d4d8a8ba9932153bffb9",
+      "destination": "src/features/research/QaPanel.test.tsx"
+    },
+    {
+      "evidence": "https://github.com/OpenDIKW/dikw-mbweb/pull/7#issuecomment-5982327255",
+      "ci": "https://github.com/OpenDIKW/dikw-mbweb/actions/runs/37218183657",
+      "repository": "OpenDIKW/dikw-mbweb",
+      "behavior": "Editor/viewer upload, collapse restoration and mobile navigation assertions retained",
+      "source": "src/mb/ResearchWorkspace.test.tsx",
+      "commit": "701fdbf3a2b2e544d2e0d4d8a8ba9932153bffb9",
+      "destination": "src/features/research/ResearchWorkspace.test.tsx"
+    },
+    {
+      "evidence": "https://github.com/OpenDIKW/dikw-mbweb/pull/7#issuecomment-5982327255",
+      "ci": "https://github.com/OpenDIKW/dikw-mbweb/actions/runs/37218183657",
+      "repository": "OpenDIKW/dikw-mbweb",
+      "behavior": "All original assertions retained with verified identity-scoped notes key; missing regression reproduced red then fixed without blocking paper reading or overwriting raw bytes",
+      "source": "src/mb/damaged-notes.test.tsx",
+      "commit": "701fdbf3a2b2e544d2e0d4d8a8ba9932153bffb9",
+      "destination": "src/damaged-notes.test.tsx"
+    },
+    {
+      "evidence": "https://github.com/OpenDIKW/dikw-mbweb/pull/7#issuecomment-5982327255",
+      "ci": "https://github.com/OpenDIKW/dikw-mbweb/actions/runs/37218183657",
+      "sourceTest": "MB-Web column labels use the mono uppercase voice",
+      "commit": "701fdbf3a2b2e544d2e0d4d8a8ba9932153bffb9",
+      "behavior": "Original IBM Plex Mono and 0.44px letter-spacing assertions retained; other public typography tests remain",
+      "destinationTest": "MB column labels use the mono uppercase voice",
+      "source": "tests/e2e/typography.spec.ts",
+      "repository": "OpenDIKW/dikw-mbweb",
+      "destination": "tests/e2e/app.spec.ts"
     }
   ],
   "addedTests": [
@@ -351,6 +425,10 @@
     "packages/web-server/src/runtime/profile.integration.test.ts",
     "packages/web-server/src/runtime/profile.test.ts",
     "packages/web-server/src/runtime/tools.test.ts",
-    "packages/web-server/src/agent/coreCancellation.test.ts"
+    "packages/web-server/src/agent/coreCancellation.test.ts",
+    "src/migrations/LegacyMbMigration.test.tsx",
+    "scripts/workbench-boundary.test.mjs",
+    "tests/e2e/legacy-entry.spec.ts",
+    "server/agent/workbenchHandler.test.ts"
   ]
 }

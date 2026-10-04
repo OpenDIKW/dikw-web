@@ -285,28 +285,6 @@ test("type-system rules hold on sweep-unreachable surfaces (workbench)", async (
   expect(out.chartCaption.fs).toBe(bodySm);
 });
 
-// The MB-Web bilingual column heads are the twin of the workbench `.bi-colhead`
-// (which is mono): they must use the same mono uppercase label voice, not a
-// sans-uppercase "eyebrow". mb.css only loads under the #MB-Web app.
-test("MB-Web column labels use the mono uppercase voice", async ({ page }) => {
-  await page.goto("/#MB-Web");
-  // mb.css applies to a bare `.mb-lab`; build one so the rule is asserted without
-  // needing a paper open in bilingual mode.
-  const lab = await page.evaluate(() => {
-    const el = document.createElement("div");
-    el.className = "mb-lab";
-    el.textContent = "EN · 原文";
-    document.body.appendChild(el);
-    const cs = getComputedStyle(el);
-    const r = { ff: cs.fontFamily, ls: cs.letterSpacing, fs: cs.fontSize };
-    el.remove();
-    return r;
-  });
-  expect(lab.ff).toContain("IBM Plex Mono");
-  // 0.04em on the 11px label = 0.44px (the system label tracking), not 0.06em.
-  expect(parseFloat(lab.ls)).toBeCloseTo(0.44, 1);
-});
-
 // Panel titles ride the `title` role token (17px), not the old off-scale 14px.
 // Asserts the mechanism (the token) so a deliberate retune doesn't false-fail.
 test("panel titles ride the title-role token", async ({ page }) => {
