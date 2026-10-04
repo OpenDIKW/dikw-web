@@ -37,13 +37,23 @@ interface Props {
 // source file — kept in localStorage like the notes.
 const NAMES_KEY = "dikw-mb.paperNames";
 
-function loadNames(): Record<string, string> {
+function loadNames(): { names: Record<string, string>; damaged: boolean } {
   try {
     const raw = localStorage.getItem(NAMES_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : {};
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, string>) : {};
+    const parsed: unknown = raw === null ? {} : JSON.parse(raw);
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      Array.isArray(parsed) ||
+      Object.values(parsed).some((value) => typeof value !== "string")
+    )
+      throw new Error("Damaged aliases");
+    return {
+      names: Object.fromEntries(Object.entries(parsed)) as Record<string, string>,
+      damaged: false,
+    };
   } catch {
-    return {};
+    return { names: {}, damaged: true };
   }
 }
 
@@ -85,14 +95,15 @@ export function PaperLibrary({
   // failed row's retry stays disabled while any other upload is still in flight.
   const uploadInFlight = uploads.some((u) => u.stage !== "failed");
 
-  const [names, setNames] = useState<Record<string, string>>(() => loadNames());
+  const [loadedNames] = useState(loadNames);
+  const [names, setNames] = useState(loadedNames.names);
   const [renaming, setRenaming] = useState<string | null>(null);
   const renameRef = useRef<HTMLInputElement | null>(null);
   const cancelledRef = useRef(false);
 
   useEffect(() => {
-    localStorage.setItem(NAMES_KEY, JSON.stringify(names));
-  }, [names]);
+    if (!loadedNames.damaged) localStorage.setItem(NAMES_KEY, JSON.stringify(names));
+  }, [names, loadedNames.damaged]);
 
   const originalName = (d: DocumentRecord) => d.title || basename(d.path);
   const displayName = (d: DocumentRecord) => names[d.path]?.trim() || originalName(d);
@@ -136,6 +147,9 @@ export function PaperLibrary({
     <aside className={`mb-col mb-lib${hidden ? " mb-col--hidden" : ""}`}>
       <div className="mb-lib-head">论文库 · {papers.length}</div>
       <div className="mb-lib-list">
+        {loadedNames.damaged ? (
+          <div role="alert">论文别名数据损坏，原数据已保留。请备份并修复后刷新。</div>
+        ) : null}
         {uploads.map((u) =>
           u.stage === "failed" ? (
             <div className="mb-paper proc is-failed" key={u.id}>
@@ -241,6 +255,7 @@ export function PaperLibrary({
                   className="mb-prename"
                   type="button"
                   aria-label="重命名"
+                  disabled={loadedNames.damaged}
                   title="重命名"
                   onClick={(e) => {
                     e.stopPropagation();

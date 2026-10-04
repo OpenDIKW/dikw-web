@@ -60,24 +60,34 @@ function newNid(): string {
   return `n-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
-function loadNotes(): MbNote[] {
+function loadNotes(): { notes: MbNote[]; damaged: boolean } {
   try {
     const raw = localStorage.getItem(notesKey);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((n): n is MbNote => !!n && typeof (n as MbNote).nid === "string")
-      .map((n) => ({
-        // Coerce the render-critical fields so a corrupt / schema-drifted entry
-        // can't crash the notes view (KIND[type], tags.map, formatNoteDate).
-        ...n,
-        type: n.type === "clip" || n.type === "answer" || n.type === "thought" ? n.type : "thought",
-        tags: Array.isArray(n.tags) ? n.tags : [],
-        ts: typeof n.ts === "number" ? n.ts : Date.now(),
-      }));
+    const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+    if (
+      !Array.isArray(parsed) ||
+      parsed.some((value: unknown) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return true;
+        const note = value as Record<string, unknown>;
+        return (
+          typeof note.nid !== "string" ||
+          !note.nid ||
+          typeof note.type !== "string" ||
+          !["clip", "answer", "thought"].includes(note.type) ||
+          typeof note.srcType !== "string" ||
+          !["", "paper", "chat"].includes(note.srcType) ||
+          ["quote", "txt", "src"].some((key) => typeof note[key] !== "string") ||
+          !Array.isArray(note.tags) ||
+          note.tags.some((tag) => typeof tag !== "string") ||
+          typeof note.ts !== "number" ||
+          !Number.isFinite(note.ts)
+        );
+      })
+    )
+      throw new Error("Damaged notes");
+    return { notes: parsed as MbNote[], damaged: false };
   } catch {
-    return [];
+    return { notes: [], damaged: true };
   }
 }
 
@@ -121,7 +131,8 @@ export function MbApp() {
   const [, toggleTheme] = useSharedTheme();
   const [view, setView] = useState<MbView>("research");
   const [coreState, setCoreState] = useState<"checking" | "ok" | "down">("checking");
-  const [notes, setNotes] = useState<MbNote[]>(() => loadNotes());
+  const [loadedNotes] = useState(loadNotes);
+  const [notes, setNotes] = useState<MbNote[]>(loadedNotes.notes);
 
   const [translatorEnabled, setTranslatorEnabled] = useState(false);
   const [translateCache, setTranslateCache] = useState<TranslateCache | null>(null);
@@ -140,8 +151,8 @@ export function MbApp() {
 
   // persist notes
   useEffect(() => {
-    localStorage.setItem(notesKey, JSON.stringify(notes));
-  }, [notes]);
+    if (!loadedNotes.damaged) localStorage.setItem(notesKey, JSON.stringify(notes));
+  }, [notes, loadedNotes.damaged]);
 
   // probe sidecar translator once (gates 中英对照)
   useEffect(() => {
@@ -190,7 +201,7 @@ export function MbApp() {
   const syncNote = useCallback(
     async (note: MbNote) => {
       // Viewers can't write wisdom (the server would 403): their notes stay local.
-      if (!canEdit) return;
+      if (!canEdit || loadedNotes.damaged) return;
       setNotes((prev) => prev.map((n) => (n.nid === note.nid ? { ...n, sync: "syncing" } : n)));
       try {
         const path = await writeNoteToWisdom(client, note);
@@ -201,7 +212,7 @@ export function MbApp() {
         setNotes((prev) => prev.map((n) => (n.nid === note.nid ? { ...n, sync: "error" } : n)));
       }
     },
-    [client, canEdit],
+    [client, canEdit, loadedNotes.damaged],
   );
 
   // Best-effort archive on delete — only if the note actually reached Wisdom.
@@ -253,6 +264,10 @@ export function MbApp() {
   // Save a whole Q&A answer to 我的笔记 (kind "answer") + mirror to Wisdom.
   const saveAnswerNote = useCallback(
     (text: string) => {
+      if (loadedNotes.damaged) {
+        showToast("笔记数据损坏，原数据已保留。请修复后再保存笔记。");
+        return;
+      }
       const quote = text.trim();
       if (!quote) return;
       const paper = currentPaperRef.current;
@@ -268,11 +283,12 @@ export function MbApp() {
       showToast("已存入我的笔记");
       void syncNote(note);
     },
-    [addNote, syncNote, showToast],
+    [addNote, syncNote, showToast, loadedNotes.damaged],
   );
 
   useEffect(() => {
     function onUp() {
+      if (loadedNotes.damaged) return;
       window.setTimeout(() => {
         const sel = window.getSelection();
         const txt = sel ? sel.toString().trim() : "";
@@ -311,7 +327,7 @@ export function MbApp() {
     }
     document.addEventListener("mouseup", onUp);
     return () => document.removeEventListener("mouseup", onUp);
-  }, []);
+  }, [loadedNotes.damaged]);
 
   // Drop the staged highlight once neither the chip nor the popover is showing
   // (i.e. the user saved, cancelled, or clicked away).
@@ -372,6 +388,7 @@ export function MbApp() {
   }
 
   function savePop() {
+    if (loadedNotes.damaged) return;
     if (!pop) return;
     const thought = popTextRef.current?.value.trim() ?? "";
     const note = addNote({
@@ -426,6 +443,19 @@ export function MbApp() {
           </div>
         </div>
         <div className="mb-rgroup">
+          <button
+            type="button"
+            className="mb-btn"
+            onClick={() => {
+              void import("../migrations/legacyMbExport")
+                .then(({ downloadLegacyMbData }) => downloadLegacyMbData())
+                .catch((cause: unknown) =>
+                  showToast(cause instanceof Error ? cause.message : "无法导出旧数据。"),
+                );
+            }}
+          >
+            导出笔记与论文别名
+          </button>
           <span>
             <span className={`mb-dot ${coreState === "down" ? "off" : ""}`} />
             {coreState === "ok"
@@ -458,13 +488,7 @@ export function MbApp() {
       </header>
 
       <main className="mb-main">
-        <section
-          style={{
-            display: view === "research" ? "flex" : "none",
-            flex: 1,
-            minHeight: 0,
-          }}
-        >
+        <section style={{ display: view === "research" ? "flex" : "none", flex: 1, minHeight: 0 }}>
           <ResearchWorkspace
             client={client}
             agentClient={agentClient}
@@ -478,19 +502,17 @@ export function MbApp() {
             onSaveAnswer={saveAnswerNote}
           />
         </section>
-        <section
-          style={{
-            display: view === "notes" ? "flex" : "none",
-            flex: 1,
-            minHeight: 0,
-          }}
-        >
-          <NotesView
-            notes={notes}
-            setNotes={setNotes}
-            onSyncNote={syncNote}
-            onArchiveNote={archiveNote}
-          />
+        <section style={{ display: view === "notes" ? "flex" : "none", flex: 1, minHeight: 0 }}>
+          {loadedNotes.damaged ? (
+            <div role="alert">笔记数据损坏，原数据已保留。请备份并修复浏览器数据后刷新。</div>
+          ) : (
+            <NotesView
+              notes={notes}
+              setNotes={setNotes}
+              onSyncNote={syncNote}
+              onArchiveNote={archiveNote}
+            />
+          )}
         </section>
       </main>
 
