@@ -7,6 +7,11 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.11.3] - 2026-10-04
+
+- Prepare the three shared MIT packages as exact stable cohort 0.1.0 after candidate registry, independent application and authenticated image verification. Stable publication remains a separate reviewed release action.
+- Guard assertion changes across real Git test renames and count lost declared Vitest/Playwright discovery as deletion. Read source objects in one strict NUL batch, preserving UTF-8 and spaced paths; coverage exclusions remain separate from test discovery.
+
 ## [0.11.2] - 2026-10-04
 
 - Add immutable page-scoped Agent sessions for selected-document Q&A, with server-enforced reader limits and stable source citations. Unscoped workbench conversations retain whole-base retrieval.

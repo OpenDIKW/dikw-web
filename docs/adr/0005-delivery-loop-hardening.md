@@ -47,8 +47,10 @@ verification itself was weakened:
   (a higher retry count masks new flakes).
 - **test-file-deleted** / **test-skip-added** / **test-assertions-removed** — a test
   file was removed, gained a `.skip`/`.only`/`.todo`/`xit`/`xdescribe` marker, or lost
-  `expect()` calls. Only *in-place* modifications are diffed; a new file is new
-  coverage, and a rename-that-guts shows up as a separate delete (still caught).
+  `expect()` calls. In-place modifications and Git renames compare old/new contents.
+  NUL-separated paths preserve spaces. A rename that loses its test suffix or
+  leaves the declared Vitest/Playwright discovery paths counts as deletion;
+  unchanged renames inside discovery pass. New files add coverage.
 - **gate-machinery-modified** — any edit to the gate script itself,
   `.github/workflows/**`, or `fixer.md`'s forbidden list. This is the **self-guard**:
   an agent cannot quietly delete a check or drop the CI job, because doing so trips the

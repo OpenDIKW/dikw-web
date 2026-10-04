@@ -4,6 +4,7 @@ import {
   countSkipMarkers,
   evaluateGate,
   isMachineryPath,
+  parseGitBatchSources,
   parseBundleBudgets,
   parseCoverageExcludeCount,
   parseCoverageThresholds,
@@ -329,4 +330,170 @@ describe("evaluateGate", () => {
     expect(result.overridden).toBe(true);
     expect(result.violations.length).toBeGreaterThan(0);
   });
+});
+
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+  renameSync,
+  rmSync,
+  realpathSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { execFileSync, spawnSync } from "node:child_process";
+
+function fixtureGitEnv() {
+  const env = { ...process.env };
+  const count = Number(env.GIT_CONFIG_COUNT ?? 0);
+  if (!Number.isSafeInteger(count) || count < 0)
+    throw new Error("Invalid fixture Git config count");
+  const entries = [
+    ["user.name", "Gate fixture"],
+    ["user.email", "gate@example.invalid"],
+    ["diff.renames", "true"],
+  ];
+  entries.forEach(([key, value], index) => {
+    env["GIT_CONFIG_KEY_" + (count + index)] = key;
+    env["GIT_CONFIG_VALUE_" + (count + index)] = value;
+  });
+  env.GIT_CONFIG_COUNT = String(count + entries.length);
+  return env;
+}
+
+it.each(["weakened", "preserved", "undiscovered"])("checks actual Git test renames: %s", (mode) => {
+  const taskTemp = realpathSync.native(tmpdir());
+  const checkout = mkdtempSync(join(taskTemp, "dikw-gate-rename-"));
+  const env = fixtureGitEnv();
+  const git = (...args) =>
+    execFileSync("git", args, {
+      cwd: checkout,
+      env,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  try {
+    git("init", "--quiet");
+    const original =
+      "// Existing coverage 中文\n".repeat(100) +
+      'it("checks behavior", () => {\n  expect(1).toBe(1);\n  expect(2).toBe(2);\n});\n';
+    writeFileSync(join(checkout, "original.test.mjs"), original);
+    git("add", ".");
+    git("commit", "--quiet", "-m", "Baseline test");
+    const base = git("rev-parse", "HEAD").trim();
+    const renamed = mode === "undiscovered" ? "renamed.txt" : "renamed behavior.test.mjs";
+    renameSync(join(checkout, "original.test.mjs"), join(checkout, renamed));
+    if (mode === "weakened")
+      writeFileSync(join(checkout, renamed), original.replace("  expect(2).toBe(2);\n", ""));
+    git("add", ".");
+    git("commit", "--quiet", "-m", "Rename test");
+    expect(git("diff", "--name-status", base + "...HEAD")).toMatch(/^R\d+/);
+    const outcome = spawnSync(process.execPath, [resolve("scripts/check-gate-integrity.mjs")], {
+      cwd: checkout,
+      encoding: "utf8",
+      env: { ...env, GATE_BASE_REF: base, GATE_HAS_OVERRIDE: "false" },
+    });
+    expect(outcome.status).toBe(mode.endsWith("preserved") ? 0 : 1);
+    if (mode === "weakened") expect(outcome.stderr).toContain("test-assertions-removed");
+    if (mode === "undiscovered") expect(outcome.stderr).toContain("test-file-deleted");
+    expect(readFileSync(join(checkout, renamed), "utf8")).toContain("expect(1)");
+  } finally {
+    const owned = realpathSync.native(checkout);
+    if (owned.startsWith(taskTemp) && owned.includes("dikw-gate-rename-"))
+      rmSync(owned, { recursive: true, force: true });
+  }
+});
+
+it.each([
+  "unit-outside",
+  "unit-excluded",
+  "e2e-outside",
+  "preserved",
+  "coverage-outside",
+  "coverage-preserved",
+])("checks configured test discovery: %s", (mode) => {
+  const taskTemp = realpathSync.native(tmpdir());
+  const checkout = mkdtempSync(join(taskTemp, "dikw-gate-discovery-"));
+  const env = fixtureGitEnv();
+  const git = (...args) =>
+    execFileSync("git", args, {
+      cwd: checkout,
+      env,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  try {
+    git("init", "--quiet");
+    const source = mode === "e2e-outside" ? "tests/e2e/original.spec.ts" : "src/original.test.ts";
+    const target = mode.endsWith("preserved")
+      ? "src/nested/renamed behavior.test.ts"
+      : mode === "unit-excluded"
+        ? "src/excluded/renamed.test.ts"
+        : "archive/renamed" + (mode === "e2e-outside" ? ".spec.ts" : ".test.ts");
+    mkdirSync(join(checkout, dirname(source)), { recursive: true });
+    mkdirSync(join(checkout, dirname(target)), { recursive: true });
+    writeFileSync(
+      join(checkout, "vite.config.ts"),
+      mode.startsWith("coverage-")
+        ? 'export default { test: { include: ["src/**/*.{test,spec}.{ts,tsx}"], server: { deps: { inline: ["katex"] } }, coverage: { include: ["src/**/*.{ts,tsx}"], exclude: ["**/*.test.{ts,tsx}", "src/test/**"], thresholds: { statements: 60, branches: 45, functions: 55, lines: 60 } } } };'
+        : 'export default { test: { include: ["src/**/*.{test,spec}.{ts,tsx}"], exclude: ["src/excluded/**"] } };',
+    );
+    writeFileSync(
+      join(checkout, "playwright.config.ts"),
+      'export default { testDir: "./tests/e2e" };',
+    );
+    writeFileSync(
+      join(checkout, source),
+      "// Existing coverage 中文\n".repeat(100) + 'it("behavior", () => { expect(1).toBe(1); });\n',
+    );
+    git("add", ".");
+    git("commit", "--quiet", "-m", "Discovered baseline");
+    const base = git("rev-parse", "HEAD").trim();
+    renameSync(join(checkout, source), join(checkout, target));
+    git("add", ".");
+    git("commit", "--quiet", "-m", "Rename without changing assertions");
+    expect(git("diff", "--name-status", base + "...HEAD")).toMatch(/^R\d+/);
+    const result = spawnSync(process.execPath, [resolve("scripts/check-gate-integrity.mjs")], {
+      cwd: checkout,
+      encoding: "utf8",
+      env: { ...env, GATE_BASE_REF: base, GATE_HAS_OVERRIDE: "false" },
+    });
+    expect(result.status).toBe(mode.endsWith("preserved") ? 0 : 1);
+    if (!mode.endsWith("preserved")) expect(result.stderr).toContain("test-file-deleted");
+    expect(readFileSync(join(checkout, target), "utf8")).toContain("expect(1)");
+  } finally {
+    const owned = realpathSync.native(checkout);
+    if (owned.startsWith(taskTemp) && owned.includes("dikw-gate-discovery-"))
+      rmSync(owned, { recursive: true, force: true });
+  }
+});
+
+describe("Git batch source protocol", () => {
+  it("decodes multibyte bodies and explicit missing paths in order", () => {
+    const body = "断言 expect(1)\n";
+    const keys = ["HEAD:spaced test.ts", "HEAD:absent.ts"];
+    const buffer = Buffer.concat([
+      Buffer.from("abc123 blob " + Buffer.byteLength(body) + "\0"),
+      Buffer.from(body),
+      Buffer.from("\0" + keys[1] + " missing\0"),
+    ]);
+    expect([...parseGitBatchSources(buffer, keys)]).toEqual([
+      [keys[0], body],
+      [keys[1], null],
+    ]);
+  });
+  it.each(["header", "body", "unexpected", "trailing"])(
+    "rejects invalid Git responses: %s",
+    (mode) => {
+      const buffers = {
+        header: "abc123 blob 1",
+        body: "abc123 blob 2\0x\0",
+        unexpected: "HEAD:test.ts ambiguous\0",
+        trailing: "abc123 blob 1\0x\0extra",
+      };
+      expect(() => parseGitBatchSources(Buffer.from(buffers[mode]), ["HEAD:test.ts"])).toThrow();
+    },
+  );
 });
