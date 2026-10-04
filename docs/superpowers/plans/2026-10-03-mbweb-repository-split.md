@@ -434,6 +434,8 @@ test("keeps the old MB link usable for migration", async ({ page }) => {
 ## 2026-10-04 候选验收与正式版本准备
 
 - 私有初始 PR #1 已合并，最终 CI、独立 registry clone、真实迁移、授权 Core 阅读及 Wisdom 写入/归档恢复验证通过。
-- 候选镜像的 Debian 安全更新已通过修复版本及真实登录会话、阅读器、SQLite 备份/重启验证。安全修复 PR #2 的最终文档提交 CI、main CI、私有 GHCR 及 digest 验收仍按真实结果推进。
+- 候选镜像的 Debian 安全更新已通过修复版本及真实登录会话、阅读器、SQLite 备份/重启验证。安全修复 PR #2 已合并，合并提交 d7dc421 的 main CI 37203240889 已通过；私有 GHCR 发布和最终 digest 验收仍待完成。
 - 本次准备公开共享包正式 cohort 0.1.0，正式 npm 发布、私有精确正式依赖与最终镜像仍未完成，旧公开 MB 业务入口继续保留。
 - 门禁已补真实重命名和发现目录回归；实际 coverage.exclude 不再误当 test.exclude。Windows 子进程启动有波动，WSL Linux 原有 5 秒限时下 41 项专项测试通过。完整公开验收与独立审查仍待本次执行。
+
+- 正式版发布准备的远程审查指出 Playwright 条件 testDir/default 分支和 testIgnore 的发现判定尚不完整。本次未移动或删减任何现有浏览器 spec，运行时/API 与 rc.2 一致，因此该既有盲点明确延期至公开业务清理之前完善；不得据此宣称门禁发现覆盖完整。完整本地门禁现在也已在 WSL 全部通过。
