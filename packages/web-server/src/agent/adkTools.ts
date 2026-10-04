@@ -96,7 +96,17 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
       execute: async (input) => {
         const params = input as { path: string };
         try {
-          return await client.getJson(`/v1/base/pages/${encodeURIComponent(params.path)}`);
+          if (options.scope && params.path !== options.scope.pagePath)
+            throw new Error("page is outside this session scope");
+          const page = await client.getJson(`/v1/base/pages/${encodeURIComponent(params.path)}`);
+          if (
+            options.scope &&
+            (!page ||
+              typeof page !== "object" ||
+              (page as { path?: unknown }).path !== options.scope.pagePath)
+          )
+            throw new Error("Core returned a page outside this session scope");
+          return page;
         } catch (error) {
           return errorResponse(error);
         }
@@ -220,12 +230,13 @@ export function createDikwTools(options: DikwToolsOptions): FunctionTool[] {
         }
       },
     }),
-  ].filter(
-    (tool) =>
-      options.profile !== "mbweb" ||
-      (tool.name !== "propose_maintenance_action" &&
-        (tool.name !== "web_search" || Boolean(options.tavilyApiKey)) &&
-        (tool.name !== "web_fetch" || Boolean(options.jinaApiKey))),
+  ].filter((tool) =>
+    options.scope
+      ? tool.name === "dikw_health" || tool.name === "read_page"
+      : options.profile !== "mbweb" ||
+        (tool.name !== "propose_maintenance_action" &&
+          (tool.name !== "web_search" || Boolean(options.tavilyApiKey)) &&
+          (tool.name !== "web_fetch" || Boolean(options.jinaApiKey))),
   );
 }
 

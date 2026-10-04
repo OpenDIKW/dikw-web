@@ -9,6 +9,7 @@ import { loadAgentConfig } from "./config.js";
 import { parseSessionTitle, SESSION_TITLE_ERROR_MESSAGES } from "./sessionStore.js";
 import { AdkSessionStore, DEFAULT_USER_ID, SessionNotFoundError } from "./adkSessionStore.js";
 import { AdkAgentRunner } from "./adkRunner.js";
+import { InvalidSessionScopeError, parseSessionScope } from "./scope.js";
 import { SpanStore } from "./spanStore.js";
 import { initAgentTelemetry } from "./telemetry.js";
 import { createLogger } from "../shared/logger.js";
@@ -169,7 +170,9 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         return json(res, await store.listSessions());
       }
       if (req.method === "POST" && parts.length === 1) {
-        return json(res, await store.createSession(), 201);
+        const body = await readJsonBody(req);
+        const scope = isRecord(body) && "scope" in body ? parseSessionScope(body.scope) : undefined;
+        return json(res, await store.createSession(scope), 201);
       }
       const sessionId = parts[1];
       if (!sessionId) {
@@ -219,6 +222,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         // Resolve before streaming starts, so a foreign id is a clean 404 and
         // ADK runs under the user the session is stored under.
         const owner = await store.ownerOf(sessionId);
+        const scope = await store.scopeOf(sessionId);
         const controller = new AbortController();
         const controllers = activeControllers.get(sessionId) ?? new Set<AbortController>();
         controllers.add(controller);
@@ -232,6 +236,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
           await runner.runMessage({
             sessionId,
             userId: owner,
+            ...(scope ? { scope } : {}),
             message: body.message.trim(),
             coreUrl: connection.coreUrl,
             token: connection.token,
@@ -284,6 +289,9 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       if (shutdown.signal.aborted) {
         res.destroy();
         return;
+      }
+      if (error instanceof InvalidSessionScopeError) {
+        return errorJson(res, 400, "invalid_request", error.message);
       }
       if (error instanceof SessionNotFoundError) {
         return errorJson(res, 404, "not_found", "session not found");

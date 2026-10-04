@@ -55,7 +55,13 @@ export interface SessionSummary {
   lastMessagePreview: string;
 }
 
+export interface AgentSessionScope {
+  /** Immutable evidence scope; omitted sessions retain whole-base retrieval. */
+  pagePath: string;
+}
+
 export interface AgentSession extends SessionSummary {
+  scope?: AgentSessionScope;
   messages: AgentMessage[];
   toolEvents: AgentToolEvent[];
   sources: AgentSource[];

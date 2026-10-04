@@ -292,3 +292,21 @@ environment, the two web tools route through it via undici's
 calls, not to `dikw-core` requests, so a local core on
 `127.0.0.1:8765` keeps working alongside an upstream proxy used to
 reach the public web.
+
+## Page-scoped sessions
+
+POST /agent/sessions optionally accepts { scope: { pagePath } }. The path must
+be a canonical sources/, knowledge/ or wisdom/ Markdown path. The server stores
+it with the owned ADK session and returns the optional scope on session reads.
+Rename and message bodies cannot override it; legacy sessions without scope keep
+the existing whole-base behavior. AgentClient.createSession(signal, scope) sends
+this optional creation contract.
+
+A scoped turn exposes only dikw_health and read_page. The page reader rejects
+other paths before calling Core and verifies the returned path. It does not expose
+global retrieval, page/Wisdom listing, external tools or maintenance proposals.
+The model is instructed to answer from the selected page and report insufficient
+evidence. Successful page reads produce the existing source citation event.
+This is an answer-evidence scope, not a per-user content ACL for the shared Core.
+Applications select scoped or whole-base sessions explicitly and keep their chat
+histories separate. Scope survives local display-name edits and backend restarts.

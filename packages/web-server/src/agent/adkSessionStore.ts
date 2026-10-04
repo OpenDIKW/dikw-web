@@ -11,11 +11,13 @@ import type {
   AgentMessage,
   AgentProposal,
   AgentSession,
+  AgentSessionScope,
   AgentSource,
   AgentToolEvent,
   SessionSummary,
 } from "@opendikw/web-client/types";
 import { validateSessionTitle } from "./sessionStore.js";
+import { parseSessionScope } from "./scope.js";
 import { proposalFromTool, sourcesFromTool } from "./runtime.js";
 
 const DEFAULT_TITLE = "New chat";
@@ -81,11 +83,19 @@ export class AdkSessionStore {
     return (await this.loadSession(id, { numRecentEvents: 1 })).userId;
   }
 
-  async createSession(): Promise<AgentSession> {
+  async scopeOf(id: string): Promise<AgentSessionScope | undefined> {
+    const session = await this.loadSession(id, { numRecentEvents: 1 });
+    return session.state.readScope === undefined
+      ? undefined
+      : parseSessionScope(session.state.readScope);
+  }
+
+  async createSession(scope?: AgentSessionScope): Promise<AgentSession> {
     const session = await this.sessionService.createSession({
       appName: this.appName,
       userId: this.userId,
       state: {
+        ...(scope ? { readScope: parseSessionScope(scope) } : {}),
         title: DEFAULT_TITLE,
         createdAt: timestamp(),
         messageCount: 0,
@@ -225,6 +235,7 @@ function projectSession(session: Session): AgentSession {
 
   return {
     id: session.id,
+    ...(state.readScope === undefined ? {} : { scope: parseSessionScope(state.readScope) }),
     title,
     createdAt,
     updatedAt,

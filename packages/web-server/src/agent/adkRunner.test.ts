@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getFunctionCalls, getFunctionResponses, stringifyContent } from "@google/adk";
+import { DatabaseSessionService } from "@google/adk";
 import type { Event } from "@google/adk";
+import { MiniMaxLlm } from "./minimaxLlm";
 
 // Mock the metrics module so we can assert how runMessage classifies a turn's
 // outcome without standing up a MeterProvider. adkRunner only uses
@@ -17,7 +19,7 @@ vi.mock("../shared/metrics.js", () => ({
 import { AdkAgentRunner, mapAdkEvent, type RunnerLike } from "./adkRunner";
 import { recordAgentTurnDuration } from "../shared/metrics.js";
 import type { AgentConfig } from "./config";
-import type { AdkSessionStore } from "./adkSessionStore";
+import { AdkSessionStore } from "./adkSessionStore";
 import type { AgentStreamEvent } from "@opendikw/web-client/types";
 
 const SESSION_ID = "session-1";
@@ -450,3 +452,70 @@ describe("AdkAgentRunner.runMessage", () => {
     expect(recordAgentTurnDuration).toHaveBeenCalledWith(expect.any(Number), "error");
   });
 });
+
+it("configures a scoped ADK turn with only the fixed page reader and health tool", async () => {
+  let names: string[] = [];
+  let instruction: unknown;
+  const runner = new AdkAgentRunner({
+    config: makeConfig(),
+    store: { forUser: () => ({ finalizeTurn: async () => {} }) } as unknown as AdkSessionStore,
+    sessionService: {} as never,
+    createRunner: ({ agent }) => {
+      names = agent.tools.flatMap((tool) =>
+        typeof tool === "object" && "name" in tool ? [String(tool.name)] : [],
+      );
+      instruction =
+        typeof agent.instruction === "function"
+          ? agent.instruction({} as never)
+          : agent.instruction;
+      return { async *runAsync() {} };
+    },
+  });
+  await runner.runMessage({
+    sessionId: "scoped",
+    scope: { pagePath: "sources/original.md" },
+    message: "Read other papers",
+    coreUrl: "http://core.example",
+    onEvent: () => {},
+  });
+  expect(names).toEqual(["dikw_health", "read_page"]);
+  expect(instruction).toContain("sources/original.md");
+});
+
+it.each(["sources/{paper}/article.md", "sources/{title}.md"])(
+  "preserves literal braces in a scoped path through the real ADK request processors: %s",
+  async (pagePath) => {
+    const instructions: string[] = [];
+    const generate = vi
+      .spyOn(MiniMaxLlm.prototype, "generateContentAsync")
+      .mockImplementation(async function* (request) {
+        instructions.push(JSON.stringify(request.config?.systemInstruction));
+        yield { content: { role: "model", parts: [{ text: "Done" }] } };
+      });
+    const service = new DatabaseSessionService("sqlite://:memory:");
+    const store = new AdkSessionStore({
+      sessionService: service,
+      appName: "dikw-web",
+      userId: "demo",
+    });
+    const session = await store.createSession({ pagePath });
+    const runner = new AdkAgentRunner({ config: makeConfig(), store, sessionService: service });
+    const events: AgentStreamEvent[] = [];
+    try {
+      await runner.runMessage({
+        sessionId: session.id,
+        scope: { pagePath },
+        message: "Read this paper",
+        coreUrl: "http://core.example",
+        onEvent: (event) => {
+          events.push(event);
+        },
+      });
+      expect(events.filter((event) => event.type === "error")).toEqual([]);
+      expect(instructions).toHaveLength(1);
+      expect(instructions[0]).toContain(pagePath);
+    } finally {
+      generate.mockRestore();
+    }
+  },
+);

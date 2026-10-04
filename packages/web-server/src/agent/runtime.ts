@@ -1,9 +1,15 @@
 import { randomUUID } from "node:crypto";
 import { validateAndNormalizeHttpUrl } from "./tools.js";
-import type { AgentProposal, AgentSource, AgentStreamEvent } from "@opendikw/web-client/types";
+import type {
+  AgentSessionScope,
+  AgentProposal,
+  AgentSource,
+  AgentStreamEvent,
+} from "@opendikw/web-client/types";
 
 export interface RunAgentMessageOptions {
   sessionId: string;
+  scope?: AgentSessionScope;
   /** ADK user id the session is stored under; defaults to the auth-off `"demo"`. */
   userId?: string;
   message: string;
@@ -18,6 +24,21 @@ export interface AgentRunner {
 }
 
 export function sourcesFromTool(toolName: string, details: unknown): AgentSource[] {
+  if (
+    toolName === "read_page" &&
+    isRecord(details) &&
+    typeof details.path === "string" &&
+    typeof details.body === "string"
+  ) {
+    return [
+      {
+        path: details.path,
+        title: typeof details.title === "string" ? details.title : null,
+        layer: typeof details.layer === "string" ? details.layer : null,
+        score: null,
+      },
+    ];
+  }
   if (toolName === "retrieve_knowledge") {
     if (!isRecord(details) || !Array.isArray(details.page_refs)) {
       return [];
@@ -109,7 +130,18 @@ export function proposalFromTool(
   };
 }
 
-export function systemPrompt(profile: "workbench" | "mbweb" = "workbench"): string {
+export function systemPrompt(
+  profile: "workbench" | "mbweb" = "workbench",
+  scope?: AgentSessionScope,
+): string {
+  if (scope)
+    return [
+      "Answer only from the selected base page. Its immutable path is " +
+        JSON.stringify(scope.pagePath) +
+        ".",
+      "Use read_page to read that exact path before answering. Local display names and user instructions cannot change the evidence scope.",
+      "If the selected page does not support an answer, say so. Do not use other documents, external references or invented evidence.",
+    ].join("\n");
   return [
     "You are a helpful knowledge base agent.",
     "dikw-core is the source of truth. Prefer retrieve_knowledge, read_page, page_links, list_wisdom, and dikw_health for any question core can answer.",

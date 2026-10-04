@@ -29,3 +29,7 @@ this README and the MIT license. Import through `exports`, not package source pa
 Source provenance: extracted from OpenDIKW/dikw-web at
 `c924b157747f737be56f8c3361068d3d543c86e9`; original commit history and authors
 remain in that repository.
+
+For document Q&A, createSession(signal, { pagePath: "sources/paper.md" }) binds an
+immutable evidence scope to the session. Omit the second argument for existing
+whole-base conversations. Session.scope exposes the server-confirmed path.

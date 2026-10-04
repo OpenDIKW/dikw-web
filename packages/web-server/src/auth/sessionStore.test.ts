@@ -16,6 +16,10 @@ const session: AuthSession = {
   idToken: "header.payload.signature-of-ada",
 };
 
+function tamperCiphertext(sealed: string): string {
+  return `${sealed.slice(0, -2)}${sealed.at(-2) === "A" ? "B" : "A"}${sealed.slice(-1)}`;
+}
+
 describe("createSealer", () => {
   it("round-trips a value and rejects tampering or the wrong key/purpose", () => {
     const sealer = createSealer(SECRET, "test");
@@ -24,11 +28,22 @@ describe("createSealer", () => {
     expect(sealed).not.toContain("plaintext-marker");
     expect(Buffer.from(sealed, "base64url").toString("latin1")).not.toContain("plaintext-marker");
 
-    const flipped = `${sealed.slice(0, -2)}${sealed.endsWith("A") ? "B" : "A"}${sealed.slice(-1)}`;
+    const flipped = tamperCiphertext(sealed);
     expect(sealer.open(flipped)).toBeNull();
     expect(sealer.open("not-sealed")).toBeNull();
     expect(createSealer("y".repeat(32), "test").open(sealed)).toBeNull();
     expect(createSealer(SECRET, "other").open(sealed)).toBeNull();
+  });
+
+  it("rejects tampering when the original penultimate base64url character is A", () => {
+    const sealer = createSealer(SECRET, "test");
+    // Fixed IV 00000000000000000000006d: the ciphertext ends in Aq.
+    const sealed = "AAAAAAAAAAAAAABteIhM8kIMkovc1vasv5PkTxRf54DtUkS0_kO1nEYV_5TlKRwxjkY2AoV7pkAq";
+    expect(sealer.open(sealed)).toEqual({ marker: "plaintext-marker" });
+
+    const flipped = tamperCiphertext(sealed);
+    expect(flipped).not.toBe(sealed);
+    expect(sealer.open(flipped)).toBeNull();
   });
 
   it("rejects a token whose tag was cut short instead of checking the shorter tag", async () => {
