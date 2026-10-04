@@ -408,7 +408,16 @@ function defaultCondition(tokens, allTokens, seen = new Set()) {
   if (expression === "false") return false;
   const env = expression.match(/^(!{0,2})process\.env\.([\w]+)$/);
   // The gate models the ordinary CI suite, with opt-in live variables unset.
-  if (env) return env[1] === "!" ? env[2] !== "CI" : env[2] === "CI";
+  if (env) {
+    const value =
+      env[2] === "CI"
+        ? true
+        : ["PLAYWRIGHT_LIVE", "LIVE_WEB_TOOLS"].includes(env[2])
+          ? false
+          : undefined;
+    if (value === undefined) throw new Error("Unsupported discovery condition: " + expression);
+    return env[1] === "!" ? !value : value;
+  }
   if (tokens.length === 1 && /^[\w$]+$/.test(expression) && !seen.has(expression)) {
     const index = allTokens.findIndex(
       (token, i) =>
@@ -605,9 +614,12 @@ function isDiscoveredTest(path, vite, playwright) {
       posix.matchesGlob(path, pattern),
     );
   const discovery = playwrightDiscovery(playwright);
+  const relativeBrowserPath =
+    discovery?.dir === "." ? path : path.slice((discovery?.dir.length ?? 0) + 1);
   const browser =
     !!discovery &&
     (discovery.dir === "." || path.startsWith(discovery.dir + "/")) &&
+    !relativeBrowserPath.split("/").slice(0, -1).includes("node_modules") &&
     discovery.match.some((pattern) => matchesPlaywrightPattern(path, pattern)) &&
     !discovery.ignore.some((pattern) => matchesPlaywrightPattern(path, pattern));
   return unit || browser;

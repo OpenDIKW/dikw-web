@@ -108,6 +108,9 @@ discovery expressions, accessors, project inputs and additional `defineConfig`
 arguments stop the gate. Vitest discovery uses its default dependency/Git
 exclusions when the application does not declare its own exclusions. These
 checks do not alter coverage, bundle, retry or per-test timing limits.
+Playwright traversal skips child `node_modules` directories. Only the declared
+default CI/live environment conditions are interpreted; unknown environment
+conditions fail closed instead of assuming an unset value.
 
 ## Item 3 — measured perf + a11y in `verify-frontend`
 

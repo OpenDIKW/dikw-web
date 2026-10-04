@@ -11,6 +11,7 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 - Preserve default Playwright discovery when a Git rename moves an unchanged spec into an ignored live directory. Respect the ordinary conditional branch, quoted keys, literal spreads, regex/glob ignores and hidden paths; reject unsupported discovery expressions instead of accepting a broader test set.
 - Reject indirect project discovery, discovery accessors and extra configuration inputs. Preserve Vitest's default node_modules and Git-directory exclusions when no explicit test exclusions are supplied. Retain all coverage, bundle, retry and test-time limits.
+- Respect Playwright's dependency-directory traversal exclusions and reject unknown environment conditions instead of assuming they are unset.
 
 ## [0.11.3] - 2026-10-04
 

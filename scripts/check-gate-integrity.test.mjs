@@ -493,6 +493,33 @@ it.each([
     false,
   ],
   [
+    "node-modules-loss",
+    'testDir: "./tests/e2e"',
+    "tests/e2e/node_modules/pkg/renamed.spec.ts",
+    false,
+  ],
+  [
+    "node-modules-root-preserved",
+    'testDir: "./tests/e2e/node_modules"',
+    "tests/e2e/node_modules/nested/renamed.spec.ts",
+    true,
+    undefined,
+    "tests/e2e/node_modules/original.spec.ts",
+  ],
+  [
+    "unknown-env-condition-closed",
+    'testDir: "./tests/e2e", testIgnore: process.env.GITHUB_ACTIONS ? ["**/ci-only/**"] : []',
+    "tests/e2e/ci-only/renamed.spec.ts",
+    false,
+    "Unsupported discovery condition",
+  ],
+  [
+    "known-ci-ignore-loss",
+    'testDir: "./tests/e2e", testIgnore: process.env.CI ? ["**/ci-only/**"] : []',
+    "tests/e2e/ci-only/renamed.spec.ts",
+    false,
+  ],
+  [
     "quoted-ignore-loss",
     'testDir: "./tests/e2e", "testIgnore": ["**/live/**"]',
     "tests/e2e/live/renamed.spec.ts",

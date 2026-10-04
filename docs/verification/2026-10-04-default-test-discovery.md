@@ -30,7 +30,7 @@ The shared npm cohort remains 0.1.0 and its runtime/API is unchanged.
   Git rename regressions first failed because the gate incorrectly exited 0.
   After the correction, all **62** gate tests passed in WSL with one worker
   and unchanged deadlines (6.96 seconds total suite duration).
-- The independent targeted resolution check is clean. The actual public
+- The independent targeted resolution check for those three findings is clean. The actual public
   Playwright config preserves ordinary specs and rejects a move into live.
 - A fresh Linux checkout of public base `165ed9c` with the eight-file candidate
   overlay completed every verify stage: lint, formatting, types, **1,309 tests
@@ -45,6 +45,20 @@ The shared npm cohort remains 0.1.0 and its runtime/API is unchanged.
 - Hosted checks and review must pass before merge; their exact commit and run
   are recorded in the PR. No business source or public hash routing is removed
   by this gate-only change.
+- The third independent pass (remote review on `015a6d8`) found two additional
+  traversal/environment omissions. Both real-Git regressions first failed with
+  the gate incorrectly exiting 0. The final correction skips dependency
+  directories below testDir (while preserving an explicitly selected testDir)
+  and rejects unknown environment conditions. All **66** gate tests passed in
+  WSL with the original deadlines. The implementation follows the pinned
+  [Playwright collector](https://github.com/microsoft/playwright/blob/v1.63.0/packages/playwright/src/runner/projectUtils.ts#L215-L221)
+  and avoids assuming GitHub's [default variables](https://docs.github.com/en/actions/reference/workflows-and-actions/variables)
+  are unset. Complete final-source verification passed in a fresh Linux
+  checkout based on `5a2fb2f`: **1,313 tests in 104 files**, coverage
+  77.40/68.02/77.46/79.19%, **58 zero-retry Chromium flows**, all three
+  independent consumers, gzip 278.0/1854.4/30.4 KB, and no production
+  high/critical audit findings. Lint, formatting, types and build passed.
+  Original deadlines/assertions and the two opt-in live skips are unchanged.
 
 ## Maintainer gate judgment
 
