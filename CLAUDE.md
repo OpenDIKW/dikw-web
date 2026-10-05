@@ -234,4 +234,6 @@ aliases; see `docs/mb-data-migration.md`. It never exports credentials, cache or
 panel state, and never deletes old bytes. The private Settings/import/export UI
 was retired by the maintainer; do not promise an import entry. Optional branding
 `mbWebUrl` is a fixed HTTP(S) URL without credentials, query or fragment; legacy
-URL state is never forwarded. Shared packages remain public MIT cohort `0.1.0`.
+URL state is never forwarded. Shared packages use public MIT cohort `0.1.1`;
+the private application keeps its exact accepted registry cohort until a separate
+dependency upgrade is verified and delivered.
