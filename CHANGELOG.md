@@ -7,6 +7,12 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.1] - 2026-10-05
+
+- Align MikroORM core, SQLite and SQL dependencies at 7.2.3 so strict installs succeed and existing SQLite Agent sessions remain readable after upgrade.
+- Prepare the three shared MIT npm packages as exact patch cohort 0.1.1, including their internal dependencies. Previously published 0.1.0 packages remain immutable.
+- Verify the workbench against real dikw-core 0.6.8 by default; explicitly configured verification versions still take precedence.
+
 ## [0.12.0] - 2026-10-05
 
 - Remove the embedded MB business application from the public workbench. The private `dikw-mbweb` application consumes the three MIT npm packages at exact `0.1.0`; shared package versions and APIs are unchanged.

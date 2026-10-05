@@ -9,8 +9,11 @@ actual GitHub OIDC publication, registry-byte verification and independent
 consumers in [run 37178344897](https://github.com/OpenDIKW/dikw-web/actions/runs/37178344897).
 The private application passed independent registry installation, hosted CI,
 real data migration and an authenticated production-container reader/restart.
-This change prepares cohort `0.1.0` for `latest`; publication and private stable
-lockfile/image acceptance remain pending until the reviewed commit is released.
+Stable cohort `0.1.0` has been published and accepted by the private application.
+Cohort `0.1.1` aligns MikroORM core/SQLite dependencies at 7.2.3. Validate the
+actual artifacts in both applications and complete release review and CI before
+dispatching publication. Published `0.1.0` bytes remain immutable; the patch
+creates new versions.
 
 | Package | Public entries | Runtime requirements |
 | --- | --- | --- |
@@ -26,7 +29,7 @@ retain extraction provenance and document runtime behavior.
 ## Verify before publishing
 
 ```sh
-npm run version:shared -- 0.1.0
+npm run version:shared -- 0.1.1
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
@@ -107,6 +110,27 @@ profile. Create a new stable cohort with `version:shared`, update lockfiles and
 repeat review/verification. A dist-tag is not a substitute for that validation.
 
 ## Local cross-repository development
+
+### Upgrade an existing consumer to 0.1.1
+
+Update all three dependencies together and keep their delivered versions exact:
+
+```sh
+npm install --save-exact @opendikw/web-client@0.1.1 @opendikw/web-ui@0.1.1 @opendikw/web-server@0.1.1
+npm dedupe
+npm ci --ignore-scripts
+npm ls @mikro-orm/core @mikro-orm/sqlite @mikro-orm/sql
+npm run verify
+```
+
+An existing 0.1.0 lockfile can retain ADK's compatible-range core dependency at
+7.2.1 while the upgraded server and SQLite driver resolve to 7.2.3. Check the
+actual ADK dependency tree after deduplication and the fresh strict install;
+core, SQLite and SQL must all resolve to 7.2.3 before accepting this patch.
+Review and commit the exact registry manifest and regenerated lockfile together.
+Do not bypass peer checks or rely on a previously installed node_modules tree.
+
+### Test unreleased artifacts
 
 Run `pack:shared`, then install its three tarballs together in a temporary MB
 checkout to test an unreleased change. This installs compiled public artifacts
