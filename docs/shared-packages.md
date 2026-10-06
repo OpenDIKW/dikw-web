@@ -49,7 +49,7 @@ retain extraction provenance and document runtime behavior.
 ## Verify before publishing
 
 ```sh
-npm run version:shared -- 0.1.3
+npm run version:shared -- 0.1.4
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
