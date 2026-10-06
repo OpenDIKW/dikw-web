@@ -64,6 +64,10 @@ stopped Core, Casdoor and deployed application services were not restarted.
   tarballs together. Lint, formatting, typecheck and 179 tests with coverage
   passed using one Windows worker. Its production build and all 11 Chromium
   scenarios also passed. No delivered private manifest was changed.
+- The initial CI container build reproduced a missing-fixture type error:
+  `.dockerignore` excluded the root test directory while package tests were
+  typechecked. An exact exception retains the shared scientific fixture in the
+  build context; its exported bytes match the source. No test or gate was weakened.
 
 Local test concurrency was reduced on Windows; coverage, bundle, timeout,
 retry and assertion requirements are unchanged.
