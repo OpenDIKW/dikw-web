@@ -7,6 +7,13 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.3] - 2026-10-06
+
+- Fix scientific `<sup>`/`<sub>` markup in the shared Markdown and bilingual readers without enabling arbitrary HTML. Accept only attribute-free, matching single-line pairs; keep code, unsafe attributes and nested raw HTML inert.
+- Preserve superscripts, subscripts, italics and bold text in converted HTML tables. Unwrap unsupported elements after sanitizing descendants and strip all attributes from inline formatting.
+- Derive heading outlines and anchors from accepted scientific markup's text, keeping duplicate and translated-column ids aligned.
+- Upgrade the workbench and exact shared npm cohort to `0.12.3` and `0.1.3`. Add a reusable MinerU-style fixture exercised by reader regressions, workbench browser tests and independently installed package consumers. Fixes #226.
+
 ## [0.12.2] - 2026-10-06
 
 - Fix long MinerU upload names in both shared client and server. Preserve original filenames while bounding archive stems by code points and UTF-8 bytes, including numbered Unicode collisions.

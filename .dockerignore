@@ -8,6 +8,8 @@ dist-server
 .vscode
 .idea
 tests
+# Package tests are typechecked during the container build.
+!tests/fixtures/scientific-markdown.json
 playwright-report
 test-results
 coverage

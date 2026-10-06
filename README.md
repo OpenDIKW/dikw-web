@@ -194,6 +194,9 @@ markdown bodies (the shared renderer also backs the bilingual dual column).
 Supports:
 
 - Pipe tables, sanitized raw HTML tables (narrow allow-list).
+- Attribute-free inline `<sup>`/`<sub>` for scientific citations, exponents and
+  chemical formulas; sanitized table formatting preserves their text and
+  `i`/`em`/`b`/`strong`. Heading outlines and ids omit accepted tags.
 - Safe `<details>/<summary>` blocks.
 - KaTeX inline `$...$` and block `$$...$$`.
 - Mermaid fenced code (lazy-imported; `securityLevel: "strict"`).

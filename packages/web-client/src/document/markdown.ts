@@ -1,4 +1,5 @@
 import MarkdownIt from "markdown-it";
+import { installScientificInline } from "./scientific-inline.js";
 
 export interface FrontmatterMeta {
   title?: string;
@@ -156,7 +157,7 @@ function stripWikilinkSyntax(value: string): string {
 }
 
 export function slugifyHeading(value: string): string {
-  return stripWikilinkSyntax(value)
+  return stripWikilinkSyntax(stripScientificInlineTags(value))
     .trim()
     .toLowerCase()
     .normalize("NFKD")
@@ -205,6 +206,22 @@ export function parseDetailsOpenAttribute(attributes: string): boolean | null {
 // parser config used by MarkdownView so the slugs produced here match the
 // `id` attributes that MarkdownView writes onto the rendered DOM.
 const headingParser = new MarkdownIt({ html: false, linkify: true, typographer: true });
+installScientificInline(headingParser);
+
+// Remove only markup that the reader actually accepts; code spans and unsafe
+// HTML remain literal. Keep the existing Markdown/wikilink heading contract.
+function stripScientificInlineTags(value: string): string {
+  if (!/<(?:sup|sub)>/i.test(value)) return value;
+  const tokens = headingParser.parseInline(value, {})[0]?.children ?? [];
+  let result = value;
+  for (const token of [...tokens].reverse()) {
+    if (token.type === "scientific_open" || token.type === "scientific_close") {
+      const { start, end } = token.meta as { start: number; end: number };
+      result = result.slice(0, start) + result.slice(end);
+    }
+  }
+  return result;
+}
 
 // MarkdownView renders any details block whose `open` attribute parses as
 // safe inside its own recursive renderMarkdown() call with a fresh slug
@@ -239,7 +256,7 @@ export function extractHeadingsWithSlugs(body: string): HeadingEntry[] {
     if (!inline || inline.type !== "inline") {
       continue;
     }
-    const title = (inline.content ?? "").trim();
+    const title = stripScientificInlineTags(inline.content ?? "").trim();
     if (!title) {
       continue;
     }

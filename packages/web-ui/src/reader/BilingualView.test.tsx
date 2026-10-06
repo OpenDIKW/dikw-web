@@ -18,6 +18,26 @@ function renderView(
 }
 
 describe("BilingualView", () => {
+  it("renders scientific marks in both aligned columns with matching heading anchors", () => {
+    renderView([
+      { kind: "text", source: "## Results<sup>*</sup>", translation: "## Results<sup>*</sup>" },
+      {
+        kind: "text",
+        source: "Accuracy<sup>18,19</sup> and CO<sub>2</sub>.",
+        translation: "准确率<sup>18,19</sup>和 CO<sub>2</sub>。",
+      },
+    ]);
+    expect(document.querySelectorAll(".bi-pair:not(.bi-pair--special)")).toHaveLength(2);
+    for (const side of ["src", "tr"]) {
+      expect(document.querySelectorAll(`.bi-block--${side} sup`)).toHaveLength(2);
+      expect(document.querySelector(`.bi-block--${side} sub`)?.textContent).toBe("2");
+      expect(document.querySelector(`.bi-block--${side} h2`)?.id).toBe(
+        side === "src" ? "results" : "tr-results",
+      );
+      expect(document.querySelector(`.bi-block--${side}`)?.textContent).not.toContain("<sup>");
+    }
+  });
+
   it("pairs text blocks into source + translation columns and centers special blocks once", () => {
     renderView([
       { kind: "text", source: "## DIKW", translation: "## DIKW" },

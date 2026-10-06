@@ -18,6 +18,7 @@ import MarkdownIt, {
 } from "markdown-it";
 import { useEffect, type RefObject } from "react";
 import {
+  installScientificInline,
   parseDetailsOpenAttribute,
   rawDetailsPattern,
   uniqueHeadingSlug,
@@ -47,6 +48,7 @@ const markdown = new MarkdownIt({
 });
 
 installWikiLinks(markdown);
+installScientificInline(markdown);
 installMath(markdown);
 installObsidianImages(markdown);
 installStandardImages(markdown);
@@ -412,6 +414,12 @@ const allowedTableTags = new Set([
   "colgroup",
   "col",
   "br",
+  "sup",
+  "sub",
+  "i",
+  "em",
+  "b",
+  "strong",
 ]);
 const allowedTableAttributes = new Set(["align", "colspan", "rowspan", "scope"]);
 
@@ -533,16 +541,18 @@ function sanitizeRawTable(raw: string): string | null {
 function sanitizeTableElement(element: Element): void {
   for (const child of Array.from(element.children)) {
     const tagName = child.tagName.toLowerCase();
-    if (!allowedTableTags.has(tagName)) {
-      child.remove();
-      continue;
-    }
     sanitizeTableElement(child);
+    if (!allowedTableTags.has(tagName)) {
+      child.replaceWith(...Array.from(child.childNodes));
+    }
   }
 
   for (const attribute of Array.from(element.attributes)) {
     const name = attribute.name.toLowerCase();
-    if (name.startsWith("on") || !allowedTableAttributes.has(name)) {
+    if (
+      !allowedTableAttributes.has(name) ||
+      !/^(?:table|th|td|col|colgroup)$/.test(element.tagName.toLowerCase())
+    ) {
       element.removeAttribute(attribute.name);
     }
   }

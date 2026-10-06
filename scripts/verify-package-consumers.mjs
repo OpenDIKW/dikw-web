@@ -110,6 +110,7 @@ if (manifest.packages.some((pkg) => pkg.name === "@opendikw/web-server")) {
   );
 }
 if (manifest.packages.some((pkg) => pkg.name === "@opendikw/web-ui")) {
+  copyFileSync("tests/fixtures/scientific-markdown.json", `${cwd}/scientific-markdown.json`);
   for (const name of ["main", "controls"]) {
     copyFileSync(`tests/package-consumers/ui/${name}.jsx`, `${cwd}/${name}.jsx`);
     writeFileSync(
