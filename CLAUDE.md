@@ -142,11 +142,11 @@ If you cannot reach this, stop on a block signal and report it.
 
 ## Report
 
-End every run with these three headings:
+End every run with these three headings, written in the user's language:
 
-- **需要你决定** — decisions or approvals you wait for. Write "无" if there are none.
-- **改动** — what changed, with PR links.
-- **发现** — what you found. Mark each claim you could not confirm, and say where you looked.
+- **Blocked on me** — decisions or approvals you wait for. Write "none" if there are none.
+- **Changed** — what changed, with PR links.
+- **Found** — what you found. Mark each claim you could not confirm, and say where you looked.
 
 For an architecture or flow explanation, use a Mermaid diagram or an HTML page when it is clearer than prose.
 

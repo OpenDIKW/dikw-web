@@ -69,7 +69,7 @@ There are two layers of verification: **self-verify while you build** (steps 2â€
    - CI runs lint + format:check + typecheck + coverage + build + e2e + bundle budget + `gate-integrity` + security scans (npm audit, gitleaks, Trivy, CodeQL).
 
 9. **Watch CI + PR comments; resolve, then merge.** Run the **`dikw-web-watch-ci`** skill.
-   It watches checks (`gh pr checks <N> --watch`, `gh run view <run-id> --log-failed`) and the review prose (the `reviews`, `pulls/<N>/comments`, and `issues/<N>/comments` APIs), sends real failures to the `fixer` agent, reruns a failed e2e at most once, logs each transition to `.loop-log.jsonl`, and merges explicitly (never `--auto`).
+   It watches checks (`gh pr checks <N> --watch`, `gh run view <run-id> --log-failed`) and the review prose (the `reviews`, `pulls/<N>/comments`, and `issues/<N>/comments` APIs), sends real failures to the `fixer` agent, reruns an infrastructure failure at most once (a failed test is a real failure), logs each transition to `.loop-log.jsonl`, and merges explicitly (never `--auto`).
    End with the Report section from CLAUDE.md.
 
 ## Block signals â€” stop and ask

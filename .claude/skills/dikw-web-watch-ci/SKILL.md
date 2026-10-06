@@ -1,6 +1,6 @@
 ---
 name: dikw-web-watch-ci
-description: Watch a dikw-web PR's CI to green and merge it — the executable form of delivery-loop step 9. Use after gh pr create to monitor checks + review prose, route real failures to a fresh-context fixer, rerun a failed e2e at most once, and squash-merge only once CI is green AND the independent review has actually landed. Bounded by a max-rounds fuse and a same-failure circuit breaker.
+description: Watch a dikw-web PR's CI to green and merge it — the executable form of delivery-loop step 9. Use after gh pr create to monitor checks + review prose, route real failures to a fresh-context fixer, rerun an infrastructure failure at most once, and squash-merge only once CI is green AND the independent review has actually landed. Bounded by a max-rounds fuse and a same-failure circuit breaker.
 ---
 
 # Watch CI + resolve + merge (dikw-web)
@@ -9,7 +9,7 @@ This skill turns step 9 of `dikw-web-delivery-workflow` into a bounded loop that
 A pushed PR moves to merged without turn-by-turn polling. It prevents two failure modes:
 
 - An auto-merge that **outruns** the independent review.
-- A flaky e2e that gets **retried five times** instead of once.
+- A failure that gets **rerun until it passes** instead of being fixed.
 
 Input: the PR number `<N>` from `gh pr create`. Read everything else from `gh`.
 
@@ -50,7 +50,7 @@ Append one structured line at each transition:
 
 ```
 node scripts/loop-log.mjs iter_start "PR <N> round <r>"
-node scripts/loop-log.mjs flake_rerun "<spec name>"
+node scripts/loop-log.mjs flake_rerun "<job name>: <infrastructure cause>"
 node scripts/loop-log.mjs fixer "<one-line root cause>"
 node scripts/loop-log.mjs ci_fail "<job name>"
 node scripts/loop-log.mjs merged "PR <N>"
