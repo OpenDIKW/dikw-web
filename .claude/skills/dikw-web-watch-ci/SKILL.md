@@ -17,7 +17,7 @@ Input: the PR number `<N>` from `gh pr create`. Read everything else from `gh`.
 
 - **MAX_ROUNDS = 3.** A round is one watch → diagnose → fix → push cycle. At the cap, **stop and hand back to the human** with the current red signal.
 - **Circuit breaker.** If the **same** CI job fails with the **same** root cause twice in a row, stop. You are guessing, not fixing. Diagnose the root cause again, or escalate to the human.
-- **Rerun budget = 1.** No known flake remains: the Pixi `graph.spec.ts` race was fixed in PR #140, and CI keeps `retries: 2` as a general backstop. So a failed e2e job gets **at most one** `gh run rerun --failed` per PR. A second failure of the same spec is a real failure.
+- **Rerun budget = 1, for infrastructure failures only** (lost runner, network or registry timeout, GitHub outage). No known flake remains: the Pixi `graph.spec.ts` race was fixed in PR #140. CI already gives each e2e test `retries: 2`, so a test that still fails has failed three times. Treat it as a real failure, not a flake.
 - Log every transition with `scripts/loop-log.mjs` (see "Observability"), so a loop that dies overnight can be diagnosed in the morning.
 
 ## The loop
@@ -25,16 +25,18 @@ Input: the PR number `<N>` from `gh pr create`. Read everything else from `gh`.
 1. **Watch.** `gh pr checks <N> --watch --interval 30` blocks until every check is terminal. Log `iter_start`.
 2. **All green?** Go to step 6.
 3. **A check failed → classify it.** Read the failing job with `gh run view <run-id> --log-failed` (`gh pr checks <N>` lists the run URLs).
-   - **Timing-only e2e failure, first time on this PR:** `gh run rerun <run-id> --failed`, log `flake_rerun`, go back to step 1. **Once only.**
+   - **Infrastructure failure, first time on this PR:** `gh run rerun <run-id> --failed` (it reruns every failed job), log `flake_rerun`, go back to step 1. **Once only.**
    - **Anything else:** a real failure. Continue to step 4.
 4. **Fix in a fresh context.** Give the failing command and the `--log-failed` output to the **`fixer`** agent (`.claude/agents/fixer.md`).
    It did not write the code, and it may not weaken tests (the `gate-integrity` job also blocks that). Log `fixer` with the one-line root cause it reports.
 5. **Push and re-evaluate.** Commit the fix and push. CodeRabbit and CI re-evaluate the new SHA.
    Increment the round counter. If it exceeds **MAX_ROUNDS**, or the breaker tripped, stop and hand back. Otherwise go to step 1.
 6. **Read the review prose before you merge — always.** `gh pr checks` shows pass/fail, not prose, and `gh pr merge --auto` would outrun it. Read:
-   - `gh api repos/{owner}/{repo}/pulls/<N>/reviews` (review bodies, for example the Codex review)
-   - `gh api repos/{owner}/{repo}/pulls/<N>/comments` (inline threads)
-   - `gh api repos/{owner}/{repo}/issues/<N>/comments` (top-level CodeRabbit summary)
+   - `gh api --paginate repos/{owner}/{repo}/pulls/<N>/reviews` (review bodies, for example the Codex review)
+   - `gh api --paginate repos/{owner}/{repo}/pulls/<N>/comments` (inline threads)
+   - `gh api --paginate repos/{owner}/{repo}/issues/<N>/comments` (top-level CodeRabbit summary)
+
+   The list endpoints return 30 items per page, so `--paginate` is required.
 
    Resolve **each** actionable finding: fix and push (back to step 1), refute it with evidence in a reply, or defer it with a reason in the PR body.
    A `gate-change` finding needs a maintainer's judgment and label. Do not route around it.

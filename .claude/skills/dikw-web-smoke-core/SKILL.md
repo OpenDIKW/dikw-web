@@ -27,7 +27,7 @@ node scripts/smoke-core.mjs http://host:port
 ```
 
 - Optional env: `DIKW_SMOKE_CORE_URL` (base URL) and `DIKW_SMOKE_CORE_TOKEN` (bearer).
-- Node's global `fetch` ignores `HTTP_PROXY`, so localhost needs no `--noproxy` (unlike `curl` here).
+- Node's global `fetch` ignores `HTTP_PROXY` by default, so localhost needs no `--noproxy` (unlike `curl` here). If `NODE_USE_ENV_PROXY=1` is set, set `NO_PROXY=127.0.0.1,localhost` to keep loopback requests direct.
 
 Exit codes: `0` all checks pass · `1` a contract check failed (drift) · `2` core unreachable · `3` script crash.
 

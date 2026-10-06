@@ -25,7 +25,7 @@ There are two layers of verification: **self-verify while you build** (steps 2â€
 
 1. **Clarify.**
    - Restate the request. State your assumptions.
-   - Ask a blocking question with the AskUserQuestion tool. Put your recommended answer first.
+   - Ask only when a decision blocks you and the code and docs cannot answer it. Then ask one question with the AskUserQuestion tool, with your recommended answer first.
    - For non-trivial scope, write a plan before you write code.
    - Write the plan in the user's language (Chinese or English). Keep code, identifiers, paths, and commands in English.
    - Pick the review tier now (see step 6).

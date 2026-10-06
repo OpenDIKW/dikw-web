@@ -8,7 +8,7 @@ Product and contract docs are in `docs/` (`core-contract.md`, `graph-view.md`, `
 
 ## Commands
 
-On Windows, use `npm.cmd` (not `npm`) from PowerShell.
+On Windows, use `npm.cmd` and `npx.cmd` (not `npm` / `npx`) from PowerShell. A `Restricted` execution policy blocks the `.ps1` shims.
 
 - `npm ci` needs no python or C++ toolchain, because `.npmrc` sets `ignore-scripts=true`. Do not delete `.npmrc`.
 - `npm.cmd run dev` — Vite dev server, fixed at `http://127.0.0.1:4321` (`--strictPort`).

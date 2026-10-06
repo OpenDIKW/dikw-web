@@ -1,6 +1,7 @@
 ---
 paths:
   - "packages/*/package.json"
+  - "packages/*/src/**"
   - "package.json"
   - "scripts/*{shared,package,registry}*.mjs"
   - ".github/workflows/publish-packages.yml"

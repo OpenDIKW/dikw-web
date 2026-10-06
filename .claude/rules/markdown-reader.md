@@ -16,7 +16,7 @@ Both image syntaxes resolve through `PageReadResult.assets[]` (matching `origina
 
 Charts use Apache ECharts, lazy-imported per-module for tree-shaking. The placeholder element carries the parsed spec as a base64-encoded `data-chart-spec`; if ECharts fails to load or a single chart fails to render, the placeholder falls back to a `<details>` block containing the source pipe table so data is never lost. Dark mode passes the `"dark"` theme to `echarts.init`.
 
-Source 层 read tab 在渲染前会跑 `injectInlineRefs`(`packages/web-client/src/document/source-inline-refs.ts`),
-把已有反向边的 K 页 title 在 body 首次出现位置合成 `[[title|literal]]` wikilink。
-未匹配上的 K 页留在底部 Linked references panel。Source tab 永远显示原始 `page.body`。
-设计细节见 `docs/adr/0002-source-inline-references.md`。
+Before it renders, the Source-layer Read tab runs `injectInlineRefs` (`packages/web-client/src/document/source-inline-refs.ts`).
+For each K page that has a back-edge to the source, it turns the first occurrence of that page's title in the body into a `[[title|literal]]` wikilink.
+K pages that do not match stay in the Linked references panel at the bottom. The Source tab always shows the raw `page.body`.
+Design details: `docs/adr/0002-source-inline-references.md`.
