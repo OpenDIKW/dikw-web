@@ -25,7 +25,8 @@ Input: the PR number `<N>` from `gh pr create`. Read everything else from `gh`.
 1. **Watch.** `gh pr checks <N> --watch --interval 30` blocks until every check is terminal. Log `iter_start`.
 2. **All green?** Go to step 6.
 3. **A check failed → classify it.** Read the failing job with `gh run view <run-id> --log-failed` (`gh pr checks <N>` lists the run URLs).
-   - **Infrastructure failure, first time on this PR:** `gh run rerun <run-id> --failed` (it reruns every failed job), log `flake_rerun`, go back to step 1. **Once only.**
+   - **Only infrastructure jobs failed, first time on this PR:** rerun just those jobs with `gh run rerun <run-id> --job <job-id>` (`gh run view <run-id> --json jobs` lists the ids). Do not use `--failed`: it also reruns failed test jobs. Log `flake_rerun`, go back to step 1. **Once only.**
+   - **A test job failed too:** do not rerun. It is a real failure.
    - **Anything else:** a real failure. Continue to step 4.
 4. **Fix in a fresh context.** Give the failing command and the `--log-failed` output to the **`fixer`** agent (`.claude/agents/fixer.md`).
    It did not write the code, and it may not weaken tests (the `gate-integrity` job also blocks that). Log `fixer` with the one-line root cause it reports.
