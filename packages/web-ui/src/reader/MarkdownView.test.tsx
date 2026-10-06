@@ -113,7 +113,7 @@ describe("MarkdownView", () => {
     expect(document.querySelector(".markdown-body script")).not.toBeInTheDocument();
     expect(document.querySelector(".markdown-body [onclick]")).not.toBeInTheDocument();
     expect(document.querySelector(".markdown-table-wrap table")).toBeInTheDocument();
-    expect(screen.getByText("A")).toBeInTheDocument();
+    expect(screen.getByText('Aalert("x")')).toBeInTheDocument();
     expect(
       document.querySelector(".markdown-body > div:not(.markdown-table-wrap)"),
     ).not.toBeInTheDocument();

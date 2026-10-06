@@ -5,9 +5,12 @@ import { defaultServerUrl } from "@opendikw/web-client/connection";
 import { tryOpenDefaultCache } from "@opendikw/web-client/convert";
 import { tryOpenDefaultTranslateCache } from "@opendikw/web-client/translate";
 import { buildImportBundle, buildTar, kebabStem, readTar } from "@opendikw/web-client/import";
-import { parseMarkdownDocument } from "@opendikw/web-client/document";
+import { extractHeadingsWithSlugs, parseMarkdownDocument } from "@opendikw/web-client/document";
 
 assert.equal(typeof globalThis.window, "undefined");
+assert.deepEqual(extractHeadingsWithSlugs("## Results<sup>*</sup>"), [
+  { level: 2, title: "Results*", slug: "results" },
+]);
 assert.equal(defaultServerUrl, "http://127.0.0.1:8765");
 globalThis.fetch = async (input, init) => {
   assert.equal(input, "https://core.invalid/v1/health");

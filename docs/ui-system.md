@@ -113,10 +113,17 @@ subset, safe `<details><summary>...</summary>...</details>` blocks,
 Mermaid fenced code, KaTeX math, Obsidian-style image embeds
 (`![[path]]`), and chart blocks. The raw HTML allow-list is
 intentionally narrow: `table`, `thead`, `tbody`, `tfoot`, `tr`, `th`,
-`td`, `caption`, `colgroup`, `col`, and `br` for tables, plus
+`td`, `caption`, `colgroup`, `col`, and `br` for tables, with attribute-free
+`sup`, `sub`, `i`, `em`, `b` and `strong` formatting, plus
 `details`/`summary` as a structured disclosure wrapper. Event
 attributes, scripts, styles, and other non-table HTML must not become
 live DOM.
+
+Outside tables, only attribute-free, matching `sup`/`sub` pairs on one line
+render, with text or inline Markdown and no nested raw HTML. Code spans and
+fences remain literal. Unsupported table elements are unwrapped after their
+descendants are sanitized, preserving inert text. Accepted scientific tags are
+omitted from outline labels and heading ids; their content remains.
 
 Inline `$...$` and block `$$...$$` formulas render through KaTeX; parse
 failures fall back to the original formula text. Fenced `mermaid` code

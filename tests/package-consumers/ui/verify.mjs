@@ -46,6 +46,23 @@ export async function verifyUi(cwd) {
     });
     await page.goto(server.resolvedUrls.local[0]);
     await page.getByRole("heading", { name: "Packed reader" }).waitFor();
+    assert.equal(await page.locator("h2#results sup").textContent(), "*");
+    assert.equal(await page.locator("p sup").textContent(), "18,19");
+    assert.equal(await page.locator("p sub").textContent(), "2");
+    assert.deepEqual(await page.locator(".markdown-table-wrap td").allTextContents(), [
+      "10-3",
+      "E. coli",
+      "H2O",
+      "kept",
+    ]);
+    assert.equal(await page.locator("td i").textContent(), "E. coli");
+    assert.equal(
+      await page
+        .locator(".markdown-body")
+        .textContent()
+        .then((text) => text.includes("<sup>")),
+      false,
+    );
     await page.getByLabel("Query").focus();
     assert.notEqual(
       await page.getByLabel("Query").evaluate((input) => getComputedStyle(input).boxShadow),

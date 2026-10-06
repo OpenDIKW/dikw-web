@@ -7,6 +7,7 @@ import { useTheme } from "@opendikw/web-ui/theme";
 import "@opendikw/web-ui/tokens.css";
 import "@opendikw/web-ui/controls.css";
 import "@opendikw/web-ui/reader.css";
+import scientificFixture from "./scientific-markdown.json";
 
 function Reader() {
   const canEdit = useCanEdit();
@@ -22,7 +23,8 @@ function Reader() {
       </Button>
       <MarkdownView
         body={
-          "# Packed reader\n\n$E=mc^2$\n\n```mermaid\ngraph LR\nA-->B\n```\n\n<details><summary>bar</summary>\n\n| Item | Value |\n| --- | --- |\n| A | 2 |\n| B | 3 |\n\n</details>\n\n![Evidence](figure.png)"
+          "# Packed reader\n\n$E=mc^2$\n\n```mermaid\ngraph LR\nA-->B\n```\n\n<details><summary>bar</summary>\n\n| Item | Value |\n| --- | --- |\n| A | 2 |\n| B | 3 |\n\n</details>\n\n![Evidence](figure.png)\n\n" +
+          scientificFixture.body
         }
         assets={[{ asset_id: "figure", original_paths: ["figure.png"], url: "/v1/assets/figure" }]}
         assetToken="fixture-only-token"

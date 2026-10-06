@@ -27,6 +27,16 @@ describe("parseMarkdownDocument", () => {
 });
 
 describe("slugifyHeading", () => {
+  it("keeps the scientific outline text and slug aligned with the rendered heading", () => {
+    const body = "## Results<sup>*</sup>";
+    expect(extractHeadingsWithSlugs(body)).toEqual([
+      { level: 2, title: "Results*", slug: "results" },
+    ]);
+    const { container } = render(<MarkdownView body={body} />);
+    expect(container.querySelector("#results")?.textContent).toBe("Results*");
+    expect(container.querySelector("#results sup")?.textContent).toBe("*");
+  });
+
   it("lowercases, strips diacritics, replaces whitespace with dashes", () => {
     expect(slugifyHeading("Hello World")).toBe("hello-world");
     expect(slugifyHeading("Café")).toBe("cafe");

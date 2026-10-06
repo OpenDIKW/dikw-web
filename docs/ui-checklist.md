@@ -105,9 +105,15 @@ no e2e are the ones the manual pass exists for.
 ## Reader content safety (`MarkdownView`)
 
 - [ ] **HTML allow-list holds.** Only `table/thead/tbody/tfoot/tr/th/td/caption/
-  colgroup/col/br` and `details/summary` survive as live DOM. Scripts, styles,
+  colgroup/col/br/sup/sub/i/em/b/strong` in tables and `details/summary`
+  survive as live DOM. Outside tables, only attribute-free single-line
+  `sup/sub` pairs containing text or inline Markdown are accepted. Scripts, styles,
   event attributes (`onclick`, `onerror`), and other raw HTML must **not**
   render. _e2e: `wiki.spec.ts`, `markdown-assets.spec.ts`._
+- [ ] **Scientific data survives.** Table exponents, chemical subscripts and
+  italic/bold labels keep their text; unsupported wrappers are unwrapped safely.
+  Outline labels and heading ids contain the accepted tags' text without tags.
+  Code examples remain literal. _Fixture: `tests/fixtures/scientific-markdown.json`._
 - [ ] **Math / Mermaid / charts** render with text/code/table fallbacks on
   failure (data never lost). KaTeX for `$…$`/`$$…$$`; Mermaid `securityLevel:
   "strict"`; charts via ECharts → fall back to the source pipe table.

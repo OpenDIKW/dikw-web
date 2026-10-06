@@ -21,6 +21,17 @@ and chart engines and uses KaTeX CSS/fonts through the application's bundler.
 Callers provide their own labels, routes and API connection. The package has no
 workbench translations or MB business models.
 
+The reader accepts attribute-free `<sup>` and `<sub>` pairs (case-insensitive)
+on one line, containing text or inline Markdown. Attributes, nested raw HTML and
+unbalanced pairs remain escaped; code spans and fences retain literal tags.
+Raw HTML tables also retain `sup`, `sub`, `i`, `em`, `b` and `strong` with all
+their attributes stripped. Other elements are unwrapped after sanitizing their
+children so scientific values and labels survive as inert text. Heading outlines
+and anchors omit accepted tags while retaining their content. Existing imported
+sources require no reconversion. The repository's
+`tests/fixtures/scientific-markdown.json` is shared by regression, workbench e2e
+and independent packed/registry consumer checks and can be reused downstream.
+
 `useTheme({ storageKey })` returns `preference`, `resolved` and `setPreference`.
 It applies the resolved theme, follows OS changes for `system`, and persists an
 explicit selection to that application's key. Mounting does not overwrite a

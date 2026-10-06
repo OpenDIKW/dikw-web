@@ -20,6 +20,12 @@ actual artifacts in both applications and complete release review and CI before
 dispatching publication. Published `0.1.0` bytes remain immutable; the patch
 creates new versions.
 
+Cohort `0.1.3` fixes scientific inline markup, converted-table text preservation
+and heading anchors in the shared reader. Upgrade all three exact dependencies
+together; already-imported sources need no reconversion. Reuse
+`tests/fixtures/scientific-markdown.json` from this repository for downstream
+reader acceptance. Unsafe HTML remains inert and code examples remain literal.
+
 | Package | Public entries | Runtime requirements |
 | --- | --- | --- |
 | `@opendikw/web-client` | `/core`, `/agent`, `/types`, `/import`, `/convert`, `/translate`, `/document`, `/connection` | Node 24 for Node consumers; browser helpers use browser APIs |
@@ -34,7 +40,7 @@ retain extraction provenance and document runtime behavior.
 ## Verify before publishing
 
 ```sh
-npm run version:shared -- 0.1.2
+npm run version:shared -- 0.1.3
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
@@ -116,12 +122,12 @@ repeat review/verification. A dist-tag is not a substitute for that validation.
 
 ## Local cross-repository development
 
-### Upgrade an existing consumer to 0.1.2
+### Upgrade an existing consumer to 0.1.3
 
 Update all three dependencies together and keep their delivered versions exact:
 
 ```sh
-npm install --save-exact @opendikw/web-client@0.1.2 @opendikw/web-ui@0.1.2 @opendikw/web-server@0.1.2
+npm install --save-exact @opendikw/web-client@0.1.3 @opendikw/web-ui@0.1.3 @opendikw/web-server@0.1.3
 npm dedupe
 npm ci --ignore-scripts
 npm ls @mikro-orm/core @mikro-orm/sqlite @mikro-orm/sql
