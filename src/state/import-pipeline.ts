@@ -64,9 +64,11 @@ export interface PipelineState {
   coreUrl?: string;
   ingestTaskId?: string;
   synthTaskId?: string;
+  synthesisDeferred?: boolean;
   lintProposeTaskId?: string;
   lintApplyTaskId?: string;
   importResult?: ImportResponse;
+  packagePaths?: Record<number, string>;
   proposals?: FixProposal[];
   /** Per-proposal indices the user picked to apply, set at the lint-review gate. */
   picked?: number[];

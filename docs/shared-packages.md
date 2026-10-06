@@ -10,7 +10,12 @@ consumers in [run 37178344897](https://github.com/OpenDIKW/dikw-web/actions/runs
 The private application passed independent registry installation, hosted CI,
 real data migration and an authenticated production-container reader/restart.
 Stable cohort `0.1.0` has been published and accepted by the private application.
-Cohort `0.1.1` aligns MikroORM core/SQLite dependencies at 7.2.3. Validate the
+Cohort `0.1.1` aligns MikroORM core/SQLite dependencies at 7.2.3 and has been
+published and accepted. Cohort `0.1.2` fixes long conversion names and adds
+indexed source/active attachment preflight plus detailed import warnings and
+rejections. Consumers must also skip tasks for zero commits and make whole-base
+synth an explicit user action after ingest. See the client README and
+`docs/core-contract.md#import` for index/concurrency/archive limits. Validate the
 actual artifacts in both applications and complete release review and CI before
 dispatching publication. Published `0.1.0` bytes remain immutable; the patch
 creates new versions.
@@ -29,7 +34,7 @@ retain extraction provenance and document runtime behavior.
 ## Verify before publishing
 
 ```sh
-npm run version:shared -- 0.1.1
+npm run version:shared -- 0.1.2
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
@@ -111,12 +116,12 @@ repeat review/verification. A dist-tag is not a substitute for that validation.
 
 ## Local cross-repository development
 
-### Upgrade an existing consumer to 0.1.1
+### Upgrade an existing consumer to 0.1.2
 
 Update all three dependencies together and keep their delivered versions exact:
 
 ```sh
-npm install --save-exact @opendikw/web-client@0.1.1 @opendikw/web-ui@0.1.1 @opendikw/web-server@0.1.1
+npm install --save-exact @opendikw/web-client@0.1.2 @opendikw/web-ui@0.1.2 @opendikw/web-server@0.1.2
 npm dedupe
 npm ci --ignore-scripts
 npm ls @mikro-orm/core @mikro-orm/sqlite @mikro-orm/sql

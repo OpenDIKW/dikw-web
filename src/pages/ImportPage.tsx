@@ -29,6 +29,7 @@ import { IdlePicker } from "./import/IdlePicker";
 import { PipelineSteps } from "./import/PipelineSteps";
 import { LintReview } from "./import/LintReview";
 import { DoneSummary } from "./import/DoneSummary";
+import { ImportOutcomes } from "./import/ImportOutcomes";
 import { ConversionProgress } from "./import/ConversionProgress";
 import { isRunningStage, PipelineFailure, taskErrorMessage } from "./import/format";
 
@@ -454,6 +455,19 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     [client],
   );
 
+  const completeIngest = useCallback(
+    (controller: AbortController, result: Record<string, unknown> | null | undefined) => {
+      if (controller !== controllerRef.current || controller.signal.aborted) return;
+      // Core can complete the task while individual files fail. Preserve those
+      // paths and errors instead of presenting an unqualified import success.
+      if (Array.isArray(result?.errors) && result.errors.length > 0) {
+        throw new PipelineFailure("ingest", JSON.stringify(result.errors));
+      }
+      setPipeline((p) => ({ ...p, stage: "done", synthesisDeferred: true }));
+    },
+    [],
+  );
+
   const startPipeline = useCallback(async () => {
     if (!bundle) return;
     if (controllerRef.current && !controllerRef.current.signal.aborted) {
@@ -464,13 +478,24 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     setActiveEvent(null);
     setWasResumed(false);
     setPipelineStartedAt(Date.now());
-    setPipeline({ stage: "uploading", coreUrl: coreId });
+    setPipeline({
+      stage: "uploading",
+      coreUrl: coreId,
+      packagePaths: Object.fromEntries(
+        bundle.manifest.packages.map((pkg) => [pkg.id, pkg.md_path]),
+      ),
+    });
     try {
       const importResult = await client.importBundle(
         bundle.payload,
         bundle.manifestJson,
         controller.signal,
       );
+      if (importResult.committed.length === 0) {
+        setPipeline((p) => ({ ...p, stage: "done", importResult }));
+        return;
+      }
+      setPipeline((p) => ({ ...p, importResult }));
 
       const ingestHandle = await client.startIngest({}, controller.signal);
       setPipeline((p) => ({
@@ -489,61 +514,11 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         );
       }
 
-      const synthHandle = await client.startSynth({}, controller.signal);
-      setPipeline((p) => ({
-        ...p,
-        stage: "synth",
-        synthTaskId: synthHandle.task_id,
-      }));
-      const synthFinal = await consumeTask(synthHandle.task_id, controller.signal);
-      if (synthFinal?.status !== "succeeded") {
-        throw new PipelineFailure(
-          "synth",
-          synthFinal?.status === "cancelled"
-            ? "synth cancelled"
-            : taskErrorMessage(synthFinal, "synth failed"),
-        );
-      }
-
-      const proposeHandle = await client.startLintPropose({}, controller.signal);
-      setPipeline((p) => ({
-        ...p,
-        stage: "lint-propose",
-        lintProposeTaskId: proposeHandle.task_id,
-      }));
-      const proposeFinal = await consumeTask(proposeHandle.task_id, controller.signal);
-      if (proposeFinal?.status !== "succeeded") {
-        throw new PipelineFailure(
-          "lint-propose",
-          proposeFinal?.status === "cancelled"
-            ? "lint propose cancelled"
-            : taskErrorMessage(proposeFinal, "lint propose failed"),
-        );
-      }
-      const proposeResult = await client.getTaskResult<FixProposalReport>(
-        proposeHandle.task_id,
-        controller.signal,
-      );
-      const proposals = proposeResult.proposals ?? [];
-      if (proposals.length === 0) {
-        setPipeline((p) => ({
-          ...p,
-          stage: "done",
-          proposals: [],
-          picked: [],
-        }));
-        return;
-      }
-      setPipeline((p) => ({
-        ...p,
-        stage: "lint-review",
-        proposals,
-        picked: proposals.map((_, i) => i),
-      }));
+      completeIngest(controller, ingestFinal.result);
     } catch (err) {
       handlePipelineError(err, controller);
     }
-  }, [bundle, client, consumeTask, coreId]);
+  }, [bundle, client, consumeTask, coreId, completeIngest]);
 
   const applyLint = useCallback(
     async (picked: number[]) => {
@@ -618,17 +593,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           return;
         }
         if (persisted.stage === "ingest") {
-          const synthHandle = await client.startSynth({}, controller.signal);
-          setPipeline((p) => ({
-            ...p,
-            stage: "synth",
-            synthTaskId: synthHandle.task_id,
-          }));
-          const synthFinal = await consumeTask(synthHandle.task_id, controller.signal);
-          if (synthFinal?.status !== "succeeded") {
-            throw new PipelineFailure("synth", taskErrorMessage(synthFinal, "synth failed"));
-          }
-          await continueFromSynth(controller);
+          completeIngest(controller, final.result);
         } else if (persisted.stage === "synth") {
           await continueFromSynth(controller);
         } else if (persisted.stage === "lint-propose") {
@@ -645,7 +610,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- continueFromSynth/finalizeProposeAndGate are forward-referenced sibling callbacks
-    [client, consumeTask],
+    [client, consumeTask, completeIngest],
   );
 
   async function continueFromSynth(controller: AbortController) {
@@ -819,6 +784,8 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         />
       ) : null}
 
+      {stage !== "done" ? <ImportOutcomes copy={copy} pipeline={pipeline} /> : null}
+
       {stage === "lint-review" && pipeline.proposals ? (
         <LintReview
           copy={copy}
@@ -841,7 +808,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           <div>
             {copy.errorStageLabel}: {pipeline.error.stage}
           </div>
-          <div>{pipeline.error.message}</div>
+          <div className="import-outcomes">{pipeline.error.message}</div>
           {pipeline.error.code ? <div className="notice__code">{pipeline.error.code}</div> : null}
           <div className="import-error-actions">
             <Button onClick={startOver}>

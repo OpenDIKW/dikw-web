@@ -2520,6 +2520,19 @@ html[data-theme="dark"] .wiki-reader-tabs .wrt-switch__thumb {
 }
 
 @media (max-width: 900px) {
+  .import-done-banner {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .import-done-banner__actions {
+    grid-column: 1 / -1;
+    flex-wrap: wrap;
+  }
+
+  .import-done-tail {
+    flex-wrap: wrap;
+  }
+
   .import-done-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -5933,4 +5946,8 @@ html[data-theme="dark"] .graph-pixi-stage {
   .trace-main {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.import-outcomes {
+  overflow-wrap: anywhere;
 }

@@ -8,7 +8,7 @@ import { gzip } from "node:zlib";
 import { promisify } from "node:util";
 import { extname } from "node:path";
 import { createHash } from "node:crypto";
-import { buildTar } from "@opendikw/web-client/import";
+import { buildTar, kebabStem } from "@opendikw/web-client/import";
 import { MineruClient, MineruClientError } from "./mineruClient.js";
 import { extractResultZip, MineruConvertError } from "./mineruConvert.js";
 import {
@@ -241,7 +241,7 @@ async function handleConvert(
 
   const ext = extname(fileName).toLowerCase();
   const modelVersion = ext === ".pdf" ? "vlm" : null;
-  const stem = stemOf(fileName);
+  const stem = kebabStem(fileName);
   const dataId = inputSha.slice(0, 32);
   // The browser kebab-cases the filename before uploading (ADR 0004) but passes
   // the true original here so frontmatter stays honest. Strip CR/LF so a
@@ -308,7 +308,7 @@ async function runConversion(store: JobStore, jobId: string, args: ConversionArg
     store.setRunning(jobId);
     store.setPhase(jobId, "uploading");
     const handle = await args.client.submit({
-      fileName: args.fileName,
+      fileName: `${args.stem}${extname(args.fileName).toLowerCase()}`,
       dataId: args.dataId,
       modelVersion: args.modelVersion,
     });
@@ -513,14 +513,6 @@ function injectFrontmatter(markdown: string, originalFilename: string): string {
 function yamlSafe(value: string): string {
   // Always double-quote so filenames with spaces / special chars round-trip.
   return `"${value.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
-}
-
-function stemOf(fileName: string): string {
-  const base = fileName.replace(/^.*[\\/]/, "");
-  const i = base.lastIndexOf(".");
-  const stem = i < 0 ? base : base.slice(0, i);
-  // Replace characters that break tar paths or markdown wikilinks.
-  return stem.replace(/[\\/]/g, "_").replace(/[\]|]/g, "_") || "untitled";
 }
 
 interface MultipartFile {

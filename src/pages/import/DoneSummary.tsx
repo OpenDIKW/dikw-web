@@ -2,6 +2,7 @@ import { BookOpen, CheckCircle2, Info, Network, Upload } from "lucide-react";
 import { Button } from "@opendikw/web-ui/controls";
 import type { PipelineState } from "../../state/import-pipeline";
 import { formatBytes, type ImportCopy } from "./format";
+import { ImportOutcomes } from "./ImportOutcomes";
 
 interface DoneSummaryProps {
   copy: ImportCopy;
@@ -24,9 +25,22 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
         </div>
         <div>
           <div className="import-done-banner__headline">{copy.doneTitle}</div>
-          <div className="import-done-banner__body">{copy.doneBannerHeadline}</div>
+          <div className="import-done-banner__body">
+            {importResult?.committed.length === 0 ? copy.doneNoChanges : copy.doneBannerHeadline}
+          </div>
         </div>
         <div className="import-done-banner__actions">
+          {pipeline.synthesisDeferred ? (
+            <Button
+              variant="secondary"
+              data-testid="import-open-tasks"
+              onClick={() => {
+                window.location.hash = "tasks";
+              }}
+            >
+              {copy.doneOpenTasks}
+            </Button>
+          ) : null}
           <Button
             variant="secondary"
             data-testid="import-done-open-wiki"
@@ -49,6 +63,12 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
           </Button>
         </div>
       </div>
+
+      {pipeline.synthesisDeferred ? (
+        <div role="status" className="panel">
+          {copy.doneSynthesisDeferred}
+        </div>
+      ) : null}
 
       <div className="import-done-grid">
         <section className="panel import-done-card">
@@ -85,6 +105,11 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
                   </>
                 ) : null}
               </>
+            ) : pipeline.synthesisDeferred || importResult?.committed.length === 0 ? (
+              <>
+                <dt>{copy.doneLintDeferred}</dt>
+                <dd>—</dd>
+              </>
             ) : totalProposals === 0 ? (
               <>
                 <dt>{copy.summaryNoLint}</dt>
@@ -110,6 +135,8 @@ export function DoneSummary({ copy, pipeline, onStartOver }: DoneSummaryProps) {
           </div>
         </section>
       </div>
+
+      <ImportOutcomes copy={copy} pipeline={pipeline} />
 
       <div className="import-done-tail">
         <span className="import-done-tail__lead">{copy.doneAnotherBatch}</span>

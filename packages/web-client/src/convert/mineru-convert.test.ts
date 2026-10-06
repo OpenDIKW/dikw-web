@@ -125,6 +125,26 @@ describe("MINERU_EXTENSIONS", () => {
 });
 
 describe("convertSource", () => {
+  it("uploads a long original filename under a safe stem and reads the matching result", async () => {
+    const name = `${"论".repeat(50)}.pdf`;
+    const file = new File(["PDF bytes"], name);
+    const safeStem = "论".repeat(28);
+    const scripted = makeScriptedFetch({ stem: safeStem });
+    const fetchFn: typeof fetch = async (input, init) => {
+      if (String(input).includes("/web/mineru/convert")) {
+        const uploaded = (init!.body as FormData).get("file") as File;
+        expect(uploaded.name).toBe(`${safeStem}.pdf`);
+        expect(await uploaded.text()).toBe("PDF bytes");
+        expect(String(input)).toContain(`originalFilename=${encodeURIComponent(name)}`);
+      }
+      return scripted.fetchFn(input, init);
+    };
+    const result = await convertSource(file, { fetch: fetchFn, pollIntervalMs: 1 });
+    expect(result.stem).toBe(safeStem);
+    expect(result.input).toBe(file);
+    expect(result.markdown).toContain("# Body");
+  });
+
   it("submits, polls, then fetches the result tar.gz", async () => {
     const file = new File([new Uint8Array([1, 2, 3, 4])], "test.pdf", {
       type: "application/pdf",

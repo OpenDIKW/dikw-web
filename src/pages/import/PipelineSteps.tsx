@@ -34,10 +34,14 @@ export function PipelineSteps({
   lintApplyTaskId,
 }: PipelineStepsProps) {
   const currentRank = stageRank(stage);
+  const steps = useMemo(
+    () => (stage === "uploading" || stage === "ingest" ? STEPS.slice(0, 2) : STEPS),
+    [stage],
+  );
   const stepNumber = useMemo(() => {
-    const idx = STEPS.findIndex((s) => s.id === stage);
-    return idx < 0 ? STEPS.length : idx + 1;
-  }, [stage]);
+    const idx = steps.findIndex((s) => s.id === stage);
+    return idx < 0 ? steps.length : idx + 1;
+  }, [stage, steps]);
 
   // Tick a clock every second so the elapsed string advances even when no
   // TaskEvent is firing — long uploads / synth stages can sit silent for
@@ -66,7 +70,7 @@ export function PipelineSteps({
         return undefined;
     }
   })();
-  const activeStep = STEPS.find((s) => s.id === stage);
+  const activeStep = steps.find((s) => s.id === stage);
   const activeStageDesc = activeStep ? copy.stageDescriptions[activeStep.labelKey] : "";
 
   return (
@@ -93,7 +97,7 @@ export function PipelineSteps({
             <div className="import-pipeline-head__hint">
               {copy.pipelineStepOf
                 .replace("{n}", String(stepNumber))
-                .replace("{total}", String(STEPS.length))}
+                .replace("{total}", String(steps.length))}
               {startedAt ? ` · ${formatElapsed(now - startedAt)}` : ""}
               {" · "}
               {copy.pipelineResumable}
@@ -106,7 +110,7 @@ export function PipelineSteps({
         </div>
 
         <div className="import-stepper">
-          {STEPS.map((step, i) => {
+          {steps.map((step, i) => {
             const rank = stageRank(step.id);
             const status =
               rank < currentRank ? "done" : rank === currentRank ? "running" : "pending";

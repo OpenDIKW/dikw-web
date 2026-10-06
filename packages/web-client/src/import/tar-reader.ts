@@ -80,46 +80,51 @@ function isUnsafePath(path: string): boolean {
   return false;
 }
 
+/** Shared header validation for buffered conversion and streamed import checks. */
+export function readTarHeader(
+  input: Uint8Array,
+  pos = 0,
+): { archivePath: string; size: number } | null {
+  if (pos + TAR_BLOCK > input.length)
+    throw new TarReaderError("truncated", `tar truncated at offset ${pos}`);
+  if (isZeroBlock(input, pos)) return null;
+  if (!verifyChecksum(input, pos))
+    throw new TarReaderError("bad_checksum", `tar header checksum mismatch at offset ${pos}`);
+  const magic = readCstr(input, pos + 257, 6);
+  if (magic !== "ustar")
+    throw new TarReaderError(
+      "unsupported_format",
+      `unexpected tar magic ${JSON.stringify(magic)} at offset ${pos}`,
+    );
+  const typeflag = input[pos + 156];
+  if (typeflag !== 0 && typeflag !== 0x30)
+    throw new TarReaderError(
+      "unsupported_format",
+      `unsupported tar typeflag 0x${typeflag.toString(16)} at offset ${pos}`,
+    );
+  const name = readCstr(input, pos, 100);
+  const prefix = readCstr(input, pos + 345, 155);
+  const archivePath = prefix ? `${prefix}/${name}` : name;
+  if (isUnsafePath(archivePath))
+    throw new TarReaderError(
+      "unsafe_path",
+      `unsafe tar entry path: ${JSON.stringify(archivePath)}`,
+    );
+  return { archivePath, size: readOctal(input, pos + 124, 12) };
+}
+
 export function readTar(input: Uint8Array): TarEntry[] {
   const entries: TarEntry[] = [];
   let pos = 0;
   while (pos < input.length) {
-    if (pos + TAR_BLOCK > input.length) {
-      throw new TarReaderError("truncated", `tar truncated at offset ${pos}`);
-    }
-    if (isZeroBlock(input, pos)) {
+    const header = readTarHeader(input, pos);
+    if (!header) {
       // Standard end marker is two zero blocks. We accept a single zero block
       // at the tail too — buildTar always writes two, but defensive parsers
       // shouldn't crash on a slightly truncated trailer.
       return entries;
     }
-    if (!verifyChecksum(input, pos)) {
-      throw new TarReaderError("bad_checksum", `tar header checksum mismatch at offset ${pos}`);
-    }
-    const magic = readCstr(input, pos + 257, 6);
-    if (magic !== "ustar") {
-      throw new TarReaderError(
-        "unsupported_format",
-        `unexpected tar magic ${JSON.stringify(magic)} at offset ${pos}`,
-      );
-    }
-    const typeflag = input[pos + 156];
-    if (typeflag !== 0 && typeflag !== 0x30) {
-      throw new TarReaderError(
-        "unsupported_format",
-        `unsupported tar typeflag 0x${typeflag.toString(16)} at offset ${pos}`,
-      );
-    }
-    const name = readCstr(input, pos, 100);
-    const prefix = readCstr(input, pos + 345, 155);
-    const archivePath = prefix ? `${prefix}/${name}` : name;
-    if (isUnsafePath(archivePath)) {
-      throw new TarReaderError(
-        "unsafe_path",
-        `unsafe tar entry path: ${JSON.stringify(archivePath)}`,
-      );
-    }
-    const size = readOctal(input, pos + 124, 12);
+    const { archivePath, size } = header;
     const dataStart = pos + TAR_BLOCK;
     const dataEnd = dataStart + size;
     if (dataEnd > input.length) {

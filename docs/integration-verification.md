@@ -2,6 +2,7 @@
 
 End-to-end verification of the **current dikw-web working tree** against a
 **real `dikw-core`** (the published GHCR image) backed by Postgres/pgvector.
+The current default is Core 0.6.9; explicit version overrides remain supported.
 Fills the gap the rest of the test stack can't: the Playwright suite mocks `/v1`
 entirely (`tests/e2e/mockApi.ts`) and `npm run smoke:core` needs a core you
 brought up and seeded yourself. This harness owns the whole loop — boot core,
@@ -94,6 +95,37 @@ Run a second core version in parallel:
    module load, before the sidecar registers its span processor, so the dev
    `#trace` store stays empty. The standalone sidecar (`npm start`) and any
    OTLP-exported spans are unaffected — see [`observability.md`](observability.md).
+
+## Core 0.6.9 integration limits observed in this patch
+
+The official 0.6.9 image passed the hosted live verification on October 6, 2026
+([run 37408892777](https://github.com/OpenDIKW/dikw-web/actions/runs/37408892777)):
+real import, ingest, synthesis and lint succeeded, all eight HTTP contracts
+passed, and all four live browser checks passed. This successful provider path
+does not eliminate the independently reproduced edge cases below.
+
+Keep provider execution and parser regression evidence separate. The released
+Core 0.6.9 parser recovers the normal-stop formats from #294 and still rejects
+true truncation. With MiniMax-M3, a real empty SSE response can instead emit
+`content_block_stop(index=0)` without a preceding `content_block_start`.
+The image's Python `anthropic` 0.125.0 then raises `IndexError` in stream
+assembly, before the synthesis parser runs. A successful parser probe does not
+prove that this provider boundary succeeded. Preserve the failed task and raw
+event shapes; report this upstream limitation rather than claiming a full
+synthesis pass or weakening the live harness.
+
+The official image also omits the optional `jieba` dependency. Bases configured
+with `retrieval.cjk_tokenizer: jieba` require Core's `cjk` extra; otherwise a
+Chinese source can produce a per-file ingest error in a `succeeded` task.
+Record any runtime dependency supplementation separately from the image digest
+and Core version. The downstream CJK acceptance environment used `jieba` 0.42.1
+and verified that the installed Core source hashes still matched the image.
+
+Provider HTTP 429 responses can also exhaust embedding retries while ingest
+still completes source/chunk indexing. Inspect the task's `embedded` count and
+retry events before claiming dense-vector acceptance. Per-file `result.errors`
+are a separate failure signal, displayed by the import UI even when the task's
+status is `succeeded`.
 
 ## CI
 

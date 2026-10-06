@@ -24,7 +24,16 @@ export function kebabStem(name: string, maxStem = MAX_STEM): string {
     .replace(/^-+|-+$/g, "");
   // Cap by code point (``Array.from`` never splits a surrogate pair), then
   // re-trim any trailing hyphen the cut exposed.
-  const capped = Array.from(kebab).slice(0, maxStem).join("").replace(/-+$/g, "");
+  let capped = "";
+  let bytes = 0;
+  for (const point of Array.from(kebab).slice(0, maxStem)) {
+    const size = new TextEncoder().encode(point).length;
+    // Reserve three bytes for .md in the USTAR name field.
+    if (bytes + size > 97) break;
+    capped += point;
+    bytes += size;
+  }
+  capped = capped.replace(/-+$/g, "");
   return capped || "untitled";
 }
 

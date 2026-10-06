@@ -271,6 +271,8 @@ export interface ImportResponse {
   applied_at: string;
   committed: number[];
   rejected: RejectedPackage[];
+  /** Client preflight warnings; a matching body may have different metadata/assets. */
+  warnings?: RejectedPackage[];
 }
 
 export interface TaskHandle {

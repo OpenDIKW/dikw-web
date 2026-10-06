@@ -557,6 +557,125 @@ describe("ImportPage — failure and cancel", () => {
   });
 });
 
+describe("ImportPage — import outcomes", () => {
+  it.each(["fresh", "resumed", "reconciled"])(
+    "reports per-file ingest errors after a succeeded task (%s)",
+    async (mode) => {
+      if (mode !== "fresh") seedPipeline({ stage: "ingest", ingestTaskId: "ingest-task" });
+      const final: Extract<TaskEvent, { type: "final" }> = {
+        type: "final",
+        seq: 1,
+        ts: new Date().toISOString(),
+        status: "succeeded",
+        result: {
+          errors: [
+            { path: "sources/paper.md", kind: "parse_error", message: "Tokenizer unavailable" },
+          ],
+        },
+      };
+      const client = createMockClient();
+      Object.assign(client, {
+        importBundle: vi.fn().mockResolvedValue(importResponse()),
+        streamTaskEvents: vi.fn(() =>
+          mode === "reconciled"
+            ? progressOnlyStream()
+            : (async function* () {
+                yield final;
+              })(),
+        ),
+        getTaskFinalEvent: vi.fn().mockResolvedValue(final),
+      });
+      render(<ImportPage client={client} locale="en" />);
+      if (mode === "fresh") {
+        selectFile(
+          screen.getByTestId("import-file-input") as HTMLInputElement,
+          file("V/a.md", "Body\n"),
+        );
+        await userEvent.click(await screen.findByTestId("import-start"));
+      }
+      const error = await screen.findByText(/Tokenizer unavailable/);
+      expect(error).toHaveTextContent("sources/paper.md");
+      expect(error).toHaveTextContent("parse_error");
+      expect(screen.queryByTestId("import-done")).not.toBeInTheDocument();
+      expect(client.startSynth).not.toHaveBeenCalled();
+      expect(client.startLintPropose).not.toHaveBeenCalled();
+    },
+  );
+
+  it("shows each rejected package's path, code, and server detail", async () => {
+    const client = createMockClient();
+    Object.assign(client, {
+      importBundle: vi.fn().mockResolvedValue(
+        importResponse({
+          committed: [],
+          rejected: [{ id: 0, code: "manifest_sha256_mismatch", detail: { file: "sources/a.md" } }],
+        }),
+      ),
+    });
+    render(<ImportPage client={client} locale="en" />);
+    selectFile(
+      screen.getByTestId("import-file-input") as HTMLInputElement,
+      file("V/a.md", "Body\n"),
+    );
+    await userEvent.click(await screen.findByTestId("import-start"));
+    await screen.findByTestId("import-done");
+    const outcomes = screen.getByTestId("import-rejected-packages");
+    expect(within(outcomes).getByText("sources/a.md")).toBeInTheDocument();
+    expect(within(outcomes).getByText("manifest_sha256_mismatch")).toBeInTheDocument();
+    expect(within(outcomes).getByText('{"file":"sources/a.md"}')).toBeInTheDocument();
+    expect(client.startIngest).not.toHaveBeenCalled();
+  });
+
+  it("finishes after ingest without automatically starting base-wide synth", async () => {
+    const client = createMockClient();
+    Object.assign(client, {
+      importBundle: vi.fn().mockResolvedValue(importResponse()),
+      streamTaskEvents: vi.fn((id: string) =>
+        id === "ingest-task"
+          ? succeededStream()
+          : (async function* () {
+              await new Promise(() => {});
+            })(),
+      ),
+    });
+    render(<ImportPage client={client} locale="en" />);
+    selectFile(
+      screen.getByTestId("import-file-input") as HTMLInputElement,
+      file("V/a.md", "Body\n"),
+    );
+    await userEvent.click(await screen.findByTestId("import-start"));
+    await screen.findByTestId("import-done");
+    expect(client.startSynth).not.toHaveBeenCalled();
+    expect(client.streamTaskEvents).not.toHaveBeenCalledWith("synth-task", expect.anything());
+    expect(client.startLintPropose).not.toHaveBeenCalled();
+    expect(
+      screen.getByText(
+        "Import and ingest are complete. Start synthesis from Tasks when ready; it processes the whole base and can delay further uploads. Run lint after it finishes.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("import-open-tasks")).toBeInTheDocument();
+    expect(screen.getByTestId("import-restart")).toBeEnabled();
+  });
+
+  it("finishes an empty commit without starting ingest, synth, or lint", async () => {
+    const client = createMockClient();
+    Object.assign(client, {
+      importBundle: vi.fn().mockResolvedValue(importResponse({ committed: [] })),
+    });
+    render(<ImportPage client={client} locale="en" />);
+    selectFile(
+      screen.getByTestId("import-file-input") as HTMLInputElement,
+      file("V/a.md", "Body\n"),
+    );
+    await userEvent.click(await screen.findByTestId("import-start"));
+    await screen.findByTestId("import-done");
+    expect(client.startIngest).not.toHaveBeenCalled();
+    expect(client.startSynth).not.toHaveBeenCalled();
+    expect(client.startLintPropose).not.toHaveBeenCalled();
+    expect(screen.getByText("Nothing new was imported.")).toBeInTheDocument();
+  });
+});
+
 describe("ImportPage — event-stream race reconciliation", () => {
   it("treats a succeeded task whose stream drained without a final event as success", async () => {
     // Reproduces the reported bug: ingest succeeds server-side (Tasks page
@@ -597,7 +716,8 @@ describe("ImportPage — event-stream race reconciliation", () => {
     expect(screen.queryByText("ingest failed")).not.toBeInTheDocument();
     // Reconcile fired for each task stage that drained without a final.
     expect(getTaskFinalEvent).toHaveBeenCalledWith("ingest-1", expect.any(AbortSignal));
-    expect(getTaskFinalEvent).toHaveBeenCalledWith("synth-1", expect.any(AbortSignal));
+    expect(getTaskFinalEvent).not.toHaveBeenCalledWith("synth-1", expect.any(AbortSignal));
+    expect(client.startSynth).not.toHaveBeenCalled();
   });
 
   it("treats a follow stream that threw a gateway error as success when the row succeeded (#56)", async () => {
@@ -605,6 +725,7 @@ describe("ImportPage — event-stream race reconciliation", () => {
     // a proxy/tunnel; the `for await` throws even though synth succeeds
     // server-side. consumeTask must catch the throw and reconcile against the
     // authoritative task row rather than reporting "synth failed".
+    seedPipeline({ stage: "synth", synthTaskId: "synth-1", importResult: importResponse() });
     const client = createMockClient();
     const finalEvent: TaskEvent = {
       type: "final",
@@ -635,16 +756,13 @@ describe("ImportPage — event-stream race reconciliation", () => {
     });
     render(<ImportPage client={client} locale="en" />);
 
-    const input = screen.getByTestId("import-file-input") as HTMLInputElement;
-    selectFile(input, file("V/a.md", "Body text.\n"));
-    await userEvent.click(await screen.findByTestId("import-start"));
-
     // Lands on done — never the failure Notice — because each thrown follow
     // reconciled to the succeeded authoritative row.
     await screen.findByTestId("import-done");
     expect(screen.queryByText("Import failed")).not.toBeInTheDocument();
     expect(screen.queryByText(/synth failed/i)).not.toBeInTheDocument();
     expect(getTaskFinalEvent).toHaveBeenCalledWith("synth-1", expect.any(AbortSignal));
+    expect(client.startIngest).not.toHaveBeenCalled();
   });
 });
 

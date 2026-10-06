@@ -24,6 +24,16 @@ function file(path: string, body: BodyInit, type = ""): File {
 }
 
 describe("computeProjectRelPath / archivePath", () => {
+  it("keeps numbered supplementary-plane source names inside the USTAR byte limit", async () => {
+    const root = "𠀀".repeat(40);
+    const bundle = await buildImportBundle([
+      file(`V/${root}A.md`, "# A"),
+      file(`V/${root}B.md`, "# B"),
+    ]);
+    expect(bundle.manifest.packages).toHaveLength(2);
+    expect(bundle.skipped).toEqual([]);
+    expect(bundle.manifest.packages[1].md_path).toMatch(/-2\.md$/);
+  });
   it("strips the leading directory segment from webkitRelativePath", () => {
     expect(computeProjectRelPath(file("MyVault/notes/foo.md", ""))).toBe("notes/foo.md");
   });
