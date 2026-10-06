@@ -3,6 +3,8 @@
 // on which paths are picked up — divergence shows up as missing assets
 // after import.
 
+import { scanWikilinks } from "../document/wikilink-scan.js";
+
 export interface AssetRef {
   originalPath: string;
   alt: string;
@@ -11,32 +13,89 @@ export interface AssetRef {
   syntax: "markdown" | "wikilink";
 }
 
-const STANDARD_IMG_RE =
-  /!\[([^\]]*)\]\(\s*([^)\n]+?)(?=\s+"[^"\n]*"\s*\)|\s*\))(?:\s+"[^"\n]*")?\s*\)/g;
-const WIKILINK_IMG_RE = /!\[\[([^\]|]+?)(?:\|([^\]]+))?\]\]/g;
-
 export function extractAssetRefs(body: string): AssetRef[] {
   const refs: AssetRef[] = [];
-  for (const m of body.matchAll(STANDARD_IMG_RE)) {
+  const scanDestination = destinationScanner(body);
+  let cursor = 0;
+  while (cursor < body.length) {
+    const start = body.indexOf("![", cursor);
+    if (start < 0) break;
+    const labelEnd = body.indexOf("]", start + 2);
+    if (labelEnd < 0) break;
+    // All openers before this ']' share the same destination. If it is invalid,
+    // skip the group rather than retrying the same tail for every nested '!['.
+    const destination = body[labelEnd + 1] === "(" ? scanDestination(labelEnd + 2) : null;
+    cursor = destination?.end ?? labelEnd + 1;
+    if (!destination) continue;
     refs.push({
-      originalPath: m[2],
-      alt: m[1] ?? "",
-      start: m.index ?? 0,
-      end: (m.index ?? 0) + m[0].length,
+      originalPath: destination.path,
+      alt: body.slice(start + 2, labelEnd),
+      start,
+      end: destination.end,
       syntax: "markdown",
     });
   }
-  for (const m of body.matchAll(WIKILINK_IMG_RE)) {
+  for (const link of scanWikilinks(body, true)) {
     refs.push({
-      originalPath: m[1],
-      alt: m[2] ?? "",
-      start: m.index ?? 0,
-      end: (m.index ?? 0) + m[0].length,
+      originalPath: link.target,
+      alt: link.label ?? "",
+      start: link.start,
+      end: link.end,
       syntax: "wikilink",
     });
   }
   refs.sort((a, b) => a.start - b.start);
   return refs;
+}
+
+function destinationScanner(body: string) {
+  // Index possible endings once. Distinct '](' openers can otherwise retry the
+  // same unterminated path/title suffix, even without a backtracking regex.
+  const stops = Array.from(body.matchAll(/[)\n]/g), (match) => match.index);
+  const quotes = Array.from(body.matchAll(/["\n]/g));
+  const titles: { pathEnd: number; end: number }[] = [];
+  for (let i = 0; i + 1 < quotes.length; i++) {
+    const quote = quotes[i];
+    const close = quotes[i + 1];
+    if (quote[0] !== '"' || close[0] !== '"') continue;
+    let pathEnd = quote.index;
+    while (pathEnd > 0 && /\s/.test(body[pathEnd - 1])) pathEnd--;
+    if (pathEnd === quote.index) continue;
+    let end = close.index + 1;
+    while (/\s/.test(body[end] ?? "")) end++;
+    if (body[end] === ")") titles.push({ pathEnd, end: end + 1 });
+  }
+  let stopIndex = 0;
+  let titleIndex = 0;
+  let whitespaceStop = -1;
+  let whitespaceEnd = -1;
+  return (start: number): { path: string; end: number } | null => {
+    let pathStart = start;
+    while (/\s/.test(body[pathStart] ?? "")) pathStart++;
+    if (body[pathStart] === ")" && pathStart > start) {
+      // Core's legacy grammar accepts a single whitespace path (except LF).
+      let last = pathStart - 1;
+      while (last >= start && body[last] === "\n") last--;
+      return last < start ? null : { path: body[last], end: pathStart + 1 };
+    }
+    while (stopIndex < stops.length && stops[stopIndex] < pathStart) stopIndex++;
+    while (titleIndex < titles.length && titles[titleIndex].pathEnd <= pathStart) titleIndex++;
+    const stop = stops[stopIndex] ?? body.length;
+    const title = titles[titleIndex];
+    if (title && title.pathEnd <= stop)
+      return { path: body.slice(pathStart, title.pathEnd), end: title.end };
+    if (body[stop] === "\n") {
+      if (whitespaceStop !== stop) {
+        whitespaceStop = stop;
+        whitespaceEnd = stop;
+        while (/\s/.test(body[whitespaceEnd] ?? "")) whitespaceEnd++;
+      }
+      if (body[whitespaceEnd] === ")")
+        return { path: body.slice(pathStart, stop).trimEnd(), end: whitespaceEnd + 1 };
+    }
+    if (body[stop] !== ")" || stop === pathStart) return null;
+    return { path: body.slice(pathStart, stop).trimEnd(), end: stop + 1 };
+  };
 }
 
 const REMOTE_SCHEMES = /^([a-zA-Z][a-zA-Z0-9+\-.]*):/;

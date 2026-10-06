@@ -26,6 +26,15 @@ together; already-imported sources need no reconversion. Reuse
 `tests/fixtures/scientific-markdown.json` from this repository for downstream
 reader acceptance. Unsafe HTML remains inert and code examples remain literal.
 
+Cohort `0.1.4` fixes the six high-severity CodeQL polynomial-backtracking
+findings in image references, heading wikilinks, details and chart whitespace.
+Delimiter scans retain the existing supported grammar and offsets; incomplete
+markup remains inert. Upgrade all three exact dependencies together. The
+`rawDetailsPattern` compatibility object supports `exec`, `matchAll` and
+`replace`; use these operations directly rather than cloning its `.source`.
+Existing sources require no reconversion. See
+`docs/verification/2026-10-06-markdown-redos.md` for regression evidence.
+
 | Package | Public entries | Runtime requirements |
 | --- | --- | --- |
 | `@opendikw/web-client` | `/core`, `/agent`, `/types`, `/import`, `/convert`, `/translate`, `/document`, `/connection` | Node 24 for Node consumers; browser helpers use browser APIs |
@@ -40,7 +49,7 @@ retain extraction provenance and document runtime behavior.
 ## Verify before publishing
 
 ```sh
-npm run version:shared -- 0.1.3
+npm run version:shared -- 0.1.4
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
@@ -122,12 +131,12 @@ repeat review/verification. A dist-tag is not a substitute for that validation.
 
 ## Local cross-repository development
 
-### Upgrade an existing consumer to 0.1.3
+### Upgrade an existing consumer to 0.1.4
 
 Update all three dependencies together and keep their delivered versions exact:
 
 ```sh
-npm install --save-exact @opendikw/web-client@0.1.3 @opendikw/web-ui@0.1.3 @opendikw/web-server@0.1.3
+npm install --save-exact @opendikw/web-client@0.1.4 @opendikw/web-ui@0.1.4 @opendikw/web-server@0.1.4
 npm dedupe
 npm ci --ignore-scripts
 npm ls @mikro-orm/core @mikro-orm/sqlite @mikro-orm/sql

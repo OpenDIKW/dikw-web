@@ -25,6 +25,16 @@ describe("parseChartFromDetails", () => {
     expect(spec!.freeText).toEqual([]);
   });
 
+  it("trims Unicode row endings while preserving meaningful cell text", () => {
+    const spec = parseChartFromDetails(
+      "Caption\u00a0\n| A | B |\t\r\n| - | - |\u2003\n| keep space | 1 |\t",
+      "bar",
+    );
+    expect(spec?.freeText).toEqual(["Caption"]);
+    expect(spec?.headers).toEqual(["A", "B"]);
+    expect(spec?.rows).toEqual([["keep space", "1"]]);
+  });
+
   it("drops the alignment row with colons", () => {
     const body = `Basic Variants
 | Experimental runs | Balsc Variants (%) |

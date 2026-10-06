@@ -1,5 +1,8 @@
 import MarkdownIt from "markdown-it";
 import { installScientificInline } from "./scientific-inline.js";
+import { scanWikilinks } from "./wikilink-scan.js";
+export { rawDetailsPattern } from "./raw-details.js";
+import { rawDetailsPattern } from "./raw-details.js";
 
 export interface FrontmatterMeta {
   title?: string;
@@ -153,7 +156,21 @@ function normalizeHeading(value: string): string {
 // slugs when one operates on the original body and the other on the enhanced
 // body, and Outline clicks silently no-op.
 function stripWikilinkSyntax(value: string): string {
-  return value.replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, "$2").replace(/\[\[([^\]]+)\]\]/g, "$1");
+  // Keep the two legacy passes: aliases first, then any remaining plain links.
+  for (const aliasOnly of [true, false]) {
+    const parts: string[] = [];
+    let cursor = 0;
+    for (const link of scanWikilinks(value, false, aliasOnly)) {
+      parts.push(
+        value.slice(cursor, link.start),
+        aliasOnly ? link.label! : value.slice(link.start + 2, link.end - 2),
+      );
+      cursor = link.end;
+    }
+    parts.push(value.slice(cursor));
+    value = parts.join("");
+  }
+  return value;
 }
 
 export function slugifyHeading(value: string): string {
@@ -191,9 +208,6 @@ export function uniqueHeadingSlug(env: Record<string, unknown>, value: string): 
 // Shared with MarkdownView. Both files use these to identify the same set of
 // <details>...</details> blocks. Keep them here as the single source of truth
 // so heading slug extraction stays aligned with how MarkdownView renders.
-export const rawDetailsPattern =
-  /<details\b([^>]*)>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/gi;
-
 export function parseDetailsOpenAttribute(attributes: string): boolean | null {
   const trimmed = attributes.trim();
   if (!trimmed) {

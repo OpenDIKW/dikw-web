@@ -151,3 +151,23 @@ describe("scientific inline markup", () => {
     ).toBeNull();
   });
 });
+
+describe("untrusted details rendering", () => {
+  it("keeps repeated unclosed summary endings inert", () => {
+    const body = "<details><summary>" + "</summary>a".repeat(5000);
+    const root = read(body);
+    expect(root.querySelector("details, summary")).toBeNull();
+    expect(root.textContent?.trim()).toBe(body);
+  });
+
+  it("shares safe details and chart extraction with the outline and bilingual blocks", () => {
+    const body =
+      "<DETAILS OPEN><SUMMARY>Aside</SUMMARY>\n\n## Inside\n\n</DETAILS>\n\n<details><summary>bar</summary>\n| X | Y |\n| - | - |\n| A | 1 |\n</details>";
+    const root = read(body);
+    expect(root.querySelector("details")?.open).toBe(true);
+    expect(root.querySelector("summary")?.textContent).toBe("Aside");
+    expect(root.querySelector("h2")?.id).toBe("inside");
+    expect(root.querySelector(".markdown-chart")?.getAttribute("data-chart-type")).toBe("bar");
+    expect(renderMarkdownBlockHtml(body, ctx, {})).toBe(renderMarkdown(body, ctx));
+  });
+});

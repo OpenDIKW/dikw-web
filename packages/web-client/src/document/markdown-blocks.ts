@@ -101,8 +101,8 @@ function isImageOnlyLine(line: string): boolean {
 
 function collectRegexRanges(body: string, pattern: RegExp): ProtectedRange[] {
   const ranges: ProtectedRange[] = [];
-  const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
-  const re = new RegExp(pattern.source, flags);
+  const re = pattern;
+  re.lastIndex = 0;
   let m: RegExpExecArray | null;
   while ((m = re.exec(body)) !== null) {
     if (m[0].length === 0) {

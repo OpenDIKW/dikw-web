@@ -20,7 +20,7 @@ function isAlignmentRow(cells: string[]): boolean {
 }
 
 export function parseChartFromDetails(content: string, type: ChartType): ChartSpec | null {
-  const lines = content.split("\n").map((line) => line.replace(/\s+$/, ""));
+  const lines = content.split("\n").map((line) => line.trimEnd());
   const tableLines: string[] = [];
   const freeText: string[] = [];
   let inTable = false;
