@@ -17,6 +17,7 @@ file format introduced in `[0.0.1.0]` was dropped.
 - Prepare shared npm cohort 0.1.2 with aligned exact internal dependencies. Previously published versions remain immutable.
 - Update transitive `source-map-js` to its 1.2.2 security patch for GHSA-68fv-2mgg-jv7q; keep the production high-severity audit gate intact.
 - Validate against released Core 0.6.9, including the #294 synthesis parser fix, and make it the live integration harness default. Whole-base synthesis remains an explicit Tasks action.
+- Document the remaining Core 0.6.9 MiniMax empty-stream SDK failure, the CJK runtime dependency and embedding-rate-limit evidence separately from successful import/ingest and parser checks.
 
 ## [0.12.1] - 2026-10-05
 

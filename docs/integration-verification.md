@@ -96,6 +96,31 @@ Run a second core version in parallel:
    `#trace` store stays empty. The standalone sidecar (`npm start`) and any
    OTLP-exported spans are unaffected — see [`observability.md`](observability.md).
 
+## Core 0.6.9 integration limits observed in this patch
+
+Keep provider execution and parser regression evidence separate. The released
+Core 0.6.9 parser recovers the normal-stop formats from #294 and still rejects
+true truncation. With MiniMax-M3, a real empty SSE response can instead emit
+`content_block_stop(index=0)` without a preceding `content_block_start`.
+The image's Python `anthropic` 0.125.0 then raises `IndexError` in stream
+assembly, before the synthesis parser runs. A successful parser probe does not
+prove that this provider boundary succeeded. Preserve the failed task and raw
+event shapes; report this upstream limitation rather than claiming a full
+synthesis pass or weakening the live harness.
+
+The official image also omits the optional `jieba` dependency. Bases configured
+with `retrieval.cjk_tokenizer: jieba` require Core's `cjk` extra; otherwise a
+Chinese source can produce a per-file ingest error in a `succeeded` task.
+Record any runtime dependency supplementation separately from the image digest
+and Core version. The downstream CJK acceptance environment used `jieba` 0.42.1
+and verified that the installed Core source hashes still matched the image.
+
+Provider HTTP 429 responses can also exhaust embedding retries while ingest
+still completes source/chunk indexing. Inspect the task's `embedded` count and
+retry events before claiming dense-vector acceptance. Per-file `result.errors`
+are a separate failure signal, displayed by the import UI even when the task's
+status is `succeeded`.
+
 ## CI
 
 `.github/workflows/live-integration.yml` runs the same `npm run live:verify` on
