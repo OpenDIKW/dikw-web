@@ -18,6 +18,12 @@ Browser operations are provided by `/import` (archive and asset helpers),
 `/document` (Markdown parsing, references and formatting), and `/connection`
 (the default development Core URL). They do not own application routes or storage keys.
 
+Markdown image extraction, heading wikilink normalization and details matching
+use forward delimiter scans to avoid repeated searches on unclosed input. Image
+paths, aliases and UTF-16 source offsets retain the Core-compatible grammar.
+`rawDetailsPattern` supports `exec`, `matchAll` and `replace` directly; cloning
+its `.source` only reproduces the opener, not the complete details scanner.
+
 Conversion and translation caches accept `{ namespace }`. Omit it to retain
 the existing cache database names and TTL. Applications may use an identity
 and Core-specific namespace to keep local caches separate.

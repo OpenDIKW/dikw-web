@@ -32,6 +32,11 @@ sources require no reconversion. The repository's
 `tests/fixtures/scientific-markdown.json` is shared by regression, workbench e2e
 and independent packed/registry consumer checks and can be reused downstream.
 
+Cohort `0.1.4` uses the shared forward details scanner and built-in chart row
+trimming so malformed blocks and long whitespace do not trigger polynomial
+regular-expression backtracking. Safe details, scientific markup, chart data
+and heading anchors retain their existing behavior.
+
 `useTheme({ storageKey })` returns `preference`, `resolved` and `setPreference`.
 It applies the resolved theme, follows OS changes for `system`, and persists an
 explicit selection to that application's key. Mounting does not overwrite a

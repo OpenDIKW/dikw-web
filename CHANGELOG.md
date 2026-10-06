@@ -7,6 +7,12 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.4] - 2026-10-06
+
+- Fix six high-severity CodeQL denial-of-service findings in untrusted Markdown parsing: standard and Obsidian image references, heading wikilinks, shared details extraction and chart whitespace trimming.
+- Use forward delimiter scans and built-in whitespace trimming while preserving image paths, aliases, offsets, safe details captures, heading anchors and chart data. Keep incomplete and unsafe markup inert.
+- Release exact shared npm cohort `0.1.4` for independent consumers, with bounded-process adversarial regressions and grammar compatibility tests. Existing sources require no reconversion.
+
 ## [0.12.3] - 2026-10-06
 
 - Fix scientific `<sup>`/`<sub>` markup in the shared Markdown and bilingual readers without enabling arbitrary HTML. Accept only attribute-free, matching single-line pairs; keep code, unsafe attributes and nested raw HTML inert.

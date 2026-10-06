@@ -42,6 +42,40 @@ describe("extractAssetRefs", () => {
     const refs = extractAssetRefs("[link](page.md) and [[wikilink]]");
     expect(refs).toEqual([]);
   });
+
+  it.each([
+    ['![a]( fig one.png "title (with parentheses)")', "fig one.png", "a"],
+    ['![a](fig.png "title" \n)', "fig.png", "a"],
+    ["![a](fig.png \n)", "fig.png", "a"],
+    ['![a](fig.png "unfinished)', 'fig.png "unfinished', "a"],
+    ["![[fig.png|alias|extra]]", "fig.png", "alias|extra"],
+    ["![[fig[one.png]]", "fig[one.png", ""],
+    ["![](  )", " ", ""],
+  ])("retains the Core image grammar for %s", (body, originalPath, alt) => {
+    const refs = extractAssetRefs(body);
+    expect(refs).toHaveLength(1);
+    expect(refs[0]).toMatchObject({ originalPath, alt, start: 0, end: body.length });
+  });
+
+  it("recovers valid images after malformed destinations and preserves offsets", () => {
+    const body = "![](bad\n![ok](good.png) ![[|bad]] ![[fine.png]] ![empty]()";
+    expect(extractAssetRefs(body)).toEqual([
+      {
+        originalPath: "good.png",
+        alt: "ok",
+        start: body.indexOf("![ok]"),
+        end: body.indexOf(" ![[|"),
+        syntax: "markdown",
+      },
+      {
+        originalPath: "fine.png",
+        alt: "",
+        start: body.indexOf("![[fine"),
+        end: body.indexOf(" ![empty]"),
+        syntax: "wikilink",
+      },
+    ]);
+  });
 });
 
 describe("isRemoteRef", () => {

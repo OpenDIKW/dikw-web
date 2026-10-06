@@ -26,6 +26,15 @@ together; already-imported sources need no reconversion. Reuse
 `tests/fixtures/scientific-markdown.json` from this repository for downstream
 reader acceptance. Unsafe HTML remains inert and code examples remain literal.
 
+Cohort `0.1.4` fixes the six high-severity CodeQL polynomial-backtracking
+findings in image references, heading wikilinks, details and chart whitespace.
+Delimiter scans retain the existing supported grammar and offsets; incomplete
+markup remains inert. Upgrade all three exact dependencies together. The
+`rawDetailsPattern` compatibility object supports `exec`, `matchAll` and
+`replace`; use these operations directly rather than cloning its `.source`.
+Existing sources require no reconversion. See
+`docs/verification/2026-10-06-markdown-redos.md` for regression evidence.
+
 | Package | Public entries | Runtime requirements |
 | --- | --- | --- |
 | `@opendikw/web-client` | `/core`, `/agent`, `/types`, `/import`, `/convert`, `/translate`, `/document`, `/connection` | Node 24 for Node consumers; browser helpers use browser APIs |
