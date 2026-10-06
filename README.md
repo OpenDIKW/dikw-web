@@ -146,7 +146,7 @@ The `/web/*` family is **job + poll**: `convert` / `translate` `submit`
 returns a job id immediately, then the browser polls `…/jobs/<id>` and
 fetches `…/jobs/<id>/result` (with `…/cancel` to abort); `…/health`
 endpoints drive Import's format degradation and gate the Base reader's
-AI 翻译 entry. See `CLAUDE.md` for the full wire shapes.
+AI 翻译 entry. See `.claude/rules/web-jobs.md` for the full wire shapes.
 
 Two source trees share a single sidecar process (mounted into the Vite
 dev server as middleware, and into `dist-server/standalone.mjs` for prod):
@@ -335,8 +335,12 @@ Jaeger + Prometheus + Loki + Grafana) — and the full env reference are in
 
 - [`docs/shared-packages.md`](docs/shared-packages.md) — public exports, verified artifacts, candidate/stable releases and npm trusted publishing.
 
-- `CLAUDE.md` — operational guide for Claude Code sessions (working
-  principles, architecture, testing, patch intake).
+- `CLAUDE.md` — operational guide for Claude Code sessions (commands,
+  architecture summary, hard rules, working rules, autonomy, finish line,
+  report format, testing, patch intake).
+- `.claude/rules/*.md` — path-scoped area rules (sidecar, jobs, auth, routes,
+  import, reader, …) that Claude Code loads when it works on matching files.
+- `.claude/skills/*` — the delivery loop and its verification skills.
 - `docs/deployment.md` — production deploy (Docker, env vars, networking,
   the opt-in OIDC auth mode + reverse-proxy recipe).
 - `docs/core-contract.md` — the `dikw-core` HTTP subset this app

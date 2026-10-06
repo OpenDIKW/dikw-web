@@ -8,7 +8,7 @@ against the same bar the maintainer would. Point the reviewer at this file.
 
 Each item is pass/fail against the **diff under review**.
 
-## Working principles (from CLAUDE.md)
+## Working rules (from CLAUDE.md)
 
 - [ ] **Simplicity first.** Minimum code that solves the problem. No speculative
   abstractions, no single-use indirection, no unrequested configurability/flags,

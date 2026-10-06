@@ -15,9 +15,10 @@ vite*.log
 .env.core
 .agent-sessions/
 .claude/*
-# Track shared project skills + agents, but keep local settings/locks out.
+# Track shared project skills + agents + path-scoped rules, but keep local settings/locks out.
 !.claude/skills/
 !.claude/agents/
+!.claude/rules/
 # Runtime branding override (per-deployment; copy from public/config.example.json)
 /public/config.json
 # impeccable design-skill detector cache (transient; the design system itself

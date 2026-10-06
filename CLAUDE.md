@@ -1,216 +1,74 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-Deeper product/contract docs live in `docs/` (`core-contract.md`, `graph-view.md`, `ui-system.md`, `agent.md`, `tdd.md`, `observability.md`, `integration-verification.md`, `shared-packages.md`). Read the relevant ones before non-trivial work.
-
-## Working principles
-
-These bias toward caution over speed; use judgment for trivial edits.
-
-### Think before coding
-
-Don't assume. Don't hide confusion. Surface tradeoffs.
-
-- State assumptions out loud. When a root cause depends on data shape, verify against the live API (`/v1/health`, `/v1/base/graph`, `/v1/base/pages/{path}/links`) before designing around it — a plausible cause is not a confirmed one.
-- If multiple interpretations of a request exist, present them; don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop, name what's confusing, and ask.
-
-### Simplicity first
-
-Minimum code that solves the problem. Nothing speculative.
-
-- No features beyond what was asked; no abstractions for single-use code.
-- No flexibility/configurability that wasn't requested; no error handling for impossible scenarios.
-- If 200 lines could be 50, rewrite it.
-- The aesthetic backs this up: no UI framework, hand-rolled tokens in `src/styles.css`, restrained shadows — don't pull in a library when the token system already covers it.
-
-### Surgical changes
-
-Touch only what you must. Clean up only your own mess.
-
-- Don't "improve" adjacent code, comments, or formatting in unrelated areas. Match existing style even if you'd write it differently.
-- Don't refactor things that aren't broken — `#chat` canonical route, Settings-owned connection config, the current `styles.css` tokens (see Patch intake).
-- If you notice unrelated dead code, mention it; don't delete it.
-- Remove imports/variables/functions that *your* changes orphaned; leave pre-existing dead code alone unless asked.
-- Every changed line should trace to the request.
-
-### Goal-driven execution
-
-Define success criteria. Loop until verified.
-
-TDD is the default loop (see `docs/tdd.md` and §Testing approach): failing test first → smallest change to green → refactor. Restate vague requests as verifiable goals before coding:
-
-- "Add validation" → write tests for invalid inputs, then make them pass.
-- "Fix the bug" → write a failing test that reproduces it, then make it pass.
-- "Refactor X" → tests pass before and after.
-
-Each step is a loop, not a line: **write → run the checks → read the error → fix the cause → re-run** (`npx vitest run …`, `npm.cmd run typecheck`; `npm.cmd run verify` is the final gate before a behavior change is done). Bound this inner verify-loop — stop when:
-
-- **Green** — report "done", quoting *this session's* passing check output as proof (never a remembered or prior run).
-- **5 attempts spent** — stop; report what still fails and what you tried, instead of thrashing.
-- **Same error twice in a row** — stop; you're guessing, not fixing. Re-diagnose root-cause-first (`superpowers:systematic-debugging`), or hand off to a fresh context via `@fixer` (`.claude/agents/fixer.md`).
-
-**Fix the code, not the test** — don't weaken an assertion or lower the `vite.config.ts` coverage thresholds to make a feature pass.
-
-For multi-step work, state a brief plan with a check per step (`npx vitest run …`, `npm.cmd run typecheck`, a `curl` against `/v1/...`, a Chrome MCP screenshot).
-
-Strong success criteria let you loop independently; "make it work" requires constant clarification.
-
-Working when: fewer unnecessary diffs, fewer rewrites from over-engineering, clarifying questions land *before* implementation rather than after.
-
-## Delivery Loop
-
-End-to-end loop from request to landed PR. Run autonomously for behavior changes — don't wait for the user to prompt each step. Steps run in order; skip only with an explicit reason. The `dikw-web-delivery-workflow` skill (`.claude/skills/`) is the executable form of this loop — invoke it to run the steps below as one orchestration instead of re-deriving them from prose.
-
-1. **Clarify the request.** Restate it, surface assumptions, and ask before assuming. For non-trivial scope, build a plan with the `drill-me-with-docs` or `superpowers` planning skill before touching code.
-2. **Write the plan in the user's language.** Plan body follows the user's writing language (Chinese / English); code, identifiers, file paths, and commands stay English. Plans default to TDD: failing test first, smallest change to green, refactor (see `docs/tdd.md`).
-3. **Code-review loop — max 3 rounds by default.** Repeat until there are no new actionable findings or the cap is reached:
-   - 3.1 Run `/codex:review --background` for an independent review pass.
-   - 3.2 Evaluate the findings, decide which are valid, and fix.
-4. **Final pass.** Run `/code-review`, scored against `docs/review-rubric.md` (the project-specific principles), and resolve every finding before continuing.
-5. **Verify in the browser.** For UI changes, invoke the `dikw-web-verify-frontend` skill: navigate the changed routes via Chrome MCP, confirm a clean runtime console on real data, exercise the affected interactions, run the `docs/ui-checklist.md` rubric in light + dark, and run the **measured perf + a11y pass** (Step 2.5 — Chrome DevTools MCP: `lighthouse_audit` for accessibility ≥ 0.9 with no new violation, and a `performance_start_trace`/`stop_trace` for CLS ≤ 0.1 + LCP) for the changed route — confirm the change actually rendered as intended, not just that unit tests pass.
-6. **Update markdown docs.** Walk `CLAUDE.md`, `README.md`, and the relevant `docs/*.md` against the diff; any contract, behavior, command, or doc index that drifted must be updated in the same change. Don't leave docs to "catch up later".
-7. **Create the PR.** Branch with a descriptive name, commit with `<type>(<scope>): <subject>` matching the project's existing convention (see recent `git log`), push, then `gh pr create`. CI auto-runs lint + format:check + typecheck + coverage + build + e2e + bundle budget + the `gate-integrity` reward-hacking gate (`check:gate`) + security scans (npm audit, gitleaks, Trivy, CodeQL). Bump `package.json.version` manually (standard 3-digit SemVer) when the change warrants it, and add an entry to `CHANGELOG.md` under the matching version heading. On merge to `main`, CI's `release` job auto-cuts a GitHub Release tagged `dikw-web-v<version>` from `package.json.version` (idempotent — only a version bump creates a new tag; notes come from the matching CHANGELOG section via `scripts/changelog-notes.mjs`), so a deliberate version bump is what publishes a release.
-8. **Monitor CI and PR comments; resolve as they surface, then merge.** Invoke the **`dikw-web-watch-ci`** skill — the executable form of this step, with the brakes built in (MAX_ROUNDS = 3, a same-failure circuit breaker, a **one**-rerun flaky budget) and each transition logged to `.loop-log.jsonl` (`scripts/loop-log.mjs`). It merges explicitly (never `--auto`, which outraces the review). The signals it watches:
-   - **CI rollup**: `gh pr checks <N>` (or `--watch` to block until terminal). Failing job logs: `gh run view <run-id> --log-failed`. Flaky e2e gets **one** rerun, not five (see [[project_flaky_graph_e2e]] in memory for which test).
-   - **PR review prose**: `gh api repos/{owner}/{repo}/pulls/{N}/reviews` for review bodies, `.../pulls/{N}/comments` for inline threads, `.../issues/{N}/comments` for top-level CodeRabbit summaries. `gh pr checks` shows pass/fail only, not the prose.
-   - **Resolve each finding** as it appears: fix + re-push (CodeRabbit/CI sees the new SHA and re-evaluates), refute with evidence in a reply, or defer explicitly with a rationale in the PR body.
-   - **Merge**: `gh pr merge <N> --squash --delete-branch` once CI is fully green and every actionable comment is resolved or explicitly dismissed.
-
-For trivial edits (typo, comment, single-line refactor), use judgment and skip the loop.
-
-## Commands
-
-Windows shell: use `npm.cmd` (not `npm`) when invoking from PowerShell.
-
-Dependency install scripts are off: the project `.npmrc` sets `ignore-scripts=true`, so `npm ci` / `npm install` need no python or C++ toolchain (without it, `npm ci` runs an implicit `node-gyp rebuild` for better-sqlite3, whose bundled prebuilt is what actually loads). `scripts/install-scripts.test.mjs` fails when a dependency gains an install script that hasn't been reviewed as safe to skip — review it and add it to that list, don't delete the `.npmrc`. `npm run <script>` is unaffected, but `pre*`/`post*` hooks of our own scripts won't run.
-
-- `npm.cmd run dev` — Vite dev server, fixed at `http://127.0.0.1:4321` (`--strictPort`).
-- `npm.cmd run typecheck` — `tsc --noEmit`.
-- `npm.cmd run lint` — ESLint flat config (`eslint.config.js`), `--max-warnings 0`. Covers the lint layer `tsc --strict` doesn't: React hook deps/order, unused symbols (tsconfig has no `noUnusedLocals`), no raw `console` in the browser bundle. react-hooks is pinned to its two classic rules (rules-of-hooks + exhaustive-deps), **not** the v7 `recommended` preset; type-checked rules are omitted to keep it fast.
-- `npm.cmd run format` / `npm.cmd run format:check` — Prettier across code (`.ts/.tsx/.js/.mjs/.css/.json`); markdown is excluded in `.prettierignore` (prose churn, no correctness value).
-- `npm.cmd run test` — Vitest unit/component/server tests once.
-- `npm.cmd run test:watch` — Vitest watch mode.
-- `npm.cmd run test:coverage` — coverage with thresholds enforced in `vite.config.ts` (statements 60 / branches 45 / functions 55 / lines 60). Do not lower these to make a feature pass.
-- `npx vitest run path/to/file.test.ts` — run a single test file. Add `-t "name"` to filter by test name.
-- `npm.cmd run test:e2e` — Playwright (Chromium). The config auto-starts `npm run dev` and reuses an existing server on 4321.
-- `npx playwright test tests/e2e/chat.spec.ts` — run one E2E spec.
-- `npm.cmd run build` — typecheck, `vite build` (browser bundle to `dist/`), then `build:server` (esbuild bundles `server/agent/standalone.ts` to `dist-server/standalone.mjs` with `--packages=external`, since ADK + MikroORM + the native better-sqlite3 addon can't be bundled — so the sidecar imports its deps from a production `node_modules` at runtime). `npm.cmd start` runs that standalone sidecar.
-- `npm.cmd run verify` — full gate: lint + format:check + typecheck + coverage + build + e2e. Run before committing behavior changes.
-- `npm.cmd run check:bundle` — gzip bundle budget (entry JS / total JS / CSS) against `dist/`; runs in CI after the verify gate. Raise the budgets in `scripts/check-bundle.mjs` deliberately, like the coverage thresholds — don't bump to pass.
-- `npm.cmd run check:gate` — **reward-hacking gate** (`scripts/check-gate-integrity.mjs`): diffs the branch against its merge base (`origin/main` locally; the PR base in CI) and fails if the verification *itself* was weakened — a lowered coverage threshold, a grown coverage `exclude`, a raised bundle budget, raised e2e `retries`, a deleted/disabled test or removed assertions, or any edit to the gate/CI machinery (the script, `.github/workflows/**`, `fixer.md`'s forbidden list). The good direction (raising a threshold, adding a test) is always allowed; a deliberate weakening is allowed only when a maintainer adds the visible `gate-change` label to the PR (`GATE_HAS_OVERRIDE`). Runs as the **PR-scoped required CI job `gate-integrity`** — it is the deterministic backstop for the prose "don't weaken the tests" rule in `fixer.md` / `docs/review-rubric.md`. See `docs/adr/0005-delivery-loop-hardening.md`.
-- `node scripts/loop-log.mjs <event> [detail]` — append one structured JSON line to `.loop-log.jsonl` (gitignored). The delivery loop's lightweight observability: the `dikw-web-watch-ci` skill calls it at each CI-watch transition (`iter_start` / `flake_rerun` / `fixer` / `ci_fail` / `merged`) so an autonomous/background run is diagnosable after the fact. Not a CI gate. See `docs/adr/0005-delivery-loop-hardening.md`.
-- `npm.cmd run smoke:core` — live-core `/v1` contract smoke (`scripts/smoke-core.mjs`, the `dikw-web-smoke-core` skill). Not a CI gate; needs a reachable core. Run after a `dikw-core` bump or before a demo.
-- `npm.cmd run live:verify` — full live integration verification of the working tree against a **real `dikw-core`** (GHCR image, Postgres backend) on dynamic ports: boot → seed the write pipeline (import→ingest→synth→lint, reusing `buildImportBundle` + `DikwClient`) → read-contract smoke → browser read-route e2e (Playwright `live` project) → agent↔core check → teardown. Needs Docker + `.env.core` (LLM/embedding keys, git-ignored; copy `.env.core.example`). Not a CI gate (boots a container, calls live LLMs); `live-integration.yml` runs it on dispatch/nightly/label. Sub-commands: `live:up` / `live:seed` / `live:smoke` / `live:down` (`-- --volumes` to drop data). `-- --keep` leaves the stack up. See `docs/integration-verification.md`.
-
-Codex-sandbox fallback when `npm.cmd run dev` fails with `Cannot read directory "../../.."`:
-
-```powershell
-node node_modules\vite\bin\vite.js --host 127.0.0.1 --port 4321 --strictPort --configLoader runner
-```
-
-## Architecture
-
-The root is an npm workspace application. Shared browser protocols and tools live
-in `packages/web-client` (MIT) and are consumed through `@opendikw/web-client`
-subpath exports; do not import package source paths or restore copies under `src`.
-Shared releases use `version:shared` to keep the three package/internal dependency
-versions aligned, followed by a lockfile update and full verification. `publish:shared`
-accepts only clean-commit verified artifacts; `verify:registry` validates downloaded
-bytes and independent consumers. `.github/workflows/publish-packages.yml` uses npm
-trusted publishing after authenticated bootstrap; see `docs/shared-packages.md`.
-
-Dev, typecheck, test and build explicitly run `build:packages`; direct Vitest
-iteration needs a package build after source changes. `verify:packages` installs
-real tarballs in an independent consumer. Package source and migrated tests remain
-in the root coverage/test discovery, with the existing thresholds unchanged.
+Guidance for Claude Code in the `dikw-web` repository.
 
 React/Vite management workbench over `dikw-core`. The browser consumes HTTP `/v1`, predominantly reads plus explicit Import, Wisdom and maintenance writes. The private `dikw-mbweb` repository owns the paper business application; a sibling checkout is not a browser data source.
 
-### Two-process model in one Vite dev server
+Product and contract docs are in `docs/` (`core-contract.md`, `graph-view.md`, `ui-system.md`, `agent.md`, `tdd.md`, `observability.md`, `integration-verification.md`, `shared-packages.md`). Read the relevant ones before non-trivial work.
 
-1. **Browser app** (`src/`) — React 19 + TypeScript, no UI framework (no Tailwind/Radix/shadcn). Styling is the hand-rolled token system in `src/styles.css`; iterate within it.
-2. **Sidecar** (`packages/web-server/src/agent/` + `packages/web-server/src/web/`) — shared Node middleware injected through `@opendikw/web-server/vite` `createApplicationPlugins()`. Production calls `createWebRuntime` from the package's `/runtime` entry; `server/agent/standalone.ts` owns the public built-shell policy, instrumentation, listening and signal hooks. The factory initializes/owns SQLite and jobs and provides idempotent async shutdown. App-fixed `workbench` and `mbweb` profiles share protocols and #204/#205 tests; MB's guard precedes both production dispatch and Vite proxy/sidecars and denies unknown/management APIs. Production MB requires OIDC and public `DIKW_WEB_CORE_ID`; applications have separate secrets, cookie names, directories, volumes and Agent app names. See ADR 0007 and the package README. The middleware serves two same-origin prefixes:
-   - `/agent/*` (`packages/web-server/src/agent/`, mounted by `agentSidecarPlugin()`) runs the chat agent on **Google ADK** (`@google/adk`). The LLM is MiniMax via its Anthropic-compatible endpoint through a custom `MiniMaxLlm extends BaseLlm` adapter (`@anthropic-ai/sdk` transport), model `MiniMax-M3`. The browser only calls same-origin `/agent/*`; the sidecar then calls core. The `/agent/*` HTTP API + the `AgentStreamEvent` NDJSON wire format are stable across the runtime swap (the chat UI is unaffected). Sessions persist to **local SQLite** via ADK's `DatabaseSessionService` (`.agent-sessions/agent.sqlite`, appName `dikw-web`, userId `demo` — or `oidc:<sub>` for the signed-in caller in auth mode, see below); `AdkSessionStore` projects ADK events into the `AgentSession` DTO at read time, and `AdkAgentRunner` maps ADK `Event`s → `AgentStreamEvent`s (see `docs/agent.md`). The legacy one-JSON-file-per-session store is gone and old `.agent-sessions/*.json` are **not** migrated (local demo data). Two optional sidecar-only tools (`web_search` via Tavily, `web_fetch` via Jina) activate when `DIKW_AGENT_TAVILY_API_KEY` / `DIKW_AGENT_JINA_API_KEY` are present in `.env.local`; a Brave Search client is retained in `WebToolClient.search` for future provider rotation but is not registered as an agent tool. These tools don't touch `dikw-core`. The hidden `#trace` page reads `GET /agent/sessions/{id}/traces`, which serves an OpenTelemetry span waterfall captured by a `DikwSpanProcessor` into an in-memory `SpanStore` (ephemeral — lost on sidecar restart). Every `/agent/*` and `/web/*` request is wrapped in a route-templated OTel **SERVER** span (`packages/web-server/src/shared/withServerSpan.ts`) that continues an inbound W3C trace (browser → sidecar) and parents the agent/outbound work; these SERVER spans (and the Phase 5 outbound CLIENT spans) are filtered out of the in-memory `SpanStore` (`DikwSpanProcessor` keeps only `SpanKind.INTERNAL` — ADK's own kind — dropping the SERVER + CLIENT HTTP-infra spans) so the `#trace` waterfall stays agent-only. When `OTEL_EXPORTER_OTLP_ENDPOINT` (or `*_TRACES_ENDPOINT`) is set, ADK additionally exports all these spans (SERVER + agent) over OTLP — tagged with a `service.name=dikw-web` resource (`packages/web-server/src/agent/telemetryResource.ts`, overridable via the standard `OTEL_SERVICE_NAME`, sampled per `OTEL_TRACES_SAMPLER`/`_ARG`) — *alongside* the in-memory store; with no endpoint env the in-memory `#trace` path is the only sink (behavior-identical to before), and OTLP-exported spans inherit the same content-free redaction (`ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false`). The sidecar also records OTel **metrics** via `packages/web-server/src/shared/metrics.ts` — `http.server.request.duration` (per SERVER span), `dikw.job.{duration,count,inflight}` (`{family=mineru|translate, outcome}`, at the detached conversion/translation runner boundaries), `dikw.llm.tokens` (`{gen_ai.token.type}`, from the counts `DikwSpanProcessor` parses), and `dikw.agent.turn.duration` (`{outcome}`, per `runMessage`). Instruments bind lazily to the global meter, so when `OTEL_EXPORTER_OTLP_ENDPOINT` (or `*_METRICS_ENDPOINT`) is set, ADK's `maybeSetOtelProviders` MeterProvider exports them over OTLP via a `PeriodicExportingMetricReader` (same `service.name=dikw-web` resource); with no endpoint env no MeterProvider is registered and every record is a no-op (behavior-identical). The sidecar imports no metric exporter — export is entirely ADK's. Sidecar **logging** goes through `packages/web-server/src/shared/logger.ts` (`createLogger(scope)`) — never raw `console.*` — emitting one structured line per call: JSON to stdout (human text when stdout is a TTY or `DIKW_LOG_FORMAT=text`), the active span's `trace_id`/`span_id` injected for log↔trace correlation, and a mirrored OTel `LogRecord` that ships over OTLP (to Loki/etc.) when ADK's env-gated `LoggerProvider` is built (`OTEL_EXPORTER_OTLP_ENDPOINT` / `*_LOGS_ENDPOINT`), no-op otherwise. The logger redacts field **names** matching `key|token|auth|secret|password|credential` and has no arbitrary-object dump path (callers pass flat fields / booleans, never raw secrets); `Error` values collapse to `name: message`. The e2e console gate watches the **browser** page console, not this sidecar stdout, so it is unaffected. Outbound HTTP from the standalone sidecar is instrumented for **CLIENT** spans + W3C `traceparent` propagation by `packages/web-server/src/agent/instrumentation.ts` (`@opentelemetry/instrumentation-undici`, registered first thing in `standalone.ts` boot via `registerOutboundInstrumentation()`, before any outbound request) — but **only when an OTLP traces endpoint is configured**; with no endpoint env the undici/fetch layer is not patched at all (behavior-identical). The patch rides undici's `diagnostics_channel` (dispatcher-agnostic). The query string is redacted from every CLIENT span (`startSpanHook` → `url.query = [REDACTED]`, `url.full` keeps only `scheme://host/path`) so MinerU presigned-URL credentials never leave the process; CLIENT spans are kept out of `#trace` (INTERNAL-only filter above) and export over OTLP only. Aside: `tools.ts`'s `HTTPS_PROXY` `ProxyAgent` path passes a per-call npm-`undici` dispatcher to Node's built-in `fetch`, which is a pre-existing undici-version incompatibility unrelated to (and unaffected by) this instrumentation.
-   - `/web/*` (`packages/web-server/src/web/`, mounted by `webApiPlugin()`) hosts dikw-web's own browser helpers — currently `GET /web/mineru/health` plus a **job + poll** conversion API: `POST /web/mineru/convert?inputSha=<hex>` (multipart in) returns `202 { jobId }` immediately and runs the MinerU pipeline **detached** from the request; the browser then polls `GET /web/mineru/jobs/{id}` (short JSON status) and fetches the tar.gz from `GET /web/mineru/jobs/{id}/result` (idempotent within the job's TTL window, so a cut transfer is retry-safe) on completion, with `POST /web/mineru/jobs/{id}/cancel` to abort. This decouples conversion wall-clock from any single request so a slow PDF no longer dies behind a reverse-proxy/tunnel request timeout (Cloudflare free ~100s, nginx 60s) — see [#60](https://github.com/OpenDIKW/dikw-web/issues/60). Jobs live in an in-memory `JobStore` (`packages/web-server/src/web/jobStore.ts`, no disk persistence). Used by ImportPage to convert PDF / Office files into markdown + assets via mineru.net before joining the existing `/v1/import` pipeline. Activates when `DIKW_WEB_MINERU_API_KEY` is set in `.env.local`; missing key → `503 mineru_disabled` (on `convert`) and the UI degrades to `.md/.pdf` only. `/web/*` does not touch `dikw-core`. A second **job + poll** family lives alongside mineru: `POST /web/translate/submit` (`{ blocks, targetLang }` JSON, the document's markdown split into text blocks) returns `202 { jobId }` and runs an LLM translation **detached** and **chunked**: the text blocks are split into ordered batches (`splitIntoBatches` in `translateRun.ts`, capped by block count / chars) and translated one **streaming** `@anthropic-ai/sdk` call per batch over MiniMax (`messages.stream(...).finalMessage()`; deliberately **not** the ADK `MiniMaxLlm` adapter, which is bound to ADK's `BaseLlm` interface). The model wire protocol is a **delimiter**, not JSON: blocks are joined by a distinctive sentinel line (`BLOCK_SEP`) and the reply is split back on it, so arbitrary scientific Markdown — LaTeX backslash commands (`\circ`, `\mathrm`), unescaped quotes around code identifiers (`"scikit-learn"`), brackets — passes through verbatim instead of corrupting a JSON array (both modes were live-observed failing the JSON protocol on a real paper). A **wrong block count** from the model is reconciled by **splitting the batch** and re-translating the halves down to singletons (`translateBlocks`; a singleton's pieces are joined), not by re-asking the identical call — the miscount is often deterministic. Two model failure modes the 1:1 count check can't catch are self-healed by `repairBlocks` (Chinese target only, bounded to one re-ask per block): (a) a block **echoed back untranslated** (≥ 6 English words, no CJK); (b) a translation that **contains its source verbatim** (bilingual echo) or is **> 2× the source length** above a 60-char floor (EN→中 compresses, so this signals appended hallucinated/continued content — live-observed on test2.md). The flagged block is re-asked alone, and the re-ask is **re-validated**: a result still oversized/echoed is rejected in favour of the **source text** rather than injecting bloat (catches an untranslated re-ask coming back as a bilingual echo). The system prompt also forbids adding/continuing/summarizing/inventing. The browser cache key carries a `TRANSLATE_VERSION` (bumped when translation logic changes, to drop stale pre-fix translations). See `docs/adr/0003-bilingual-reading.md`. After each batch the runner publishes the blocks-so-far as the job's `progress: { done, total, blocks }`, so the browser reveals paragraphs **progressively** (poll-carried partials) instead of waiting for the whole document; per-batch timing is logged (`[translate] job … batch k/N … ok in …ms`). Streaming keeps each batch's connection alive and sidesteps the SDK's non-streaming ">10-min" guard. The SDK's own `maxRetries` is set to 0 so retry policy is single-sourced in `translatorClient.ts` (`TranslatorClient.translate`): it retries retryable transport faults (429 / timeout / 5xx / connection) and an **empty reply** with exponential backoff + jitter; a wrong block count is handled by the batch split above (not a retry), and a truncated (`max_tokens`) reply and aborts are not retried. The browser polls `GET /web/translate/jobs/{id}` (status + partial `progress.blocks`) and fetches the final block-aligned JSON `{ blocks: [{ i, tr }] }` from `GET /web/translate/jobs/{id}/result` (`…/cancel` aborts). Wikilink targets are server-side **re-pinned** by order (`repinWikilinks` in `translateRun.ts`) so a translated `[[target|label]]` label can never break the link destination. Submit enforces `MAX_TRANSLATE_BYTES` (4 MB) / `MAX_TRANSLATE_BLOCKS` (2000). The translator **reuses the chat agent's MiniMax credentials** — `DIKW_AGENT_API_KEY` / `DIKW_AGENT_BASE_URL` / `DIKW_AGENT_MODEL` (no dedicated key); only the per-call output cap `DIKW_WEB_TRANSLATOR_MAX_TOKENS` stays translator-specific. Activates when `DIKW_AGENT_API_KEY` is set (base url / model default to MiniMax); missing key → `503 translate_disabled` and `GET /web/translate/health` reports `{ enabled: false }`, which gates the Base reader's AI 翻译 entry (the reader UI ships — see the Base route below). The browser client is `src/utils/translate.ts` (IndexedDB cache `dikw-translate-cache`, 7-day TTL sweep). Like mineru, `/web/translate` never touches `dikw-core`. Future browser-side conversion helpers (OCR, video transcripts, ...) go here, not under `/agent/*`.
+## Commands
 
-Both prefixes are served by the same Node process in dev and in the standalone `dist-server/standalone.mjs` build. With auth mode off (the default), the browser receives the current core URL from settings and passes it to the sidecar on each request. The sidecar must error on missing core URL rather than silently falling back to `.env.local` (which holds local LLM credentials and is gitignored — never expose to browser/tests/screenshots). `.agent-sessions/`, `.tmp/`, `coverage/`, `dist/`, `dist-server/`, `test-results/`, and `playwright-report/` are local/generated — don't commit them or treat them as source.
+On Windows, use `npm.cmd` and `npx.cmd` (not `npm` / `npx`) from PowerShell. A `Restricted` execution policy blocks the `.ps1` shims.
 
-### Core connection
+- `npm ci` needs no python or C++ toolchain, because `.npmrc` sets `ignore-scripts=true`. Do not delete `.npmrc`.
+- `npm.cmd run dev` — Vite dev server, fixed at `http://127.0.0.1:4321` (`--strictPort`).
+- `npm.cmd run typecheck` — `tsc --noEmit`.
+- `npm.cmd run lint` — ESLint, `--max-warnings 0`.
+- `npm.cmd run format` / `npm.cmd run format:check` — Prettier, code only (Markdown is excluded).
+- `npm.cmd run test` — Vitest once. `npx vitest run path/to/file.test.ts` runs one file; add `-t "name"` to filter.
+- `npm.cmd run build:packages` — build the shared packages. Run it after you change package source and before a direct Vitest run.
+- `npm.cmd run test:coverage` — coverage with the thresholds in `vite.config.ts` (60 / 45 / 55 / 60). Do not lower them.
+- `npm.cmd run test:e2e` — Playwright. `npx playwright test tests/e2e/chat.spec.ts` runs one spec.
+- `npm.cmd run build` — browser bundle to `dist/`, sidecar to `dist-server/standalone.mjs`. `npm.cmd start` runs the sidecar.
+- `npm.cmd run verify` — full gate: lint + format:check + typecheck + coverage + build + e2e + `verify:packages`. Run it before you commit a behavior change.
+- `npm.cmd run check:bundle` — gzip bundle budget. Do not raise a budget to make a change pass.
+- `npm.cmd run check:gate` — reward-hacking gate. It fails when the branch weakens verification: a lower threshold, a grown coverage `exclude`, a larger budget, more e2e retries, a deleted or skipped test, removed assertions, or an edit to the gate machinery. Only a maintainer's `gate-change` label allows a deliberate weakening.
+- `node scripts/loop-log.mjs <event> [detail]` — append one line to `.loop-log.jsonl` (the delivery-loop log).
+- `npm.cmd run smoke:core` — live-core `/v1` contract smoke. Not a CI gate.
+- `npm.cmd run live:verify` — full live integration against a real `dikw-core` (needs Docker and `.env.core`). Not a CI gate.
 
-- Default visible core URL: `http://127.0.0.1:8765`. When this exact default is in use, browser `/v1` calls go through the same-origin Vite proxy (see `vite.config.ts` `server.proxy`) to avoid CORS. Any non-default custom URL is requested directly.
-  - The sidecar's outbound `/agent` core calls run server-side and **bypass** that browser proxy — they dial the core URL the browser sent. So in a proxied dev setup (`VITE_DIKW_PROXY_TARGET=… npm run dev`, or `live:verify`), where the browser keeps `serverUrl` at the default and relies on the proxy, the sidecar would otherwise dial the unused default port and every agent tool fails with `fetch failed`. `agentSidecarPlugin` (`packages/web-server/src/agent/vitePlugin.ts`) therefore **injects** the Vite-resolved `VITE_DIKW_PROXY_TARGET` (via `configResolved`, so it honors `.env.local` like the proxy itself, and warns on a malformed value) into the handler, and `applyDevProxyTarget` (`packages/web-server/src/agent/http.ts`) **mirrors the Vite `/v1` proxy**: a browser-sent *default* core URL is routed to that target. Dev-only **by construction** — the standalone production sidecar injects no target, so the rewrite can't happen in prod (and a custom, directly-reachable `serverUrl` is left untouched). The `live:verify` agent↔core check exercises this exact path (sends the default URL, asserts a core tool **succeeds**).
-- Workbench connection, locale, theme and panel state live in `localStorage`, namespaced `dikw-web.*`. Settings buffers server URL/token and commits on explicit Save; Clear resets immediately. The browser token is at rest by default, and auth mode ignores it in favor of the BFF. Independent MB owns its connection and identity-scoped browser storage. The legacy backup notice follows workbench theme via the shared `useTheme` hook; it does not read connection keys or call Core.
-- The top bar may show connection target/token posture but must never display the token value. In auth mode it shows the signed-in user + role instead.
+Full detail, sub-commands, and the Codex-sandbox fallback for `dev`: `.claude/rules/build-and-gates.md`.
 
-### Auth mode (opt-in OIDC BFF, issue #200)
+## Architecture
 
-`DIKW_WEB_AUTH_MODE=oidc` turns the **standalone** server into a Backend-for-Frontend; unset (default) → behavior is unchanged, and `npm run dev` never authenticates. Design: `docs/adr/0006-oidc-auth-bff.md`; operator docs, env table and reverse-proxy recipe: `docs/deployment.md`.
+- **npm workspace.** Shared browser protocols, sidecar runtime, and UI live in `packages/web-client`, `packages/web-server`, `packages/web-ui` (MIT). Consume them through `@opendikw/web-*` subpath exports. Do not import package source paths or restore copies under `src`.
+- **Browser app** (`src/`): React 19 + TypeScript. No UI framework. Styling is the hand-rolled token system in `src/styles.css`.
+- **Sidecar** (`packages/web-server`): same-origin Node middleware, in the Vite dev server and in `dist-server/standalone.mjs`.
+  - `/agent/*` runs the chat agent (Google ADK, MiniMax through the Anthropic-compatible endpoint). It calls the core.
+  - `/web/*` hosts browser helpers: MinerU conversion and translation, as job + poll APIs. It never calls the core.
+- **Core URL:** the sidecar must fail on a missing core URL. It must never fall back to `.env.local`.
+- **WARNING:** `.env.local` holds local LLM credentials. Never expose it to the browser, tests, or screenshots.
+- **Auth mode:** `DIKW_WEB_AUTH_MODE=oidc` turns the standalone server into an OIDC Backend-for-Frontend. It is off by default, and `npm run dev` never authenticates. Keep every new route behind the gate.
+- **Local, not source:** `.agent-sessions/`, `.tmp/`, `coverage/`, `dist/`, `dist-server/`, `test-results/`, `playwright-report/`. Do not commit them.
 
-- `packages/web-server/src/auth/`:
-  - `config.ts` — fail-fast env loader;
-  - `oidc.ts` — `openid-client` v6: code + PKCE S256, state, nonce, `iss`/`aud`/`exp`/`azp`, JWKS signature via `enableNonRepudiationChecks`, optional internal back-channel URL, refresh grants, subject-checked UserInfo fallback, token revocation and RP-initiated logout;
-  - `sessionStore.ts` — `node:sqlite` `auth.sqlite` next to `agent.sqlite`, holding only the SHA-256 of each session id plus an AES-256-GCM record sealed by `seal.ts`;
-  - `gate.ts` — owns `/web/auth/{login,callback,logout,signed-out,me}`; everything else gets 401 / 403 / CSRF / role checks, and an admitted request defaults to `Cache-Control: no-store` (handlers with their own policy override it). Sign out without an IdP end-session endpoint lands on `signed-out`, not `/`, which would silently sign the user back in;
-  - `roles.ts` — claim-path role extraction + `requiredRole()`, the single viewer/editor capability matrix;
-  - `coreProxy.ts` — streaming same-origin `/v1/*` → `DIKW_CORE_URL` with `DIKW_SERVER_TOKEN`; responses become `Cache-Control: private`, and a core 401 (bad server token) becomes `502 core_auth_failed` rather than a login loop.
-- `packages/web-server/src/agent/requestRouter.ts` is the standalone top-level routing: `/healthz` is always open, then the gate (on the full path), then `/v1` → proxy, `/agent`, `/web`, static. Keep any new route behind the gate.
-- Signed-out page loads get a CSP-hashed script page that redirects to login with `pathname + search + hash` (hash routes never reach the server). Unsafe methods need `Origin` exactly equal to `DIKW_WEB_PUBLIC_URL`.
-- Renewable sessions (#205): refresh credentials and timestamps stay in the sealed record, never in cookies/responses/logs/OTel. Valid-origin activity slides `DIKW_WEB_SESSION_TTL_SECONDS` (default 8h), capped by `DIKW_WEB_SESSION_MAX_SECONDS` (7 days from sign-in). `DIKW_WEB_SESSION_REFRESH_SECONDS` (15 min) gates request-driven refresh and role synchronization, single-flight per session in one process. Require the original subject on new ID tokens/UserInfo; refresh failure deletes the session and returns 401 without retries. Logout revokes the current token when advertised; late refresh cannot revive a deleted/expired record. Cookie id stays stable. No-refresh providers/legacy sessions keep the fixed TTL. Default scopes are unchanged; `DIKW_WEB_OIDC_AUTH_PARAMS` allows only explicit string `access_type`/`prompt`. The SPA role updates on reload; the server enforces changes immediately after renewal.
-- Viewer core writes are an **allowlist** (`POST /v1/retrieve`, `/v1/doc/search`). Every other non-GET `/v1` call, all of `/web/mineru/*` and agent proposal **confirm** need editor. The shared `JobStore` serves a job only under the `/web/<family>/jobs` prefix that created it, so a conversion id never works under the viewer-open `/web/translate`. Add new editor-only routes to `requiredRole` + `roles.test.ts`.
-- Agent: ADK `userId` = `oidc:<sub>` via `createAgentHandler({ subjectFor, serverCore, legacySessionsOwner })` — namespaced so no IdP subject can be the pre-auth `demo` owner.
-  - Every session route goes through `AdkSessionStore.forUser()`; a foreign or missing id → 404 (`SessionNotFoundError`).
-  - `serverCore` makes the sidecar ignore request `coreUrl`/`token`.
-  - `DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER` merges the pre-auth `demo` sessions into one user at read time; ADK tables are never rewritten.
-- Web jobs: standalone passes the gate's OIDC `sub` through `createDefaultWebHandler(cwd, { subjectFor })`. MinerU and translation jobs record that subject as their owner; status (including partial translated blocks), result and cancel require both the matching family and owner, otherwise the same `404 not_found` as a missing id. Auth off/dev records no owner and keeps the shared flow. The live-job cap stays **process-wide: 16 across both families and all users**, bounding total upstream work; one user can exhaust it, so this is not a per-user fairness quota.
-- Browser: `src/config/auth.ts` provides `loadAuth()` (from `GET /web/auth/me`, capped at 5 s; auth off → `{ enabled: false }`, which the `/web` handler answers even in dev, and a 404 / non-JSON reply also means a server without auth mode). It **fails closed**: an unreachable / 5xx / timed-out probe, or auth mode without a usable role, throws `AuthProbeError` and `main.tsx` renders the retryable `StartupError` screen instead of guessing auth off, which would re-enable the browser-held core token, plus `AuthContext` / `useAuth` / `useCanEdit` and `installUnauthorizedRedirect()`. The latter is a `fetch` wrapper: a 401 from same-origin `/v1|/agent|/web` → login once, back to the current page.
-  - In auth mode, App and MbApp use an empty core URL + token (same-origin, no browser token) and ignore the stored connection.
-  - Settings shows the account + a Sign out form POST.
-  - Viewers do not see Import, the Tasks toolbar / Stop, or Wisdom New / favorite / Edit. The server enforces the roles and the UI hides these controls. Private MB enforces its own profile and roles.
+## Area rules
 
-### Branding (runtime config)
+The full detail for each area is in `.claude/rules/`. A rule loads when you read or edit a file in its area.
+Before you design a change in an area, read its rule file.
 
-- The sidebar logo text and the browser tab title come from `src/config/branding.ts` (`defaultBranding` = `OpenDIKW`), optionally overridden at runtime by a `public/config.json` (`{ "brand": { "name": { "en": …, "zh-CN": … } } }`) fetched once during `main.tsx` bootstrap via `loadBranding()`. A missing, unreachable, or malformed file silently falls back to the defaults, so the app always renders. `config.json` is gitignored (per-deployment); `public/config.example.json` documents the shape. The brand `name` is per-locale (a bare string applies to every locale); `document.title` tracks the resolved brand name and updates on locale switch.
-- The **same `public/config.json`** also carries an optional `telemetry` block (`{ "telemetry": { "endpoint": "https://collector/v1/traces", "headers"?: {…} } }`) that opts the browser into **RUM** (frontend OpenTelemetry traces) — Phase 6 of the OTel build-out. `src/config/telemetry.ts` (`loadTelemetry()`, mirroring `loadBranding()`) reads it; `src/telemetry/initBrowserOtel.ts` then **dynamic-`import()`s** the OTel web SDK (`WebTracerProvider` + `OTLPTraceExporter`, with **document-load + fetch** instrumentations, default `StackContextManager`, `service.name=dikw-web-browser`) and exports spans to the configured collector. **Default-off**: a missing/empty `telemetry.endpoint` → `initBrowserOtel(null)` no-ops and none of the SDK is downloaded (it lives in a lazy chunk, kept out of the entry bundle — `scripts/check-bundle.mjs`'s `total JS` ceiling covers it). The fetch instrumentation injects `traceparent` into **same-origin** requests — always the sidecar's `/agent` + `/web` (continuing the Phase 2 SERVER span); a cross-origin core (`/v1` in the standalone deployment) gets no header and no CORS preflight, and the exporter's own collector POSTs are excluded via `ignoreUrls`. Fetch-span URLs are **redacted before export** by an `onEnding` span processor (`redactBrowserUrl`) — query dropped, high-cardinality id segments templated — mirroring the sidecar's `serverRoute` privacy posture so user-derived values (e.g. `originalFilename`) never reach the collector. The **user-interaction** instrumentation is deliberately omitted (it would miss React's render-time listeners, and `zone.js` patching global `rAF`/Promise before React + Pixi mount is an unjustified risk — a noted follow-up). Init is best-effort (failures swallowed, no console noise). `public/config.example.json` ships the block with an **empty endpoint** so copying it for branding never silently enables telemetry; the auth-`headers` shape and its browser-exposure caveat will be documented in `docs/observability.md` (Phase 7). The **sidecar** does not receive this config — browser RUM is wholly client-side.
-- The top-bar breadcrumb root is a fixed i18n label (`breadcrumbRoot` → `Workbench` / `工作台`), **not** the brand name — do not re-couple it to branding. The sidebar subtitle stays the existing i18n `brandSubtitle` and is not part of the runtime config. The logo image and favicon are fixed (`/opendikw-avatar.png`); only text is configurable.
-- The agent system prompt (`packages/web-server/src/agent/runtime.ts`) is brand-neutral ("a helpful knowledge base agent"); the sidecar does not receive the browser-side branding config.
+- `agent-sidecar.md` — sidecar runtime, ADK agent, sessions, OTel spans / metrics / logs, chat rules, context compaction.
+- `web-jobs.md` — MinerU and translation job + poll APIs, the job store, translation batching and repair.
+- `core-connection.md` — default core URL, the Vite proxy, the dev-proxy injection, connection storage.
+- `auth.md` — OIDC BFF, sessions, roles, the request router, viewer/editor capabilities.
+- `routes.md` — hash routes and the core endpoints each page reads.
+- `import-pipeline.md` — `#import`: bundling, MinerU conversion, name normalization, preflight.
+- `markdown-reader.md` — Markdown rendering, images, charts, source inline references.
+- `branding-telemetry.md` — `public/config.json`, branding, browser RUM.
+- `mb-migration.md` — the legacy MB notice and its backup export.
+- `testing.md` — test layers, the e2e console gate, live verification.
+- `shared-packages.md` — package versions, publish, and registry verification.
+- `build-and-gates.md` — every command in detail, budgets, thresholds, the reward-hacking gate.
 
-### Routes and contracts (hash-based)
+## Hard rules
 
-`src/main.tsx` mounts the workbench for ordinary hashes and lazily mounts `src/migrations/LegacyMbMigration.tsx` for case-insensitive `#MB-Web`/`#/mb-web`. The legacy notice offers a bounded, read-only backup of old notes and aliases and a configured fixed destination; it performs no auth probe or Core operation. Returning to the workbench runs its normal auth probe and fails closed if the probe is unavailable. The paper business application and its tests are in private `dikw-mbweb`, consuming exact npm `0.1.0`. The public build checks source, static assets, bundle modules and sourcemap paths against the former business boundary.
-
-`src/App.tsx` is the workbench shell — sidebar groups, hash routing (`viewFromHash()`), `DikwClient` + `AgentClient` construction, i18n + theme wiring. Pages live in `src/pages/`.
-
-- `#chat` is the canonical chat route. `#query` must redirect to `#chat` — do not reintroduce a Query UI or `/v1/query` calls (no longer part of the consumed core contract).
-- `#trace` (`TracePage`) is a **hidden** route — reachable by URL only, intentionally absent from the sidebar nav (`hiddenViewIds` in `src/App.tsx`). It shows a per-session conversation alongside an OpenTelemetry span waterfall from `GET /agent/sessions/{id}/traces`. Spans are ephemeral (in-memory `SpanStore`, lost on sidecar restart); the conversation is sourced from the persistent sqlite session store. Setting `OTEL_EXPORTER_OTLP_ENDPOINT` additionally exports the spans via OTLP (resource `service.name=dikw-web`); unset → in-memory only. The full `OTEL_*` env reference, the `dikw.*` metric catalog, the browser-RUM `config.json` block, and a local demo stack (`docker-compose.observability.yml` → Jaeger + Prometheus + Loki + Grafana) live in `docs/observability.md`.
-- Base (`WikiPage`, route `#base` — the legacy `#wiki` hash was removed; unmatched hashes fall back to `#overview`) uses `/v1/base/pages?active=true` and `/v1/base/pages/{path}`, filtered client-side to the `source` + `knowledge` layers only (wisdom has its own `#wisdom` page). Do not use the legacy `/v1/wiki/pages` endpoint. The K-layer wire value is `knowledge` (renamed from `wiki` in dikw-core 0.4.0); the Frontmatter tab (en) / 元信息 (zh-CN) surfaces `PageReadResult.frontmatter` (server-parsed) read-only. The sidebar label and page heading say "Base" in en (matching the `/v1/base/*` core endpoint family) and "知识库" in zh-CN. The Read tab carries a fused **AI translate** toggle (EN→中) shown only for English pages (detected after fetch via CJK ratio, `isEnglishBody`) when `GET /web/translate/health` reports enabled; toggling it renders a paragraph-aligned dual-column `BilingualView` (source left, Chinese right; special blocks — incl. standalone image/figure **lines** (split off even when a hard line break joins a figure to its caption, per `splitMarkdownBlocks`) — render once centered + untranslated, never duplicated per column) driven by `useBilingualReader` over `/web/translate`. Mono and dual-column share one renderer (`src/components/markdown-runtime.ts`, extracted from `MarkdownView`); the translated column uses a `tr-` heading-slug prefix so ids don't collide. Clicking a wikilink in the **translated** column previews the target with its title + summary translated to Chinese (`usePreviewTranslation`, an `AI` badge on the card, same `/web/translate` + IndexedDB cache; silent fallback to the original on failure); source-column / mono clicks preview the original. See `docs/adr/0003-bilingual-reading.md`.
-- Graph (`GraphPage` + `components/GraphCanvas.tsx`) consumes `GET /v1/base/graph?active=true` and renders the full active graph. Only `search` and `hide-orphans` are exposed as client-side filters — the `knowledge` / `source` / `all` scope toggle was removed; do not reintroduce it (see `docs/graph-view.md`). Do not reintroduce browser-side body reads to build graph edges. Rendering uses Pixi.js + d3-force.
-- Overview reads `/v1/health`, `/v1/status`, `/v1/info` — see `docs/core-contract.md` for which fields are authoritative (e.g. wisdom counts come from `health.layer_counts`, not `status.documents_by_layer.wisdom`).
-- `#import` (`ImportPage`) is the primary write surface (the `#tasks` toolbar below is the other): browser (file-only upload — directory upload was removed; the picker takes multiple files at once and filters out unsupported formats at selection with a notice) bundles `.md` + referenced assets into a tar.gz + manifest (per `routes_import.py` wire shape), POSTs to `/v1/import`, then runs ingest only. Empty commits skip all tasks; successful ingest finishes the uploader. Whole-base synth and lint are explicit Tasks actions because Core 0.6.9 holds its import lock throughout synth. Previously persisted synth/lint stages still resume. Per-package rejected code/detail and content-match warnings stay visible. Pipeline state persists in `sessionStorage["dikw-web.importPipeline"]` (per-tab, scoped to the active core URL) so a refresh during any async task resumes polling; upload itself is non-resumable. When `/web/mineru/health` reports `enabled=true`, ImportPage also accepts `.pdf / .doc / .docx / .ppt / .pptx / .xls / .xlsx` — those files run through a `converting` pre-stage to produce markdown + assets, which then flow into the same bundle. The conversion uses the sidecar's **job + poll** API (submit `/web/mineru/convert` → `202 { jobId }`, poll `/web/mineru/jobs/{id}`, fetch `/web/mineru/jobs/{id}/result`) so it survives behind a request-timeout proxy ([#60](https://github.com/OpenDIKW/dikw-web/issues/60)); the whole flow is encapsulated in `convertSource` (`packages/web-client/src/convert/mineru-convert.ts`), and the per-file UI shows a `polling` substage while the detached job runs. A failed conversion row offers **Retry** (re-run `convertSource` for just that file, in place) or **Skip** (drop it); the batch advances to bundling only once every row is resolved — converted or skipped — with ≥1 success, so a still-failed row keeps the converting stage open for Retry/Skip rather than partial-success silently dropping it. At import, source page filenames are normalized to a Unicode-kebab name (CJK preserved, whole name incl `.md` < 32 code points and ≤100 UTF-8 bytes; `packages/web-client/src/import/kebab-source-name.ts`) and a flat provenance frontmatter is injected/merged — `original_filename` (the true name, always) plus `converter: mineru` for converted files; `title` is **not** injected (a body H1 stays the doc title via core's resolution), and no `original_sha256`/timestamps reach the frontmatter so the bytes stay deterministic for manifest integrity (Core 0.6.9 validates the hash but does not deduplicate imports) (`normalizeForImport` runs before `inspectMarkdownFiles`; merge is hand-rolled in `packages/web-client/src/import/frontmatter-merge.ts`, never clobbering author keys). Mineru-bound files upload under that kebab stem + their original extension (kept for MinerU format detection) and the converted page lands at `sources/<kebab-stem>/<kebab-stem>.md` (+ `assets/`) — the old `<stem>-<sha12>/` collision suffix and the nested `source: { converter, original_filename, original_sha256 }` block are gone (the latter rendered as raw JSON in the reader). Two mineru inputs whose stems kebab to the same root collide at the raw path and are surfaced as a visible `duplicate_path` skip; distinct plain names that collapse to the same kebab get a `-2`/`-3` suffix. The true name is forwarded via the `originalFilename` query and the sidecar stamps the flat frontmatter (`packages/web-server/src/web/http.ts`). See `docs/adr/0004-source-import-normalization.md`. `converting` is non-resumable on refresh in v1 (the IndexedDB + mineru server caches keyed by input SHA-256 typically make re-conversion millisecond-fast for the same bytes; the in-memory `JobStore` is also dropped on a sidecar restart). The browser-side IndexedDB cache (`dikw-mineru-cache`) records a `cachedAt` per entry and **sweeps entries older than 7 days** (`CACHE_TTL_MS`) each time the cache is opened on ImportPage mount (`IDBConvertCache.sweepExpired`, deferred to `requestIdleCallback` so the sweep's readwrite transaction never queues ahead of the import flow's foreground cache reads); the TTL is absolute (a cache hit does not refresh `cachedAt`). Same input bytes → identical `package_sha256`. Shared `DikwClient.importBundle` preflights active/inactive indexed source names and active sources' referenced attachment paths, rejects collisions instead of replacing files, and warns when another source has the same body hash. The preflight cannot reserve paths atomically or discover unindexed files; inactive bodies cannot be read for attachment checks. See `docs/core-contract.md#import`.
-- `#tasks` (`TasksPage`) is the operational task console. Beyond listing/following tasks, its filter-bar toolbar fires maintenance ops directly: Ingest (`/v1/ingest`), Synth (`/v1/synth`), Lint Propose (`/v1/lint/propose`), and Lint Apply (`/v1/lint/apply`). Lint Apply runs against the currently-selected succeeded `lint.propose` task and applies **all** proposals (`pick:null`, no review gate — unlike Import's reviewed apply). The four buttons are disabled whenever an independent poll of `/v1/tasks` finds any `running`/`pending` task (authoritative, ignores the Status/Op filter). The gate releases when that task reaches a terminal state, or when it is cancelled via the detail-panel **Stop** (`POST /v1/tasks/{id}/cancel`; the detail-panel Follow / Load events still only stream events, no cancel). Because the gate is filter-independent but Stop only acts on the *selected* row, a running task hidden by an active Status/Op filter can't be Stopped until the filter is cleared to select it — otherwise wait for it to finish. After firing, the page selects + follows the new task.
-
-### Chat / agent rules
-
-- The agent runs on **Google ADK** with a `MiniMaxLlm` adapter (MiniMax-M3 over the Anthropic-compatible endpoint) and `DatabaseSessionService`-backed sqlite sessions — see `docs/agent.md`. The `/agent/*` HTTP API + `AgentStreamEvent` NDJSON wire shape are frozen; don't change them when touching the runtime internals.
-- Chat right-rail context is session-scoped accumulated sources/tool calls, not per-turn filtering. Don't "fix" this by filtering per turn.
-- The agent prefers core tools (DIKW retrieval) and falls back to `web_search` / `web_fetch` only when core can't answer.
-- Maintenance actions (destructive operations on core) must be proposed by the agent and explicitly confirmed by the user before calling the corresponding core endpoint — never auto-execute.
-- Long-conversation context compaction is on by default (config-driven, env-tunable): `AdkAgentRunner` attaches ADK's built-in `TokenBasedContextCompactor` + `LlmSummarizer` (`packages/web-server/src/agent/contextCompactor.ts`) to the `LlmAgent`, threshold = `round(DIKW_AGENT_CONTEXT_WINDOW × DIKW_AGENT_COMPACTION_RATIO)` (defaults 1,048,576 × 0.5). Since ADK 1.4, `shouldCompact` compares the **latest** event's prompt-token count (the live prompt size) against that threshold, so it fires once the live context actually exceeds the ratio (the old sum-of-events early-fire bias is gone). The persisted `CompactedEvent` summary must stay filtered out of the chat history (`projectMessages` skips `isCompactedEvent`) — it's a prompt artifact, not a turn. See `docs/agent.md`.
-
-### Markdown reader (`packages/web-ui/src/reader/MarkdownView.tsx`)
-
-Pipe tables, a sanitized raw HTML table subset, safe `details/summary`, KaTeX math, Mermaid fenced code, standard CommonMark image embeds (`![alt](path)`) and Obsidian-style image embeds (`![[path]]`), and chart blocks (`<details><summary>bar|line|scatter|heatmap</summary>` wrapping a pipe table). Attribute-free single-line `sup/sub` pairs accept text and inline Markdown; table cells retain `sup/sub/i/em/b/strong` without attributes and unwrap unsupported elements without losing text. Accepted scientific tags are omitted from heading outline text and ids. Code remains literal. Arbitrary raw HTML, scripts, event attributes, and inline styles must not become live DOM.
-
-Both image syntaxes resolve through `PageReadResult.assets[]` (matching `original_paths` or the SHA-256 segment of the filename) and load from `GET /v1/assets/{asset_id}` via the Settings-owned base URL. The standard-syntax renderer additionally retries lookup with `decodeURIComponent` because markdown-it normalizeLink percent-encodes non-ASCII paths (e.g. `./封面.png`) while core stores `original_paths` raw. When a session token is configured, images are hydrated through an authenticated `fetch` + `URL.createObjectURL` instead of a plain `<img src>` so the `Authorization` header is honored; missing assets render a `.md-broken-image` placeholder, except empty `![]()` which collapses to nothing. Remote URLs (`http(s)://`, `data:`) pass through verbatim with the `markdown-image` class for consistent styling.
-
-Charts use Apache ECharts, lazy-imported per-module for tree-shaking. The placeholder element carries the parsed spec as a base64-encoded `data-chart-spec`; if ECharts fails to load or a single chart fails to render, the placeholder falls back to a `<details>` block containing the source pipe table so data is never lost. Dark mode passes the `"dark"` theme to `echarts.init`.
-
-Source 层 read tab 在渲染前会跑 `injectInlineRefs`(`src/utils/source-inline-refs.ts`),
-把已有反向边的 K 页 title 在 body 首次出现位置合成 `[[title|literal]]` wikilink。
-未匹配上的 K 页留在底部 Linked references panel。Source tab 永远显示原始 `page.body`。
-设计细节见 `docs/adr/0002-source-inline-references.md`。
+- `#chat` is the canonical chat route. `#query` must redirect to `#chat`. Do not reintroduce a Query UI or `/v1/query` calls.
+- Graph exposes only the `search` and `hide-orphans` filters. Do not reintroduce the scope toggle or browser-side body reads that build edges.
+- Base reads `/v1/base/pages*`. Do not use the legacy `/v1/wiki/pages` endpoint. The K-layer wire value is `knowledge`.
+- The top bar may show the connection target and token posture. It must never display the token value.
+- The agent must propose a maintenance action (a destructive core operation), and the user must confirm it. Never auto-execute one.
+- The `/agent/*` HTTP API and the `AgentStreamEvent` NDJSON wire shape are frozen: do not change them when you touch the runtime internals. An additive, backward-compatible field (like the optional `scope` in #218) is a deliberate contract change; update `docs/agent.md` with it.
+- Chat right-rail context is session-scoped. Do not "fix" it by filtering per turn.
+- Sidecar logging goes through `createLogger(scope)`. Never use raw `console.*` in the sidecar.
 
 ### UI rules
 
@@ -219,21 +77,91 @@ Source 层 read tab 在渲染前会跑 `injectInlineRefs`(`src/utils/source-inli
 - Dark-mode Wiki reader uses reader tokens — avoid large near-white blocks.
 - Don't add a UI framework (shadcn / Radix / Tailwind / etc.) without an explicit plan — work within the `src/styles.css` token system.
 
-## Testing approach
+## Working rules
 
-TDD for behavior changes: failing test first, smallest change to green, then refactor. Page/component tests for visible behavior; API-boundary tests for client/sidecar contracts. Playwright covers route compatibility, i18n chrome, dark contrast, markdown rendering, chat layout, and graph interactions. Every e2e spec imports `test`/`expect` from `tests/e2e/harness.ts` (not `@playwright/test` directly), which adds a **console gate** — any `console.error` or uncaught `pageerror` fails the test (resource-load 404s, `AbortError`, and the React DevTools install hint are allowlisted; a test that deliberately drives an error path opts out with `test.use({ consoleGuard: false })`). `src/test/setup.ts` is the Vitest setup file; `jsdom` is the test environment. Qualitative UI rules (single-language chrome, dark reader contrast, small radii, no UI framework, graph filters) that aren't fully gated live as a pass/fail rubric in `docs/ui-checklist.md`, run by the `dikw-web-verify-frontend` skill. Because the e2e suite mocks `/v1` and can't see real contract drift, `npm.cmd run smoke:core` (`scripts/smoke-core.mjs`, the `dikw-web-smoke-core` skill) asserts the consumed `/v1` contract against a live core — run it after a `dikw-core` bump or before a demo; it is not a CI gate. For a fuller end-to-end pass, `npm.cmd run live:verify` boots a **real `dikw-core`** (GHCR image + Postgres, dynamic ports) and runs the write pipeline + read smoke + a `live` Playwright project + an agent↔core check against it (see `docs/integration-verification.md`); also not a CI gate (it boots a container and calls live LLMs — `live-integration.yml` runs it on dispatch/nightly/label). `tests/e2e/perf.spec.ts` asserts a Cumulative Layout Shift budget (≤ 0.1) on the primary routes — the one Core Web Vital stable under headless Chromium; LCP and long-task totals are surfaced as annotations but not gated (runner-dependent timing). ESLint (`npm.cmd run lint`, flat config, `--max-warnings 0`) and Prettier (`format:check`, code only) run as part of `verify`.
+### Clarify before coding
+
+- State your assumptions.
+- When a root cause depends on data shape, check it against the live API (`/v1/health`, `/v1/base/graph`, `/v1/base/pages/{path}/links`) before you design around it. A plausible cause is not a confirmed one.
+- If a request has more than one reading, show them. Do not pick one silently.
+- If a decision blocks you, ask one question with the AskUserQuestion tool. Put your recommended answer first.
+- If a simpler approach exists, say so. Push back when it is warranted.
+
+### Keep the change small
+
+- Write the minimum code that solves the request. No features beyond it, no single-use abstractions, no flexibility that nobody asked for, no error handling for impossible cases.
+- If 200 lines could be 50, rewrite it.
+- Do not "improve" adjacent code, comments, or formatting. Match the existing style.
+- Do not refactor what works: the `#chat` canonical route, Settings-owned connection config, the current `styles.css` tokens.
+- Report unrelated dead code. Do not delete it.
+- Remove the imports, variables, and functions that your change made unused. Leave dead code that was already there.
+- Every changed line traces to the request.
+
+### Test first, then loop until verified
+
+- TDD is the default (`docs/tdd.md`): failing test first → smallest change to green → refactor.
+- Turn the request into a check: "add validation" → tests for invalid inputs; "fix the bug" → a failing test that reproduces it; "refactor X" → tests pass before and after.
+- Each step is a loop: **write → run the checks → read the error → fix the cause → run again**. Use `npx vitest run …` and `npm.cmd run typecheck`. `npm.cmd run verify` is the final gate for a behavior change.
+- For multi-step work, give each step a check: `npx vitest run …`, `npm.cmd run typecheck`, a `curl` against `/v1/...`, or a browser screenshot.
+- Stop the loop when one of these happens:
+  - **Green** — this step is done. Quote the passing output from *this* session, never a remembered or earlier run. Then continue.
+  - **5 attempts spent** — stop. Report what still fails and what you tried.
+  - **Same error twice in a row** — stop. You are guessing. Diagnose the root cause again, or hand off to the `fixer` agent (`.claude/agents/fixer.md`).
+- **Fix the code, not the test.** Do not weaken an assertion. Do not lower the coverage thresholds in `vite.config.ts`.
+
+### Language
+
+- Write plans and reports in the user's language (Chinese or English).
+- Keep code, identifiers, file paths, and commands in English. Markdown files in the repo are English.
+
+## Autonomy
+
+- When a step does not need my input, continue. Put status notes in the same message as your next action.
+- The delivery loop is approval to commit, push, open the PR, merge it when it is green and reviewed, and delete the merged branch. (The merge still goes through the permission prompt.)
+- Stop and ask only when one of these is true:
+  - You cannot continue without my decision.
+  - A block signal from the `dikw-web-delivery-workflow` skill fires.
+  - The inner verify loop hits its limit: 5 attempts, or the same error twice in a row.
+  - The next action is destructive and not approved above: delete data or files you did not create, or change anything outside this repository.
+- Do not end a turn in these ways while work is still owed:
+  1. A summary that announces the next step but does not take it.
+  2. An offer to continue "unless you prefer otherwise".
+  3. A list of decisions that do not block the remaining work.
+  4. A pause only because the turn was long or a milestone is done.
+- **WARNING:** Never force-push, and never route around `check:gate`.
+
+## Finish line
+
+A behavior change is done when all of these are true:
+
+- The PR is squash-merged with an explicit `gh pr merge <N> --squash --delete-branch` (never `--auto`). Local `main` is synced.
+- Every CI check is green. Every actionable review comment is fixed, refuted with evidence, or deferred with a reason in the PR body.
+- `.loop-log.jsonl` has a `merged` line for the PR.
+
+If you cannot reach this, stop on a block signal and report it.
+
+## Report
+
+End every run with these three headings, written in the user's language:
+
+- **Blocked on me** — decisions or approvals you wait for. Write "none" if there are none.
+- **Changed** — what changed, with PR links.
+- **Found** — what you found. Mark each claim you could not confirm, and say where you looked.
+
+For an architecture or flow explanation, use a Mermaid diagram or an HTML page when it is clearer than prose.
+
+## Delivery loop
+
+- For any behavior change, run the `dikw-web-delivery-workflow` skill. It is the only definition of the steps, the review tiers, and the block signals.
+- For a trivial edit (typo, comment, single-line refactor), skip the loop.
+
+## Testing
+
+- Write page and component tests for visible behavior. Write API-boundary tests for client and sidecar contracts.
+- Every e2e spec imports `test` / `expect` from `tests/e2e/harness.ts`, not from `@playwright/test`. The harness fails a test on any `console.error` or uncaught `pageerror`.
+- The e2e suite mocks `/v1`, so it cannot see contract drift. Use `smoke:core` or `live:verify` for that.
+- Detail: `.claude/rules/testing.md`.
 
 ## Patch intake
 
 Don't blindly overwrite app files from external patches. Many older patches predate current decisions (`#chat` canonical route, Settings-owned connection config, the current `styles.css` token system). Adapt the useful parts into the current architecture and update tests/docs to match.
-
-## MB repository migration
-
-The legacy notice offers an explicit local JSON backup of old notes and paper
-aliases; see `docs/mb-data-migration.md`. It never exports credentials, cache or
-panel state, and never deletes old bytes. The private Settings/import/export UI
-was retired by the maintainer; do not promise an import entry. Optional branding
-`mbWebUrl` is a fixed HTTP(S) URL without credentials, query or fragment; legacy
-URL state is never forwarded. Shared packages use public MIT cohort `0.1.2`;
-the private application keeps its exact accepted registry cohort until a separate
-dependency upgrade is verified and delivered.

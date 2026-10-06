@@ -1,84 +1,93 @@
 ---
 name: dikw-web-delivery-workflow
-description: The end-to-end dikw-web delivery loop, from request to merged PR. Use for any behavior change in this repo (feature, fix, refactor that changes behavior). Orchestrates the existing skills/commands in order so the loop runs consistently instead of being re-derived from CLAUDE.md prose each time. Skip only for trivial edits (typo, comment, one-line refactor).
+description: The end-to-end dikw-web delivery loop, from request to merged PR. Use for any behavior change in this repo (feature, fix, refactor that changes behavior). Runs clarify → TDD → simplify → deterministic verify → browser verify → tiered review → doc sync → final gate + PR → watch CI and merge, and stops only on its block signals. Skip only for trivial edits (typo, comment, one-line refactor).
 ---
 
 # dikw-web delivery workflow
 
-This is the executable form of the **Delivery Loop** in `CLAUDE.md`. It composes
-existing skills — it does not replace any of them or add new tooling. Run it
-autonomously for behavior changes; don't wait to be prompted between steps. Each
-step runs in order; skip one only with an explicit reason.
+This skill is the only definition of the dikw-web delivery loop. CLAUDE.md points here.
+It composes existing skills and commands; it adds no new tooling.
 
-Two layers of verification run here, per the feedback-loops model: **self-verify
-while building** (steps 2–5) and an **independent review before merge** (step 6,
-a fresh agent that didn't write the code).
+**Finish line.** The loop is done when all of these are true:
+
+- The PR is squash-merged with an explicit `gh pr merge <N> --squash --delete-branch`. Local `main` is synced.
+- Every CI check is green. Every actionable review comment is fixed, refuted with evidence, or deferred with a reason in the PR body.
+- `.loop-log.jsonl` has a `merged` line for the PR.
+
+If you cannot reach the finish line, stop on a block signal and report it.
+
+**Run autonomously.** The loop is approval to commit, push, open the PR, merge it when it is green and reviewed, and delete the merged branch. Do not wait for a prompt between steps. Run the steps in order. Skip a step only with a stated reason.
+Put status notes in the same message as your next tool call.
+
+There are two layers of verification: **self-verify while you build** (steps 2–5) and an **independent review before merge** (step 6).
 
 ## The loop
 
-1. **Clarify.** Restate the request, surface assumptions, ask before assuming.
-   For non-trivial scope, plan first with `superpowers:brainstorming` →
-   `superpowers:writing-plans` (or `drill-me-with-docs`). Plan body in the user's
-   language (Chinese/English); code, identifiers, paths, commands stay English.
+1. **Clarify.**
+   - Restate the request. State your assumptions.
+   - Ask only when a decision blocks you and the code and docs cannot answer it. Then ask one question with the AskUserQuestion tool, with your recommended answer first.
+   - For non-trivial scope, write a plan before you write code.
+   - Write the plan in the user's language (Chinese or English). Keep code, identifiers, paths, and commands in English.
+   - Pick the review tier now (see step 6).
 
-2. **TDD.** `superpowers:test-driven-development` — failing behavior test first,
-   smallest change to green, refactor. Test at the public boundary (rendered UI,
-   `DikwClient`, browser flows), not private wiring. See `docs/tdd.md`.
+2. **TDD.** Write a failing behavior test first, then the smallest change to green, then refactor.
+   Test at the public boundary (rendered UI, `DikwClient`, browser flows), not private wiring. See `docs/tdd.md`.
 
-3. **Simplify.** Run `/simplify` on the diff (reuse, simplification, altitude).
-   Quality only — it does not hunt bugs.
+3. **Simplify.** For a code change, run `/simplify` on the diff (reuse, simplification, altitude). It checks quality only; it does not hunt bugs.
 
-4. **Verify behavior deterministically.** `npm.cmd run lint` + `npm.cmd run
-   typecheck`, then the smallest useful `npx vitest run <file>` while iterating.
-   Do not lower the coverage thresholds in `vite.config.ts` to pass. `npm.cmd run
-   format` keeps Prettier happy (both `lint` + `format:check` are in `verify`).
+4. **Verify behavior deterministically.**
+   - Run `npm.cmd run lint` and `npm.cmd run typecheck`, then the smallest useful `npx vitest run <file>` while you iterate.
+   - Run `npm.cmd run format` so Prettier passes (`lint` and `format:check` are both in `verify`).
+   - Do not lower the coverage thresholds in `vite.config.ts` to pass.
 
-5. **Verify in the browser.** If the change touched UI (`src/pages`,
-   `src/components`, `src/styles.css`, chrome), invoke **`dikw-web-verify-frontend`**
-   — exercise the changed routes in a real browser, confirm a clean console on
-   real data, and run the `docs/ui-checklist.md` rubric in light + dark. Don't
-   substitute a green e2e run for actually seeing it render.
+5. **Verify in the browser.** If the change touched UI (`src/pages`, `src/components`, `src/styles.css`, `packages/web-ui`, chrome), run **`dikw-web-verify-frontend`**.
+   It exercises the changed routes in a real browser, checks for a clean console on real data, and runs the `docs/ui-checklist.md` rubric in light and dark.
+   A green e2e run does not replace seeing the change render.
 
-6. **Independent review (max 3 rounds).** Repeat until no new actionable findings
-   or the cap is hit: `/codex:review --background` → evaluate, keep the valid
-   findings, fix. Then a final `/code-review` pass; resolve every finding. Point
-   the reviewer (codex, a fresh agent, or yourself) at **`docs/review-rubric.md`**
-   so the project-specific principles get scored, not just generic correctness.
-   (Note: with `gh pr merge --auto`, CodeRabbit is often outraced and never
-   reviews — see [[feedback_pr_reviews_check]]; this local pass is the real gate.)
+6. **Independent review — tiered by risk.** Find the highest tier that any file in the diff hits. When in doubt, go one tier up.
 
-7. **Sync docs.** Walk `CLAUDE.md`, `README.md`, and relevant `docs/*.md` against
-   the diff. Any contract/behavior/command/doc-index that drifted is updated in
-   the **same** change — not "later". (Disk `.md` is English-only in this repo.)
+   | tier | the diff touches | review |
+   |---|---|---|
+   | **S** | only docs outside `src/` and `packages/*/src/` (`*.md`, `docs/**`, `.claude/skills/**`, `.claude/rules/**`); or a version / CHANGELOG-only release bump | `/code-review` once |
+   | **M** | anything else: code, tests, scripts, dependencies | codex (≤ 3 rounds) + `/code-review` |
+   | **L** | `packages/web-server/src/auth/**`, `requestRouter.ts`, the frozen `/agent/*` contract, Markdown sanitizing in `packages/web-ui/src/reader/**`, the publish flow (`scripts/*publish*`, `publish-packages.yml`), or the gate machinery (`scripts/check-gate-integrity.mjs`, `.github/workflows/**`, `.claude/agents/fixer.md`) | tier M + a fresh-context subagent review |
 
-8. **Final gate + PR.** `npm.cmd run verify` (lint + format:check + typecheck + coverage + build + e2e)
-   green, then `npm.cmd run check:bundle` (gzip budget) and `npm.cmd run check:gate`
-   (reward-hacking gate; both also run in CI — the latter as the required
-   `gate-integrity` job). If `check:gate` flags a *deliberate* weakening, a maintainer
-   adds the `gate-change` label to the PR; never route around it. Bump
-   `package.json` version (3-digit SemVer) and add a `CHANGELOG.md` entry when
-   warranted. Branch with a descriptive name, commit `<type>(<scope>): <subject>`,
-   push, `gh pr create`.
+   - **Codex:** run `codex review --base main` in the background. The `/codex:review` slash command is user-only, so call the CLI. Fix, then run it again. Stop after 3 rounds or when a round has no new actionable finding.
+   - **`/code-review`:** run it once after the codex rounds. Point it at **`docs/review-rubric.md`** so the project rules get scored, not only generic correctness.
+   - **Fresh-context review (tier L):** spawn a subagent with only the diff and `docs/review-rubric.md`. It did not write the code; do not give it your reasoning.
+   - **Triage every finding the same way.** Ask each reviewer to report merge-blocking problems first, each with the file and line, why it is wrong, and how to show that it fails. Read the cited code before you fix. Fix every actionable finding, blocking or not. Reject a nitpick or a false positive with a one-line reason.
+   - This local review is the real gate. If you merge with `--auto`, CodeRabbit is often outrun and never reviews.
 
-9. **Watch CI + PR comments; resolve then merge.** Invoke the **`dikw-web-watch-ci`**
-   skill — the executable form of this step, with the brakes built in (MAX_ROUNDS = 3,
-   a same-failure circuit breaker, and a **one**-rerun budget for the known flaky
-   `graph.spec.ts` Pixi test). It watches `gh pr checks <N> --watch`, routes real
-   failures to the fresh-context `fixer`, **always pulls the review prose** (`reviews` /
-   `pulls/{N}/comments` / `issues/{N}/comments` — `gh pr checks` shows pass/fail only)
-   before merge, and merges explicitly (`gh pr merge <N> --squash --delete-branch`, never
-   `--auto`, which would outrace the review) once CI is green and every actionable
-   comment is resolved. Each transition is appended to `.loop-log.jsonl` via
-   `scripts/loop-log.mjs` so an overnight run is diagnosable.
+7. **Sync docs.** Check `CLAUDE.md`, `.claude/rules/**`, `README.md`, and the relevant `docs/*.md` against the diff.
+   Update every contract, behavior, command, or doc index that drifted, in the **same** change. Markdown on disk is English-only in this repo.
+
+8. **Final gate + PR.**
+   - `npm.cmd run verify` (lint + format:check + typecheck + coverage + build + e2e + `verify:packages`) must be green. Then run `npm.cmd run check:bundle` (gzip budget) and `npm.cmd run check:gate` (reward-hacking gate). CI runs both too; `check:gate` is the required `gate-integrity` job.
+   - If `check:gate` flags a *deliberate* weakening, a maintainer must add the `gate-change` label. **WARNING:** never route around the gate.
+   - When the change warrants it, bump `package.json` version (3-digit SemVer) and add a `CHANGELOG.md` entry under the matching version heading. On merge to `main`, CI's `release` job cuts the GitHub Release `dikw-web-v<version>` from `package.json`, with notes from the matching CHANGELOG section (`scripts/changelog-notes.mjs`). It is idempotent: only a version bump creates a new tag.
+   - Branch with a descriptive name. Commit as `<type>(<scope>): <subject>` (see recent `git log`). Push. Run `gh pr create`.
+   - CI runs lint + format:check + typecheck + coverage + build + e2e + bundle budget + `gate-integrity` + security scans (npm audit, gitleaks, Trivy, CodeQL).
+
+9. **Watch CI + PR comments; resolve, then merge.** Run the **`dikw-web-watch-ci`** skill.
+   It watches checks (`gh pr checks <N> --watch`, `gh run view <run-id> --log-failed`) and the review prose (the `reviews`, `pulls/<N>/comments`, and `issues/<N>/comments` APIs), sends real failures to the `fixer` agent, reruns an infrastructure failure at most once (a failed test is a real failure), logs each transition to `.loop-log.jsonl`, and merges explicitly (never `--auto`).
+   End with the Report section from CLAUDE.md.
+
+## Block signals — stop and ask
+
+Stop only when one of these occurs. For everything else, continue.
+
+1. CI stays red after the `dikw-web-watch-ci` brakes (3 rounds, or the same failure twice).
+2. A reviewer sets `CHANGES_REQUESTED` or raises a design-level concern.
+3. The change needs a deliberate verification weakening. Only a maintainer can add `gate-change`.
+4. The change needs a breaking change to a frozen contract (`/agent/*`, `AgentStreamEvent`) or a `dikw-core` change.
+5. A merge conflict needs a product decision, not a mechanical resolve.
+6. **WARNING:** a force-push would be necessary. Force-push is forbidden. Describe the situation and let the user do it.
+7. The request is ambiguous on a decision that the code and docs cannot answer.
+8. The next action is destructive and this loop does not already approve it: deleting data or files you did not create, or changing anything outside this repository.
 
 ## Repo gotchas this loop must honor
 
-- New `server/**` runtime modules: relative imports carry a `.js` extension
-  (`*.test.ts` excepted) — typecheck/build won't catch a missing one, only review
-  will. (memory `project_server_js_import_extension`)
-- Multi-line git/gh bodies: use `<<'EOF'` heredoc or `--body-file`, not PowerShell
-  `@'...'@`. (memory `feedback_bash_tool_heredoc`)
-- Don't pipe a pass/fail command into `tail` — the exit code becomes tail's
-  (always 0) and masks e2e failures. (memory `feedback_pipe_tail_masks_exit`)
-- Dependabot rebases: comment `@dependabot rebase`, never the update-branch API.
-  (memory `feedback_dependabot_no_update_branch`)
+- New `server/**` runtime modules: relative imports carry a `.js` extension (`*.test.ts` excepted). Typecheck and build do not catch a missing one; only review does.
+- Multi-line git or gh bodies: use a `<<'EOF'` heredoc or `--body-file`, not PowerShell `@'...'@`.
+- Do not pipe a pass/fail command into `tail`. The exit code becomes tail's (always 0) and hides e2e failures.
+- Dependabot rebases: comment `@dependabot rebase`. Never use the update-branch API.
