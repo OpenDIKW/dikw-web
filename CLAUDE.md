@@ -66,7 +66,7 @@ Before you design a change in an area, read its rule file.
 - Base reads `/v1/base/pages*`. Do not use the legacy `/v1/wiki/pages` endpoint. The K-layer wire value is `knowledge`.
 - The top bar may show the connection target and token posture. It must never display the token value.
 - The agent must propose a maintenance action (a destructive core operation), and the user must confirm it. Never auto-execute one.
-- The `/agent/*` HTTP API and the `AgentStreamEvent` NDJSON wire shape are frozen.
+- The `/agent/*` HTTP API and the `AgentStreamEvent` NDJSON wire shape are frozen: do not change them when you touch the runtime internals. An additive, backward-compatible field (like the optional `scope` in #218) is a deliberate contract change; update `docs/agent.md` with it.
 - Chat right-rail context is session-scoped. Do not "fix" it by filtering per turn.
 - Sidecar logging goes through `createLogger(scope)`. Never use raw `console.*` in the sidecar.
 

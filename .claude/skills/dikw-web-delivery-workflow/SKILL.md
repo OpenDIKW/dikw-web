@@ -79,7 +79,7 @@ Stop only when one of these occurs. For everything else, continue.
 1. CI stays red after the `dikw-web-watch-ci` brakes (3 rounds, or the same failure twice).
 2. A reviewer sets `CHANGES_REQUESTED` or raises a design-level concern.
 3. The change needs a deliberate verification weakening. Only a maintainer can add `gate-change`.
-4. The change needs a different frozen contract (`/agent/*`, `AgentStreamEvent`) or a `dikw-core` change.
+4. The change needs a breaking change to a frozen contract (`/agent/*`, `AgentStreamEvent`) or a `dikw-core` change.
 5. A merge conflict needs a product decision, not a mechanical resolve.
 6. **WARNING:** a force-push would be necessary. Force-push is forbidden. Describe the situation and let the user do it.
 7. The request is ambiguous on a decision that the code and docs cannot answer.
