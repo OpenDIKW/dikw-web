@@ -48,8 +48,8 @@ There are two layers of verification: **self-verify while you build** (steps 2�
 
    | tier | the diff touches | review |
    |---|---|---|
-   | **S** | only docs outside `src/` and `packages/*/src/` (`*.md`, `docs/**`, `.claude/skills/**`, `.claude/rules/**`); or a version / CHANGELOG-only release bump | `/code-review` once |
-   | **M** | anything else: code, tests, scripts, dependencies | codex (≤ 3 rounds) + `/code-review` |
+   | **S** | only docs outside `src/` and `packages/*/src/` (`*.md`, `docs/**`) that are not instruction files; or a version / CHANGELOG-only release bump | `/code-review` once |
+   | **M** | anything else: code, tests, scripts, dependencies, and the instruction files (`CLAUDE.md`, `.claude/skills/**`, `.claude/rules/**`), because they change agent behavior | codex (≤ 3 rounds) + `/code-review` |
    | **L** | `packages/web-server/src/auth/**`, `requestRouter.ts`, the frozen `/agent/*` contract, Markdown sanitizing in `packages/web-ui/src/reader/**`, the publish flow (`scripts/*publish*`, `publish-packages.yml`), or the gate machinery (`scripts/check-gate-integrity.mjs`, `.github/workflows/**`, `.claude/agents/fixer.md`) | tier M + a fresh-context subagent review |
 
    - **Codex:** run `codex review --base main` in the background. The `/codex:review` slash command is user-only, so call the CLI. Fix, then run it again. Stop after 3 rounds or when a round has no new actionable finding.
