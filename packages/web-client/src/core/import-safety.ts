@@ -1,13 +1,12 @@
 import type { DocumentRecord, PageReadResult, RejectedPackage } from "../types/index.js";
-import { gzip, sha256HexString, type ManifestJson } from "../import/import-bundle.js";
+import { sha256HexString, type ManifestJson } from "../import/import-bundle.js";
 import {
   extractAssetRefs,
   isRemoteRef,
   posixJoinNormalize,
   stripFrontmatter,
 } from "../import/md-asset-refs.js";
-import { buildTar } from "../import/tar.js";
-import { readTar, type TarEntry } from "../import/tar-reader.js";
+import { streamTar } from "../import/tar-stream.js";
 
 export interface AssetProtection {
   existing_path?: string;
@@ -85,14 +84,32 @@ export async function prepareImport(
     total_bytes: files.reduce((sum, file) => sum + file.size, 0),
   };
   if (packages.length === 0) return { payload: null, manifest: filtered, rejected, warnings };
-  let entries: TarEntry[];
+  const byPath = new Map(packages.map((pkg) => [pkg.md_path, pkg]));
+  const byHash = new Map(pages.map((page) => [page.hash, page.path]));
+  const matches = new Map<string, string | undefined>();
+  let compressed: Blob | undefined;
   try {
-    const tar = new Uint8Array(
-      await new Response(
-        payload.stream().pipeThrough(new DecompressionStream("gzip")),
-      ).arrayBuffer(),
+    const tar = streamTar(
+      payload.stream().pipeThrough(new DecompressionStream("gzip")),
+      (path) => rejected.length > 0 && retained.has(path),
+      (path) => byPath.has(path),
+      async (path, text) => {
+        const body = stripFrontmatter(text).replace(/\r\n/g, "\n").trim();
+        matches.set(path, byHash.get(await sha256HexString(body)));
+      },
     );
-    entries = readTar(tar).filter((entry) => retained.has(entry.archivePath));
+    if (rejected.length > 0)
+      compressed = await new Response(tar.pipeThrough(new CompressionStream("gzip"))).blob();
+    else {
+      const reader = tar.getReader();
+      try {
+        while (!(await reader.read()).done) {
+          /* inspect without collecting asset data */
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    }
   } catch (err) {
     // Warning inspection is optional; Core accepts more tar variants than our
     // conversion reader. Forward unchanged when no protected path would be written.
@@ -112,13 +129,8 @@ export async function prepareImport(
       warnings,
     };
   }
-  const data = new Map(entries.map((entry) => [entry.archivePath, entry.data]));
-  const byHash = new Map(pages.map((page) => [page.hash, page.path]));
   for (const pkg of packages) {
-    const bytes = data.get(pkg.md_path);
-    if (!bytes) continue; // Core validates missing manifest files.
-    const body = stripFrontmatter(new TextDecoder().decode(bytes)).replace(/\r\n/g, "\n").trim();
-    const existing = byHash.get(await sha256HexString(body));
+    const existing = matches.get(pkg.md_path);
     if (existing)
       warnings.push({
         id: pkg.id,
@@ -127,7 +139,5 @@ export async function prepareImport(
       });
   }
   if (rejected.length === 0) return { payload, manifest, rejected, warnings };
-  const bytes = buildTar(entries);
-  const compressed = await gzip(bytes);
-  return { payload: compressed, manifest: filtered, rejected, warnings };
+  return { payload: compressed!, manifest: filtered, rejected, warnings };
 }

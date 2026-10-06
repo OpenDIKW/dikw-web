@@ -12,6 +12,7 @@ file format introduced in `[0.0.1.0]` was dropped.
 - Fix long MinerU upload names in both shared client and server. Preserve original filenames while bounding archive stems by code points and UTF-8 bytes, including numbered Unicode collisions.
 - Preflight indexed source names and active sources' referenced attachments before import. Reject conflicting packages without replacing existing files, retain per-package rejection details, and warn when another source has the same Markdown body.
 - Reject incoming attachment packages conservatively when an existing source uses an absolute attachment reference whose filesystem target cannot be determined over HTTP; show the source and remediation.
+- Stream import preflight and conflict filtering so attachments are not copied into whole decompressed archives; inspect only each requested Markdown body and collect only the compressed filtered output.
 - Skip all follow-up work for an empty commit. New imports finish after ingest; whole-base synthesis and lint are explicit Tasks actions because Core 0.6.9 holds the import lock during synthesis. Existing running synth/lint sessions still resume.
 - Show per-file ingest errors even when Core marks the task succeeded, including resumed imports and authoritative task-row reconciliation.
 - Prepare shared npm cohort 0.1.2 with aligned exact internal dependencies. Previously published versions remain immutable.

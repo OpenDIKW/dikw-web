@@ -1,12 +1,70 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DikwClient } from "./client.js";
-import { buildImportBundle, buildTar, gzip, sha256HexString } from "../import/import-bundle.js";
+import {
+  buildImportBundle,
+  buildTar,
+  gzip,
+  sha256Hex,
+  sha256HexString,
+} from "../import/import-bundle.js";
 import { readTar } from "../import/tar-reader.js";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 describe("DikwClient safe import", () => {
+  it.each([false, true])(
+    "streams asset data during preflight with filtering=%s",
+    async (conflict) => {
+      const asset = new Uint8Array(1024 * 1024).fill(73);
+      const bundle = await buildImportBundle([
+        new File(["# Same paper\n![Figure](figure.png)"], "Fresh.md"),
+        new File([asset], "figure.png"),
+        ...(conflict ? [new File(["# Existing"], "Old.md")] : []),
+      ]);
+      const hash = await sha256HexString("# Same paper\n![Figure](figure.png)");
+      let postedPayload: Blob | undefined;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn<typeof fetch>(async (_url, init) => {
+          if (init?.method !== "POST")
+            return Response.json([
+              { path: "sources/old.md", hash, active: false, layer: "source" },
+            ]);
+          postedPayload = (init.body as FormData).get("payload") as Blob;
+          return Response.json({ committed: [0], rejected: [] });
+        }),
+      );
+      // The public operation must not materialize a decompressed archive. Only
+      // the compressed, filtered output may be collected for the multipart POST.
+      const materialize = vi.spyOn(Response.prototype, "arrayBuffer").mockImplementation(() => {
+        throw new Error("whole-stream materialization during preflight");
+      });
+      const result = await new DikwClient().importBundle(bundle.payload, bundle.manifestJson);
+      expect(result.committed).toEqual([0]);
+      expect(result.warnings?.[0].code).toBe("source_content_matches");
+      expect(result.rejected.map((entry) => entry.code)).toEqual(
+        conflict ? ["source_path_exists"] : [],
+      );
+      expect(materialize).not.toHaveBeenCalled();
+      materialize.mockRestore();
+      const tar = new Uint8Array(
+        await new Response(
+          postedPayload!.stream().pipeThrough(new DecompressionStream("gzip")),
+        ).arrayBuffer(),
+      );
+      const entries = readTar(tar);
+      expect(entries.map((entry) => entry.archivePath)).toEqual([
+        "sources/figure.png",
+        "sources/fresh.md",
+      ]);
+      expect(entries[0].data.byteLength).toBe(asset.byteLength);
+      expect(await sha256Hex(entries[0].data)).toBe(await sha256Hex(asset));
+    },
+  );
   it("protects attachments when an active Core source uses a local absolute reference", async () => {
     const bundle = await buildImportBundle([
       new File(["# New\n![Diagram](shared.png)"], "New.md"),

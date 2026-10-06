@@ -46,6 +46,12 @@ write protection. Optional warning inspection preserves non-conflicting Core tar
 formats unchanged; if a conflicting archive cannot be safely filtered by the
 shared USTAR reader, the remainder is rejected as `unsupported_safe_import_archive`.
 
+Preflight validates USTAR incrementally and only collects the current Markdown
+body for the optional duplicate warning. It streams retained header/data blocks
+directly into gzip when filtering, without collecting or copying attachment
+contents into a whole decompressed archive. Non-conflicting payloads keep their
+original bytes; filtering collects only its compressed result for the POST.
+
 Build explicitly with `npm run build:packages` from the repository root;
 install scripts are disabled. npm packages contain compiled ESM and declarations,
 this README and the MIT license. Import through `exports`, not package source paths.

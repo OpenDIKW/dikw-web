@@ -98,6 +98,12 @@ Run a second core version in parallel:
 
 ## Core 0.6.9 integration limits observed in this patch
 
+The official 0.6.9 image passed the hosted live verification on October 6, 2026
+([run 37408892777](https://github.com/OpenDIKW/dikw-web/actions/runs/37408892777)):
+real import, ingest, synthesis and lint succeeded, all eight HTTP contracts
+passed, and all four live browser checks passed. This successful provider path
+does not eliminate the independently reproduced edge cases below.
+
 Keep provider execution and parser regression evidence separate. The released
 Core 0.6.9 parser recovers the normal-stop formats from #294 and still rejects
 true truncation. With MiniMax-M3, a real empty SSE response can instead emit

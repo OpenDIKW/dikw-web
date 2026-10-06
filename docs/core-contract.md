@@ -371,6 +371,9 @@ inactive bodies cannot be read for attachment protection. Concurrent writers
 still require a Core-side guard. Non-conflicting Core archive variants pass
 through unchanged when optional warning inspection cannot read them; a
 conflicting unsupported archive is rejected instead of forwarded unsafely.
+USTAR preflight and filtering are streamed: only the current Markdown body is
+collected for hash comparison, attachment blocks flow directly into gzip, and
+only the compressed filtered output is collected for submission.
 Long mineru-bound filenames are Unicode-kebab-normalized
 (see ADR 0004) — lowercased, punctuation/whitespace collapsed to hyphens,
 Han/digits preserved — with the stem capped at 28 code points (whole name
