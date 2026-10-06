@@ -415,7 +415,11 @@ structured reason instead of a transport-level `Failed to fetch`.
    validates. `package_sha256(md, assets) =
    sha256(sorted([md, ...assets]).join("\n").encode("ascii"))` —
    divergence shows up as `manifest_package_sha256_mismatch`.
-2. **Ingest** (`POST /v1/ingest`, body `{no_embed:false}`): async task.
+2. **Ingest** (`POST /v1/ingest`, body `{no_embed:false}`): async task. A
+   `succeeded` task can still report per-file `result.errors[]`; fresh and
+   resumed imports display their paths, kinds and messages as an ingest failure
+   rather than declaring the import complete. The same guard applies when the
+   authoritative task row reconciles a missing final event.
 3. **Finish** after ingest. Do not automatically submit whole-base synth
    or lint. The completion card links to Tasks and explains that Core 0.6.9
    holds the import lock throughout synthesis. Explicit Tasks actions start

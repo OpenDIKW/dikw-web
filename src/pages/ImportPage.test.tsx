@@ -558,6 +558,50 @@ describe("ImportPage — failure and cancel", () => {
 });
 
 describe("ImportPage — import outcomes", () => {
+  it.each(["fresh", "resumed", "reconciled"])(
+    "reports per-file ingest errors after a succeeded task (%s)",
+    async (mode) => {
+      if (mode !== "fresh") seedPipeline({ stage: "ingest", ingestTaskId: "ingest-task" });
+      const final: Extract<TaskEvent, { type: "final" }> = {
+        type: "final",
+        seq: 1,
+        ts: new Date().toISOString(),
+        status: "succeeded",
+        result: {
+          errors: [
+            { path: "sources/paper.md", kind: "parse_error", message: "Tokenizer unavailable" },
+          ],
+        },
+      };
+      const client = createMockClient();
+      Object.assign(client, {
+        importBundle: vi.fn().mockResolvedValue(importResponse()),
+        streamTaskEvents: vi.fn(() =>
+          mode === "reconciled"
+            ? progressOnlyStream()
+            : (async function* () {
+                yield final;
+              })(),
+        ),
+        getTaskFinalEvent: vi.fn().mockResolvedValue(final),
+      });
+      render(<ImportPage client={client} locale="en" />);
+      if (mode === "fresh") {
+        selectFile(
+          screen.getByTestId("import-file-input") as HTMLInputElement,
+          file("V/a.md", "Body\n"),
+        );
+        await userEvent.click(await screen.findByTestId("import-start"));
+      }
+      const error = await screen.findByText(/Tokenizer unavailable/);
+      expect(error).toHaveTextContent("sources/paper.md");
+      expect(error).toHaveTextContent("parse_error");
+      expect(screen.queryByTestId("import-done")).not.toBeInTheDocument();
+      expect(client.startSynth).not.toHaveBeenCalled();
+      expect(client.startLintPropose).not.toHaveBeenCalled();
+    },
+  );
+
   it("shows each rejected package's path, code, and server detail", async () => {
     const client = createMockClient();
     Object.assign(client, {

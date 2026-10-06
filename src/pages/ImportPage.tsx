@@ -455,10 +455,18 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
     [client],
   );
 
-  const completeIngest = useCallback((controller: AbortController) => {
-    if (controller !== controllerRef.current || controller.signal.aborted) return;
-    setPipeline((p) => ({ ...p, stage: "done", synthesisDeferred: true }));
-  }, []);
+  const completeIngest = useCallback(
+    (controller: AbortController, result: Record<string, unknown> | null | undefined) => {
+      if (controller !== controllerRef.current || controller.signal.aborted) return;
+      // Core can complete the task while individual files fail. Preserve those
+      // paths and errors instead of presenting an unqualified import success.
+      if (Array.isArray(result?.errors) && result.errors.length > 0) {
+        throw new PipelineFailure("ingest", JSON.stringify(result.errors));
+      }
+      setPipeline((p) => ({ ...p, stage: "done", synthesisDeferred: true }));
+    },
+    [],
+  );
 
   const startPipeline = useCallback(async () => {
     if (!bundle) return;
@@ -506,7 +514,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
         );
       }
 
-      await completeIngest(controller);
+      completeIngest(controller, ingestFinal.result);
     } catch (err) {
       handlePipelineError(err, controller);
     }
@@ -585,7 +593,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           return;
         }
         if (persisted.stage === "ingest") {
-          await completeIngest(controller);
+          completeIngest(controller, final.result);
         } else if (persisted.stage === "synth") {
           await continueFromSynth(controller);
         } else if (persisted.stage === "lint-propose") {

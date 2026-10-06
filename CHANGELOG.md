@@ -13,6 +13,7 @@ file format introduced in `[0.0.1.0]` was dropped.
 - Preflight indexed source names and active sources' referenced attachments before import. Reject conflicting packages without replacing existing files, retain per-package rejection details, and warn when another source has the same Markdown body.
 - Reject incoming attachment packages conservatively when an existing source uses an absolute attachment reference whose filesystem target cannot be determined over HTTP; show the source and remediation.
 - Skip all follow-up work for an empty commit. New imports finish after ingest; whole-base synthesis and lint are explicit Tasks actions because Core 0.6.9 holds the import lock during synthesis. Existing running synth/lint sessions still resume.
+- Show per-file ingest errors even when Core marks the task succeeded, including resumed imports and authoritative task-row reconciliation.
 - Prepare shared npm cohort 0.1.2 with aligned exact internal dependencies. Previously published versions remain immutable.
 - Update transitive `source-map-js` to its 1.2.2 security patch for GHSA-68fv-2mgg-jv7q; keep the production high-severity audit gate intact.
 - Validate against released Core 0.6.9, including the #294 synthesis parser fix, and make it the live integration harness default. Whole-base synthesis remains an explicit Tasks action.
