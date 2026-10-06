@@ -38,6 +38,7 @@ Input: the PR number `<N>` from `gh pr create`. Read everything else from `gh`.
 
    Resolve **each** actionable finding: fix and push (back to step 1), refute it with evidence in a reply, or defer it with a reason in the PR body.
    A `gate-change` finding needs a maintainer's judgment and label. Do not route around it.
+   If a reviewer set `CHANGES_REQUESTED` or raised a design-level concern, stop and hand back to the human. It is a block signal.
 7. **Merge explicitly.** Merge only when CI is fully green **and** the review has landed and is resolved: `gh pr merge <N> --squash --delete-branch`. Do **not** use `--auto`; it merges before the review posts. Log `merged`.
    - **Worktree quirk:** from a git worktree, `gh pr merge` can print `fatal: 'main' is already used by worktree …` and still merge remotely. Check with `gh pr view <N> --json state,mergeCommit`. If the error skipped `--delete-branch`, run `git push origin --delete <branch>`.
 

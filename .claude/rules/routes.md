@@ -4,6 +4,7 @@ paths:
   - "src/main.tsx"
   - "src/pages/*.tsx"
   - "src/components/GraphCanvas.tsx"
+  - "src/utils/graph.ts"
   - "docs/graph-view.md"
   - "docs/core-contract.md"
 ---

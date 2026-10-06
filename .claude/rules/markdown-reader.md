@@ -6,7 +6,7 @@ paths:
   - "docs/adr/0002-source-inline-references.md"
 ---
 
-# Markdown reader
+# Markdown reader (`packages/web-ui/src/reader/MarkdownView.tsx`)
 
 Read this rule before you change Markdown rendering, images, charts, or source inline references.
 

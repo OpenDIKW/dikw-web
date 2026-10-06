@@ -8,8 +8,8 @@ to stdout, metrics are no-ops). Point it at any OTLP backend and the same signal
 flow out, tagged `service.name=dikw-web`.
 
 This doc covers the env reference, the local demo stack, the metric catalog, the
-browser-RUM config, and the privacy posture. See `CLAUDE.md` for how the pieces are
-wired internally.
+browser-RUM config, and the privacy posture. See `.claude/rules/agent-sidecar.md` and
+`.claude/rules/branding-telemetry.md` for how the pieces are wired internally.
 
 ## Quickstart — local demo stack
 

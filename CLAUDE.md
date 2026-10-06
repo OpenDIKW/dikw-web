@@ -20,9 +20,9 @@ On Windows, use `npm.cmd` (not `npm`) from PowerShell.
 - `npm.cmd run test:coverage` — coverage with the thresholds in `vite.config.ts` (60 / 45 / 55 / 60). Do not lower them.
 - `npm.cmd run test:e2e` — Playwright. `npx playwright test tests/e2e/chat.spec.ts` runs one spec.
 - `npm.cmd run build` — browser bundle to `dist/`, sidecar to `dist-server/standalone.mjs`. `npm.cmd start` runs the sidecar.
-- `npm.cmd run verify` — full gate: lint + format:check + typecheck + coverage + build + e2e. Run it before you commit a behavior change.
+- `npm.cmd run verify` — full gate: lint + format:check + typecheck + coverage + build + e2e + `verify:packages`. Run it before you commit a behavior change.
 - `npm.cmd run check:bundle` — gzip bundle budget. Do not raise a budget to make a change pass.
-- `npm.cmd run check:gate` — reward-hacking gate. It fails when the branch weakens verification: a lower threshold, a larger budget, more e2e retries, a deleted or skipped test, removed assertions, or an edit to the gate machinery. Only a maintainer's `gate-change` label allows a deliberate weakening.
+- `npm.cmd run check:gate` — reward-hacking gate. It fails when the branch weakens verification: a lower threshold, a grown coverage `exclude`, a larger budget, more e2e retries, a deleted or skipped test, removed assertions, or an edit to the gate machinery. Only a maintainer's `gate-change` label allows a deliberate weakening.
 - `node scripts/loop-log.mjs <event> [detail]` — append one line to `.loop-log.jsonl` (the delivery-loop log).
 - `npm.cmd run smoke:core` — live-core `/v1` contract smoke. Not a CI gate.
 - `npm.cmd run live:verify` — full live integration against a real `dikw-core` (needs Docker and `.env.core`). Not a CI gate.
@@ -104,7 +104,7 @@ Before you design a change in an area, read its rule file.
 - Each step is a loop: **write → run the checks → read the error → fix the cause → run again**. Use `npx vitest run …` and `npm.cmd run typecheck`. `npm.cmd run verify` is the final gate for a behavior change.
 - For multi-step work, give each step a check: `npx vitest run …`, `npm.cmd run typecheck`, a `curl` against `/v1/...`, or a browser screenshot.
 - Stop the loop when one of these happens:
-  - **Green** — report done. Quote the passing output from *this* session, never a remembered or earlier run.
+  - **Green** — this step is done. Quote the passing output from *this* session, never a remembered or earlier run. Then continue.
   - **5 attempts spent** — stop. Report what still fails and what you tried.
   - **Same error twice in a row** — stop. You are guessing. Diagnose the root cause again, or hand off to the `fixer` agent (`.claude/agents/fixer.md`).
 - **Fix the code, not the test.** Do not weaken an assertion. Do not lower the coverage thresholds in `vite.config.ts`.
@@ -121,6 +121,7 @@ Before you design a change in an area, read its rule file.
 - Stop and ask only when one of these is true:
   - You cannot continue without my decision.
   - A block signal from the `dikw-web-delivery-workflow` skill fires.
+  - The inner verify loop hits its limit: 5 attempts, or the same error twice in a row.
   - The next action is destructive and not approved above: delete data or files you did not create, or change anything outside this repository.
 - Do not end a turn in these ways while work is still owed:
   1. A summary that announces the next step but does not take it.

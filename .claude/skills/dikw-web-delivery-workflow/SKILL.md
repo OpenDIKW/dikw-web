@@ -62,14 +62,14 @@ There are two layers of verification: **self-verify while you build** (steps 2â€
    Update every contract, behavior, command, or doc index that drifted, in the **same** change. Markdown on disk is English-only in this repo.
 
 8. **Final gate + PR.**
-   - `npm.cmd run verify` (lint + format:check + typecheck + coverage + build + e2e) must be green. Then run `npm.cmd run check:bundle` (gzip budget) and `npm.cmd run check:gate` (reward-hacking gate). CI runs both too; `check:gate` is the required `gate-integrity` job.
+   - `npm.cmd run verify` (lint + format:check + typecheck + coverage + build + e2e + `verify:packages`) must be green. Then run `npm.cmd run check:bundle` (gzip budget) and `npm.cmd run check:gate` (reward-hacking gate). CI runs both too; `check:gate` is the required `gate-integrity` job.
    - If `check:gate` flags a *deliberate* weakening, a maintainer must add the `gate-change` label. **WARNING:** never route around the gate.
-   - When the change warrants it, bump `package.json` version (3-digit SemVer) and add a `CHANGELOG.md` entry under the matching version heading. On merge to `main`, CI's `release` job cuts the GitHub Release `dikw-web-v<version>` from `package.json`. Only a version bump creates a new tag.
+   - When the change warrants it, bump `package.json` version (3-digit SemVer) and add a `CHANGELOG.md` entry under the matching version heading. On merge to `main`, CI's `release` job cuts the GitHub Release `dikw-web-v<version>` from `package.json`, with notes from the matching CHANGELOG section (`scripts/changelog-notes.mjs`). It is idempotent: only a version bump creates a new tag.
    - Branch with a descriptive name. Commit as `<type>(<scope>): <subject>` (see recent `git log`). Push. Run `gh pr create`.
    - CI runs lint + format:check + typecheck + coverage + build + e2e + bundle budget + `gate-integrity` + security scans (npm audit, gitleaks, Trivy, CodeQL).
 
 9. **Watch CI + PR comments; resolve, then merge.** Run the **`dikw-web-watch-ci`** skill.
-   It watches checks and review prose, sends real failures to the `fixer` agent, reruns a failed e2e at most once, logs each transition to `.loop-log.jsonl`, and merges explicitly (never `--auto`).
+   It watches checks (`gh pr checks <N> --watch`, `gh run view <run-id> --log-failed`) and the review prose (the `reviews`, `pulls/<N>/comments`, and `issues/<N>/comments` APIs), sends real failures to the `fixer` agent, reruns a failed e2e at most once, logs each transition to `.loop-log.jsonl`, and merges explicitly (never `--auto`).
    End with the Report section from CLAUDE.md.
 
 ## Block signals â€” stop and ask
@@ -87,7 +87,7 @@ Stop only when one of these occurs. For everything else, continue.
 
 ## Repo gotchas this loop must honor
 
-- New `server/**` and `packages/web-server/**` runtime modules: relative imports carry a `.js` extension (`*.test.ts` excepted). Typecheck and build do not catch a missing one; only review does.
+- New `server/**` runtime modules: relative imports carry a `.js` extension (`*.test.ts` excepted). Typecheck and build do not catch a missing one; only review does.
 - Multi-line git or gh bodies: use a `<<'EOF'` heredoc or `--body-file`, not PowerShell `@'...'@`.
 - Do not pipe a pass/fail command into `tail`. The exit code becomes tail's (always 0) and hides e2e failures.
 - Dependabot rebases: comment `@dependabot rebase`. Never use the update-branch API.

@@ -146,7 +146,7 @@ The `/web/*` family is **job + poll**: `convert` / `translate` `submit`
 returns a job id immediately, then the browser polls `…/jobs/<id>` and
 fetches `…/jobs/<id>/result` (with `…/cancel` to abort); `…/health`
 endpoints drive Import's format degradation and gate the Base reader's
-AI 翻译 entry. See `CLAUDE.md` for the full wire shapes.
+AI 翻译 entry. See `.claude/rules/web-jobs.md` for the full wire shapes.
 
 Two source trees share a single sidecar process (mounted into the Vite
 dev server as middleware, and into `dist-server/standalone.mjs` for prod):
