@@ -6,6 +6,10 @@ import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { LoggerProvider, type ReadableLogRecord } from "@opentelemetry/sdk-logs";
 import { createLogger } from "./logger.js";
 
+// A provider error message can echo a credential; it must reach neither sink.
+const SENTINEL = "sentinel-secret-7f3a";
+const SECRET_URL = `https://client:${SENTINEL}@idp.example.com/token?access_token=${SENTINEL}`;
+
 let writeSpy: ReturnType<typeof vi.spyOn>;
 let lines: string[];
 
@@ -64,11 +68,30 @@ describe("createLogger", () => {
     expect(r.enabled).toBe(true);
   });
 
-  it("serializes an Error field value to name: message (no stack dump)", () => {
-    createLogger("s").error("boom", { error: new TypeError("bad thing") });
+  it("logs an Error field as its name only — never the message or stack", () => {
+    createLogger("s").error("boom", { error: new TypeError(`fetch ${SECRET_URL} failed`) });
     const r = lastJson();
-    expect(r.error).toBe("TypeError: bad thing");
+    expect(r.error).toBe("TypeError");
+    expect(lines.join("")).not.toContain(SENTINEL);
     expect(JSON.stringify(r)).not.toContain("at ");
+
+    process.env.DIKW_LOG_FORMAT = "text";
+    createLogger("s").warn("sign-in rejected", { error: new Error(`invalid_grant ${SENTINEL}`) });
+    expect(lines[lines.length - 1]).toContain("error=Error");
+    expect(lines.join("")).not.toContain(SENTINEL);
+  });
+
+  it("keeps a constant-shaped Error code and drops any other code", () => {
+    const listen = Object.assign(new Error(`listen EADDRINUSE ${SENTINEL}`), {
+      code: "EADDRINUSE",
+    });
+    createLogger("s").error("startup failed", { error: listen });
+    expect(lastJson().error).toBe("Error [EADDRINUSE]");
+
+    const echoed = Object.assign(new Error("rejected"), { code: SENTINEL });
+    createLogger("s").error("rejected", { error: echoed });
+    expect(lastJson().error).toBe("Error");
+    expect(lines.join("")).not.toContain(SENTINEL);
   });
 
   it("omits trace ids with no active span and injects them within one", () => {
@@ -113,7 +136,11 @@ describe("createLogger", () => {
     tracerProvider.register();
     const span = trace.getTracer("t").startSpan("s");
     context.with(trace.setSpan(context.active(), span), () => {
-      createLogger("svc").error("db down", { attempt: 2, apiKey: "secret" });
+      createLogger("svc").error("db down", {
+        attempt: 2,
+        apiKey: "secret",
+        error: new TypeError(`fetch ${SECRET_URL} failed`),
+      });
     });
     span.end();
 
@@ -124,6 +151,8 @@ describe("createLogger", () => {
     expect(rec.attributes.scope).toBe("svc");
     expect(rec.attributes.attempt).toBe(2);
     expect(rec.attributes.apiKey).toBe("[redacted]");
+    expect(rec.attributes.error).toBe("TypeError");
+    expect(JSON.stringify({ body: rec.body, attributes: rec.attributes })).not.toContain(SENTINEL);
     expect(rec.spanContext?.traceId).toBe(span.spanContext().traceId);
   });
 });

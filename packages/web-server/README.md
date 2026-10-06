@@ -26,6 +26,8 @@ server.listen(4321);
 `createWebRuntime` returns an HTTP `handler` and idempotent async `close`.
 `createLogger(scope, appId?)` provides the existing structured/redacted startup
 logger for thin application entries without importing private package paths.
+Since cohort `0.1.5` it records an `Error` field as its name plus a constant-shaped
+code (`Error [EADDRINUSE]`), never its message, on stdout and in OTel log records.
 Importing the package does not listen, install signal hooks, read application
 static files or initialize a database. Factory creation validates configuration,
 the static build and SQLite, then owns auth sessions, agent sessions and Web jobs.

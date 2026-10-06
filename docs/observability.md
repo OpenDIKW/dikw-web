@@ -128,6 +128,9 @@ collector.
 - Outbound CLIENT spans redact the query string (MinerU presigned-URL credentials
   never leave the process).
 - The sidecar logger redacts field **names** matching `key|token|auth|secret|password|credential`.
+- The sidecar logger records an `Error` field as its name plus a constant-shaped code
+  (`Error [EADDRINUSE]`), never its message, so a provider error that echoes a credential
+  stays out of stdout and exported OTel logs.
 - Browser fetch-span URLs are query-stripped and id-templated (above).
 
 ## Cloud backends

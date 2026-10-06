@@ -9,7 +9,8 @@
 //
 // There is no arbitrary-object dump path: callers pass a flat field map, and field
 // NAMES that look secret are redacted regardless of value, so a secret can never
-// be logged by accident (callers also pass booleans/ids, never raw secrets).
+// be logged by accident (callers also pass booleans/ids, never raw secrets). An
+// Error value is reduced to its name and a constant-shaped code, never its message.
 // Nothing here touches dikw-core.
 
 import { trace } from "@opentelemetry/api";
@@ -80,12 +81,22 @@ function sanitize(fields?: LogFields): LogFields {
     if (SENSITIVE_KEY.test(key)) {
       out[key] = "[redacted]";
     } else if (value instanceof Error) {
-      out[key] = `${value.name}: ${value.message}`;
+      out[key] = describeError(value);
     } else {
       out[key] = value;
     }
   }
   return out;
+}
+
+// Node-style `Name [CODE]`. The message is never logged: a provider or upstream
+// error can echo a token, a client secret or a credential-bearing URL. Only a
+// constant-shaped code (ECONNREFUSED, ERR_*, OAUTH_*) is kept.
+const ERROR_CODE = /^[A-Z][A-Z0-9_]*$/;
+
+function describeError(error: Error): string {
+  const { code } = error as { code?: unknown };
+  return typeof code === "string" && ERROR_CODE.test(code) ? `${error.name} [${code}]` : error.name;
 }
 
 function formatLine(record: Record<string, unknown>): string {
