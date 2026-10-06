@@ -1,6 +1,10 @@
 import { decodeNdjsonStream } from "./ndjson.js";
+import { prepareImport, protectReferencedAssets, type AssetProtection } from "./import-safety.js";
+import type { ManifestJson } from "../import/import-bundle.js";
 import type {
   ApiErrorEnvelope,
+  DocumentRecord,
+  PageReadResult,
   EventsPage,
   ImportResponse,
   LintKind,
@@ -184,12 +188,59 @@ export class DikwClient {
     });
   }
 
-  importBundle(payload: Blob, manifestJson: string, signal?: AbortSignal): Promise<ImportResponse> {
+  async importBundle(
+    payload: Blob,
+    manifestJson: string,
+    signal?: AbortSignal,
+  ): Promise<ImportResponse> {
+    const manifest = JSON.parse(manifestJson) as ManifestJson;
+    let rejected: ImportResponse["rejected"] = [];
+    let warnings: NonNullable<ImportResponse["warnings"]> = [];
+    if (manifest.packages?.length) {
+      const groups = await Promise.all(
+        [true, false].map((active) =>
+          this.get<DocumentRecord[]>("/v1/base/pages", {
+            params: { layer: "source", active },
+            signal,
+          }),
+        ),
+      );
+      const pages = Array.from(new Map(groups.flat().map((page) => [page.path, page])).values());
+      const incomingAssets = new Set(manifest.packages.flatMap((pkg) => pkg.asset_paths));
+      const protectedAssets = new Map<string, AssetProtection>();
+      if (incomingAssets.size) {
+        const readable = pages.filter((page) => page.active !== false);
+        for (let i = 0; i < readable.length; i += 6) {
+          const bodies = await Promise.all(
+            readable
+              .slice(i, i + 6)
+              .map((page) =>
+                this.get<PageReadResult>(
+                  `/v1/base/pages/${page.path.split("/").map(encodeURIComponent).join("/")}`,
+                  { signal },
+                ),
+              ),
+          );
+          for (const body of bodies) protectReferencedAssets(body, incomingAssets, protectedAssets);
+        }
+      }
+      const prepared = await prepareImport(payload, manifest, pages, protectedAssets);
+      signal?.throwIfAborted();
+      rejected = prepared.rejected;
+      warnings = prepared.warnings;
+      if (!prepared.payload)
+        return { import_id: "", applied_at: "", files_count: 0, bytes: 0, committed: [], rejected };
+      payload = prepared.payload;
+      manifestJson = JSON.stringify(prepared.manifest);
+    }
     const form = new FormData();
     // Field names match dikw-core's routes_import.py multipart contract.
     form.append("payload", payload, "import.tar.gz");
     form.append("manifest", manifestJson);
-    return this.postMultipart<ImportResponse>("/v1/import", form, signal);
+    const result = await this.postMultipart<ImportResponse>("/v1/import", form, signal);
+    if (rejected.length) result.rejected = [...rejected, ...result.rejected];
+    if (warnings.length) result.warnings = [...warnings, ...(result.warnings ?? [])];
+    return result;
   }
 
   startIngest(opts: { noEmbed?: boolean } = {}, signal?: AbortSignal): Promise<TaskHandle> {

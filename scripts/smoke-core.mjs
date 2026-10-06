@@ -112,6 +112,8 @@ async function main() {
       const layers = new Set();
       for (const page of pages) {
         assert("layer" in page && "path" in page, "page missing layer/path");
+        assert(typeof page.hash === "string", "page.hash missing (import duplicate warning)");
+        assert(typeof page.active === "boolean", "page.active missing (import asset preflight)");
         layers.add(page.layer);
         assert(KNOWN_LAYERS.has(page.layer), `unexpected layer "${page.layer}"`);
       }
@@ -123,6 +125,17 @@ async function main() {
       return `layers=${[...layers].sort().join(",")} n=${pages.length}`;
     },
   );
+
+  await check("GET /v1/base/pages?layer=source&active=false: inactive source names", async () => {
+    const pages = await getJson("/v1/base/pages?layer=source&active=false");
+    assert(Array.isArray(pages), "expected an array of inactive sources");
+    for (const page of pages)
+      assert(
+        page.layer === "source" && page.active === false && typeof page.path === "string",
+        "inactive source shape mismatch",
+      );
+    return `n=${pages.length}`;
+  });
 
   await check("GET /v1/base/pages/{path}: PageReadResult incl. frontmatter", async () => {
     assert(readablePath, "no page path resolved from the list");

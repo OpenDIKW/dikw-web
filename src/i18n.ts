@@ -297,7 +297,7 @@ export const translations = {
       import: {
         title: "Import",
         description:
-          "Upload markdown and referenced assets to dikw-core, then automatically run ingest → synth → lint.",
+          "Upload markdown and referenced assets to dikw-core, then ingest them. Start whole-base synthesis and lint from Tasks when ready.",
         pickerTitle: "Drop files here",
         pickerHint:
           "Markdown files plus referenced images/PDFs are packaged into one import. Unsupported formats are filtered out automatically.",
@@ -374,6 +374,11 @@ export const translations = {
         applySelected: "Apply",
         skipAll: "Skip all",
         doneTitle: "Import complete",
+        doneNoChanges: "Nothing new was imported.",
+        doneOpenTasks: "Open Tasks",
+        doneSynthesisDeferred:
+          "Import and ingest are complete. Start synthesis from Tasks when ready; it processes the whole base and can delay further uploads. Run lint after it finishes.",
+        doneLintDeferred: "Not run automatically",
         doneBannerHeadline: "Your knowledge base has been updated",
         doneBannerBody: "Here's what changed in this run.",
         doneOpenWiki: "Open in Wiki",
@@ -383,6 +388,16 @@ export const translations = {
         doneCardLint: "Lint outcome",
         summaryCommitted: "Committed packages",
         summaryRejected: "Rejected packages",
+        summaryWarnings: "Import warnings",
+        summaryPackage: "Package",
+        sourcePathExists:
+          "This source already exists. It was not replaced. Use a different filename to import another paper.",
+        sourceAssetExists:
+          "This package would replace an existing source's attachment. Use a different attachment path.",
+        sourceAssetScopeUnknown:
+          "An existing source uses an absolute attachment reference. Change that source reference to a relative path before importing attachments.",
+        sourceContentMatches:
+          "This Markdown body matches an existing source. Check the existing source before keeping a duplicate; metadata or assets may differ.",
         summaryBytes: "Bytes uploaded",
         summaryApplied: "Lint fixes applied",
         summarySkippedServer: "Lint fixes skipped by server",
@@ -746,7 +761,7 @@ export const translations = {
       import: {
         title: "导入",
         description:
-          "把本地 markdown 和引用的素材上传到 dikw-core，自动完成 ingest → synth → lint，刷新页面也能接着跑。",
+          "把本地 markdown 和引用素材上传并建立索引，刷新页面也能继续。需要时在任务页启动全库知识合成和检查。",
         pickerTitle: "把文件拖到这里",
         pickerHint:
           "Markdown 笔记和它引用的图片、PDF 会被打包成一次导入。不支持的格式会被自动过滤。",
@@ -822,6 +837,11 @@ export const translations = {
         applySelected: "应用",
         skipAll: "全部跳过",
         doneTitle: "导入完成",
+        doneNoChanges: "没有导入新的来源。",
+        doneOpenTasks: "查看任务",
+        doneSynthesisDeferred:
+          "导入和索引已完成。需要时可在任务页启动知识合成；它处理全库，运行期间可能延迟后续上传。完成后再运行检查。",
+        doneLintDeferred: "本次未自动运行",
         doneBannerHeadline: "你的知识库已更新",
         doneBannerBody: "以下是本次导入的变更。",
         doneOpenWiki: "去知识库阅读",
@@ -831,6 +851,14 @@ export const translations = {
         doneCardLint: "Lint 结果",
         summaryCommitted: "提交的包数",
         summaryRejected: "被拒绝的包数",
+        summaryWarnings: "导入提示",
+        summaryPackage: "来源包",
+        sourcePathExists: "该来源已存在，本次未覆盖。导入另一篇论文时请使用不同的文件名。",
+        sourceAssetExists: "该来源包会覆盖已有来源的附件。请使用不同的附件路径。",
+        sourceAssetScopeUnknown:
+          "已有来源使用绝对路径引用附件。请先将该来源的附件引用改为相对路径，再导入含附件的来源包。",
+        sourceContentMatches:
+          "正文与已有来源一致。保留副本前请核对已有来源，元数据或附件可能不同。",
         summaryBytes: "上传字节数",
         summaryApplied: "Lint 已修复",
         summarySkippedServer: "Lint 服务端跳过",

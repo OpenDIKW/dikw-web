@@ -155,7 +155,9 @@ export function scanFiles(files: File[]): ScanResult {
 function appendSuffix(stem: string, n: number): string {
   const suffix = `-${n}`;
   const max = 28 - suffix.length;
-  const capped = Array.from(stem).slice(0, max).join("").replace(/-+$/g, "");
+  const points = Array.from(stem).slice(0, max);
+  while (new TextEncoder().encode(points.join("") + suffix).length > 97) points.pop();
+  const capped = points.join("").replace(/-+$/g, "");
   return `${capped}${suffix}`;
 }
 

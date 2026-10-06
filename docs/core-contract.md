@@ -343,17 +343,40 @@ failed, since its outcome genuinely can't be determined from the client.)
 
 The Import page is the primary web surface that writes to `dikw-core`
 (the Tasks page toolbar is the other — see "Task list" above). It
-runs a four-stage pipeline rooted at `POST /v1/import`. PDF / Office
+runs import followed by ingest, rooted at `POST /v1/import`. PDF / Office
 formats route through an optional `converting` pre-stage owned by the
 web sidecar (see `docs/agent.md` for the sidecar layout); the resulting
 markdown + assets are bundled exactly like a user-authored `.md` source.
 The `/v1/import` wire shape is unchanged. Same input bytes → identical
 `package_sha256` (mineru `cache_tolerance` + browser IndexedDB by
-SHA-256 + byte-stable tar packaging), so core's existing dedup continues
-to apply. Long mineru-bound filenames are Unicode-kebab-normalized
+SHA-256 + byte-stable tar packaging). Core 0.6.9 validates that hash but
+does not deduplicate imports and replaces existing paths. The shared
+client therefore preflights indexed active/inactive source paths, rejecting
+conflicting packages as `source_path_exists`. For bundles with attachments,
+it reads active source bodies in bounded batches and protects referenced
+attachment paths as `source_asset_exists`. Safe packages retain their ids;
+rejected packages and unreferenced files are removed from tar/manifest.
+Per-package code/detail and optional `source_content_matches` warnings are
+shown in the uploader. A matching body is only a warning: metadata/assets
+may differ. A wholly rejected preflight sends no import POST, returns zero
+bytes with empty `import_id`/`applied_at`, and skips all follow-up tasks.
+An active source's local absolute attachment reference has an unknown filesystem
+target over HTTP. In that case, incoming packages with attachments are
+conservatively rejected as `source_asset_scope_unknown` with the existing source
+and original reference in `detail`. This can reject unrelated attachments;
+change the existing reference to a relative path before retrying. Packages
+without attachments can still commit.
+The index cannot reveal unindexed files or reserve paths atomically;
+inactive bodies cannot be read for attachment protection. Concurrent writers
+still require a Core-side guard. Non-conflicting Core archive variants pass
+through unchanged when optional warning inspection cannot read them; a
+conflicting unsupported archive is rejected instead of forwarded unsafely.
+Long mineru-bound filenames are Unicode-kebab-normalized
 (see ADR 0004) — lowercased, punctuation/whitespace collapsed to hyphens,
 Han/digits preserved — with the stem capped at 28 code points (whole name
-incl. `.md` stays under 32), bytes unchanged, because MinerU errors on
+incl. `.md` stays under 32), and the stem is capped at 97 UTF-8 bytes so
+the root Markdown name fits USTAR's 100-byte name field. Both public
+`convertSource` and the server normalize names, bytes unchanged, because MinerU errors on
 very long names; the browser passes the true original as the
 `originalFilename` query so the converted page's frontmatter
 `original_filename` stays complete.
@@ -393,17 +416,18 @@ structured reason instead of a transport-level `Failed to fetch`.
    sha256(sorted([md, ...assets]).join("\n").encode("ascii"))` —
    divergence shows up as `manifest_package_sha256_mismatch`.
 2. **Ingest** (`POST /v1/ingest`, body `{no_embed:false}`): async task.
-3. **Synth** (`POST /v1/synth`, body `{force_all:false, no_embed:false}`):
-   async task; only new D-layer documents are synthesised.
-4. **Lint**: `POST /v1/lint/propose` then a user-driven review gate that
-   selects which proposals to apply; `POST /v1/lint/apply` with the
-   picked indices completes the run.
+3. **Finish** after ingest. Do not automatically submit whole-base synth
+   or lint. The completion card links to Tasks and explains that Core 0.6.9
+   holds the import lock throughout synthesis. Explicit Tasks actions start
+   synth and then lint, with their progress followed separately. A zero
+   `committed` result skips ingest too.
 
 Each async task is followed via `GET /v1/tasks/{id}/events?from_seq=N&wait=30`
 through `DikwClient.streamTaskEvents`. The pipeline persists active task
 ids in `sessionStorage["dikw-web.importPipeline"]` (per-tab, matching the
 connection-config scope of `dikw-web.serverUrl` / `dikw-web.token`) so a
-refresh during any task stage resumes polling without losing state.
+refresh during ingest resumes polling without losing state. Previously
+persisted synth/lint stages keep their existing polling/review/apply flow.
 Persisted state carries the active `coreUrl` and is invalidated when a
 mount finds a different current `client.coreId` — this prevents replaying
 stale task ids against a server the user reconnected to via Settings. The

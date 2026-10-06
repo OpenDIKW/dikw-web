@@ -59,7 +59,7 @@ function ustarHeader(archivePath: string, size: number): Uint8Array {
   const split = splitUstarPath(archivePath);
   if (split === null) {
     throw new Error(
-      `archive path too long for USTAR (max ${USTAR_PATH_MAX} bytes, requires PAX extended headers we don't emit): ${archivePath}`,
+      `archive path too long for USTAR (name max ${NAME_FIELD_MAX} UTF-8 bytes; optional prefix max ${PREFIX_FIELD_MAX} bytes split at /; PAX extended headers are not emitted): ${archivePath}`,
     );
   }
   const header = new Uint8Array(TAR_BLOCK);

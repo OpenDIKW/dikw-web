@@ -7,6 +7,16 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.2] - 2026-10-06
+
+- Fix long MinerU upload names in both shared client and server. Preserve original filenames while bounding archive stems by code points and UTF-8 bytes, including numbered Unicode collisions.
+- Preflight indexed source names and active sources' referenced attachments before import. Reject conflicting packages without replacing existing files, retain per-package rejection details, and warn when another source has the same Markdown body.
+- Reject incoming attachment packages conservatively when an existing source uses an absolute attachment reference whose filesystem target cannot be determined over HTTP; show the source and remediation.
+- Skip all follow-up work for an empty commit. New imports finish after ingest; whole-base synthesis and lint are explicit Tasks actions because Core 0.6.9 holds the import lock during synthesis. Existing running synth/lint sessions still resume.
+- Prepare shared npm cohort 0.1.2 with aligned exact internal dependencies. Previously published versions remain immutable.
+- Update transitive `source-map-js` to its 1.2.2 security patch for GHSA-68fv-2mgg-jv7q; keep the production high-severity audit gate intact.
+- Validate against released Core 0.6.9, including the #294 synthesis parser fix, and make it the live integration harness default. Whole-base synthesis remains an explicit Tasks action.
+
 ## [0.12.1] - 2026-10-05
 
 - Align MikroORM core, SQLite and SQL dependencies at 7.2.3 so strict installs succeed and existing SQLite Agent sessions remain readable after upgrade.

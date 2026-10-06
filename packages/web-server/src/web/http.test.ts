@@ -493,6 +493,37 @@ describe("/web/mineru/convert — happy path (mocked mineru)", () => {
     expect(md).toContain(`original_filename: "${original}"`);
   });
 
+  it("converts an unshortened 150-byte CJK upload and preserves its full original name", async () => {
+    const original = `${"论".repeat(50)}.pdf`;
+    const fileBytes = Buffer.from("%PDF");
+    const fixtureZip = makeFixtureZip(
+      new Map([["full.md", new TextEncoder().encode("# Long title\n")]]),
+    );
+    const jobStore = new JobStore();
+    const handler = createWebHandler({
+      config: { mineruApiKey: TOKEN },
+      fetch: mineruFetchMock(fixtureZip),
+      jobStore,
+    });
+    const { body, contentType } = makeMultipart(original, "application/pdf", fileBytes);
+    const submit = await submitConvert(handler, {
+      inputSha: sha256Hex(fileBytes),
+      body,
+      contentType,
+      originalFilename: original,
+    });
+    expect(submit.status).toBe(202);
+    const jobId = jsonBody(submit).jobId!;
+    await driveJob(jobStore, jobId);
+    expect(jsonBody(await getJob(handler, jobId)).status).toBe("succeeded");
+    const result = await getJobResult(handler, jobId);
+    expect(result.status).toBe(200);
+    const entries = readTar(new Uint8Array(gunzipSync(result.body)));
+    expect(entries).toHaveLength(1);
+    expect(new TextEncoder().encode(entries[0].archivePath).length).toBeLessThanOrEqual(100);
+    expect(new TextDecoder().decode(entries[0].data)).toContain(`original_filename: "${original}"`);
+  });
+
   it("surfaces a mineru_auth failure on the job status, not the submit response", async () => {
     const fetchMock: typeof fetch = async () =>
       new Response(JSON.stringify({ code: "A0202", msg: "bad token" }), {

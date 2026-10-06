@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { kebabSourceName, kebabStem } from "./kebab-source-name.js";
 
 describe("kebabSourceName (ADR 0004 fixtures)", () => {
+  it("fits supplementary-plane letters in the 100-byte USTAR name field", () => {
+    const out = kebabSourceName(`${"𠀀".repeat(50)}.pdf`);
+    expect(new TextEncoder().encode(out).length).toBeLessThanOrEqual(100);
+    expect(out).not.toContain("�");
+  });
   it("normalizes an underscored ASCII name", () => {
     expect(kebabSourceName("CortX_Agent_Prompt_V1.md")).toBe("cortx-agent-prompt-v1.md");
   });

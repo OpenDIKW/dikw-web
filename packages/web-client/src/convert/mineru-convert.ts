@@ -11,7 +11,7 @@
 // file content → same cache key, regardless of filename. mineruVersion gates
 // invalidation when the rewrite logic changes.
 
-import { sha256Hex } from "../import/import-bundle.js";
+import { lowerExt, sha256Hex } from "../import/import-bundle.js";
 import { kebabStem } from "../import/kebab-source-name.js";
 import { readTar, TarReaderError } from "../import/tar-reader.js";
 
@@ -128,11 +128,13 @@ export async function convertSource(
     }
   }
   opts.onProgress?.({ phase: "uploading" });
+  const stem = kebabStem(file.name);
+  const uploadName = `${stem}${lowerExt(file.name)}`;
   const fd = new FormData();
-  fd.append("file", file);
+  fd.append("file", file, uploadName);
   let submitUrl = `/web/mineru/convert?inputSha=${encodeURIComponent(inputSha)}`;
-  if (opts.originalFilename) {
-    submitUrl += `&originalFilename=${encodeURIComponent(opts.originalFilename)}`;
+  if (opts.originalFilename || file.name !== uploadName) {
+    submitUrl += `&originalFilename=${encodeURIComponent(opts.originalFilename || file.name)}`;
   }
   // Submit returns a job id immediately; the conversion then runs detached on
   // the sidecar. Polling and the result fetch are each short, independent
@@ -181,7 +183,6 @@ export async function convertSource(
     }
     throw err;
   }
-  const stem = stemOf(file.name);
   const mdName = `${stem}.md`;
   let markdown: string | null = null;
   const assets = new Map<string, Uint8Array>();
@@ -256,15 +257,6 @@ function syntheticFile(
     writable: false,
   });
   return file;
-}
-
-function stemOf(fileName: string): string {
-  const base = fileName.replace(/^.*[\\/]/, "");
-  const i = base.lastIndexOf(".");
-  const stem = i < 0 ? base : base.slice(0, i);
-  // Strip path / wikilink-breaking chars so the synthesized archive path
-  // doesn't accidentally split into multiple segments.
-  return stem.replace(/[\\/]/g, "_").replace(/[\]|]/g, "_") || "untitled";
 }
 
 function signalThrowIfAborted(signal: AbortSignal | undefined): void {

@@ -12,6 +12,19 @@ Accepted (2026-06-11). Supersedes the source-naming behaviour described in
 `CLAUDE.md` (the mineru `<stem>-<sha12>/` directory layout and the nested
 `source: { converter, original_filename, original_sha256 }` frontmatter block).
 
+Amended 2026-10-06 for issue #224: the stored stem is also bounded to 97
+UTF-8 bytes (including numeric suffixes), and the shared conversion client
+and server both normalize names. The original §3 assumption about Core import
+deduplication is superseded: Core 0.6.8 verifies `package_sha256` but still
+replaces matching paths. Shared `DikwClient.importBundle` now rejects indexed
+source collisions and active sources' referenced attachment collisions before
+POST, preserving the remaining package ids. It warns on matching body hashes
+under other names, without assuming metadata/assets are identical. This is
+an index-based preflight, not an atomic reservation or unindexed-file check;
+inactive source bodies cannot be read for attachment inspection. Rejection
+code/detail stays visible. New uploads finish after ingest; whole-base synth
+and lint are explicit Tasks actions because synth holds Core's import lock.
+
 ## Context
 
 dikw-web does no slugification today. Two paths produce source pages:

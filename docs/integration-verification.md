@@ -2,6 +2,7 @@
 
 End-to-end verification of the **current dikw-web working tree** against a
 **real `dikw-core`** (the published GHCR image) backed by Postgres/pgvector.
+The current default is Core 0.6.9; explicit version overrides remain supported.
 Fills the gap the rest of the test stack can't: the Playwright suite mocks `/v1`
 entirely (`tests/e2e/mockApi.ts`) and `npm run smoke:core` needs a core you
 brought up and seeded yourself. This harness owns the whole loop — boot core,

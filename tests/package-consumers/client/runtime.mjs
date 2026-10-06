@@ -4,7 +4,7 @@ import { AgentClient } from "@opendikw/web-client/agent";
 import { defaultServerUrl } from "@opendikw/web-client/connection";
 import { tryOpenDefaultCache } from "@opendikw/web-client/convert";
 import { tryOpenDefaultTranslateCache } from "@opendikw/web-client/translate";
-import { buildTar, readTar } from "@opendikw/web-client/import";
+import { buildImportBundle, buildTar, kebabStem, readTar } from "@opendikw/web-client/import";
 import { parseMarkdownDocument } from "@opendikw/web-client/document";
 
 assert.equal(typeof globalThis.window, "undefined");
@@ -31,6 +31,49 @@ const tar = buildTar([
   { archivePath: "sources/paper.md", data: new TextEncoder().encode("# Paper") },
 ]);
 assert.equal(readTar(tar)[0].archivePath, "sources/paper.md");
+const longStem = kebabStem("𠀀".repeat(40) + ".pdf");
+assert.ok(new TextEncoder().encode(`${longStem}.md`).length <= 100);
+const bundle = await buildImportBundle([
+  new File(["# Existing path"], "Report.md"),
+  new File(["# Fresh path"], "Fresh.md"),
+]);
+let importPosts = 0;
+globalThis.fetch = async (input, init) => {
+  assert.equal(new Headers(init.headers).get("authorization"), "Bearer fixture-token");
+  if (init?.method !== "POST") {
+    assert.match(input, /\/v1\/base\/pages\?layer=source&active=(true|false)$/);
+    return Response.json([
+      { path: "sources/report.md", layer: "source", active: false, hash: "old" },
+    ]);
+  }
+  importPosts++;
+  const form = init.body;
+  assert.deepEqual(
+    JSON.parse(form.get("manifest")).packages.map((pkg) => pkg.id),
+    [1],
+  );
+  const raw = new Uint8Array(
+    await new Response(
+      form.get("payload").stream().pipeThrough(new DecompressionStream("gzip")),
+    ).arrayBuffer(),
+  );
+  assert.deepEqual(
+    readTar(raw).map((entry) => entry.archivePath),
+    ["sources/fresh.md"],
+  );
+  return Response.json({ committed: [1], rejected: [] });
+};
+const importClient = new DikwClient({ baseUrl: "https://core.invalid", token: "fixture-token" });
+const partial = await importClient.importBundle(bundle.payload, bundle.manifestJson);
+assert.deepEqual(partial.committed, [1]);
+assert.equal(partial.rejected[0].code, "source_path_exists");
+assert.equal(partial.rejected[0].detail.existing_path, "sources/report.md");
+const blocked = await buildImportBundle([new File(["# Different paper"], "Report.md")]);
+assert.deepEqual(
+  (await importClient.importBundle(blocked.payload, blocked.manifestJson)).committed,
+  [],
+);
+assert.equal(importPosts, 1);
 const stream = new Response('{"event":"start"}\n{"event":"done"}\n').body;
 const events = [];
 for await (const value of decodeNdjsonStream(stream)) events.push(value);

@@ -6,6 +6,11 @@
 
 **A React + Vite knowledge workbench over [`dikw-core`](https://github.com/OpenDIKW/dikw-core)** — chat agent, knowledge graph, bilingual Markdown reader, and document import & ingest in one same-origin bundle.
 
+Import normalizes long filenames, checks indexed source/attachment conflicts and
+shows per-package outcomes. It finishes after ingest; whole-base synthesis and
+lint are explicit Tasks actions. Empty commits start no follow-up tasks. See the
+[import contract](docs/core-contract.md#import) for preflight and concurrency limits.
+
 [![CI](https://github.com/OpenDIKW/dikw-web/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenDIKW/dikw-web/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/OpenDIKW/dikw-web/actions/workflows/codeql.yml/badge.svg)](https://github.com/OpenDIKW/dikw-web/actions/workflows/codeql.yml)
 
