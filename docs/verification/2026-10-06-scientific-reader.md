@@ -62,7 +62,8 @@ stopped Core, Casdoor and deployed application services were not restarted.
   unchanged 280 / 1,950 / 35 KB budgets.
 - An isolated clone of private mbweb `0.1.8` installed the three candidate
   tarballs together. Lint, formatting, typecheck and 179 tests with coverage
-  passed using one Windows worker. No delivered private manifest was changed.
+  passed using one Windows worker. Its production build and all 11 Chromium
+  scenarios also passed. No delivered private manifest was changed.
 
 Local test concurrency was reduced on Windows; coverage, bundle, timeout,
 retry and assertion requirements are unchanged.
