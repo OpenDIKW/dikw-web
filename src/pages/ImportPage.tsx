@@ -808,7 +808,7 @@ export function ImportPage({ client, locale = "en" }: ImportPageProps) {
           <div>
             {copy.errorStageLabel}: {pipeline.error.stage}
           </div>
-          <div>{pipeline.error.message}</div>
+          <div className="import-outcomes">{pipeline.error.message}</div>
           {pipeline.error.code ? <div className="notice__code">{pipeline.error.code}</div> : null}
           <div className="import-error-actions">
             <Button onClick={startOver}>

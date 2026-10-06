@@ -106,3 +106,38 @@ test("completed import outcomes and navigation fit a narrow viewport in both the
     expect(width.content).toBeLessThanOrEqual(width.viewport);
   }
 });
+
+test("per-file ingest error details fit a narrow viewport in both themes", async ({ page }) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      "dikw-web.importPipeline",
+      JSON.stringify({
+        stage: "failed",
+        coreUrl: "http://127.0.0.1:8765",
+        error: {
+          stage: "ingest",
+          message: JSON.stringify([
+            {
+              path: "sources/long-paper-name-regression.md",
+              kind: "storage_error",
+              message: "Tokenizer unavailable; the source was committed but could not be indexed.",
+            },
+          ]),
+        },
+      }),
+    );
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const theme of ["light", "dark"]) {
+    await page.goto("/#import");
+    await page.evaluate((value) => localStorage.setItem("dikw-web.theme", value), theme);
+    await page.reload();
+    await expect(page.getByText(/Tokenizer unavailable/)).toBeVisible();
+    await expect(page.getByTestId("import-done")).not.toBeVisible();
+    const width = await page.evaluate(() => ({
+      content: document.documentElement.scrollWidth,
+      viewport: innerWidth,
+    }));
+    expect(width.content).toBeLessThanOrEqual(width.viewport);
+  }
+});
