@@ -59,3 +59,50 @@ test("filters unsupported formats at selection and surfaces a notice", async ({ 
   await expect(page.getByText("Skipped 1 file(s) in an unsupported format.")).toBeVisible();
   await expect(page.getByText("archive.zip")).toHaveCount(0);
 });
+
+test("completed import outcomes and navigation fit a narrow viewport in both themes", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    sessionStorage.setItem(
+      "dikw-web.importPipeline",
+      JSON.stringify({
+        stage: "done",
+        coreUrl: "http://127.0.0.1:8765",
+        synthesisDeferred: true,
+        packagePaths: { 0: "sources/new-paper.md" },
+        importResult: {
+          import_id: "fixture",
+          applied_at: "now",
+          files_count: 1,
+          bytes: 64,
+          committed: [0],
+          rejected: [],
+          warnings: [
+            {
+              id: 0,
+              code: "source_content_matches",
+              detail: { md_path: "sources/new-paper.md", existing_path: "sources/old-paper.md" },
+            },
+          ],
+        },
+      }),
+    );
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  for (const theme of ["light", "dark"]) {
+    await page.goto("/#import");
+    await page.evaluate((value) => localStorage.setItem("dikw-web.theme", value), theme);
+    await page.reload();
+    await expect(page.getByTestId("import-done")).toBeVisible();
+    await expect(page.getByTestId("import-open-tasks")).toBeVisible();
+    await expect(page.getByTestId("import-done-open-wiki")).toBeVisible();
+    await expect(page.getByTestId("import-done-open-graph")).toBeVisible();
+    await expect(page.getByTestId("import-warnings-packages")).toBeVisible();
+    const width = await page.evaluate(() => ({
+      content: document.documentElement.scrollWidth,
+      viewport: innerWidth,
+    }));
+    expect(width.content).toBeLessThanOrEqual(width.viewport);
+  }
+});
