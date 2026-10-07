@@ -38,6 +38,9 @@ export default defineConfig({
           port: 4321,
           reuseExistingServer: true,
           timeout: 120_000,
+          // No file watcher (vite.config.ts): a concurrent `build:packages`
+          // rewriting packages/*/dist must not hot-update pages mid-test.
+          env: { DIKW_E2E: "1" },
         },
       }),
   projects: [

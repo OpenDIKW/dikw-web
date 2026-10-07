@@ -4,6 +4,7 @@ paths:
   - "packages/web-server/src/agent/requestRouter.ts"
   - "packages/web-ui/src/auth/**"
   - "packages/web-client/src/types/auth.ts"
+  - "src/Root.tsx"
   - "docs/adr/0006-oidc-auth-bff.md"
   - "docs/deployment.md"
 ---

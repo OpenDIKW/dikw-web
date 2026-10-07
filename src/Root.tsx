@@ -7,9 +7,7 @@ import {
   loadAuth,
   type AuthState,
 } from "@opendikw/web-ui/auth";
-import { loadBranding, type Branding } from "./config/branding";
-
-const startupBranding = loadBranding();
+import type { Branding } from "./config/branding";
 
 const LegacyMbMigration = lazy(() =>
   import("./migrations/LegacyMbMigration").then((module) => ({
@@ -54,7 +52,7 @@ function WorkbenchEntry({ branding }: { branding: Branding | null }) {
   );
 }
 
-export function Root() {
+export function Root({ startupBranding }: { startupBranding: Promise<Branding> }) {
   const legacy = isLegacyMbHash();
   const [branding, setBranding] = useState<Branding | null>(null);
   useEffect(() => {
@@ -65,7 +63,7 @@ export function Root() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [startupBranding]);
   useEffect(() => {
     // Switching application entries replaces the document: pending probes and
     // the workbench's global 401 handler cannot affect the local backup page.

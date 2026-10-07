@@ -2,6 +2,7 @@
 paths:
   - "src/migrations/**"
   - "src/config/mbWebUrl.ts"
+  - "src/Root.tsx"
   - "docs/mb-data-migration.md"
 ---
 
