@@ -1,6 +1,6 @@
 // @vitest-environment node
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createWebHandler } from "./http";
 import { JobStore } from "./jobStore";
 import {
@@ -758,6 +758,30 @@ describe("runTranslation", () => {
     await runTranslation(store, job.id, { client, blocks, targetLang: "zh" });
     expect(store.get(job.id)!.status).toBe("failed");
     expect(store.get(job.id)!.error?.code).toBe("translator_api");
+  });
+
+  it("logs a failed job's code but never the upstream message (issue #230)", async () => {
+    const secret = "sentinel-secret-7f3a";
+    const store = new JobStore();
+    const job = store.create(new AbortController(), "translate");
+    const client = {
+      async translate(): Promise<string[]> {
+        throw new Error(`upstream https://u:${secret}@llm.example.com/v1?key=${secret}`);
+      },
+    } as unknown as TranslatorClient;
+    const lines: string[] = [];
+    const stdout = vi.spyOn(process.stdout, "write").mockImplementation((chunk: unknown) => {
+      lines.push(String(chunk));
+      return true;
+    });
+    try {
+      await runTranslation(store, job.id, { client, blocks: ["b"], targetLang: "zh" });
+    } finally {
+      stdout.mockRestore();
+    }
+    expect(store.get(job.id)!.status).toBe("failed");
+    expect(lines.join("")).toContain("failed (translator_api)");
+    expect(lines.join("")).not.toContain(secret);
   });
 });
 

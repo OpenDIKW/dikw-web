@@ -107,7 +107,9 @@ export async function runTranslation(
     outcome = "failed";
     const { code, message } = mapTranslateError(err);
     store.setFailed(jobId, { code, message });
-    log(jobId, `failed (${code}) after ${Date.now() - startedAt}ms: ${message}`);
+    // The message stays in the job record only: an upstream error can echo a
+    // credential, and the log ships to stdout and OTLP.
+    log(jobId, `failed (${code}) after ${Date.now() - startedAt}ms`);
   } finally {
     recordJobEnd("translate", outcome, (Date.now() - startedAt) / 1000);
   }

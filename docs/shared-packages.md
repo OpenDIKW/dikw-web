@@ -35,6 +35,13 @@ markup remains inert. Upgrade all three exact dependencies together. The
 Existing sources require no reconversion. See
 `docs/verification/2026-10-06-markdown-redos.md` for regression evidence.
 
+Cohort `0.1.5` stops the `@opendikw/web-server` logger from writing `Error`
+messages, which can echo provider credentials, to stdout and OTel log records. An
+`Error` field now logs as `Class [CODE]` (a known system or transport code) instead
+of `Name: message`, and any other object value as `[object]`; update log queries that
+match error text. Upgrade all three exact dependencies together; no configuration
+changes.
+
 | Package | Public entries | Runtime requirements |
 | --- | --- | --- |
 | `@opendikw/web-client` | `/core`, `/agent`, `/types`, `/import`, `/convert`, `/translate`, `/document`, `/connection` | Node 24 for Node consumers; browser helpers use browser APIs |
@@ -49,7 +56,7 @@ retain extraction provenance and document runtime behavior.
 ## Verify before publishing
 
 ```sh
-npm run version:shared -- 0.1.4
+npm run version:shared -- 0.1.5
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
@@ -131,12 +138,12 @@ repeat review/verification. A dist-tag is not a substitute for that validation.
 
 ## Local cross-repository development
 
-### Upgrade an existing consumer to 0.1.4
+### Upgrade an existing consumer to 0.1.5
 
 Update all three dependencies together and keep their delivered versions exact:
 
 ```sh
-npm install --save-exact @opendikw/web-client@0.1.4 @opendikw/web-ui@0.1.4 @opendikw/web-server@0.1.4
+npm install --save-exact @opendikw/web-client@0.1.5 @opendikw/web-ui@0.1.5 @opendikw/web-server@0.1.5
 npm dedupe
 npm ci --ignore-scripts
 npm ls @mikro-orm/core @mikro-orm/sqlite @mikro-orm/sql

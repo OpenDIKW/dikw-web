@@ -48,6 +48,11 @@ async function main(): Promise<void> {
 }
 
 void main().catch((error) => {
-  log.error("startup failed", { error });
+  // The logger never records an Error message. Startup makes no provider call
+  // (OIDC discovery is lazy), so this reason is our own config or system error.
+  log.error("startup failed", {
+    error,
+    reason: error instanceof Error ? error.message : String(error),
+  });
   process.exit(1);
 });

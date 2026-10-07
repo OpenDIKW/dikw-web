@@ -7,6 +7,11 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.5] - 2026-10-07
+
+- Fix the sidecar logger writing `Error` messages to stdout and exported OTel log records. An identity-provider or upstream error can echo a token, client secret or credential-bearing URL; an `Error` field now logs as its class name plus a known system or transport code from its `cause` chain (`TypeError [ECONNREFUSED]`), never its message, and any other object value logs as `[object]`. Failed translation jobs log only their error code. Startup failures still log their configuration reason. Fixes #230.
+- Release exact shared npm cohort `0.1.5` so independent consumers of `@opendikw/web-server` get the fix.
+
 ## [0.12.4] - 2026-10-06
 
 - Fix six high-severity CodeQL denial-of-service findings in untrusted Markdown parsing: standard and Obsidian image references, heading wikilinks, shared details extraction and chart whitespace trimming.

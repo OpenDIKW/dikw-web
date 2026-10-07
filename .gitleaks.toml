@@ -9,11 +9,14 @@ useDefault = true
 # and have never been valid against mineru.net or the translator endpoint.
 # gitleaks's generic-api-key rule otherwise flags them by entropy + shape
 # because they coincidentally share the "sk-..." prefix used by real keys.
+# `sentinel-secret-7f3a` is the made-up value the logger leak tests (#230) plant
+# in error messages to assert it never reaches stdout or OTel logs.
 [allowlist]
 description = "Test-only fixture tokens (never real keys)"
 regexes = [
   '''sk-secret-abcdef0123456789''',
   '''sk-mineru-deadbeef0123456789''',
+  '''sentinel-secret-7f3a''',
 ]
 paths = [
   '''server/web/mineruClient\.test\.ts''',
