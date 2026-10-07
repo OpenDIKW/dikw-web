@@ -2,6 +2,7 @@
 paths:
   - "src/App.tsx"
   - "src/main.tsx"
+  - "src/Root.tsx"
   - "src/pages/*.tsx"
   - "src/components/GraphCanvas.tsx"
   - "src/utils/graph.ts"
