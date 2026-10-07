@@ -117,6 +117,44 @@ describe("withServerSpan", () => {
     expect(span.events.some((event) => event.name === "exception")).toBe(true);
   });
 
+  it("exports only the error class and a known code, never a message or stack (#230)", async () => {
+    const sentinel = "sentinel-secret-7f3a";
+    const throwIn = async (thrown: unknown) => {
+      const res = fakeRes(500);
+      await expect(
+        withServerSpan({ method: "GET", pathname: "/v1/*", headers: {}, res }, () => {
+          throw thrown;
+        }),
+      ).rejects.toBe(thrown);
+      res.emit("finish");
+      const span = exporter.getFinishedSpans().at(-1)!;
+      const exception = span.events.find((e) => e.name === "exception")?.attributes ?? {};
+      return { status: span.status.message, type: exception["exception.type"], span };
+    };
+    const refused = Object.assign(new Error(`connect ECONNREFUSED ${sentinel}`), {
+      code: "ECONNREFUSED",
+    });
+    const cases = [
+      // The SDK exports a known code as exception.type, as it did for the raw error.
+      await throwIn(
+        new TypeError(`fetch https://u:${sentinel}@core.example.com failed`, { cause: refused }),
+      ),
+      await throwIn(Object.assign(new Error(sentinel), { code: sentinel })),
+      await throwIn(new (class extends Error {})(sentinel)),
+      await throwIn(sentinel),
+    ];
+    expect(cases.map(({ status, type }) => [status, type])).toEqual([
+      ["TypeError [ECONNREFUSED]", "ECONNREFUSED"],
+      ["Error", "Error"],
+      ["Error", "Error"],
+      ["[string]", "[string]"],
+    ]);
+    const exported = JSON.stringify(
+      cases.map(({ span: { status, events, attributes } }) => ({ status, events, attributes })),
+    );
+    expect(exported).not.toContain(sentinel);
+  });
+
   it("continues an incoming W3C trace (browser → sidecar)", async () => {
     const res = fakeRes(200);
     const traceId = "0af7651916cd43dd8448eb211c80319c";

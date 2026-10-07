@@ -30,6 +30,9 @@ Since cohort `0.1.5` it records an `Error` field as its class name plus a known
 system or transport code (`TypeError [ECONNREFUSED]`), never its message, on stdout
 and in OTel log records; any other object value logs as `[object]`. Log a reason
 string yourself only where no provider error can reach it, such as startup config.
+A handler error that escapes a SERVER span is recorded the same way: the status
+message is `Class [CODE]` and `exception.type` the known code, else the class; its
+message and stack are not exported.
 Importing the package does not listen, install signal hooks, read application
 static files or initialize a database. Factory creation validates configuration,
 the static build and SQLite, then owns auth sessions, agent sessions and Web jobs.

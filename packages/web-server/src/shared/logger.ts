@@ -16,8 +16,8 @@
 
 import { trace } from "@opentelemetry/api";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { getSystemErrorMap } from "node:util";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
+import { describeError } from "./errors.js";
 
 export type LogLevel = "info" | "warn" | "error";
 export type LogFields = Record<string, unknown>;
@@ -92,38 +92,6 @@ function sanitize(fields?: LogFields): LogFields {
     }
   }
   return out;
-}
-
-// Node-style `Class [CODE]`. Neither the message nor `name` is logged: both are
-// set at runtime, and a provider or upstream error can echo a token, a client
-// secret or a credential-bearing URL. A code is kept only when it is a fixed
-// runtime constant — a libuv system error name, DNS `ENOTFOUND` or an undici
-// transport code — so it cannot carry a secret.
-const KNOWN_ERROR_CODES = new Set([
-  ...[...getSystemErrorMap().values()].map(([name]) => name),
-  "ENOTFOUND",
-  "UND_ERR_CONNECT_TIMEOUT",
-  "UND_ERR_HEADERS_TIMEOUT",
-  "UND_ERR_BODY_TIMEOUT",
-  "UND_ERR_SOCKET",
-]);
-
-function describeError(error: Error): string {
-  // The class is a function on the prototype chain, i.e. code. An own `name` or
-  // `constructor` is instance data an SDK may have copied from a response body.
-  const ctor: unknown = (Object.getPrototypeOf(error) as { constructor?: unknown }).constructor;
-  const label = typeof ctor === "function" ? ctor.name : "Error";
-  // Node fetch rejects with `TypeError: fetch failed` and puts the reason on
-  // `cause`. The walk is bounded because a cause chain can be cyclic.
-  let cause: unknown = error;
-  for (let depth = 0; depth < 4 && cause instanceof Error; depth++) {
-    const { code } = cause as { code?: unknown };
-    if (typeof code === "string" && KNOWN_ERROR_CODES.has(code)) {
-      return `${label} [${code}]`;
-    }
-    cause = cause.cause;
-  }
-  return label;
 }
 
 function formatLine(record: Record<string, unknown>): string {

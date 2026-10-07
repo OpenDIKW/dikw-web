@@ -7,6 +7,10 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.6] - 2026-10-07
+
+- Fix SERVER spans exporting a thrown handler error's message and stack over OTLP traces. The span now records only the error class and a known system or transport code, the same rule as the sidecar logger (#230): the status message is `TypeError [ECONNREFUSED]` and `exception.type` is the code, else the class. Update trace queries that match error messages. Ships in the still-unpublished shared cohort `0.1.5`.
+
 ## [0.12.5] - 2026-10-07
 
 - Fix the sidecar logger writing `Error` messages to stdout and exported OTel log records. An identity-provider or upstream error can echo a token, client secret or credential-bearing URL; an `Error` field now logs as its class name plus a known system or transport code from its `cause` chain (`TypeError [ECONNREFUSED]`), never its message, and any other object value logs as `[object]`. Failed translation jobs log only their error code. Startup failures still log their configuration reason. Fixes #230.

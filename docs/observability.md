@@ -124,7 +124,10 @@ collector.
 
 - Conversation content and raw tool I/O are never captured in spans
   (`ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false`), in-memory or exported.
-- SERVER spans export `http.route` (templated), never the raw path or query.
+- SERVER spans export `http.route` (templated), never the raw path or query. A handler
+  error that escapes records only its class and a known code: the status message is
+  `TypeError [ECONNREFUSED]` and `exception.type` is the code, else the class. Its
+  message and stack are never recorded.
 - Outbound CLIENT spans redact the query string (MinerU presigned-URL credentials
   never leave the process).
 - The sidecar logger redacts field **names** matching `key|token|auth|secret|password|credential`.

@@ -39,7 +39,8 @@ Cohort `0.1.5` stops the `@opendikw/web-server` logger from writing `Error`
 messages, which can echo provider credentials, to stdout and OTel log records. An
 `Error` field now logs as `Class [CODE]` (a known system or transport code) instead
 of `Name: message`, and any other object value as `[object]`; update log queries that
-match error text. Upgrade all three exact dependencies together; no configuration
+match error text. A handler error recorded on a SERVER span likewise exports only its
+class and known code; update trace queries that match its message. Upgrade all three exact dependencies together; no configuration
 changes.
 
 | Package | Public entries | Runtime requirements |
