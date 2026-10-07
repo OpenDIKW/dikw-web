@@ -4,6 +4,7 @@ paths:
   - "packages/web-server/src/agent/requestRouter.ts"
   - "packages/web-ui/src/auth/**"
   - "packages/web-client/src/types/auth.ts"
+  - "src/Root.tsx"
   - "docs/adr/0006-oidc-auth-bff.md"
   - "docs/deployment.md"
 ---
@@ -30,7 +31,7 @@ Read this rule before you change auth, sessions, roles, the request router, or a
   - `serverCore` makes the sidecar ignore request `coreUrl`/`token`.
   - `DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER` merges the pre-auth `demo` sessions into one user at read time; ADK tables are never rewritten.
 - Web jobs: standalone passes the gate's OIDC `sub` through `createDefaultWebHandler(cwd, { subjectFor })`. MinerU and translation jobs record that subject as their owner; status (including partial translated blocks), result and cancel require both the matching family and owner, otherwise the same `404 not_found` as a missing id. Auth off/dev records no owner and keeps the shared flow. The live-job cap stays **process-wide: 16 across both families and all users**, bounding total upstream work; one user can exhaust it, so this is not a per-user fairness quota.
-- Browser: `packages/web-ui/src/auth/index.ts` provides `loadAuth()` (from `GET /web/auth/me`, capped at 5 s; auth off → `{ enabled: false }`, which the `/web` handler answers even in dev, and a 404 / non-JSON reply also means a server without auth mode). It **fails closed**: an unreachable / 5xx / timed-out probe, or auth mode without a usable role, throws `AuthProbeError` and `main.tsx` renders the retryable `StartupError` screen instead of guessing auth off, which would re-enable the browser-held core token, plus `AuthContext` / `useAuth` / `useCanEdit` and `installUnauthorizedRedirect()`. The latter is a `fetch` wrapper: a 401 from same-origin `/v1|/agent|/web` → login once, back to the current page.
+- Browser: `packages/web-ui/src/auth/index.ts` provides `loadAuth()` (from `GET /web/auth/me`, capped at 5 s; auth off → `{ enabled: false }`, which the `/web` handler answers even in dev, and a 404 / non-JSON reply also means a server without auth mode). It **fails closed**: an unreachable / 5xx / timed-out probe, or auth mode without a usable role, throws `AuthProbeError` and `src/Root.tsx` renders the retryable `StartupError` screen instead of guessing auth off, which would re-enable the browser-held core token, plus `AuthContext` / `useAuth` / `useCanEdit` and `installUnauthorizedRedirect()`. The latter is a `fetch` wrapper: a 401 from same-origin `/v1|/agent|/web` → login once, back to the current page.
   - In auth mode, App and MbApp use an empty core URL + token (same-origin, no browser token) and ignore the stored connection.
   - Settings shows the account + a Sign out form POST.
   - Viewers do not see Import, the Tasks toolbar / Stop, or Wisdom New / favorite / Edit. The server enforces the roles and the UI hides these controls. Private MB enforces its own profile and roles.

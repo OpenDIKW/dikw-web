@@ -86,6 +86,9 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      // The Playwright dev server (DIKW_E2E) watches no files, so no edit or
+      // package rebuild can hot-update a page while a test runs.
+      ...(env.DIKW_E2E ? { watch: null } : {}),
       proxy: {
         "/v1": {
           target,

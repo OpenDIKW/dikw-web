@@ -1,6 +1,7 @@
 import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
+import reactRefresh from "eslint-plugin-react-refresh";
 import globals from "globals";
 
 // Flat config (ESLint 9). Scope is deliberately the lint layer that TypeScript's
@@ -58,6 +59,14 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": "warn",
       "no-console": "error",
     },
+  },
+  // The entry owns the React root. A component defined there makes
+  // @vitejs/plugin-react accept the entry's own HMR updates, and a re-run calls
+  // createRoot() on #root a second time. Components live in src/Root.tsx.
+  {
+    files: ["src/main.tsx"],
+    plugins: { "react-refresh": reactRefresh },
+    rules: { "react-refresh/only-export-components": "error" },
   },
   // Node-side runtime: sidecar, build/verify scripts, and root config files
   // (`eslint.config.js`, `vite.config.ts`, `playwright.config.ts`). The root
