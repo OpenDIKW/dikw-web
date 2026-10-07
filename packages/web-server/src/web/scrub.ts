@@ -1,6 +1,7 @@
 // Keep a configured API key out of text that can reach a job record, the
-// browser or a log: only its last four characters remain, enough to tell keys
-// apart. Shared by the MinerU and translator clients.
+// browser or a log: each occurrence becomes `…` plus the key's last four
+// characters, enough to tell keys apart. Shared by the MinerU and translator
+// clients.
 
 export function redact(token: string): string {
   if (!token) return "";
