@@ -96,6 +96,44 @@ describe("createLogger", () => {
     expect(lines.join("")).not.toContain(CODE_SENTINEL);
   });
 
+  it("reads the code through the cause chain and names an Error by its class", () => {
+    // Node fetch rejects with `TypeError: fetch failed`; the reason is on `cause`.
+    const dns = Object.assign(new Error(`getaddrinfo ENOTFOUND ${SENTINEL}`), {
+      code: "ENOTFOUND",
+    });
+    const timeout = Object.assign(new Error("Connect Timeout Error"), {
+      code: "UND_ERR_CONNECT_TIMEOUT",
+    });
+    createLogger("s").warn("core unreachable", {
+      error: new TypeError("fetch failed", { cause: dns }),
+    });
+    expect(lastJson().error).toBe("TypeError [ENOTFOUND]");
+    createLogger("s").warn("core unreachable", {
+      error: new TypeError("fetch failed", { cause: timeout }),
+    });
+    expect(lastJson().error).toBe("TypeError [UND_ERR_CONNECT_TIMEOUT]");
+
+    // `name` is as caller-settable as the message; the class name is not.
+    class ScopeError extends Error {}
+    createLogger("s").warn("rejected", {
+      error: Object.assign(new ScopeError("m"), { name: CODE_SENTINEL }),
+    });
+    expect(lastJson().error).toBe("ScopeError");
+    expect(lines.join("")).not.toContain(SENTINEL);
+    expect(lines.join("")).not.toContain(CODE_SENTINEL);
+  });
+
+  it("reduces a non-Error object to a type tag — a thrown body never reaches a sink", () => {
+    createLogger("s").error("rejected", {
+      error: { message: SECRET_URL, status: 401 },
+      list: [SENTINEL],
+    });
+    const r = lastJson();
+    expect(r.error).toBe("[object]");
+    expect(r.list).toBe("[object]");
+    expect(lines.join("")).not.toContain(SENTINEL);
+  });
+
   it("omits trace ids with no active span and injects them within one", () => {
     const log = createLogger("s");
     log.info("no-span");

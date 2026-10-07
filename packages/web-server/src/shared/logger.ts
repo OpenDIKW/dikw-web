@@ -10,7 +10,8 @@
 // There is no arbitrary-object dump path: callers pass a flat field map, and field
 // NAMES that look secret are redacted regardless of value, so a secret can never
 // be logged by accident (callers also pass booleans/ids, never raw secrets). An
-// Error value is reduced to its name and a Node system error code, never its message.
+// Error value is reduced to its class name and a known system/transport code,
+// never its message; any other object value is reduced to `[object]`.
 // Nothing here touches dikw-core.
 
 import { trace } from "@opentelemetry/api";
@@ -83,6 +84,9 @@ function sanitize(fields?: LogFields): LogFields {
       out[key] = "[redacted]";
     } else if (value instanceof Error) {
       out[key] = describeError(value);
+    } else if (typeof value === "object" && value !== null) {
+      // A thrown non-Error (an SDK error body, a rejection reason) is not dumped.
+      out[key] = "[object]";
     } else {
       out[key] = value;
     }
@@ -90,17 +94,32 @@ function sanitize(fields?: LogFields): LogFields {
   return out;
 }
 
-// Node-style `Name [CODE]`. The message is never logged: a provider or upstream
-// error can echo a token, a client secret or a credential-bearing URL. A code is
-// kept only when it is one of libuv's system error names (EADDRINUSE,
-// ECONNREFUSED, …) — a fixed runtime list, so it cannot carry a secret.
-const SYSTEM_ERROR_CODES = new Set([...getSystemErrorMap().values()].map(([name]) => name));
+// Node-style `Class [CODE]`. Neither the message nor `name` is logged: both are
+// set at runtime, and a provider or upstream error can echo a token, a client
+// secret or a credential-bearing URL. A code is kept only when it is a fixed
+// runtime constant — a libuv system error name, DNS `ENOTFOUND` or an undici
+// transport code — so it cannot carry a secret.
+const KNOWN_ERROR_CODES = new Set([
+  ...[...getSystemErrorMap().values()].map(([name]) => name),
+  "ENOTFOUND",
+  "UND_ERR_CONNECT_TIMEOUT",
+  "UND_ERR_HEADERS_TIMEOUT",
+  "UND_ERR_BODY_TIMEOUT",
+  "UND_ERR_SOCKET",
+]);
 
 function describeError(error: Error): string {
-  const { code } = error as { code?: unknown };
-  return typeof code === "string" && SYSTEM_ERROR_CODES.has(code)
-    ? `${error.name} [${code}]`
-    : error.name;
+  // Node fetch rejects with `TypeError: fetch failed` and puts the reason on
+  // `cause`. The walk is bounded because a cause chain can be cyclic.
+  let cause: unknown = error;
+  for (let depth = 0; depth < 4 && cause instanceof Error; depth++) {
+    const { code } = cause as { code?: unknown };
+    if (typeof code === "string" && KNOWN_ERROR_CODES.has(code)) {
+      return `${error.constructor.name} [${code}]`;
+    }
+    cause = cause.cause;
+  }
+  return error.constructor.name;
 }
 
 function formatLine(record: Record<string, unknown>): string {

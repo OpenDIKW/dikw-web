@@ -9,7 +9,7 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [0.12.5] - 2026-10-07
 
-- Fix the sidecar logger writing `Error` messages to stdout and exported OTel log records. An identity-provider or upstream error can echo a token, client secret or credential-bearing URL; an `Error` field now logs as its name plus a Node system error code (`Error [EADDRINUSE]`), never its message. Fixes #230.
+- Fix the sidecar logger writing `Error` messages to stdout and exported OTel log records. An identity-provider or upstream error can echo a token, client secret or credential-bearing URL; an `Error` field now logs as its class name plus a known system or transport code from its `cause` chain (`TypeError [ECONNREFUSED]`), never its message, and any other object value logs as `[object]`. Failed translation jobs log only their error code. Startup failures still log their configuration reason. Fixes #230.
 - Release exact shared npm cohort `0.1.5` so independent consumers of `@opendikw/web-server` get the fix.
 
 ## [0.12.4] - 2026-10-06
