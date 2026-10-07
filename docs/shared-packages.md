@@ -40,7 +40,7 @@ messages, which can echo provider credentials, to stdout and OTel log records. A
 `Error` field now logs as `Class [CODE]` (a known system or transport code) instead
 of `Name: message`, and any other object value as `[object]`; update log queries that
 match error text. A handler error recorded on a SERVER span likewise exports only its
-class and known code. Upgrade all three exact dependencies together; no configuration
+class and known code; update trace queries that match its message. Upgrade all three exact dependencies together; no configuration
 changes.
 
 | Package | Public entries | Runtime requirements |

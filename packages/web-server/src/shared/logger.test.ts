@@ -123,6 +123,8 @@ describe("createLogger", () => {
       }),
     });
     expect(lastJson().error).toBe("ScopeError");
+    createLogger("s").warn("rejected", { error: new (class extends Error {})(SENTINEL) });
+    expect(lastJson().error).toBe("Error");
     expect(lines.join("")).not.toContain(SENTINEL);
     expect(lines.join("")).not.toContain(CODE_SENTINEL);
   });

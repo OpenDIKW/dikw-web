@@ -5,7 +5,7 @@ import {
   ATTR_HTTP_RESPONSE_STATUS_CODE,
   ATTR_HTTP_ROUTE,
 } from "@opentelemetry/semantic-conventions";
-import { describeError } from "./logger.js";
+import { describeError, safeErrorParts } from "./errors.js";
 import { recordHttpServerDuration } from "./metrics.js";
 
 const TRACER_NAME = "dikw-web";
@@ -113,9 +113,9 @@ export async function withServerSpan(
     errored = true;
     // Only the class and a known code, as in the logger: the message and the
     // stack that repeats it can echo a credential, and this span exports (#230).
-    const label = error instanceof Error ? describeError(error) : `[${typeof error}]`;
-    span.recordException({ name: label });
-    span.setStatus({ code: SpanStatusCode.ERROR, message: label });
+    // recordException exports a known code as exception.type, else the class.
+    span.recordException(safeErrorParts(error));
+    span.setStatus({ code: SpanStatusCode.ERROR, message: describeError(error) });
     throw error;
   }
 }

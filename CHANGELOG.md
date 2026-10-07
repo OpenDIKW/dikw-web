@@ -9,7 +9,7 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 ## [0.12.6] - 2026-10-07
 
-- Fix SERVER spans exporting a thrown handler error's message and stack over OTLP traces. The span now records only the error class and a known system or transport code (`TypeError [ECONNREFUSED]`), the same rule as the sidecar logger (#230). Ships in the still-unpublished shared cohort `0.1.5`.
+- Fix SERVER spans exporting a thrown handler error's message and stack over OTLP traces. The span now records only the error class and a known system or transport code, the same rule as the sidecar logger (#230): the status message is `TypeError [ECONNREFUSED]` and `exception.type` is the code, else the class. Update trace queries that match error messages. Ships in the still-unpublished shared cohort `0.1.5`.
 
 ## [0.12.5] - 2026-10-07
 
