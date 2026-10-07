@@ -10,11 +10,12 @@
 // There is no arbitrary-object dump path: callers pass a flat field map, and field
 // NAMES that look secret are redacted regardless of value, so a secret can never
 // be logged by accident (callers also pass booleans/ids, never raw secrets). An
-// Error value is reduced to its name and a constant-shaped code, never its message.
+// Error value is reduced to its name and a Node system error code, never its message.
 // Nothing here touches dikw-core.
 
 import { trace } from "@opentelemetry/api";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { getSystemErrorMap } from "node:util";
 import { logs, SeverityNumber } from "@opentelemetry/api-logs";
 
 export type LogLevel = "info" | "warn" | "error";
@@ -90,13 +91,16 @@ function sanitize(fields?: LogFields): LogFields {
 }
 
 // Node-style `Name [CODE]`. The message is never logged: a provider or upstream
-// error can echo a token, a client secret or a credential-bearing URL. Only a
-// constant-shaped code (ECONNREFUSED, ERR_*, OAUTH_*) is kept.
-const ERROR_CODE = /^[A-Z][A-Z0-9_]*$/;
+// error can echo a token, a client secret or a credential-bearing URL. A code is
+// kept only when it is one of libuv's system error names (EADDRINUSE,
+// ECONNREFUSED, …) — a fixed runtime list, so it cannot carry a secret.
+const SYSTEM_ERROR_CODES = new Set([...getSystemErrorMap().values()].map(([name]) => name));
 
 function describeError(error: Error): string {
   const { code } = error as { code?: unknown };
-  return typeof code === "string" && ERROR_CODE.test(code) ? `${error.name} [${code}]` : error.name;
+  return typeof code === "string" && SYSTEM_ERROR_CODES.has(code)
+    ? `${error.name} [${code}]`
+    : error.name;
 }
 
 function formatLine(record: Record<string, unknown>): string {

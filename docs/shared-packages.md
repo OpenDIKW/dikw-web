@@ -37,7 +37,7 @@ Existing sources require no reconversion. See
 
 Cohort `0.1.5` stops the `@opendikw/web-server` logger from writing `Error`
 messages, which can echo provider credentials, to stdout and OTel log records. An
-`Error` field now logs as its name plus a constant-shaped code. Upgrade all three
+`Error` field now logs as its name plus a Node system error code. Upgrade all three
 exact dependencies together; no configuration changes.
 
 | Package | Public entries | Runtime requirements |

@@ -9,6 +9,7 @@ import { createLogger } from "./logger.js";
 // A provider error message can echo a credential; it must reach neither sink.
 const SENTINEL = "sentinel-secret-7f3a";
 const SECRET_URL = `https://client:${SENTINEL}@idp.example.com/token?access_token=${SENTINEL}`;
+const CODE_SENTINEL = "SENTINEL_SECRET_7F3A";
 
 let writeSpy: ReturnType<typeof vi.spyOn>;
 let lines: string[];
@@ -81,17 +82,18 @@ describe("createLogger", () => {
     expect(lines.join("")).not.toContain(SENTINEL);
   });
 
-  it("keeps a constant-shaped Error code and drops any other code", () => {
+  it("keeps a Node system error code and drops any other code", () => {
     const listen = Object.assign(new Error(`listen EADDRINUSE ${SENTINEL}`), {
       code: "EADDRINUSE",
     });
     createLogger("s").error("startup failed", { error: listen });
     expect(lastJson().error).toBe("Error [EADDRINUSE]");
 
-    const echoed = Object.assign(new Error("rejected"), { code: SENTINEL });
+    // Shaped like a constant, but not one: the shape alone must not admit it.
+    const echoed = Object.assign(new Error("rejected"), { code: CODE_SENTINEL });
     createLogger("s").error("rejected", { error: echoed });
     expect(lastJson().error).toBe("Error");
-    expect(lines.join("")).not.toContain(SENTINEL);
+    expect(lines.join("")).not.toContain(CODE_SENTINEL);
   });
 
   it("omits trace ids with no active span and injects them within one", () => {
