@@ -8,6 +8,8 @@
 //   * Async ``sleep`` so we never block the event loop in tests.
 //   * ``now``/``sleep`` injection for deterministic timing tests.
 
+import { redact, scrub } from "./scrub.js";
+
 const API_BASE = "https://mineru.net/api/v4";
 const SUBMIT_URL = `${API_BASE}/file-urls/batch`;
 const RESULT_URL = (batchId: string): string =>
@@ -73,17 +75,6 @@ export interface MineruClientOptions {
   pollMaxMs?: number;
   pollTotalTimeoutMs?: number;
   signal?: AbortSignal;
-}
-
-function redact(token: string): string {
-  if (!token) return "";
-  return `…${token.slice(-4)}`;
-}
-
-function scrub(message: string, token: string): string {
-  if (!token) return message;
-  if (!message.includes(token)) return message;
-  return message.split(token).join(redact(token));
 }
 
 function classify(code: string): MineruErrorCode {
