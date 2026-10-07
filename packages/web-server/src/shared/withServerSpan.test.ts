@@ -117,6 +117,38 @@ describe("withServerSpan", () => {
     expect(span.events.some((event) => event.name === "exception")).toBe(true);
   });
 
+  it("exports only the error class and a known code, never a message or stack (#230)", async () => {
+    const sentinel = "sentinel-secret-7f3a";
+    const refused = Object.assign(new Error(`connect ECONNREFUSED ${sentinel}`), {
+      code: "ECONNREFUSED",
+    });
+    const res = fakeRes(500);
+    await expect(
+      withServerSpan({ method: "GET", pathname: "/v1/*", headers: {}, res }, () => {
+        throw new TypeError(`fetch https://u:${sentinel}@core.example.com failed`, {
+          cause: refused,
+        });
+      }),
+    ).rejects.toThrow(sentinel);
+    await expect(
+      withServerSpan({ method: "GET", pathname: "/v1/*", headers: {}, res }, () => {
+        throw sentinel;
+      }),
+    ).rejects.toBe(sentinel);
+    res.emit("finish");
+
+    const [span, thrown] = exporter.getFinishedSpans();
+    expect(span.status.message).toBe("TypeError [ECONNREFUSED]");
+    expect(span.events.find((e) => e.name === "exception")?.attributes?.["exception.type"]).toBe(
+      "TypeError [ECONNREFUSED]",
+    );
+    expect(thrown.status.message).toBe("[string]");
+    const exported = JSON.stringify(
+      [span, thrown].map(({ status, events, attributes }) => ({ status, events, attributes })),
+    );
+    expect(exported).not.toContain(sentinel);
+  });
+
   it("continues an incoming W3C trace (browser → sidecar)", async () => {
     const res = fakeRes(200);
     const traceId = "0af7651916cd43dd8448eb211c80319c";

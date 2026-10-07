@@ -108,7 +108,7 @@ const KNOWN_ERROR_CODES = new Set([
   "UND_ERR_SOCKET",
 ]);
 
-function describeError(error: Error): string {
+export function describeError(error: Error): string {
   // The class is a function on the prototype chain, i.e. code. An own `name` or
   // `constructor` is instance data an SDK may have copied from a response body.
   const ctor: unknown = (Object.getPrototypeOf(error) as { constructor?: unknown }).constructor;
