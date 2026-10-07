@@ -109,17 +109,21 @@ const KNOWN_ERROR_CODES = new Set([
 ]);
 
 function describeError(error: Error): string {
+  // The class is a function on the prototype chain, i.e. code. An own `name` or
+  // `constructor` is instance data an SDK may have copied from a response body.
+  const ctor: unknown = (Object.getPrototypeOf(error) as { constructor?: unknown }).constructor;
+  const label = typeof ctor === "function" ? ctor.name : "Error";
   // Node fetch rejects with `TypeError: fetch failed` and puts the reason on
   // `cause`. The walk is bounded because a cause chain can be cyclic.
   let cause: unknown = error;
   for (let depth = 0; depth < 4 && cause instanceof Error; depth++) {
     const { code } = cause as { code?: unknown };
     if (typeof code === "string" && KNOWN_ERROR_CODES.has(code)) {
-      return `${error.constructor.name} [${code}]`;
+      return `${label} [${code}]`;
     }
     cause = cause.cause;
   }
-  return error.constructor.name;
+  return label;
 }
 
 function formatLine(record: Record<string, unknown>): string {

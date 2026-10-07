@@ -113,10 +113,14 @@ describe("createLogger", () => {
     });
     expect(lastJson().error).toBe("TypeError [UND_ERR_CONNECT_TIMEOUT]");
 
-    // `name` is as caller-settable as the message; the class name is not.
+    // `name` and an own `constructor` are instance data an SDK can copy from a
+    // response body; the class on the prototype chain is code.
     class ScopeError extends Error {}
     createLogger("s").warn("rejected", {
-      error: Object.assign(new ScopeError("m"), { name: CODE_SENTINEL }),
+      error: Object.assign(new ScopeError("m"), {
+        name: CODE_SENTINEL,
+        constructor: { name: SENTINEL },
+      }),
     });
     expect(lastJson().error).toBe("ScopeError");
     expect(lines.join("")).not.toContain(SENTINEL);
