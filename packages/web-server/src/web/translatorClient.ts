@@ -18,6 +18,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { createLogger } from "../shared/logger.js";
+import { scrub } from "./scrub.js";
 
 const log = createLogger("translate");
 
@@ -455,16 +456,6 @@ function classifyError(err: unknown, apiKey: string): TranslatorClientError {
   // no HTTP status. Other 4xx (400/422/...) are permanent → not retryable.
   const retryable = status === undefined || status === 409 || (status >= 500 && status <= 599);
   return new TranslatorClientError("translator_api", message, retryable);
-}
-
-function redact(token: string): string {
-  if (!token) return "";
-  return `…${token.slice(-4)}`;
-}
-
-function scrub(message: string, token: string): string {
-  if (!token || !message.includes(token)) return message;
-  return message.split(token).join(redact(token));
 }
 
 function readStatus(err: unknown): number | undefined {

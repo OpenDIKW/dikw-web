@@ -3,23 +3,21 @@
 useDefault = true
 
 # Allowlist for explicit, intentional test fixtures. Each entry is a literal
-# regex matched against secret strings. These tokens are hard-coded into the
-# mineru + translator sidecar unit-test fixtures (server/web/*.test.ts) — they
-# exist only to drive Authorization-header / redaction / scrub-output assertions
-# and have never been valid against mineru.net or the translator endpoint.
-# gitleaks's generic-api-key rule otherwise flags them by entropy + shape
-# because they coincidentally share the "sk-..." prefix used by real keys.
+# regex matched against secret strings. The sk- tokens are hard-coded into the
+# sidecar unit tests (packages/web-server/src/web/, formerly server/web/): the
+# MinerU client and /web handler tests use the first two, the translator test
+# the third. They exist only to drive Authorization-header / redaction /
+# scrub-output assertions and have never been valid against mineru.net or the
+# translator endpoint. gitleaks's generic-api-key rule otherwise flags them by
+# entropy + shape because they share the "sk-..." prefix used by real keys.
 # `sentinel-secret-7f3a` is the made-up value the logger leak tests (#230) plant
 # in error messages to assert it never reaches stdout or OTel logs.
+# No whole-file path allowlist: every other string in these tests is scanned.
 [allowlist]
 description = "Test-only fixture tokens (never real keys)"
 regexes = [
   '''sk-secret-abcdef0123456789''',
   '''sk-mineru-deadbeef0123456789''',
+  '''sk-fixture-translate-3456''',
   '''sentinel-secret-7f3a''',
-]
-paths = [
-  '''server/web/mineruClient\.test\.ts''',
-  '''server/web/http\.test\.ts''',
-  '''server/web/translate\.test\.ts''',
 ]
