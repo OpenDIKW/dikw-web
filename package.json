@@ -63,7 +63,7 @@
     "markdown-it": "^15.0.2",
     "mermaid": "^11.17.2",
     "openid-client": "^6.8.8",
-    "pixi.js": "^8.21.0",
+    "pixi.js": "^8.22.0",
     "react": "^19.2.6",
     "react-dom": "^19.3.0",
     "undici": "^8.10.0",
