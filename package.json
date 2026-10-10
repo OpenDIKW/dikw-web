@@ -38,7 +38,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
-    "@google/adk": "^2.1.0",
+    "@google/adk": "^2.2.1",
     "@google/genai": "^2.24.0",
     "@mikro-orm/core": "^7.2.3",
     "@mikro-orm/sqlite": "^7.2.3",
