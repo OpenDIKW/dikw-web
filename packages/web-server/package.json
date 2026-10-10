@@ -41,7 +41,7 @@
     "@mikro-orm/core": "7.2.3",
     "@mikro-orm/sqlite": "7.2.3",
     "@opentelemetry/api": "1.9.1",
-    "@opentelemetry/api-logs": "0.222.0",
+    "@opentelemetry/api-logs": "0.223.0",
     "@opentelemetry/exporter-trace-otlp-http": "0.222.0",
     "@opentelemetry/instrumentation": "0.222.0",
     "@opentelemetry/instrumentation-undici": "0.32.0",
