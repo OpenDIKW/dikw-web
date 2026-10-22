@@ -35,7 +35,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.129.0",
+    "@anthropic-ai/sdk": "0.133.0",
     "@google/adk": "2.2.1",
     "@google/genai": "2.24.0",
     "@mikro-orm/core": "7.2.3",
@@ -46,7 +46,7 @@
     "@opentelemetry/instrumentation": "0.222.0",
     "@opentelemetry/instrumentation-undici": "0.32.0",
     "@opentelemetry/resources": "2.8.0",
-    "@opentelemetry/sdk-logs": "0.222.0",
+    "@opentelemetry/sdk-logs": "0.223.0",
     "@opentelemetry/sdk-metrics": "2.8.0",
     "@opentelemetry/sdk-trace-base": "2.8.0",
     "@opentelemetry/sdk-trace-node": "2.8.0",
