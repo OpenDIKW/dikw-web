@@ -43,6 +43,12 @@ match error text. A handler error recorded on a SERVER span likewise exports onl
 class and known code; update trace queries that match its message. Upgrade all three exact dependencies together; no configuration
 changes.
 
+Cohort `0.1.6` aligns MikroORM core, SQLite and SQL at `7.2.5` and updates
+markdown-it to `15.0.3`, fixing CVE-2026-111758 in the shared document parser and
+reader. It also includes the current AI SDK and telemetry dependency updates.
+Upgrade all three exact dependencies together. Existing documents need no
+reconversion, and SQLite Agent sessions retain their existing storage format.
+
 | Package | Public entries | Runtime requirements |
 | --- | --- | --- |
 | `@opendikw/web-client` | `/core`, `/agent`, `/types`, `/import`, `/convert`, `/translate`, `/document`, `/connection` | Node 24 for Node consumers; browser helpers use browser APIs |
@@ -57,7 +63,7 @@ retain extraction provenance and document runtime behavior.
 ## Verify before publishing
 
 ```sh
-npm run version:shared -- 0.1.5
+npm run version:shared -- 0.1.6
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
@@ -139,22 +145,22 @@ repeat review/verification. A dist-tag is not a substitute for that validation.
 
 ## Local cross-repository development
 
-### Upgrade an existing consumer to 0.1.5
+### Upgrade an existing consumer to 0.1.6
 
 Update all three dependencies together and keep their delivered versions exact:
 
 ```sh
-npm install --save-exact @opendikw/web-client@0.1.5 @opendikw/web-ui@0.1.5 @opendikw/web-server@0.1.5
-npm dedupe
+npm install --ignore-scripts --save-exact @opendikw/web-client@0.1.6 @opendikw/web-ui@0.1.6 @opendikw/web-server@0.1.6
+npm dedupe --ignore-scripts
 npm ci --ignore-scripts
 npm ls @mikro-orm/core @mikro-orm/sqlite @mikro-orm/sql
 npm run verify
 ```
 
-An existing 0.1.0 lockfile can retain ADK's compatible-range core dependency at
-7.2.1 while the upgraded server and SQLite driver resolve to 7.2.3. Check the
+An existing lockfile can retain ADK's compatible-range core dependency at an
+older version while the upgraded server and SQLite driver resolve to 7.2.5. Check the
 actual ADK dependency tree after deduplication and the fresh strict install;
-core, SQLite and SQL must all resolve to 7.2.3 before accepting this patch.
+core, SQLite and SQL must all resolve to 7.2.5 before accepting this patch.
 Review and commit the exact registry manifest and regenerated lockfile together.
 Do not bypass peer checks or rely on a previously installed node_modules tree.
 
