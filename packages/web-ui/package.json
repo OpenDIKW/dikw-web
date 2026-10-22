@@ -63,7 +63,7 @@
   "dependencies": {
     "@opendikw/web-client": "0.1.5",
     "lucide-react": "1.49.0",
-    "markdown-it": "15.0.2",
+    "markdown-it": "15.0.3",
     "katex": "0.18.9",
     "mermaid": "11.17.2",
     "echarts": "6.1.0"
