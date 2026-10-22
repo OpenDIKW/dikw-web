@@ -150,8 +150,8 @@ repeat review/verification. A dist-tag is not a substitute for that validation.
 Update all three dependencies together and keep their delivered versions exact:
 
 ```sh
-npm install --save-exact @opendikw/web-client@0.1.6 @opendikw/web-ui@0.1.6 @opendikw/web-server@0.1.6
-npm dedupe
+npm install --ignore-scripts --save-exact @opendikw/web-client@0.1.6 @opendikw/web-ui@0.1.6 @opendikw/web-server@0.1.6
+npm dedupe --ignore-scripts
 npm ci --ignore-scripts
 npm ls @mikro-orm/core @mikro-orm/sqlite @mikro-orm/sql
 npm run verify
