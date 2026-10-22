@@ -7,6 +7,14 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.7] - 2026-10-22
+
+- Release shared npm cohort `0.1.6` with MikroORM core, SQLite and SQL aligned at `7.2.5`, preserving strict dependency installation and SQLite Agent sessions.
+- Upgrade markdown-it to `15.0.3` in the application and shared client/UI packages to fix the high-severity parsing denial-of-service vulnerability CVE-2026-111758.
+- Verify against Core `0.6.10` by default and keep the documented default aligned; explicit `DIKW_CORE_VERSION` overrides remain supported.
+- Keep the application entry module outside Fast Refresh boundaries so a hot update does not mount a second React root.
+- Update AI SDK, telemetry, graph-rendering and development dependencies.
+
 ## [0.12.6] - 2026-10-07
 
 - Fix SERVER spans exporting a thrown handler error's message and stack over OTLP traces. The span now records only the error class and a known system or transport code, the same rule as the sidecar logger (#230): the status message is `TypeError [ECONNREFUSED]` and `exception.type` is the code, else the class. Update trace queries that match error messages. Ships in the still-unpublished shared cohort `0.1.5`.
