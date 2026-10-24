@@ -35,7 +35,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "0.133.0",
+    "@anthropic-ai/sdk": "0.137.0",
     "@google/adk": "2.2.1",
     "@google/genai": "2.24.0",
     "@mikro-orm/core": "7.2.5",
