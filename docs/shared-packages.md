@@ -49,6 +49,16 @@ reader. It also includes the current AI SDK and telemetry dependency updates.
 Upgrade all three exact dependencies together. Existing documents need no
 reconversion, and SQLite Agent sessions retain their existing storage format.
 
+Cohort `0.1.7` updates undici to `8.12.3`, ADK to `2.4.0`, Anthropic SDK to
+`1.3.0` and Lucide to `1.64.0`. It explicitly preserves stale-session reloads
+for concurrent Agent turns and chat renames during streaming. Both MiniMax
+clients retain their existing authentication/API-version headers and disable
+native SDK telemetry, leaving outbound tracing endpoint-gated and content-free.
+No storage-format or HTTP/NDJSON contract migration is required. Upgrade all three
+exact dependencies together. Existing consumer lockfiles can retain vulnerable
+transitive DOMPurify/Zod versions; refresh them and enforce the DOMPurify override
+floor shown below before accepting the upgrade.
+
 | Package | Public entries | Runtime requirements |
 | --- | --- | --- |
 | `@opendikw/web-client` | `/core`, `/agent`, `/types`, `/import`, `/convert`, `/translate`, `/document`, `/connection` | Node 24 for Node consumers; browser helpers use browser APIs |
@@ -63,7 +73,7 @@ retain extraction provenance and document runtime behavior.
 ## Verify before publishing
 
 ```sh
-npm run version:shared -- 0.1.6
+npm run version:shared -- 0.1.7
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
@@ -145,15 +155,18 @@ repeat review/verification. A dist-tag is not a substitute for that validation.
 
 ## Local cross-repository development
 
-### Upgrade an existing consumer to 0.1.6
+### Upgrade an existing consumer to 0.1.7
 
 Update all three dependencies together and keep their delivered versions exact:
 
 ```sh
-npm install --ignore-scripts --save-exact @opendikw/web-client@0.1.6 @opendikw/web-ui@0.1.6 @opendikw/web-server@0.1.6
+npm pkg set "overrides.dompurify=^3.4.17"
+npm install --ignore-scripts --save-exact @opendikw/web-client@0.1.7 @opendikw/web-ui@0.1.7 @opendikw/web-server@0.1.7
+npm update dompurify zod --ignore-scripts
 npm dedupe --ignore-scripts
 npm ci --ignore-scripts
-npm ls @mikro-orm/core @mikro-orm/sqlite @mikro-orm/sql
+npm ls @mikro-orm/core @mikro-orm/sqlite @mikro-orm/sql dompurify zod
+npm audit --omit=dev --audit-level=high
 npm run verify
 ```
 
@@ -161,6 +174,9 @@ An existing lockfile can retain ADK's compatible-range core dependency at an
 older version while the upgraded server and SQLite driver resolve to 7.2.5. Check the
 actual ADK dependency tree after deduplication and the fresh strict install;
 core, SQLite and SQL must all resolve to 7.2.5 before accepting this patch.
+DOMPurify must resolve to at least 3.4.17 and Zod to at least 4.6.6. Keep the
+existing override policy otherwise unchanged; a fresh strict install and audit
+must pass before deployment.
 Review and commit the exact registry manifest and regenerated lockfile together.
 Do not bypass peer checks or rely on a previously installed node_modules tree.
 

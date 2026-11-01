@@ -7,12 +7,13 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
-## [Unreleased]
+## [0.12.8] - 2026-11-01
 
 - Patch the production dependency advisories blocking dependency PRs: require DOMPurify `3.4.17` or newer, refresh Zod to `4.6.7`, and update the application and shared server to undici `8.12.3`.
-- Keep published shared cohort `0.1.6` immutable; releasing the updated shared-server dependencies requires a new cohort version.
+- Release shared npm cohort `0.1.7` with the updated runtime and UI dependencies; published `0.1.6` bytes remain immutable.
 - Preserve concurrent Agent turns when upgrading ADK to `2.4.0` by explicitly reloading stale sessions, retaining cancellation of every active turn on shutdown.
 - Preserve MiniMax authentication/API-version headers and endpoint-gated, content-free outbound tracing when upgrading Anthropic SDK to `1.3.0`, with real SDK regression coverage for chat and translation.
+- Update Lucide to `1.64.0` and refresh the development toolchain without changing application contracts or verification gates.
 
 ## [0.12.7] - 2026-10-22
 
