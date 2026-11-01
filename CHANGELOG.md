@@ -11,6 +11,7 @@ file format introduced in `[0.0.1.0]` was dropped.
 
 - Patch the production dependency advisories blocking dependency PRs: require DOMPurify `3.4.17` or newer, refresh Zod to `4.6.7`, and update the application and shared server to undici `8.12.3`.
 - Keep published shared cohort `0.1.6` immutable; releasing the updated shared-server dependencies requires a new cohort version.
+- Preserve concurrent Agent turns when upgrading ADK to `2.4.0` by explicitly reloading stale sessions, retaining cancellation of every active turn on shutdown.
 
 ## [0.12.7] - 2026-10-22
 
