@@ -77,6 +77,8 @@ export async function createDefaultAgentHandler(
   const sessionService = new DatabaseSessionService({
     driver: SqliteDriver,
     dbName: join(dir, "agent.sqlite"),
+    // Preserve ADK 2.2.1's reload behavior for concurrent turns in one session.
+    staleSession: "reload",
     // ADK has no public close method. Its public ORM extension API gives the
     // runtime ownership of the connection without reading private ADK fields.
     extensions: [
