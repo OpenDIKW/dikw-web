@@ -37,7 +37,7 @@
     "version:shared": "node scripts/set-shared-version.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.133.0",
+    "@anthropic-ai/sdk": "^1.3.0",
     "@google/adk": "^2.4.0",
     "@google/genai": "^2.24.0",
     "@mikro-orm/core": "^7.2.5",
