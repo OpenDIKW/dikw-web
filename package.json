@@ -80,7 +80,7 @@
     "@opentelemetry/sdk-metrics": "^2.8.0",
     "@opentelemetry/sdk-trace-base": "^2.8.0",
     "@opentelemetry/sdk-trace-node": "^2.8.0",
-    "dompurify": "^3.4.11"
+    "dompurify": "^3.4.17"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

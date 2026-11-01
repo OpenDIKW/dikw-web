@@ -7,6 +7,11 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [Unreleased]
+
+- Patch the production dependency advisories blocking dependency PRs: require DOMPurify `3.4.17` or newer, refresh Zod to `4.6.7`, and update the application and shared server to undici `8.12.3`.
+- Keep published shared cohort `0.1.6` immutable; releasing the updated shared-server dependencies requires a new cohort version.
+
 ## [0.12.7] - 2026-10-22
 
 - Release shared npm cohort `0.1.6` with MikroORM core, SQLite and SQL aligned at `7.2.5`, preserving strict dependency installation and SQLite Agent sessions.
