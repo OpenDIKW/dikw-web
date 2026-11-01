@@ -118,10 +118,20 @@ export class MiniMaxLlm extends BaseLlm {
   constructor(opts: MiniMaxLlmOptions) {
     super({ model: opts.model });
     this.abortSignal = opts.abortSignal;
-    // Auth: `x-api-key` (SDK default) is the live-verified method for MiniMax.
+    // Preserve MiniMax's verified auth and API-version headers across SDK upgrades.
     this.client =
       opts.client ??
-      (new Anthropic({ baseURL: opts.baseUrl, apiKey: opts.apiKey }) as unknown as AnthropicLike);
+      (new Anthropic({
+        baseURL: opts.baseUrl,
+        apiKey: opts.apiKey,
+        // The app's endpoint-gated undici instrumentation owns outbound tracing.
+        openTelemetry: false,
+        defaultHeaders: {
+          "X-Api-Key": opts.apiKey,
+          Authorization: null,
+          "anthropic-version": "2023-06-01",
+        },
+      }) as unknown as AnthropicLike);
   }
 
   async connect(): Promise<never> {

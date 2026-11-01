@@ -164,7 +164,7 @@ export class TranslatorClient {
     this.apiKey = opts.apiKey;
     this.maxRetries = opts.maxRetries ?? DEFAULT_MAX_RETRIES;
     this.retryBaseMs = opts.retryBaseMs ?? DEFAULT_RETRY_BASE_MS;
-    // Auth: `x-api-key` (SDK default) is the live-verified method for MiniMax.
+    // Preserve MiniMax's verified auth and API-version headers across SDK upgrades.
     // `timeout` (see translationTimeoutMs) keeps a long stream from being cut at
     // the SDK's 10-minute default. `maxRetries: 0` disables the SDK's own retry
     // so backoff is single-sourced in callWithRetry (which also covers
@@ -174,6 +174,13 @@ export class TranslatorClient {
       (new Anthropic({
         baseURL: opts.baseUrl,
         apiKey: opts.apiKey,
+        // The app's endpoint-gated undici instrumentation owns outbound tracing.
+        openTelemetry: false,
+        defaultHeaders: {
+          "X-Api-Key": opts.apiKey,
+          Authorization: null,
+          "anthropic-version": "2023-06-01",
+        },
         timeout: translationTimeoutMs(this.maxTokens),
         maxRetries: 0,
       }) as unknown as AnthropicLike);
