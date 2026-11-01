@@ -124,6 +124,10 @@ collector.
 
 - Conversation content and raw tool I/O are never captured in spans
   (`ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false`), in-memory or exported.
+- Both MiniMax clients disable the Anthropic SDK's native telemetry. Outbound
+  tracing stays owned by the endpoint-gated undici instrumentation, so SDK
+  `ANTHROPIC_OPEN_TELEMETRY*` environment settings cannot enable native spans,
+  content capture or trace propagation outside that policy.
 - SERVER spans export `http.route` (templated), never the raw path or query. A handler
   error that escapes records only its class and a known code: the status message is
   `TypeError [ECONNREFUSED]` and `exception.type` is the code, else the class. Its
