@@ -28,13 +28,19 @@ export interface OidcClient {
   completeLogin(
     callbackUrl: URL,
     tx: LoginTransaction,
-  ): Promise<{ claims: Record<string, unknown>; idToken: string; refreshToken?: string }>;
+  ): Promise<{
+    claims: Record<string, unknown>;
+    idToken: string;
+    accessToken?: string;
+    refreshToken?: string;
+  }>;
   refresh(
     refreshToken: string,
     sub: string,
   ): Promise<{
     claims: Record<string, unknown>;
     idToken?: string;
+    accessToken?: string;
     refreshToken?: string;
   }>;
   /** Best-effort logout caller; no request when the provider has no revocation endpoint. */
@@ -148,6 +154,7 @@ export function createOidcClient(
       return {
         claims: { ...claims },
         idToken: tokens.id_token,
+        accessToken: tokens.access_token,
         ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
       };
     },
@@ -162,6 +169,7 @@ export function createOidcClient(
       }
       return {
         claims: { ...claims },
+        accessToken: tokens.access_token,
         ...(tokens.id_token ? { idToken: tokens.id_token } : {}),
         ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
       };

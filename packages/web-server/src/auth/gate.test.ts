@@ -656,7 +656,7 @@ describe("auth gate", () => {
       // Even a provider error that echoes a credential must stay server-private.
       idp.refresh.error = idp.refreshTokens.at(-1)!;
       advance(30_000);
-      expect((await send("/v1/health", { cookie: failing })).response.status).toBe(401);
+      expect((await send("/v1/health", { cookie: failing })).response.status).toBe(503);
       expect(records.length).toBeGreaterThan(0);
       const everything = [
         ...seen,

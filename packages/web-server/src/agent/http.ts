@@ -138,6 +138,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
     );
   }
   const activeControllers = new Map<string, Set<AbortController>>();
+  const activeUsers = new Map<string, number>();
   const shutdown = new AbortController();
   const admitted = new Set<IncomingMessage>();
 
@@ -214,8 +215,13 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       }
       if (req.method === "POST" && parts.length === 3 && parts[2] === "messages") {
         const body = await readJsonBody(req);
-        if (!isRecord(body) || typeof body.message !== "string" || !body.message.trim()) {
-          return errorJson(res, 400, "invalid_request", "message is required");
+        if (
+          !isRecord(body) ||
+          typeof body.message !== "string" ||
+          !body.message.trim() ||
+          body.message.length > 16000
+        ) {
+          return errorJson(res, 400, "invalid_request", "message must contain 1–16000 characters");
         }
         const connection = serverCore ?? readCoreConnection(body, devProxyTarget);
         if ("error" in connection) {
@@ -225,14 +231,38 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         // ADK runs under the user the session is stored under.
         const owner = await store.ownerOf(sessionId);
         const scope = await store.scopeOf(sessionId);
+        if (res.destroyed || res.writableEnded) return;
+        if (
+          activeControllers.has(sessionId) ||
+          (activeUsers.get(owner) ?? 0) >= 2 ||
+          activeControllers.size >= 8
+        ) {
+          res.setHeader("Retry-After", "5");
+          return errorJson(
+            res,
+            429,
+            "agent_busy",
+            "too many active turns; retry after the current turn finishes",
+          );
+        }
+        activeUsers.set(owner, (activeUsers.get(owner) ?? 0) + 1);
         const controller = new AbortController();
+        let timedOut = false;
+        const timeout = setTimeout(() => {
+          timedOut = true;
+          controller.abort(new DOMException("Turn time limit", "TimeoutError"));
+        }, 120000);
+        timeout.unref();
+        const disconnected = () =>
+          controller.abort(new DOMException("Client disconnected", "AbortError"));
+        res.once("close", disconnected);
         const controllers = activeControllers.get(sessionId) ?? new Set<AbortController>();
         controllers.add(controller);
         activeControllers.set(sessionId, controllers);
         res.statusCode = 200;
         res.setHeader("Content-Type", "application/x-ndjson; charset=utf-8");
         const writeEvent = (event: AgentStreamEvent) => {
-          res.write(`${JSON.stringify(event)}\n`);
+          if (!res.destroyed && !res.writableEnded) res.write(`${JSON.stringify(event)}\n`);
         };
         try {
           await runner.runMessage({
@@ -253,6 +283,19 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
             message: error instanceof Error ? error.message : String(error),
           });
         } finally {
+          if (timedOut)
+            writeEvent({
+              type: "error",
+              sessionId,
+              code: "turn_timeout",
+              message:
+                "This turn exceeded the 120-second limit. Please retry with a narrower question.",
+            });
+          clearTimeout(timeout);
+          res.removeListener("close", disconnected);
+          const remaining = (activeUsers.get(owner) ?? 1) - 1;
+          if (remaining) activeUsers.set(owner, remaining);
+          else activeUsers.delete(owner);
           controllers.delete(controller);
           if (!controllers.size) activeControllers.delete(sessionId);
           res.end();
@@ -288,9 +331,13 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       }
       return notFound(res);
     } catch (error) {
+      if (res.destroyed || res.writableEnded) return;
       if (shutdown.signal.aborted) {
         res.destroy();
         return;
+      }
+      if (error instanceof AgentInputError) {
+        return errorJson(res, error.status, "invalid_request", error.message);
       }
       if (error instanceof InvalidSessionScopeError) {
         return errorJson(res, 400, "invalid_request", error.message);
@@ -442,12 +489,37 @@ function errorJson(res: ServerResponse, status: number, code: string, message: s
   res.end(JSON.stringify({ error: { code, message } }));
 }
 
-async function readJsonBody(req: IncomingMessage): Promise<unknown> {
-  let text = "";
-  for await (const chunk of req) {
-    text += chunk;
+class AgentInputError extends Error {
+  constructor(
+    readonly status: 400 | 408 | 413,
+    message: string,
+  ) {
+    super(message);
   }
-  return text ? JSON.parse(text) : {};
+}
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let bytes = 0;
+  const deadline = setTimeout(
+    () => req.destroy(new AgentInputError(408, "request body timed out")),
+    15000,
+  );
+  deadline.unref();
+  try {
+    for await (const chunk of req) {
+      bytes += Buffer.byteLength(chunk);
+      if (bytes > 131072) throw new AgentInputError(413, "request body exceeds 128 KiB");
+      chunks.push(Buffer.from(chunk));
+    }
+  } finally {
+    clearTimeout(deadline);
+  }
+  const text = Buffer.concat(chunks).toString("utf8");
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    throw new AgentInputError(400, "invalid JSON body");
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

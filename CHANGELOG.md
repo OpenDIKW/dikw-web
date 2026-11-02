@@ -7,6 +7,12 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.9] - 2026-11-02
+
+- Release shared cohort `0.1.8` with a server-only live session authorization hook, sealed access tokens and immutable original authentication time. Opted-in applications reject legacy sessions requiring reauthentication.
+- Preserve sessions on temporary identity-provider renewal failures; terminate confirmed revoked sessions and keep rotated credentials during concurrent live checks.
+- Bound Agent inputs, body-read time, per-session/user/runtime concurrency, turn duration, model calls and output tokens. Cancel disconnected client work, including disconnects during ownership lookup.
+
 ## [0.12.8] - 2026-11-01
 
 - Patch the production dependency advisories blocking dependency PRs: require DOMPurify `3.4.17` or newer, refresh Zod to `4.6.7`, and update the application and shared server to undici `8.12.3`.

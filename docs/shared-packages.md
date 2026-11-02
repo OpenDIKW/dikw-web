@@ -188,3 +188,19 @@ and tests package dependencies. Do not commit `file:`, workspace, sibling-source
 or temporary-tarball dependencies in the private application. Its delivered
 manifest and lockfile must reference the exact registry cohort. The shared
 packages have no dependency on private MB code or credentials.
+
+### Live session authorization (0.1.8)
+
+`createWebRuntime({ validateSession })` accepts an optional server-only live
+identity validator. It receives the issuer, client ID, subject, sealed access
+token and immutable original signed login `iat`. Return the current viewer/editor
+role; throw `SessionValidationError(401 | 403)` for revoked authorization, or
+`SessionValidationError(503)` for unavailable identity status. Unknown errors
+are treated as temporary failures. Tokens never enter browser responses.
+Applications opting in must reject ambiguous provider status and validate the
+provider response against their expected identity and application. Existing
+sessions lacking access tokens/original authentication metadata require login.
+Refresh preserves original authentication time. Temporary refresh or validation
+failures return 503 without deleting cookies or sessions; confirmed invalid_grant
+and revocation still end the local session. Live checks run on every protected
+request, including requests before the idle renewal interval.

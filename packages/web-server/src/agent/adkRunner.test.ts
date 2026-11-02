@@ -519,3 +519,18 @@ it.each(["sources/{paper}/article.md", "sources/{title}.md"])(
     }
   },
 );
+it("enforces an eight-call model budget for each turn", async () => {
+  const run = vi.fn();
+  const { runner } = makeRunner(() => ({
+    async *runAsync(input) {
+      run(input);
+    },
+  }));
+  await runner.runMessage({
+    sessionId: SESSION_ID,
+    message: "test budget",
+    coreUrl: "http://127.0.0.1:8765",
+    onEvent: () => {},
+  });
+  expect(run.mock.calls[0][0].runConfig.maxLlmCalls).toBe(8);
+});

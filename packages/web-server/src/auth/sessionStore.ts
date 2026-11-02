@@ -12,6 +12,9 @@ export interface AuthSession {
   role: AuthRole | null;
   /** Kept only as the `id_token_hint` for RP-initiated logout. */
   idToken: string;
+  accessToken?: string;
+  /** Immutable signed iat of the original login; absent on legacy records. */
+  authenticatedAt?: number;
   /** Refresh credentials and clocks stay inside the AES-GCM-sealed record. */
   renewal?: {
     refreshToken: string;
