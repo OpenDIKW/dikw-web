@@ -152,3 +152,33 @@ it("closes a body which never finishes without starting a model", async () => {
   expect(res.statusCode).toBe(408);
   expect(f.runner.runMessage).not.toHaveBeenCalled();
 });
+it("counts legacy and current sessions against one authenticated user's quota", async () => {
+  let entered = 0;
+  const releases: (() => void)[] = [];
+  const handler = createAgentHandler({
+    subjectFor: () => "alice",
+    legacySessionsOwner: "alice",
+    serverCore: { coreUrl: "http://fixture.invalid" },
+    store: {
+      forUser: () => ({
+        ownerOf: async (id: string) => (id.startsWith("legacy") ? "demo" : "oidc:alice"),
+        scopeOf: async () => undefined,
+      }),
+    } as unknown as AdkSessionStore,
+    runner: {
+      async runMessage() {
+        entered++;
+        await new Promise<void>((resolve) => releases.push(resolve));
+      },
+    } as AgentRunner,
+  });
+  const a = handler(req("one", "legacy1"), response() as unknown as ServerResponse);
+  const b = handler(req("two", "legacy2"), response() as unknown as ServerResponse);
+  await vi.waitFor(() => expect(entered).toBe(2));
+  const c = response();
+  await handler(req("three", "new1"), c as unknown as ServerResponse);
+  expect(c.statusCode).toBe(429);
+  expect(entered).toBe(2);
+  releases.forEach((r) => r());
+  await Promise.all([a, b]);
+});

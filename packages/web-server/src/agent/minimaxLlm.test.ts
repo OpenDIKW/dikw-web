@@ -389,3 +389,30 @@ describe("MiniMaxLlm", () => {
     await expect(llm.connect()).rejects.toThrow(/live\/bidi connect/);
   });
 });
+it("shares the network-call budget between normal turns and compaction and caps their output", async () => {
+  const captured: CapturedCall[] = [];
+  const llm = new MiniMaxLlm({
+    model: "fixture",
+    apiKey: "fixture",
+    baseUrl: "https://fixture.invalid",
+    maxCalls: 2,
+    maxOutputTokens: 8192,
+    client: makeFakeClient({ ...canned, captured }),
+  });
+  const request = () =>
+    ({
+      contents: [{ role: "user", parts: [{ text: "fixture" }] }],
+      liveConnectConfig: {},
+      toolsDict: {},
+      config: { maxOutputTokens: 99999 },
+    }) as LlmRequest;
+  await drain(llm.generateContentAsync(request(), true));
+  await drain(llm.generateContentAsync(request(), false));
+  await expect(drain(llm.generateContentAsync(request(), true))).rejects.toThrow(
+    "model-call budget",
+  );
+  expect(captured).toHaveLength(2);
+  expect(captured.map((c) => (c.params as { max_tokens: number }).max_tokens)).toEqual([
+    8192, 8192,
+  ]);
+});

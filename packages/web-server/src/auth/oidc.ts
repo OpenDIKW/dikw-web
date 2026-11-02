@@ -14,6 +14,14 @@
 import * as client from "openid-client";
 import type { AuthConfig } from "./config.js";
 
+/** A token grant succeeded, but current identity could not yet be verified.
+ * The rotated refresh credential stays server-side and must never be logged. */
+export class OidcRefreshPendingError extends Error {
+  constructor(readonly refreshToken: string) {
+    super("refresh identity validation unavailable");
+  }
+}
+
 export interface LoginTransaction {
   state: string;
   nonce: string;
@@ -32,6 +40,7 @@ export interface OidcClient {
     claims: Record<string, unknown>;
     idToken: string;
     accessToken?: string;
+    accessTokenExpiresIn?: number;
     refreshToken?: string;
   }>;
   refresh(
@@ -41,6 +50,7 @@ export interface OidcClient {
     claims: Record<string, unknown>;
     idToken?: string;
     accessToken?: string;
+    accessTokenExpiresIn?: number;
     refreshToken?: string;
   }>;
   /** Best-effort logout caller; no request when the provider has no revocation endpoint. */
@@ -155,6 +165,9 @@ export function createOidcClient(
         claims: { ...claims },
         idToken: tokens.id_token,
         accessToken: tokens.access_token,
+        ...(typeof tokens.expires_in === "number"
+          ? { accessTokenExpiresIn: tokens.expires_in }
+          : {}),
         ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
       };
     },
@@ -162,14 +175,24 @@ export function createOidcClient(
     async refresh(refreshToken, sub) {
       const config = await getConfiguration();
       const tokens = await client.refreshTokenGrant(config, refreshToken);
-      const claims =
-        tokens.claims() ?? (await client.fetchUserInfo(config, tokens.access_token, sub));
+      let claims: Record<string, unknown> | undefined = tokens.claims();
+      if (!claims) {
+        try {
+          claims = await client.fetchUserInfo(config, tokens.access_token, sub);
+        } catch (error) {
+          if (tokens.refresh_token) throw new OidcRefreshPendingError(tokens.refresh_token);
+          throw error;
+        }
+      }
       if (claims.sub !== sub || (claims.azp !== undefined && claims.azp !== settings.clientId)) {
         throw new Error("unexpected refreshed identity");
       }
       return {
         claims: { ...claims },
         accessToken: tokens.access_token,
+        ...(typeof tokens.expires_in === "number"
+          ? { accessTokenExpiresIn: tokens.expires_in }
+          : {}),
         ...(tokens.id_token ? { idToken: tokens.id_token } : {}),
         ...(tokens.refresh_token ? { refreshToken: tokens.refresh_token } : {}),
       };

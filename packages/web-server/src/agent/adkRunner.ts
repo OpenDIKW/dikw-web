@@ -202,6 +202,8 @@ export class AdkAgentRunner implements AgentRunner {
         apiKey: this.config.apiKey,
         baseUrl: this.config.baseUrl,
         abortSignal: signal,
+        maxCalls: 8,
+        maxOutputTokens: 8192,
       });
       const compactor = buildContextCompactor(model, this.config.compaction);
 

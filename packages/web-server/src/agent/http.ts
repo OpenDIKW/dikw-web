@@ -162,6 +162,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       // `oidc:<sub>`, so no IdP subject can ever be the pre-auth `demo` owner;
       // only the configured legacy owner is handed those sessions.
       const subject = subjectFor?.(req);
+      const quotaOwner = subject === undefined ? DEFAULT_USER_ID : `oidc:${subject}`;
       const store =
         subject === undefined
           ? baseStore.forUser(DEFAULT_USER_ID)
@@ -234,7 +235,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         if (res.destroyed || res.writableEnded) return;
         if (
           activeControllers.has(sessionId) ||
-          (activeUsers.get(owner) ?? 0) >= 2 ||
+          (activeUsers.get(quotaOwner) ?? 0) >= 2 ||
           activeControllers.size >= 8
         ) {
           res.setHeader("Retry-After", "5");
@@ -245,7 +246,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
             "too many active turns; retry after the current turn finishes",
           );
         }
-        activeUsers.set(owner, (activeUsers.get(owner) ?? 0) + 1);
+        activeUsers.set(quotaOwner, (activeUsers.get(quotaOwner) ?? 0) + 1);
         const controller = new AbortController();
         let timedOut = false;
         const timeout = setTimeout(() => {
@@ -293,9 +294,9 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
             });
           clearTimeout(timeout);
           res.removeListener("close", disconnected);
-          const remaining = (activeUsers.get(owner) ?? 1) - 1;
-          if (remaining) activeUsers.set(owner, remaining);
-          else activeUsers.delete(owner);
+          const remaining = (activeUsers.get(quotaOwner) ?? 1) - 1;
+          if (remaining) activeUsers.set(quotaOwner, remaining);
+          else activeUsers.delete(quotaOwner);
           controllers.delete(controller);
           if (!controllers.size) activeControllers.delete(sessionId);
           res.end();

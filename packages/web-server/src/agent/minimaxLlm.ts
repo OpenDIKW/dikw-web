@@ -105,6 +105,9 @@ export interface MiniMaxLlmOptions {
    * Stop. Merged with the per-call signal via `AbortSignal.any`.
    */
   abortSignal?: AbortSignal;
+  /** Per-turn budget shared by Agent and context compaction calls. */
+  maxCalls?: number;
+  maxOutputTokens?: number;
   /** Test seam: inject a fake transport. Defaults to a real `Anthropic` client. */
   client?: AnthropicLike;
 }
@@ -114,16 +117,23 @@ const DEFAULT_MAX_TOKENS = 4096;
 export class MiniMaxLlm extends BaseLlm {
   private readonly client: AnthropicLike;
   private readonly abortSignal?: AbortSignal;
+  private readonly maxCalls?: number;
+  private readonly maxOutputTokens?: number;
+  private calls = 0;
 
   constructor(opts: MiniMaxLlmOptions) {
     super({ model: opts.model });
     this.abortSignal = opts.abortSignal;
+    this.maxCalls = opts.maxCalls;
+    this.maxOutputTokens = opts.maxOutputTokens;
     // Preserve MiniMax's verified auth and API-version headers across SDK upgrades.
     this.client =
       opts.client ??
       (new Anthropic({
         baseURL: opts.baseUrl,
         apiKey: opts.apiKey,
+        // A budgeted turn counts every network attempt, including compaction.
+        ...(opts.maxCalls !== undefined ? { maxRetries: 0 } : {}),
         // The app's endpoint-gated undici instrumentation owns outbound tracing.
         openTelemetry: false,
         defaultHeaders: {
@@ -143,6 +153,9 @@ export class MiniMaxLlm extends BaseLlm {
     stream?: boolean,
     abortSignal?: AbortSignal,
   ): AsyncGenerator<LlmResponse, void> {
+    if (this.maxCalls !== undefined && this.calls >= this.maxCalls)
+      throw new Error("Turn model-call budget exhausted; narrow the question and try again.");
+    this.calls++;
     this.maybeAppendUserContent(llmRequest);
 
     const params = this.toAnthropicParams(llmRequest);
@@ -202,7 +215,10 @@ export class MiniMaxLlm extends BaseLlm {
     const config = llmRequest.config ?? {};
     const params: AnthropicMessageParams = {
       model: this.model,
-      max_tokens: config.maxOutputTokens ?? DEFAULT_MAX_TOKENS,
+      max_tokens: Math.min(
+        config.maxOutputTokens ?? DEFAULT_MAX_TOKENS,
+        this.maxOutputTokens ?? Number.MAX_SAFE_INTEGER,
+      ),
       messages: toAnthropicMessages(llmRequest.contents ?? []),
     };
 

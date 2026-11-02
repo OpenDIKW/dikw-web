@@ -57,8 +57,13 @@ One promise per session shares concurrent renewals in the standalone process.
 This assumes a single server process per auth.sqlite; sharing it across replicas
 would need a distributed refresh lock. No background timer extends idle sessions.
 An expired/deleted record cannot be revived by a late response; its returned
-refresh token is revoked when supported. Refresh failure ends the local session
-and returns 401 through the existing sign-in flow, without retries or raw error logs.
+refresh token is revoked when supported. Confirmed `invalid_grant` ends the local
+session with 401; temporary renewal/identity-status failures return 503 and retain
+the session for a later retry, without raw error logs. Applications may opt into
+the server-only live `validateSession` hook; it checks every protected request,
+returns current authorization, and can terminate revoked sessions with 401/403.
+Access tokens and immutable original login iat remain sealed server-side, and
+legacy sessions lacking them require a fresh login when the hook is enabled.
 Providers that do not issue refresh tokens, and sessions created before this
 change, retain the original fixed TTL. Default scopes stay `openid profile email`;
 offline access is an explicit provider-specific deployment choice. The

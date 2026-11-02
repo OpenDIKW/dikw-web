@@ -1,3 +1,4 @@
+import { OidcRefreshPendingError } from "./oidc.js";
 // The auth-mode gate (issue #200): owns /web/auth/* and decides, for every other
 // request, whether it may reach the app handlers. The server is the source of
 // truth — the SPA only hides what a role can't do.
@@ -120,7 +121,12 @@ export function createAuthGate({
       sessions.delete(id);
       return null;
     }
-    if (now() >= session.renewal!.refreshedAt + config.sessionRefreshSeconds * 1000) {
+    if (
+      (session.accessTokenExpiresAt !== undefined &&
+        now() >= session.accessTokenExpiresAt - 5000) ||
+      session.renewal!.identityPending ||
+      now() >= session.renewal!.refreshedAt + config.sessionRefreshSeconds * 1000
+    ) {
       let pending = refreshing.get(id);
       if (!pending) {
         pending = refreshSession(id, session, deadline).finally(() => refreshing.delete(id));
@@ -136,7 +142,17 @@ export function createAuthGate({
     }
     const checked = await validateCurrent({ id, session });
     if (!checked) return null;
-    session = checked.session;
+    const latest = sessions.get(id);
+    if (!latest) return null;
+    if (latest.renewal?.identityPending) throw new SessionValidationError(503);
+    // No await may occur between this comparison and the update. A refresh can
+    // settle in the microtask gap after validateCurrent returned its snapshot.
+    if (
+      latest.accessToken !== checked.session.accessToken ||
+      latest.renewal?.refreshToken !== checked.session.renewal?.refreshToken
+    )
+      throw new SessionValidationError(503);
+    session = { ...latest, role: checked.session.role };
     const expiresAt = Math.min(now() + config.sessionTtlSeconds * 1000, deadline);
     if (!sessions.update(id, session, expiresAt)) return null;
     res.setHeader("Set-Cookie", cookie(SESSION_COOKIE, id, Math.floor((expiresAt - now()) / 1000)));
@@ -162,6 +178,7 @@ export function createAuthGate({
       // A concurrent logout must not be bypassed by a completed status lookup.
       const latest = sessions.get(current.id);
       if (!latest) return null;
+      if (latest.renewal?.identityPending) throw new SessionValidationError(503);
       if (latest.accessToken !== current.session.accessToken) {
         if (!retry) throw new SessionValidationError(503);
         return validateCurrent({ id: current.id, session: latest }, false);
@@ -169,6 +186,7 @@ export function createAuthGate({
       return { ...current, session: { ...latest, role: result.role } };
     } catch (error) {
       const latest = sessions.get(current.id);
+      if (latest?.renewal?.identityPending) throw new SessionValidationError(503);
       if (latest && latest.accessToken !== current.session.accessToken) {
         if (!retry) throw new SessionValidationError(503);
         return validateCurrent({ id: current.id, session: latest }, false);
@@ -192,10 +210,14 @@ export function createAuthGate({
         ),
         idToken: result.idToken ?? session.idToken,
         accessToken: result.accessToken ?? session.accessToken,
+        accessTokenExpiresAt: result.accessToken
+          ? tokenExpiry(result.accessTokenExpiresIn)
+          : session.accessTokenExpiresAt,
         renewal: {
           ...session.renewal!,
           refreshToken: result.refreshToken ?? session.renewal!.refreshToken,
           refreshedAt: now(),
+          identityPending: false,
         },
       };
       if (
@@ -205,6 +227,27 @@ export function createAuthGate({
         await revoke(renewed.renewal!.refreshToken);
       }
     } catch (error) {
+      if (error instanceof OidcRefreshPendingError) {
+        // Keep only the new refresh credential, without trusting new access
+        // identity or extending idle expiry. The next request must retry renewal.
+        const latest = sessions.get(id);
+        if (
+          !latest ||
+          now() >= deadline ||
+          !sessions.update(id, {
+            ...latest,
+            renewal: {
+              ...latest.renewal!,
+              refreshToken: error.refreshToken,
+              identityPending: true,
+            },
+          })
+        ) {
+          sessions.delete(id);
+          await revoke(error.refreshToken);
+        }
+        throw new SessionValidationError(503);
+      }
       // OAuth invalid_grant is a definitive revocation/expiry. Network, provider
       // and client-configuration failures are retryable and must not erase a session.
       if (
@@ -220,6 +263,12 @@ export function createAuthGate({
       log.warn("session renewal unavailable");
       throw new SessionValidationError(503);
     }
+  }
+
+  function tokenExpiry(seconds: number | undefined): number | undefined {
+    return typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0
+      ? now() + seconds * 1000
+      : undefined;
   }
 
   function originAllowed(req: IncomingMessage): boolean {
@@ -283,7 +332,12 @@ export function createAuthGate({
         ...optionalString("email", claims.email),
         role,
         idToken,
-        ...(result.accessToken ? { accessToken: result.accessToken } : {}),
+        ...(result.accessToken
+          ? {
+              accessToken: result.accessToken,
+              accessTokenExpiresAt: tokenExpiry(result.accessTokenExpiresIn),
+            }
+          : {}),
         ...(Number.isSafeInteger(claims.iat) && Number(claims.iat) > 0
           ? { authenticatedAt: Number(claims.iat) }
           : {}),
