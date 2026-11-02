@@ -31,7 +31,7 @@ export interface RunnerLike {
     sessionId: string;
     newMessage: Content;
     abortSignal?: AbortSignal;
-    runConfig?: { streamingMode: StreamingMode };
+    runConfig?: { streamingMode: StreamingMode; maxLlmCalls?: number };
   }): AsyncGenerator<Event> | AsyncIterable<Event>;
 }
 
@@ -202,6 +202,8 @@ export class AdkAgentRunner implements AgentRunner {
         apiKey: this.config.apiKey,
         baseUrl: this.config.baseUrl,
         abortSignal: signal,
+        maxCalls: 8,
+        maxOutputTokens: 8192,
       });
       const compactor = buildContextCompactor(model, this.config.compaction);
 
@@ -212,6 +214,7 @@ export class AdkAgentRunner implements AgentRunner {
         // A page path is literal data; ADK string instructions interpolate {state}.
         instruction: scope ? () => systemPrompt(this.profile, scope) : systemPrompt(this.profile),
         tools,
+        generateContentConfig: { maxOutputTokens: 8192 },
         ...(compactor ? { contextCompactors: [compactor] } : {}),
       });
 
@@ -226,7 +229,7 @@ export class AdkAgentRunner implements AgentRunner {
         sessionId,
         newMessage: { role: "user", parts: [{ text: message }] },
         abortSignal: signal,
-        runConfig: { streamingMode: StreamingMode.SSE },
+        runConfig: { streamingMode: StreamingMode.SSE, maxLlmCalls: 8 },
       });
       for await (const event of stream) {
         for (const mapped of mapAdkEvent(sessionId, event)) {

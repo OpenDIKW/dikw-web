@@ -310,3 +310,17 @@ evidence. Successful page reads produce the existing source citation event.
 This is an answer-evidence scope, not a per-user content ACL for the shared Core.
 Applications select scoped or whole-base sessions explicitly and keep their chat
 histories separate. Scope survives local display-name edits and backend restarts.
+
+### Turn admission and cancellation
+
+The server rejects JSON bodies above 128 KiB and messages outside 1–16,000
+characters before starting a model. An unfinished JSON body is disconnected after
+15 seconds. Each session may have one active turn, each
+user two, and each runtime eight. Busy requests return 429 with Retry-After.
+A turn has a 120-second deadline and at most eight model calls, including context
+compaction; SDK retries are disabled for these budgeted turns. Generated output
+is capped at 8,192 tokens per call. Closing the response connection cancels the
+turn. These limits bound a turn rather than imposing a billing quota across
+multiple runtime instances. Operators should apply provider billing limits as
+well. Cancelled turns retain their already recorded history and release their
+admission slot after the runner finishes cleanup.

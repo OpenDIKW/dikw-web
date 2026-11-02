@@ -237,13 +237,17 @@ Renewed ID tokens undergo the same signature/issuer/audience/authorized-party
 checks as login and must keep the original subject. If no ID token is returned,
 the new access token is used once for subject-checked UserInfo; configure the
 same role claims there. Missing role claims result in `403 no_role` on app APIs
-(`/web/auth/me` returns role null). Failed refresh or unverifiable UserInfo deletes
-the session and returns 401, triggering the SPA's existing sign-in redirect
-without a retry loop. Provider responses/errors and refresh credentials are never
-logged. The IdP must return current roles and reject refresh/UserInfo for disabled
+(`/web/auth/me` returns role null). Confirmed `invalid_grant` deletes the session
+and returns 401. Temporary refresh failure or unverifiable identity status returns
+503 while preserving the session and cookie for a later retry. Provider
+responses/errors and refresh credentials are never logged. The IdP must return current roles and reject refresh/UserInfo for disabled
 or revoked accounts; its own policies can impose a shorter lifetime.
 
-Role changes take effect on the server at the next active renewal. SPA controls
+By default, role changes take effect at the next active renewal. Applications
+using the server-only `validateSession` hook instead verify current identity and
+roles on every protected request, with 401/403 revocation and 503 unavailability.
+The hook receives the immutable original login time; old sessions lacking this
+metadata require reauthentication. SPA controls
 and the role display update on reload; already admitted streams/jobs continue.
 Logout deletes the local record first and revokes the current refresh token when
 the IdP advertises `revocation_endpoint`; provider failure still leaves the local

@@ -12,11 +12,17 @@ export interface AuthSession {
   role: AuthRole | null;
   /** Kept only as the `id_token_hint` for RP-initiated logout. */
   idToken: string;
+  accessToken?: string;
+  accessTokenExpiresAt?: number;
+  /** Immutable signed iat of the original login; absent on legacy records. */
+  authenticatedAt?: number;
   /** Refresh credentials and clocks stay inside the AES-GCM-sealed record. */
   renewal?: {
     refreshToken: string;
     startedAt: number;
     refreshedAt: number;
+    /** The grant rotated but UserInfo has not yet verified current identity. */
+    identityPending?: boolean;
   };
 }
 
@@ -58,7 +64,7 @@ export class AuthSessionStore {
     this.select = this.db.prepare("SELECT data, expires_at FROM auth_sessions WHERE id_hash = ?");
     this.remove = this.db.prepare("DELETE FROM auth_sessions WHERE id_hash = ?");
     this.replace = this.db.prepare(
-      "UPDATE auth_sessions SET data = ?, expires_at = ? WHERE id_hash = ? AND expires_at > ?",
+      "UPDATE auth_sessions SET data = ?, expires_at = COALESCE(?, expires_at) WHERE id_hash = ? AND expires_at > ?",
     );
     this.sealer = createSealer(options.secret, "session-record");
     this.now = options.now ?? Date.now;
@@ -90,10 +96,12 @@ export class AuthSessionStore {
   }
 
   /** Replace only a live record; a late refresh cannot resurrect a signed-out session. */
-  update(id: string, session: AuthSession, expiresAt: number): boolean {
+  update(id: string, session: AuthSession, expiresAt?: number): boolean {
     const now = this.now();
-    if (expiresAt <= now) return false;
-    return this.replace.run(this.sealer.seal(session), expiresAt, hashId(id), now).changes === 1;
+    if (expiresAt !== undefined && expiresAt <= now) return false;
+    return (
+      this.replace.run(this.sealer.seal(session), expiresAt ?? null, hashId(id), now).changes === 1
+    );
   }
 
   close(): void {

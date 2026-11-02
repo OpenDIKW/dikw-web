@@ -1,3 +1,4 @@
+import { OidcRefreshPendingError } from "./oidc.js";
 // The auth-mode gate (issue #200): owns /web/auth/* and decides, for every other
 // request, whether it may reach the app handlers. The server is the source of
 // truth — the SPA only hides what a role can't do.
@@ -16,6 +17,7 @@ import { CALLBACK_PATH, type LoginTransaction, type OidcClient } from "./oidc.js
 import { extractRoles, requiredRole, resolveRole, type AuthRole } from "./roles.js";
 import { createSealer } from "./seal.js";
 import type { AuthSession, AuthSessionStore } from "./sessionStore.js";
+import { SessionValidationError, type SessionValidator } from "./sessionValidation.js";
 import { createLogger } from "../shared/logger.js";
 
 const log = createLogger("auth");
@@ -39,6 +41,7 @@ export interface AuthGateOptions {
   oidc: OidcClient;
   sessions: AuthSessionStore;
   now?: () => number;
+  validateSession?: SessionValidator;
 }
 
 export interface AuthGate {
@@ -75,6 +78,7 @@ export function createAuthGate({
   now = Date.now,
   cookiePrefix = "dikw",
   publicIdentity,
+  validateSession,
 }: AuthGateOptions): AuthGate {
   const SESSION_COOKIE = `${cookiePrefix}_session`;
   const LOGIN_COOKIE = `${cookiePrefix}_login`;
@@ -98,7 +102,18 @@ export function createAuthGate({
     res: ServerResponse,
   ): Promise<{ id: string; session: AuthSession } | null> {
     const current = storedSession(req);
-    if (!current || !current.session.renewal || !originAllowed(req)) return current;
+    if (!current || !originAllowed(req)) return current;
+    if (
+      validateSession &&
+      (!current.session.accessToken ||
+        !Number.isSafeInteger(current.session.authenticatedAt) ||
+        current.session.authenticatedAt! <= 0)
+    ) {
+      sessions.delete(current.id);
+      return null;
+    }
+    if (!current.session.renewal) return validateCurrent(current);
+
     const { id } = current;
     let { session } = current;
     const deadline = session.renewal!.startedAt + config.sessionMaxSeconds * 1000;
@@ -106,7 +121,12 @@ export function createAuthGate({
       sessions.delete(id);
       return null;
     }
-    if (now() >= session.renewal!.refreshedAt + config.sessionRefreshSeconds * 1000) {
+    if (
+      (session.accessTokenExpiresAt !== undefined &&
+        now() >= session.accessTokenExpiresAt - 5000) ||
+      session.renewal!.identityPending ||
+      now() >= session.renewal!.refreshedAt + config.sessionRefreshSeconds * 1000
+    ) {
       let pending = refreshing.get(id);
       if (!pending) {
         pending = refreshSession(id, session, deadline).finally(() => refreshing.delete(id));
@@ -120,10 +140,61 @@ export function createAuthGate({
       }
       session = refreshed;
     }
+    const checked = await validateCurrent({ id, session });
+    if (!checked) return null;
+    const latest = sessions.get(id);
+    if (!latest) return null;
+    if (latest.renewal?.identityPending) throw new SessionValidationError(503);
+    // No await may occur between this comparison and the update. A refresh can
+    // settle in the microtask gap after validateCurrent returned its snapshot.
+    if (
+      latest.accessToken !== checked.session.accessToken ||
+      latest.renewal?.refreshToken !== checked.session.renewal?.refreshToken
+    )
+      throw new SessionValidationError(503);
+    session = { ...latest, role: checked.session.role };
     const expiresAt = Math.min(now() + config.sessionTtlSeconds * 1000, deadline);
     if (!sessions.update(id, session, expiresAt)) return null;
     res.setHeader("Set-Cookie", cookie(SESSION_COOKIE, id, Math.floor((expiresAt - now()) / 1000)));
     return { id, session };
+  }
+
+  async function validateCurrent(
+    current: { id: string; session: AuthSession },
+    retry = true,
+  ): Promise<{ id: string; session: AuthSession } | null> {
+    if (!validateSession) return current;
+    try {
+      const result = await validateSession(
+        Object.freeze({
+          issuer: config.issuer,
+          clientId: config.clientId,
+          sub: current.session.sub,
+          accessToken: current.session.accessToken!,
+          authenticatedAt: current.session.authenticatedAt!,
+        }),
+      );
+      if (![null, "viewer", "editor"].includes(result.role)) throw new SessionValidationError(503);
+      // A concurrent logout must not be bypassed by a completed status lookup.
+      const latest = sessions.get(current.id);
+      if (!latest) return null;
+      if (latest.renewal?.identityPending) throw new SessionValidationError(503);
+      if (latest.accessToken !== current.session.accessToken) {
+        if (!retry) throw new SessionValidationError(503);
+        return validateCurrent({ id: current.id, session: latest }, false);
+      }
+      return { ...current, session: { ...latest, role: result.role } };
+    } catch (error) {
+      const latest = sessions.get(current.id);
+      if (latest?.renewal?.identityPending) throw new SessionValidationError(503);
+      if (latest && latest.accessToken !== current.session.accessToken) {
+        if (!retry) throw new SessionValidationError(503);
+        return validateCurrent({ id: current.id, session: latest }, false);
+      }
+      if (error instanceof SessionValidationError && error.status !== 503)
+        sessions.delete(current.id);
+      throw error instanceof SessionValidationError ? error : new SessionValidationError(503);
+    }
   }
 
   async function refreshSession(id: string, session: AuthSession, deadline: number): Promise<void> {
@@ -138,10 +209,15 @@ export function createAuthGate({
           config,
         ),
         idToken: result.idToken ?? session.idToken,
+        accessToken: result.accessToken ?? session.accessToken,
+        accessTokenExpiresAt: result.accessToken
+          ? tokenExpiry(result.accessTokenExpiresIn)
+          : session.accessTokenExpiresAt,
         renewal: {
           ...session.renewal!,
           refreshToken: result.refreshToken ?? session.renewal!.refreshToken,
           refreshedAt: now(),
+          identityPending: false,
         },
       };
       if (
@@ -150,11 +226,49 @@ export function createAuthGate({
         sessions.delete(id);
         await revoke(renewed.renewal!.refreshToken);
       }
-    } catch {
-      sessions.delete(id);
-      // Provider errors may contain credentials; log no response or exception.
-      log.warn("session renewal failed; signed out locally");
+    } catch (error) {
+      if (error instanceof OidcRefreshPendingError) {
+        // Keep only the new refresh credential, without trusting new access
+        // identity or extending idle expiry. The next request must retry renewal.
+        const latest = sessions.get(id);
+        if (
+          !latest ||
+          now() >= deadline ||
+          !sessions.update(id, {
+            ...latest,
+            renewal: {
+              ...latest.renewal!,
+              refreshToken: error.refreshToken,
+              identityPending: true,
+            },
+          })
+        ) {
+          sessions.delete(id);
+          await revoke(error.refreshToken);
+        }
+        throw new SessionValidationError(503);
+      }
+      // OAuth invalid_grant is a definitive revocation/expiry. Network, provider
+      // and client-configuration failures are retryable and must not erase a session.
+      if (
+        error &&
+        typeof error === "object" &&
+        "error" in error &&
+        error.error === "invalid_grant"
+      ) {
+        sessions.delete(id);
+        log.warn("session renewal rejected; signed out locally");
+        return;
+      }
+      log.warn("session renewal unavailable");
+      throw new SessionValidationError(503);
     }
+  }
+
+  function tokenExpiry(seconds: number | undefined): number | undefined {
+    return typeof seconds === "number" && Number.isFinite(seconds) && seconds >= 0
+      ? now() + seconds * 1000
+      : undefined;
   }
 
   function originAllowed(req: IncomingMessage): boolean {
@@ -218,6 +332,15 @@ export function createAuthGate({
         ...optionalString("email", claims.email),
         role,
         idToken,
+        ...(result.accessToken
+          ? {
+              accessToken: result.accessToken,
+              accessTokenExpiresAt: tokenExpiry(result.accessTokenExpiresIn),
+            }
+          : {}),
+        ...(Number.isSafeInteger(claims.iat) && Number(claims.iat) > 0
+          ? { authenticatedAt: Number(claims.iat) }
+          : {}),
         ...(refreshToken
           ? { renewal: { refreshToken, startedAt: now(), refreshedAt: now() } }
           : {}),
@@ -273,50 +396,62 @@ export function createAuthGate({
 
   return {
     async authorize(req, res) {
-      const url = new URL(req.url ?? "/", "http://localhost");
-      if (url.pathname === AUTH_PATH || url.pathname.startsWith(`${AUTH_PATH}/`)) {
-        await authRoute(req, res, url);
-        return null;
-      }
+      try {
+        const url = new URL(req.url ?? "/", "http://localhost");
+        if (url.pathname === AUTH_PATH || url.pathname.startsWith(`${AUTH_PATH}/`)) {
+          await authRoute(req, res, url);
+          return null;
+        }
 
-      const current = await currentSession(req, res);
-      if (!current) {
-        if (isPageLoad(req)) {
-          sendLoginRedirectPage(res, `${url.pathname}${url.search}`);
-        } else {
-          unauthenticated(res);
+        const current = await currentSession(req, res);
+        if (!current) {
+          if (isPageLoad(req)) {
+            sendLoginRedirectPage(res, `${url.pathname}${url.search}`);
+          } else {
+            unauthenticated(res);
+          }
+          return null;
         }
-        return null;
-      }
-      const { sub, name, email, role } = current.session;
-      if (!role) {
-        if (isPageLoad(req)) {
-          sendPage(req, res, 403, "noAccess");
-        } else {
-          forbidden(res, "no_role", "your account has no role for this knowledge base");
+        const { sub, name, email, role } = current.session;
+        if (!role) {
+          if (isPageLoad(req)) {
+            sendPage(req, res, 403, "noAccess");
+          } else {
+            forbidden(res, "no_role", "your account has no role for this knowledge base");
+          }
+          return null;
         }
+        if (!originAllowed(req)) {
+          csrfRejected(res);
+          return null;
+        }
+        if (requiredRole(req.method ?? "GET", url.pathname) === "editor" && role !== "editor") {
+          forbidden(res, "forbidden", "editor role required");
+          return null;
+        }
+        const principal: Principal = {
+          sub,
+          role,
+          ...(name ? { name } : {}),
+          ...(email ? { email } : {}),
+        };
+        principals.set(req, principal);
+        // Everything past the gate is per-user (chats, job results): no cache keeps
+        // it, shared or browser, unless a handler sets its own policy (the SPA shell,
+        // hashed static assets, the core proxy).
+        res.setHeader("Cache-Control", "no-store");
+        return principal;
+      } catch (error) {
+        if (!(error instanceof SessionValidationError)) throw error;
+        if (error.status !== 503) res.setHeader("Set-Cookie", cookie(SESSION_COOKIE, "", 0));
+        sendJson(res, error.status, {
+          error: {
+            code: error.status === 503 ? "identity_unavailable" : "identity_rejected",
+            message: error.message,
+          },
+        });
         return null;
       }
-      if (!originAllowed(req)) {
-        csrfRejected(res);
-        return null;
-      }
-      if (requiredRole(req.method ?? "GET", url.pathname) === "editor" && role !== "editor") {
-        forbidden(res, "forbidden", "editor role required");
-        return null;
-      }
-      const principal: Principal = {
-        sub,
-        role,
-        ...(name ? { name } : {}),
-        ...(email ? { email } : {}),
-      };
-      principals.set(req, principal);
-      // Everything past the gate is per-user (chats, job results): no cache keeps
-      // it, shared or browser, unless a handler sets its own policy (the SPA shell,
-      // hashed static assets, the core proxy).
-      res.setHeader("Cache-Control", "no-store");
-      return principal;
     },
     principalOf: (req) => principals.get(req),
   };

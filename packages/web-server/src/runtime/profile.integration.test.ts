@@ -293,13 +293,16 @@ it("enforces MB capabilities after OIDC roles and isolates applications, users a
   expect((await workbench.send(`/web/translate/jobs/${job.jobId}`, workCookie)).status).toBe(404);
   const pending = mb.send("/v1/tasks/pending/events", alice).catch(() => undefined);
   await pendingStarted;
-  const waitingSession = (await (await mb.send("/agent/sessions", alice, "POST", {})).json()) as {
-    id: string;
-  };
+  const waitingSessions = await Promise.all(
+    [1, 2].map(
+      async () =>
+        (await (await mb.send("/agent/sessions", alice, "POST", {})).json()) as { id: string },
+    ),
+  );
   agentTurns = 0;
   stallPageReads = true;
   const waitingAgents = await Promise.all(
-    [1, 2].map(() =>
+    waitingSessions.map((waitingSession) =>
       mb.send(`/agent/sessions/${waitingSession.id}/messages`, alice, "POST", {
         message: "Read the paper",
       }),

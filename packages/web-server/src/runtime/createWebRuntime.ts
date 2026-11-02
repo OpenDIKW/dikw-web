@@ -5,6 +5,7 @@ import { createDefaultAgentHandler, resolveSessionsDir } from "../agent/http.js"
 import { createRequestRouter, type RequestRouterOptions } from "../agent/requestRouter.js";
 import { createDefaultWebHandler } from "../web/http.js";
 import { loadAuthConfig } from "../auth/config.js";
+import type { SessionValidator } from "../auth/sessionValidation.js";
 import { createAuthGate } from "../auth/gate.js";
 import { createOidcClient } from "../auth/oidc.js";
 import { AuthSessionStore } from "../auth/sessionStore.js";
@@ -20,6 +21,8 @@ export interface WebRuntimeOptions {
   cwd?: string;
   staticDir?: string;
   env?: Record<string, string | undefined>;
+  /** Optional application-specific, live status check; server-only credentials. */
+  validateSession?: SessionValidator;
 }
 export interface WebRuntime {
   handler(req: IncomingMessage, res: ServerResponse): Promise<void>;
@@ -79,6 +82,7 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
           config: authConfig,
           oidc: createOidcClient(authConfig, { signal: shutdown.signal }),
           sessions,
+          validateSession: options.validateSession,
           ...(options.profile === "mbweb"
             ? ({
                 cookiePrefix: "dikw_mbweb",
