@@ -64,6 +64,15 @@ the server-only live `validateSession` hook; it checks every protected request,
 returns current authorization, and can terminate revoked sessions with 401/403.
 Access tokens and immutable original login iat remain sealed server-side, and
 legacy sessions lacking them require a fresh login when the hook is enabled.
+The public standalone workbench offers an explicit Casdoor adapter through
+`DIKW_WEB_CASDOOR_LIVE_AUTH=true`, without changing the generic shared runtime.
+It binds introspection to the configured issuer/client/audience/subject, reads
+current organization roles and account state, and compares password changes to
+the original login time. Verified account-field visibility is a required operator
+contract (`DIKW_WEB_IAM_STATUS_FIELDS_VERIFIED=true`); masked false/empty fields
+cannot be detected from their JSON types. Provider failures fail closed with 503
+while preserving the session. See the deployment guide for migration and IAM
+availability requirements.
 Providers that do not issue refresh tokens, and sessions created before this
 change, retain the original fixed TTL. Default scopes stay `openid profile email`;
 offline access is an explicit provider-specific deployment choice. The

@@ -7,6 +7,11 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.10] - 2026-11-02
+
+- Add optional live Casdoor authorization to the standalone workbench, using the existing shared `0.1.8` session hook. Enforce current roles, disabled/deleted status, forced password changes and changes since the original sign-in on every protected request.
+- Require verified IAM account field visibility and fixed configured IAM origins; reject redirects and mismatched token identities. Temporary IAM failures return 503 without deleting login sessions. Enabling the adapter requires a new sign-in for legacy auth records, while retaining Agent history.
+
 ## [0.12.9] - 2026-11-02
 
 - Release shared cohort `0.1.8` with a server-only live session authorization hook, sealed access tokens and immutable original authentication time. Opted-in applications reject legacy sessions requiring reauthentication.
