@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import { SessionValidationError, type SessionIdentity } from "@opendikw/web-server/runtime";
-import { createCasdoorSessionValidator } from "./casdoor";
+import { casdoorEnvironment, createCasdoorSessionValidator } from "./casdoor";
 
 const env = {
   DIKW_WEB_AUTH_MODE: "oidc",
@@ -53,6 +53,15 @@ function fixture(token: Record<string, unknown> = {}, user: Record<string, unkno
 }
 
 describe("explicit Casdoor startup contract", () => {
+  it("keeps the shared runtime's literal dotenv credentials and environment precedence", () => {
+    const value = casdoorEnvironment(
+      '# comment\r\nDIKW_WEB_SESSION_SECRET=prefix#suffix\r\nDIKW_WEB_OIDC_CLIENT_SECRET="plus+/=secret"\r\nDIKW_WEB_ROLE_VIEWER=viewer\r\n',
+      { DIKW_WEB_ROLE_VIEWER: "override" },
+    );
+    expect(value.DIKW_WEB_SESSION_SECRET).toBe("prefix#suffix");
+    expect(value.DIKW_WEB_OIDC_CLIENT_SECRET).toBe("plus+/=secret");
+    expect(value.DIKW_WEB_ROLE_VIEWER).toBe("override");
+  });
   it("does not enable provider-specific behavior unless selected", () => {
     expect(createCasdoorSessionValidator({})).toBeUndefined();
     expect(createCasdoorSessionValidator({ DIKW_WEB_CASDOOR_LIVE_AUTH: "false" })).toBeUndefined();
@@ -95,11 +104,26 @@ it("uses only fixed endpoints at the configured back-channel origin and returns 
     ),
   ).toBe(true);
   expect(new URLSearchParams(String(calls[0][1]?.body)).get("token")).toBe(identity.accessToken);
+  expect(new URLSearchParams(String(calls[0][1]?.body)).get("client_id")).toBe(identity.clientId);
+  expect(new URLSearchParams(String(calls[0][1]?.body)).get("client_secret")).toBe(
+    env.DIKW_WEB_OIDC_CLIENT_SECRET,
+  );
   expect(new Headers(calls[1][1]?.headers).get("Authorization")).toBe(
     `Bearer ${identity.accessToken}`,
   );
   expect(new URL(String(calls[1][0])).searchParams.get("userId")).toBe(identity.sub);
   expect(new URL(String(calls[1][0])).searchParams.get("owner")).toBe("fixture");
+});
+it("uses decoded form-post credentials supported by deployed Casdoor, including special secrets", async () => {
+  const f = fixture();
+  const validate = createCasdoorSessionValidator(
+    { ...env, DIKW_WEB_OIDC_CLIENT_SECRET: "synthetic+/= secret" },
+    f.fetcher,
+  )!;
+  expect(await validate(identity)).toEqual({ role: "editor" });
+  const form = new URLSearchParams(String(f.fetcher.mock.calls[0][1]?.body));
+  expect(form.get("client_secret")).toBe("synthetic+/= secret");
+  expect(new Headers(f.fetcher.mock.calls[0][1]?.headers).has("Authorization")).toBe(false);
 });
 
 it.each([
@@ -129,6 +153,10 @@ it.each([
 });
 it.each([
   { active: "true" },
+  { client_id: " " },
+  { sub: " " },
+  { iss: " " },
+  { aud: [" "] },
   { client_id: null },
   { aud: null },
   { iss: undefined },
@@ -161,7 +189,9 @@ it("reads current enabled organization roles on every call", async () => {
 });
 it.each([
   { id: undefined },
+  { id: " " },
   { owner: null },
+  { owner: " " },
   { isForbidden: undefined },
   { needUpdatePassword: null },
   { isDeleted: "false" },

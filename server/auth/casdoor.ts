@@ -1,5 +1,24 @@
 import { SessionValidationError, type SessionValidator } from "@opendikw/web-server/runtime";
 
+/** Match the shared sidecar's existing literal KEY=value file contract. This
+ * application adapter must not reinterpret # or escapes inside credentials. */
+export function casdoorEnvironment(text: string, environment: Record<string, string | undefined>) {
+  const file: Record<string, string> = {};
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim(),
+      split = line.indexOf("=");
+    if (!line || line.startsWith("#") || split < 0) continue;
+    let value = line.slice(split + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    )
+      value = value.slice(1, -1);
+    file[line.slice(0, split).trim()] = value;
+  }
+  return { ...file, ...environment };
+}
+
 /** Optional workbench policy; the shared runtime remains provider-independent. */
 export function createCasdoorSessionValidator(
   env: Record<string, string | undefined>,
@@ -37,9 +56,6 @@ export function createCasdoorSessionValidator(
     viewers = roles("DIKW_WEB_ROLE_VIEWER");
   if (!editors.length && !viewers.length)
     throw new Error("Casdoor live authorization requires mapped roles");
-  const formEncode = (value: string) => new URLSearchParams({ v: value }).toString().slice(2);
-  const basic =
-    "Basic " + Buffer.from(`${formEncode(clientId)}:${formEncode(secret)}`).toString("base64");
 
   return async (identity) => {
     try {
@@ -66,17 +82,24 @@ export function createCasdoorSessionValidator(
       }
       const token = await request(new URL("/api/login/oauth/introspect", base), {
         method: "POST",
-        headers: { Authorization: basic, "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ token: identity.accessToken, token_type_hint: "access_token" }),
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        // Casdoor supports the same client_secret_post authentication as our
+        // OIDC client; older releases do not URL-decode Basic credentials.
+        body: new URLSearchParams({
+          client_id: clientId,
+          client_secret: secret,
+          token: identity.accessToken,
+          token_type_hint: "access_token",
+        }),
       });
       if (typeof token.active !== "boolean") throw new SessionValidationError(503);
       if (!token.active) throw new SessionValidationError(401);
       const audience = typeof token.aud === "string" ? [token.aud] : token.aud;
       if (
-        ![token.client_id, token.iss, token.sub].every((v) => typeof v === "string" && v) ||
+        ![token.client_id, token.iss, token.sub].every((v) => typeof v === "string" && v.trim()) ||
         !Array.isArray(audience) ||
         !audience.length ||
-        !audience.every((v) => typeof v === "string" && v) ||
+        !audience.every((v) => typeof v === "string" && v.trim()) ||
         !Number.isSafeInteger(token.exp)
       )
         throw new SessionValidationError(503);
@@ -98,7 +121,12 @@ export function createCasdoorSessionValidator(
       );
       const user = result.data;
       if (result.status !== "ok" || !record(user)) throw new SessionValidationError(503);
-      if (typeof user.id !== "string" || !user.id || typeof user.owner !== "string" || !user.owner)
+      if (
+        typeof user.id !== "string" ||
+        !user.id.trim() ||
+        typeof user.owner !== "string" ||
+        !user.owner.trim()
+      )
         throw new SessionValidationError(503);
       if (user.id !== identity.sub || user.owner !== owner) throw new SessionValidationError(401);
       if (
