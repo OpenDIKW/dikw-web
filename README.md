@@ -306,6 +306,11 @@ turns that server into a Backend-for-Frontend:
   (foreign ids return 404); their 16-live-job cap is shared across the process;
 - viewer / editor roles are enforced server-side.
 
+Casdoor deployments can additionally opt into live account and role checks on every
+protected request with `DIKW_WEB_CASDOOR_LIVE_AUTH=true`, after verifying account
+field visibility. This requires one fresh sign-in for legacy login records; Agent
+histories remain available. See the deployment guide for the required IAM contract.
+
 `/healthz` stays open for health checks. The public workbench's standalone host
 also serves its built HTML, UI assets and non-secret branding configuration
 before authentication, so old `#MB-Web` links can download a local backup without

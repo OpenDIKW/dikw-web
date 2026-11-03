@@ -151,6 +151,8 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 | `DIKW_CORE_URL` | ✅ | | dikw-core 地址（服务端视角），如 `http://dikw-core:8765` |
 | `DIKW_SERVER_TOKEN` | ✅ | | dikw-core 的 bearer token |
 | `DIKW_WEB_AUTH_LEGACY_SESSIONS_OWNER` | | _未设_ | 见下文「开启前的旧会话」 |
+| `DIKW_WEB_CASDOOR_LIVE_AUTH` | | `false` | Standalone workbench only: opt into current Casdoor authorization on every protected request |
+| `DIKW_WEB_IAM_STATUS_FIELDS_VERIFIED` | With live Casdoor authorization | _unset_ | Must be `true` only after verifying the account field visibility contract below |
 
 登录会话存在 `DIKW_AGENT_SESSIONS_DIR` 下的 `auth.sqlite`（与 `agent.sqlite` 同一个 volume，重启 / 升级不掉登录）。文件里只有会话 id 的 SHA-256 和 AES-256-GCM 加密后的记录，泄露也拿不到可用 Cookie 或身份信息。日志和 OTel span 里不会出现任何 token。
 
@@ -197,6 +199,44 @@ MB host unchanged. The authenticated Vite development adapter retains its
 existing gate; use the production standalone build to verify anonymous backup.
 
 ### Session renewal and provider setup
+
+For Casdoor deployments requiring immediate revocation, set
+`DIKW_WEB_CASDOOR_LIVE_AUTH=true`. This is a workbench application adapter over
+the shared `0.1.8` session hook; other OIDC providers and the shared package API
+are unchanged. The standalone process requires OIDC mode, client credentials,
+an explicit `DIKW_WEB_OIDC_ROLES_OWNER` organization and mapped viewer/editor
+roles. Keep the existing session secret and volume. Enabling the adapter requires
+one new sign-in for legacy login records missing a sealed access token or the
+original login time; Agent histories are retained.
+
+Before setting `DIKW_WEB_IAM_STATUS_FIELDS_VERIFIED=true`, verify that the
+organization's account items expose **Roles**, **Need update password** and
+**Last change password time** to the signed-in user (`Self` or more restrictive
+equivalent that still returns the user's actual values). Verify the actual
+`isForbidden` and `isDeleted` booleans too. Casdoor can mask hidden fields as
+false/empty; a successful response or a type check alone cannot prove visibility.
+Use synthetic accounts to verify role removal, disabling, forced password change
+and a password change after login before enabling this on real accounts.
+
+The adapter checks token introspection (`active`, `client_id`, `aud`, `iss`, `sub`
+and expiry), then the current account's organization, enabled roles and account
+status. A password change at or after the original signed login `iat` ends that
+session; token renewal never resets this reference time. Confirmed invalid
+credentials or identity mismatch return 401; prohibited accounts or no mapped
+role return 403. Both end the local session. Network/provider/malformed-response
+failures return a generic 503 and retain the session for retry. There is no
+authorization cache: each protected request makes up to two IAM calls within an
+eight-second total timeout. In-progress application work is not retroactively
+revoked; authorization is enforced on the next protected request.
+
+Calls use only `/api/login/oauth/introspect` and `/api/get-user` at the configured
+issuer origin, or the explicitly configured internal origin of that **same IAM
+service**. These origins must not contain credentials, paths, queries or
+fragments; HTTP redirects are rejected. Configure HTTPS for public IAM traffic
+and a trusted private transport for any internal HTTP origin. Tokens, client
+credentials and provider response bodies remain server-side. Casdoor's
+[introspection implementation](https://github.com/casdoor/casdoor/blob/master/controllers/token.go)
+defines the checked token fields.
 
 Default scopes remain `openid profile email`. Existing sessions, and providers
 that issue no refresh token, retain the fixed TTL and need a new sign-in to

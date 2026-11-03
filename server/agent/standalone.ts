@@ -5,6 +5,7 @@ import { parseEnv } from "node:util";
 import { createWebRuntime, createLogger } from "@opendikw/web-server/runtime";
 import { registerOutboundInstrumentation } from "@opendikw/web-server/instrumentation";
 import { createWorkbenchHandler } from "./workbenchHandler.js";
+import { createCasdoorSessionValidator } from "../auth/casdoor.js";
 
 // Register before the factory makes any outbound request.
 registerOutboundInstrumentation();
@@ -24,7 +25,13 @@ async function main(): Promise<void> {
   );
   const env = { ...fileEnv, ...process.env };
   const staticDir = resolve(env.DIKW_WEB_STATIC_DIR?.trim() || "dist");
-  const runtime = await createWebRuntime({ appId: "dikw-web", profile: "workbench", staticDir });
+  const runtime = await createWebRuntime({
+    appId: "dikw-web",
+    profile: "workbench",
+    staticDir,
+    env,
+    validateSession: createCasdoorSessionValidator(env),
+  });
   const handler = createWorkbenchHandler(runtime, staticDir);
   const server = createServer((req, res) => {
     void handler(req, res).catch((error) => {
