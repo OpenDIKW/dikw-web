@@ -210,10 +210,12 @@ one new sign-in for legacy login records missing a sealed access token or the
 original login time; Agent histories are retained.
 
 Before setting `DIKW_WEB_IAM_STATUS_FIELDS_VERIFIED=true`, verify that the
-organization's account items expose **Roles**, **Need update password** and
-**Last change password time** to the signed-in user (`Self` or more restrictive
+organization's account items expose **Roles**, **Is forbidden**, **Is deleted**,
+**Need update password** and **Last change password time** to the signed-in user (`Self` or more restrictive
 equivalent that still returns the user's actual values). Verify the actual
-`isForbidden` and `isDeleted` booleans too. Casdoor can mask hidden fields as
+`isForbidden` and `isDeleted` values with a prohibited synthetic account; a normal
+account returning `false` is not a visibility check. Keep status/password modification
+rules restricted to administrators. Casdoor can mask hidden fields as
 false/empty; a successful response or a type check alone cannot prove visibility.
 Use synthetic accounts to verify role removal, disabling, forced password change
 and a password change after login before enabling this on real accounts.
