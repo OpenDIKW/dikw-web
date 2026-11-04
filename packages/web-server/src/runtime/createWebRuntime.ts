@@ -5,7 +5,16 @@ import { createDefaultAgentHandler, resolveSessionsDir } from "../agent/http.js"
 import { createRequestRouter, type RequestRouterOptions } from "../agent/requestRouter.js";
 import { createDefaultWebHandler } from "../web/http.js";
 import { loadAuthConfig } from "../auth/config.js";
-import type { SessionValidator } from "../auth/sessionValidation.js";
+import {
+  ModelResolutionError,
+  safeModelError,
+  type ModelResolver,
+  type ModelFeature,
+  type RequestModel,
+  type RequestModelFor,
+} from "./requestModel.js";
+import { SessionValidationError } from "../auth/sessionValidation.js";
+import type { SessionValidator, SessionIdentity } from "../auth/sessionValidation.js";
 import { createAuthGate } from "../auth/gate.js";
 import { createOidcClient } from "../auth/oidc.js";
 import { AuthSessionStore } from "../auth/sessionStore.js";
@@ -23,10 +32,26 @@ export interface WebRuntimeOptions {
   env?: Record<string, string | undefined>;
   /** Optional application-specific, live status check; server-only credentials. */
   validateSession?: SessionValidator;
+  /** Trusted server-only resolver. Requires OIDC plus live session validation.
+   * Never changes global configuration or stores credentials in chat history. */
+  resolveModel?: ModelResolver;
 }
 export interface WebRuntime {
   handler(req: IncomingMessage, res: ServerResponse): Promise<void>;
   close(): Promise<void>;
+  /** For application-owned model routes; reuses the same complete auth gate.
+   * Null means the gate already sent its rejection. Caller retains resource authorization. */
+  withModelIdentity?<T>(
+    req: IncomingMessage,
+    res: ServerResponse,
+    callback: (identity: Readonly<SessionIdentity>) => Promise<T>,
+  ): Promise<T | null>;
+  resolveModelFor?(
+    req: IncomingMessage,
+    res: ServerResponse,
+    feature: ModelFeature,
+    signal?: AbortSignal,
+  ): Promise<RequestModel | null>;
 }
 
 /** Assemble resources without listening, installing signals, or changing app env. */
@@ -54,6 +79,8 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
   if (options.profile === "mbweb" && authConfig && !coreId) {
     throw new Error("authenticated MB requires DIKW_WEB_CORE_ID");
   }
+  if (options.resolveModel && (!authConfig || !options.validateSession))
+    throw new Error("request-scoped models require OIDC and live session validation");
   const staticDir = resolve(cwd, options.staticDir ?? env.DIKW_WEB_STATIC_DIR?.trim() ?? "dist");
   if (!(await stat(join(staticDir, "index.html"))).isFile())
     throw new Error("static build missing index.html");
@@ -95,12 +122,56 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
     }
     const gate = auth?.gate;
     const subjectFor = gate ? (req: IncomingMessage) => gate.principalOf(req)!.sub : undefined;
+    const modelFor: RequestModelFor | undefined = options.resolveModel
+      ? async (req, feature, signal) => {
+          const identity = gate?.identityOf(req);
+          if (!identity)
+            throw new ModelResolutionError(401, "Please sign in again before using a model.");
+          try {
+            const resolved = await options.resolveModel!({
+              request: req,
+              identity,
+              feature,
+              signal: signal ? AbortSignal.any([signal, shutdown.signal]) : shutdown.signal,
+            });
+            if (
+              !resolved ||
+              typeof resolved.model !== "string" ||
+              !resolved.model ||
+              typeof resolved.complete !== "function"
+            )
+              throw new Error("invalid model resolver result");
+            return {
+              model: resolved.model,
+              async complete(body, callSignal) {
+                try {
+                  callSignal?.throwIfAborted();
+                  if (closed) throw new ModelResolutionError(503, "Application is closed.");
+                  const freshIdentity = await gate!.modelIdentityFor(req, identity);
+                  callSignal?.throwIfAborted();
+                  return await resolved.complete(body, callSignal, freshIdentity);
+                } catch (error) {
+                  if (error instanceof SessionValidationError)
+                    throw new ModelResolutionError(
+                      error.status,
+                      "Your sign-in or access has changed; sign in again before continuing.",
+                    );
+                  throw safeModelError(error);
+                }
+              },
+            };
+          } catch (error) {
+            throw safeModelError(error);
+          }
+        }
+      : undefined;
     agent = await createDefaultAgentHandler(cwd, {
       env,
       sessionsDir,
       appId: options.appId,
       profile: options.profile,
       subjectFor,
+      modelFor,
       ...(authConfig
         ? {
             legacySessionsOwner: authConfig.legacySessionsOwner,
@@ -108,7 +179,7 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
           }
         : {}),
     });
-    web = await createDefaultWebHandler(cwd, { env, appId: options.appId, subjectFor });
+    web = await createDefaultWebHandler(cwd, { env, appId: options.appId, subjectFor, modelFor });
     const staticHandler = createStaticHandler(staticDir);
     const route = createRequestRouter({
       profile: options.profile,
@@ -124,6 +195,36 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
         ),
     });
     return {
+      ...(modelFor
+        ? {
+            async withModelIdentity<T>(
+              req: IncomingMessage,
+              res: ServerResponse,
+              callback: (identity: Readonly<SessionIdentity>) => Promise<T>,
+            ): Promise<T | null> {
+              if (closed) throw new ModelResolutionError(503, "Application is closed.");
+              if (!(await gate!.authorize(req, res))) return null;
+              const identity = gate!.identityOf(req);
+              if (!identity)
+                throw new ModelResolutionError(401, "Please sign in again before using a model.");
+              try {
+                return await callback(identity);
+              } catch (error) {
+                throw safeModelError(error);
+              }
+            },
+            async resolveModelFor(
+              req: IncomingMessage,
+              res: ServerResponse,
+              feature: ModelFeature,
+              signal?: AbortSignal,
+            ) {
+              if (closed) throw new ModelResolutionError(503, "Application is closed.");
+              if (!(await gate!.authorize(req, res))) return null;
+              return modelFor(req, feature, signal);
+            },
+          }
+        : {}),
       handler(req, res) {
         if (closed) {
           res.statusCode = 503;

@@ -81,3 +81,61 @@ creation and persist it in SQLite. Scoped turns allow only health and reading
 that exact page; they expose no global retrieval, listing or external tools.
 The message body cannot change the session scope. Unscoped sessions preserve the
 existing tool set. Page evidence produces the existing source citation event.
+
+### Request-scoped model integration
+
+`createWebRuntime({ resolveModel, validateSession, ... })` accepts a trusted,
+server-only `ModelResolver`. It requires OIDC plus live session validation.
+The resolver receives the gate-verified identity and original request, and returns
+`{ model, complete(body, signal, identity) }`. `body` and the result use non-streaming
+OpenAI chat-completion shapes. The integration chooses an approved fixed service
+URL and supplies credentials only inside its closure. Never return identity or
+credentials to a browser, logs, traces, model prompts, or persisted job/session state.
+Only a model profile identifier may come from a browser; the backend owns selection
+and authorization. `ModelResolutionError(status, safeMessage)` carries deliberate,
+credential-free failures; unrecognized exceptions are replaced with a generic error.
+
+The runtime wraps every completion, including tool continuation, compaction,
+translation batches, and repair calls. It rechecks the original local session and
+runs its existing refresh/live-authorization chain before the model call. The
+**third `identity` argument is the fresh verified identity**; transports must use
+its access token rather than retaining the resolver's initial token. The wrapper
+ignores third-argument identities supplied by callers. Ordinary token refresh can
+continue under the same session, issuer, subject and original login timestamp.
+Logout, a replaced login, password change or revoked access stop the next call.
+A model choice is resolved once for each submitted task/turn and stays fixed.
+Model resolution receives a signal combining caller cancellation and runtime
+shutdown, so a cancellation-aware pending resolver cannot hold shutdown open.
+
+Hook mode does not require or fall back to `DIKW_AGENT_API_KEY`, `_BASE_URL`, or
+`_MODEL`. Tool service credentials and compaction settings retain their existing
+configuration. Agent ownership, tools, NDJSON output and history storage are
+unchanged. Reasoning returned with tool calls is retained as ADK `thought` parts
+for the next provider call and omitted from visible text/history. The OpenAI
+adapter rejects a completion containing only hidden reasoning without a visible
+answer or tool calls, including when the output budget is exhausted. The OpenAI
+adapter shares the existing eight-call and 8192-output-token agent budgets with
+compaction. Translation retains its block parsing, alignment, repair, cancellation
+and detached job contracts; its configured output cap defaults to 64000.
+
+Application-owned AI routes can use optional
+`runtime.resolveModelFor(req, res, 'knowledge', signal)`; a `null` return means the
+auth gate already rejected the request. They still enforce their own document and
+write permissions. `runtime.withModelIdentity(req, res, callback)` supports safe
+catalog requests without resolving a model; the callback must return only public
+metadata. Both helpers exist only in hook mode. Existing applications that omit
+`resolveModel` keep their configured MiniMax transport and authentication behavior.
+
+Translation submissions cancelled while model selection is pending do not create
+background jobs. A successful 202 response still hands ownership to the background
+job, so a later poll disconnect does not cancel it. Model-selection failures retain
+their safe HTTP status, and clients can distinguish `translator_forbidden`,
+`translator_settings_changed` and `translator_unavailable` without receiving
+provider credentials or raw upstream error text.
+Transient 502/503 and normalized transport failures use the existing bounded
+translation retries. Authentication, permissions, changed settings, unavailable
+models, rate limits and cancellation remain terminal for a submitted task.
+Known fetch/SDK cancellation errors keep a server-only nonretryable hint through
+safe error normalization; their original messages are discarded. Connection and
+SDK timeout failures still normalize to a transient 503 and use the bounded retry
+policy. The hint does not add fields to public HTTP or NDJSON errors.

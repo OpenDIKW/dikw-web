@@ -35,19 +35,20 @@ export interface AgentConfig {
 export interface LoadAgentConfigOptions {
   cwd?: string;
   env?: Record<string, string | undefined>;
+  requestScopedModel?: boolean;
 }
 
 export async function loadAgentConfig(options: LoadAgentConfigOptions = {}): Promise<AgentConfig> {
   const cwd = options.cwd ?? process.cwd();
   const fileEnv = await readEnvFile(join(cwd, ".env.local"));
   const env = { ...fileEnv, ...(options.env ?? process.env) };
-  const apiKey = readRequired(env, "DIKW_AGENT_API_KEY");
+  const apiKey = options.requestScopedModel ? "" : readRequired(env, "DIKW_AGENT_API_KEY");
   return {
     provider: env.DIKW_AGENT_PROVIDER?.trim() || "minimax",
     api: readApi(env.DIKW_AGENT_API),
     apiKey,
-    baseUrl: readRequired(env, "DIKW_AGENT_BASE_URL"),
-    model: readRequired(env, "DIKW_AGENT_MODEL"),
+    baseUrl: options.requestScopedModel ? "" : readRequired(env, "DIKW_AGENT_BASE_URL"),
+    model: options.requestScopedModel ? "request-scoped" : readRequired(env, "DIKW_AGENT_MODEL"),
     braveApiKey: readOptional(env, "DIKW_AGENT_BRAVE_API_KEY"),
     jinaApiKey: readOptional(env, "DIKW_AGENT_JINA_API_KEY"),
     tavilyApiKey: readOptional(env, "DIKW_AGENT_TAVILY_API_KEY"),

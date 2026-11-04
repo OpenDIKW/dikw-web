@@ -69,3 +69,13 @@ remain in that repository.
 For document Q&A, createSession(signal, { pagePath: "sources/paper.md" }) binds an
 immutable evidence scope to the session. Omit the second argument for existing
 whole-base conversations. Session.scope exposes the server-confirmed path.
+
+`AgentClient` and `DikwClient` accept `requestHeaders: () => ({ "X-App-Model": selectedModelId })`
+for optional nonsecret application headers on every request, including session CRUD,
+aborts, multipart imports and streaming calls. Core only forwards them to the current
+browser origin. Both clients also accept an explicit `fetch` transport so applications
+can handle an identity mismatch without replacing global fetch.
+The clients retain their JSON request and NDJSON response headers and ignore
+authentication, cookie, Origin/Host and Core connection override headers from this hook.
+Do not place
+provider credentials in browser headers; resolve them in your authenticated BFF.

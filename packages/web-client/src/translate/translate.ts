@@ -60,6 +60,9 @@ export interface TranslateOptions {
 
 export type TranslateErrorCode =
   | "translator_auth"
+  | "translator_forbidden"
+  | "translator_settings_changed"
+  | "translator_unavailable"
   | "translator_rate_limit"
   | "translator_timeout"
   | "translator_api"
@@ -359,6 +362,9 @@ function serverErrorMessage(body: unknown): string | undefined {
 
 const KNOWN_CODES: ReadonlySet<string> = new Set<TranslateErrorCode>([
   "translator_auth",
+  "translator_forbidden",
+  "translator_settings_changed",
+  "translator_unavailable",
   "translator_rate_limit",
   "translator_timeout",
   "translator_api",
@@ -376,6 +382,9 @@ function pickErrorCode(body: unknown, status: number): TranslateErrorCode {
   }
   if (status === 503) return "translate_disabled";
   if (status === 401) return "translator_auth";
+  if (status === 403) return "translator_forbidden";
+  if (status === 409) return "translator_settings_changed";
+  if (status === 422) return "translator_unavailable";
   if (status === 413) return "translator_input";
   if (status === 429) return "translator_rate_limit";
   if (status === 504) return "translator_timeout";

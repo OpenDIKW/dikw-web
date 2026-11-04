@@ -321,7 +321,7 @@ function partToBlock(part: Part): AnthropicContentBlockParam | null {
   return null;
 }
 
-function systemInstructionToString(instruction: unknown): string | undefined {
+export function systemInstructionToString(instruction: unknown): string | undefined {
   if (instruction == null) {
     return undefined;
   }

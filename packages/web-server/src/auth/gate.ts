@@ -17,7 +17,11 @@ import { CALLBACK_PATH, type LoginTransaction, type OidcClient } from "./oidc.js
 import { extractRoles, requiredRole, resolveRole, type AuthRole } from "./roles.js";
 import { createSealer } from "./seal.js";
 import type { AuthSession, AuthSessionStore } from "./sessionStore.js";
-import { SessionValidationError, type SessionValidator } from "./sessionValidation.js";
+import {
+  SessionValidationError,
+  type SessionValidator,
+  type SessionIdentity,
+} from "./sessionValidation.js";
 import { createLogger } from "../shared/logger.js";
 
 const log = createLogger("auth");
@@ -53,6 +57,13 @@ export interface AuthGate {
   authorize(req: IncomingMessage, res: ServerResponse): Promise<Principal | null>;
   /** The principal `authorize` admitted for this request. */
   principalOf(req: IncomingMessage): Principal | undefined;
+  /** Server-only; available only after this request passed the complete gate. */
+  identityOf(req: IncomingMessage): Readonly<SessionIdentity> | undefined;
+  /** Recheck local logout and live IAM state before every delegated model call. */
+  modelIdentityFor(
+    req: IncomingMessage,
+    identity: Readonly<SessionIdentity>,
+  ): Promise<Readonly<SessionIdentity>>;
 }
 
 /** A same-origin absolute path to return to after login, or `null`. */
@@ -83,6 +94,8 @@ export function createAuthGate({
   const SESSION_COOKIE = `${cookiePrefix}_session`;
   const LOGIN_COOKIE = `${cookiePrefix}_login`;
   const principals = new WeakMap<IncomingMessage, Principal>();
+  const identities = new WeakMap<IncomingMessage, Readonly<SessionIdentity>>();
+  const admittedSessions = new WeakMap<IncomingMessage, string>();
   const loginSealer = createSealer(config.sessionSecret, "login-transaction");
   const secure = config.publicUrl.startsWith("https:");
   const refreshing = new Map<string, Promise<void>>();
@@ -99,7 +112,7 @@ export function createAuthGate({
 
   async function currentSession(
     req: IncomingMessage,
-    res: ServerResponse,
+    res?: ServerResponse,
   ): Promise<{ id: string; session: AuthSession } | null> {
     const current = storedSession(req);
     if (!current || !originAllowed(req)) return current;
@@ -135,7 +148,7 @@ export function createAuthGate({
       await pending;
       const refreshed = sessions.get(id);
       if (!refreshed) {
-        res.setHeader("Set-Cookie", cookie(SESSION_COOKIE, "", 0));
+        res?.setHeader("Set-Cookie", cookie(SESSION_COOKIE, "", 0));
         return null;
       }
       session = refreshed;
@@ -155,7 +168,10 @@ export function createAuthGate({
     session = { ...latest, role: checked.session.role };
     const expiresAt = Math.min(now() + config.sessionTtlSeconds * 1000, deadline);
     if (!sessions.update(id, session, expiresAt)) return null;
-    res.setHeader("Set-Cookie", cookie(SESSION_COOKIE, id, Math.floor((expiresAt - now()) / 1000)));
+    res?.setHeader(
+      "Set-Cookie",
+      cookie(SESSION_COOKIE, id, Math.floor((expiresAt - now()) / 1000)),
+    );
     return { id, session };
   }
 
@@ -436,6 +452,19 @@ export function createAuthGate({
           ...(email ? { email } : {}),
         };
         principals.set(req, principal);
+        admittedSessions.set(req, current.id);
+        if (validateSession && current.session.accessToken && current.session.authenticatedAt) {
+          identities.set(
+            req,
+            Object.freeze({
+              issuer: config.issuer,
+              clientId: config.clientId,
+              sub,
+              accessToken: current.session.accessToken,
+              authenticatedAt: current.session.authenticatedAt,
+            }),
+          );
+        }
         // Everything past the gate is per-user (chats, job results): no cache keeps
         // it, shared or browser, unless a handler sets its own policy (the SPA shell,
         // hashed static assets, the core proxy).
@@ -454,6 +483,40 @@ export function createAuthGate({
       }
     },
     principalOf: (req) => principals.get(req),
+    identityOf: (req) => identities.get(req),
+    async modelIdentityFor(req, identity) {
+      const admitted = identities.get(req);
+      const sessionId = admittedSessions.get(req);
+      const before = storedSession(req);
+      if (
+        !validateSession ||
+        !admitted ||
+        !sessionId ||
+        !before ||
+        before.id !== sessionId ||
+        admitted.issuer !== identity.issuer ||
+        admitted.clientId !== identity.clientId ||
+        admitted.sub !== identity.sub ||
+        admitted.authenticatedAt !== identity.authenticatedAt ||
+        before.session.sub !== identity.sub ||
+        before.session.authenticatedAt !== identity.authenticatedAt
+      )
+        throw new SessionValidationError(401);
+      // The BFF session id and original login remain fixed. Ordinary access-token
+      // refresh is allowed; never substitute another login or another user's token.
+      // A detached job has no live response, so renewal updates only server state.
+      const current = await currentSession(req);
+      if (
+        !current ||
+        current.id !== sessionId ||
+        current.session.sub !== identity.sub ||
+        current.session.authenticatedAt !== identity.authenticatedAt ||
+        !current.session.accessToken ||
+        !["viewer", "editor"].includes(current.session.role ?? "")
+      )
+        throw new SessionValidationError(401);
+      return Object.freeze({ ...identity, accessToken: current.session.accessToken });
+    },
   };
 }
 

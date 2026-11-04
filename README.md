@@ -35,9 +35,12 @@ for the Base reader).
 
 This repository ships the management workbench and three MIT shared packages.
 The paper research and notes application lives in private `dikw-mbweb`, with
-its own BFF, authentication and browser storage and exact npm `0.1.0` dependencies.
+its own BFF, authentication and browser storage and exact npm shared-package dependencies.
 Both applications use the shared Core base; see the
 [application boundary ADR](docs/adr/0007-independent-applications-shared-packages.md).
+The shared runtime also supports an opt-in, authenticated request-scoped model
+resolver; credentials and current identity stay in the application backend. See
+[shared packages](docs/shared-packages.md) for cohort and integration requirements.
 
 Legacy `#MB-Web` links open a migration notice. **导出旧笔记与论文别名** downloads
 only old notes and aliases as a local backup, keeping the original browser data.

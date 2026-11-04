@@ -1,8 +1,10 @@
 // @vitest-environment node
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import { createWebHandler } from "./http";
 import { JobStore } from "./jobStore";
+import { ModelResolutionError } from "../runtime/requestModel";
 import {
   type AnthropicLike,
   backoffDelayMs,
@@ -25,12 +27,12 @@ function makeReq(opts: { method: string; url: string; body?: string }): Incoming
     for (const c of chunks) yield c;
   }
   const iter = gen();
-  const req = {
+  const req = Object.assign(new EventEmitter(), {
     method: opts.method,
     url: opts.url,
     headers: { "content-type": "application/json" },
     [Symbol.asyncIterator]: () => iter,
-  };
+  });
   return req as unknown as IncomingMessage;
 }
 
@@ -45,8 +47,9 @@ function makeRes(): { res: ServerResponse; captured: Promise<Captured> } {
   const headers: Record<string, string> = {};
   let resolve!: (c: Captured) => void;
   const captured = new Promise<Captured>((r) => (resolve = r));
-  const res = {
+  const res = Object.assign(new EventEmitter(), {
     statusCode: 200,
+    writableEnded: false,
     setHeader(k: string, v: string | number) {
       headers[k.toLowerCase()] = String(v);
     },
@@ -56,9 +59,11 @@ function makeRes(): { res: ServerResponse; captured: Promise<Captured> } {
     },
     end(c?: Buffer | string) {
       if (c) chunks.push(Buffer.from(c));
+      res.writableEnded = true;
       resolve({ status: (res as ServerResponse).statusCode, headers, body: Buffer.concat(chunks) });
+      res.emit("close");
     },
-  };
+  });
   return { res: res as unknown as ServerResponse, captured };
 }
 
@@ -124,9 +129,207 @@ const CONFIG = {
   translatorModel: "Test-Model",
 };
 
+describe("translation submission lifecycle", () => {
+  it.each(["request-aborted", "response-closed"])(
+    "does not start a model task after %s while its catalog is resolving",
+    async (reason) => {
+      const store = new JobStore();
+      const complete = vi.fn(async () => ({
+        choices: [{ message: { content: "中文译文" }, finish_reason: "stop" }],
+      }));
+      let release!: () => void;
+      const waiting = new Promise<void>((resolve) => (release = resolve));
+      let submittedSignal: AbortSignal | undefined;
+      const modelFor = vi.fn(async (_req, _feature, signal) => {
+        submittedSignal = signal;
+        // Deliberately ignore cancellation: admission must recheck after await.
+        await waiting;
+        return { model: "personal", complete };
+      });
+      const handler = createWebHandler({ jobStore: store, modelFor });
+      const req = makeReq({
+        method: "POST",
+        url: "/translate/submit",
+        body: JSON.stringify({ blocks: ["An English paragraph"] }),
+      });
+      const { res } = makeRes();
+      const pending = handler(req, res);
+      await vi.waitFor(() => expect(modelFor).toHaveBeenCalledOnce());
+      if (reason === "request-aborted") req.emit("aborted");
+      else res.emit("close");
+      expect(submittedSignal?.aborted).toBe(true);
+      release();
+      await pending;
+      expect(store.size()).toBe(0);
+      expect(complete).not.toHaveBeenCalled();
+      expect(req.listenerCount("aborted")).toBe(0);
+      expect(res.listenerCount("close")).toBe(0);
+      await store.close();
+    },
+  );
+
+  it("keeps an accepted task running after response completion, until explicit cancel", async () => {
+    const store = new JobStore();
+    let modelSignal: AbortSignal | undefined;
+    const handler = createWebHandler({
+      jobStore: store,
+      modelFor: async () => ({
+        model: "personal",
+        complete: async (_body, signal) => {
+          modelSignal = signal;
+          return new Promise((_resolve, reject) => {
+            signal!.addEventListener("abort", () => reject(signal!.reason), { once: true });
+          });
+        },
+      }),
+    });
+    const accepted = await call(
+      handler,
+      makeReq({
+        method: "POST",
+        url: "/translate/submit",
+        body: JSON.stringify({ blocks: ["An English paragraph"] }),
+      }),
+    );
+    expect(accepted.status).toBe(202);
+    expect(modelSignal?.aborted).toBe(false);
+    const jobId = (jsonBody(accepted) as { jobId: string }).jobId;
+    await call(handler, makeReq({ method: "POST", url: `/translate/jobs/${jobId}/cancel` }));
+    expect(modelSignal?.aborted).toBe(true);
+    expect((await waitTerminal(store, jobId)).status).toBe("failed");
+    await store.close();
+  });
+
+  it("maps asynchronous model selection errors to their safe HTTP status", async () => {
+    const store = new JobStore();
+    const handler = createWebHandler({
+      jobStore: store,
+      modelFor: async () => {
+        throw new ModelResolutionError(422, "Please select an available model.");
+      },
+    });
+    const rejected = await call(
+      handler,
+      makeReq({
+        method: "POST",
+        url: "/translate/submit",
+        body: JSON.stringify({ blocks: ["An English paragraph"] }),
+      }),
+    );
+    expect(rejected.status).toBe(422);
+    expect(jsonBody(rejected)).toMatchObject({
+      error: { code: "model_unavailable", message: "Please select an available model." },
+    });
+    expect(store.size()).toBe(0);
+    await store.close();
+  });
+});
+
 // ---- TranslatorClient ------------------------------------------------------
 
 describe("TranslatorClient", () => {
+  it.each([502, 503, "transport"] as const)(
+    "retries a transient request-model failure (%s) within maxRetries",
+    async (status) => {
+      let calls = 0;
+      const complete = vi.fn(async () => {
+        calls++;
+        if (calls < 3) {
+          if (status === "transport") throw new Error("Bearer PRIVATE_TRANSPORT_TOKEN");
+          throw new ModelResolutionError(status, "Model temporarily unavailable.");
+        }
+        return { choices: [{ message: { content: "Translated" } }] };
+      });
+      const client = new TranslatorClient({
+        apiKey: "",
+        baseUrl: "",
+        model: "personal",
+        requestModel: { model: "personal", complete },
+        maxRetries: 2,
+        retryBaseMs: 0,
+      });
+      await expect(client.translate(["原文"], "en")).resolves.toEqual(["Translated"]);
+      expect(complete).toHaveBeenCalledTimes(3);
+    },
+  );
+  it("bounds request-model retries and redacts unknown transport failures", async () => {
+    const complete = vi.fn(async () => {
+      throw new Error("Bearer PRIVATE_TRANSPORT_TOKEN");
+    });
+    const client = new TranslatorClient({
+      apiKey: "",
+      baseUrl: "",
+      model: "personal",
+      requestModel: { model: "personal", complete },
+      maxRetries: 1,
+      retryBaseMs: 0,
+    });
+    const error = await client.translate(["原文"], "en").catch((value) => value);
+    expect(error).toMatchObject({ code: "translator_api" });
+    expect(error.message).not.toContain("PRIVATE_TRANSPORT_TOKEN");
+    expect(complete).toHaveBeenCalledTimes(2);
+  });
+  it.each(["AbortError", "APIUserAbortError"])(
+    "does not retry a request-model abort (%s) without exposing its message",
+    async (name) => {
+      const complete = vi.fn(async () => {
+        throw Object.assign(new Error("Bearer PRIVATE_ABORT_TOKEN"), { name });
+      });
+      const client = new TranslatorClient({
+        apiKey: "",
+        baseUrl: "",
+        model: "personal",
+        requestModel: { model: "personal", complete },
+        maxRetries: 2,
+        retryBaseMs: 0,
+      });
+      const error = await client.translate(["原文"], "en").catch((value) => value);
+      expect(error).toMatchObject({ code: "translator_api", retryable: false });
+      expect(error.message).not.toContain("PRIVATE_ABORT_TOKEN");
+      expect(complete).toHaveBeenCalledOnce();
+    },
+  );
+  it("does not retry a request-model failure after its job signal aborts", async () => {
+    const controller = new AbortController();
+    const complete = vi.fn(async () => {
+      controller.abort();
+      throw new Error("Bearer PRIVATE_ABORT_TOKEN");
+    });
+    const client = new TranslatorClient({
+      apiKey: "",
+      baseUrl: "",
+      model: "personal",
+      signal: controller.signal,
+      requestModel: { model: "personal", complete },
+      maxRetries: 2,
+      retryBaseMs: 0,
+    });
+    const error = await client.translate(["原文"], "en").catch((value) => value);
+    expect(error).toMatchObject({ code: "translator_api" });
+    expect(error.message).not.toContain("PRIVATE_ABORT_TOKEN");
+    expect(complete).toHaveBeenCalledOnce();
+  });
+  it.each([
+    [401, "translator_auth"],
+    [403, "translator_forbidden"],
+    [409, "translator_settings_changed"],
+    [422, "translator_unavailable"],
+    [429, "translator_rate_limit"],
+  ] as const)("preserves model status %s as a stable job error code", async (status, code) => {
+    const complete = vi.fn(async () => {
+      throw new ModelResolutionError(status, "Safe model error");
+    });
+    const client = new TranslatorClient({
+      apiKey: "",
+      baseUrl: "",
+      model: "personal",
+      requestModel: { model: "personal", complete },
+      retryBaseMs: 0,
+    });
+    await expect(client.translate(["English paragraph"], "zh")).rejects.toMatchObject({ code });
+    expect(complete).toHaveBeenCalledOnce();
+  });
+
   it("translates blocks 1:1, splitting the reply on the block separator", async () => {
     const client = new TranslatorClient({
       apiKey: "k",

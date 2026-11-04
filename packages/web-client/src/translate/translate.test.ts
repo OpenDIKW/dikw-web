@@ -56,6 +56,30 @@ function makeScriptedFetch(
 }
 
 describe("translateBlocks", () => {
+  it.each([
+    [401, "translator_auth"],
+    [403, "translator_forbidden"],
+    [409, "translator_settings_changed"],
+    [422, "translator_unavailable"],
+    [429, "translator_rate_limit"],
+  ] as const)(
+    "preserves status %s for both submission and detached job failure",
+    async (status, code) => {
+      await expect(
+        translateBlocks(["English"], {
+          fetch: async () => jsonResponse({ error: { code: "model_unavailable" } }, status),
+        }),
+      ).rejects.toMatchObject({ code });
+      const { fetchFn } = makeScriptedFetch([], {
+        pollStatuses: ["failed"],
+        failError: { code, message: "Safe model error" },
+      });
+      await expect(translateBlocks(["English"], { fetch: fetchFn })).rejects.toMatchObject({
+        code,
+      });
+    },
+  );
+
   it("submits, polls, then aligns the result 1:1 by index", async () => {
     const { fetchFn, urls, submittedBlocks } = makeScriptedFetch(
       // deliberately out of order to prove index alignment

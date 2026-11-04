@@ -7,6 +7,17 @@ persisted session metadata. The `/agent/*` HTTP API and the
 `AgentStreamEvent` NDJSON wire shape are unchanged from the previous
 runtime — the chat UI is unaffected by the migration off Pi Agent.
 
+An application may opt into `createWebRuntime({ resolveModel, validateSession })`
+to supply a server-only OpenAI-compatible completion transport for each turn.
+This mode requires OIDC and live session validation. The same resolved model
+serves tool continuation and compaction, with the existing call/output budgets.
+Each completion rechecks the original login and uses the current refreshed access
+token; identities and credentials are never persisted or sent to the browser.
+Hidden reasoning can be replayed for tool continuation without becoming visible
+text or history. Omitting the resolver preserves the configured MiniMax path.
+The public `/agent/*` routes and NDJSON event shape remain unchanged; see the
+[server package API](../packages/web-server/README.md#request-scoped-model-integration).
+
 The same sidecar process also serves `/web/*` for non-agent browser
 helpers (see `packages/web-server/src/web/` — currently the mineru-backed PDF / Office
 converter consumed by ImportPage). Those routes do not call the agent and
