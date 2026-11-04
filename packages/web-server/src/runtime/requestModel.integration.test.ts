@@ -27,7 +27,7 @@ async function setup(
   resolveModel: ModelResolver,
   options: {
     compaction?: boolean;
-    live?: (identity: Readonly<SessionIdentity>) => void;
+    live?: (identity: Readonly<SessionIdentity>) => void | Promise<void>;
     custom?: (
       req: IncomingMessage,
       res: ServerResponse,
@@ -73,7 +73,7 @@ async function setup(
     resolveModel,
     validateSession: async (identity) => {
       checks.push(identity.sub);
-      options.live?.(identity);
+      await options.live?.(identity);
       return { role: "editor" };
     },
     env: {
@@ -311,6 +311,124 @@ it("runtime closes while translation model selection is pending", async () => {
     // Ensure the pre-fix failure also releases the real HTTP request and cleanup.
     release();
     await response;
+    await closing;
+  }
+});
+it("runtime shutdown aborts an in-flight delegated completion without a caller signal", async () => {
+  let started!: () => void;
+  const ready = new Promise<void>((resolve) => (started = resolve));
+  let transportSignal: AbortSignal | undefined;
+  let release!: () => void;
+  const test = await setup(
+    async () => ({
+      model: "delegated",
+      async complete(_body, signal) {
+        transportSignal = signal;
+        started();
+        return new Promise((_resolve, reject) => {
+          release = () => reject(new Error("PRIVATE_COMPLETION_ABORT"));
+          signal?.addEventListener("abort", release, { once: true });
+        });
+      },
+    }),
+    {
+      custom: async (req, res, runtime) => {
+        if (req.url !== "/delegated") return false;
+        const model = await runtime.resolveModelFor!(req, res, "knowledge");
+        if (!model) return true;
+        try {
+          await model.complete({ model: model.model, stream: false, messages: [] });
+          res.end("unexpected completion");
+        } catch (error) {
+          res.statusCode = 503;
+          res.end((error as Error).message);
+        }
+        return true;
+      },
+    },
+  );
+  const response = test.call("alice", "/delegated", {});
+  await ready;
+  const closing = test.runtime.close();
+  try {
+    expect(transportSignal?.aborted).toBe(true);
+    const rejected = await response;
+    expect(rejected.status).toBe(503);
+    expect(await rejected.text()).not.toContain("PRIVATE_COMPLETION_ABORT");
+  } finally {
+    release();
+    await response;
+    await closing;
+  }
+});
+it("runtime shutdown prevents delegated transport from starting after identity revalidation", async () => {
+  let holdStarted!: () => void;
+  const holding = new Promise<void>((resolve) => (holdStarted = resolve));
+  let releaseHold!: () => void;
+  let validationStarted!: () => void;
+  const validating = new Promise<void>((resolve) => (validationStarted = resolve));
+  let releaseValidation!: () => void;
+  const validation = new Promise<void>((resolve) => (releaseValidation = resolve));
+  let blockValidation = false;
+  let modelCalls = 0;
+  const caller = new AbortController();
+  const test = await setup(
+    async ({ feature }) => {
+      // Keep a tracked request pending so close cannot dispose SQLite first and
+      // mask the delegated completion's missing post-validation cancellation check.
+      if (feature === "translation") {
+        holdStarted();
+        return new Promise((_resolve, reject) => {
+          releaseHold = () => reject(new Error("PRIVATE_HOLD_RELEASE"));
+        });
+      }
+      return {
+        model: "delegated",
+        async complete() {
+          modelCalls++;
+          return reply("unexpected");
+        },
+      };
+    },
+    {
+      live: async () => {
+        if (blockValidation) {
+          validationStarted();
+          await validation;
+        }
+      },
+      custom: async (req, res, runtime) => {
+        if (req.url !== "/delegated") return false;
+        const model = await runtime.resolveModelFor!(req, res, "knowledge");
+        if (!model) return true;
+        blockValidation = true;
+        try {
+          await model.complete({ model: model.model, stream: false, messages: [] }, caller.signal);
+          res.end("unexpected completion");
+        } catch (error) {
+          res.statusCode = 503;
+          res.end((error as Error).message);
+        }
+        return true;
+      },
+    },
+  );
+  const held = test.call("alice", "/web/translate/submit", { blocks: ["原文"], targetLang: "en" });
+  await holding;
+  const response = test.call("alice", "/delegated", {});
+  await validating;
+  const closing = test.runtime.close();
+  releaseValidation();
+  try {
+    const rejected = await response;
+    expect(modelCalls).toBe(0);
+    expect(rejected.status).toBe(503);
+    expect(caller.signal.aborted).toBe(false);
+  } finally {
+    releaseValidation();
+    releaseHold();
+    await response;
+    await held;
     await closing;
   }
 });

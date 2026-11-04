@@ -144,12 +144,15 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
             return {
               model: resolved.model,
               async complete(body, callSignal) {
+                const completionSignal = callSignal
+                  ? AbortSignal.any([callSignal, shutdown.signal])
+                  : shutdown.signal;
                 try {
-                  callSignal?.throwIfAborted();
+                  completionSignal.throwIfAborted();
                   if (closed) throw new ModelResolutionError(503, "Application is closed.");
                   const freshIdentity = await gate!.modelIdentityFor(req, identity);
-                  callSignal?.throwIfAborted();
-                  return await resolved.complete(body, callSignal, freshIdentity);
+                  completionSignal.throwIfAborted();
+                  return await resolved.complete(body, completionSignal, freshIdentity);
                 } catch (error) {
                   if (error instanceof SessionValidationError)
                     throw new ModelResolutionError(

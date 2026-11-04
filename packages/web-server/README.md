@@ -106,6 +106,8 @@ Logout, a replaced login, password change or revoked access stop the next call.
 A model choice is resolved once for each submitted task/turn and stays fixed.
 Model resolution receives a signal combining caller cancellation and runtime
 shutdown, so a cancellation-aware pending resolver cannot hold shutdown open.
+Delegated completions also receive this combined signal, and recheck it after
+live identity validation, before starting the transport.
 
 Hook mode does not require or fall back to `DIKW_AGENT_API_KEY`, `_BASE_URL`, or
 `_MODEL`. Tool service credentials and compaction settings retain their existing
@@ -139,3 +141,5 @@ Known fetch/SDK cancellation errors keep a server-only nonretryable hint through
 safe error normalization; their original messages are discarded. Connection and
 SDK timeout failures still normalize to a transient 503 and use the bounded retry
 policy. The hint does not add fields to public HTTP or NDJSON errors.
+An output-budget truncation is terminal before content parsing, including a
+reasoning response with null or empty visible content; it never triggers a retry.

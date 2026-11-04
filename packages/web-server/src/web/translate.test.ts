@@ -228,6 +228,31 @@ describe("translation submission lifecycle", () => {
 // ---- TranslatorClient ------------------------------------------------------
 
 describe("TranslatorClient", () => {
+  it.each([
+    ["null content", null, undefined],
+    ["empty content", "", undefined],
+    ["hidden reasoning", null, "PRIVATE_TRUNCATED_REASONING"],
+  ] as const)(
+    "rejects a token-exhausted request-model reply before parsing %s",
+    async (_name, content, reasoning) => {
+      const complete = vi.fn(async () => ({
+        choices: [{ message: { content, reasoning_content: reasoning }, finish_reason: "length" }],
+      }));
+      const client = new TranslatorClient({
+        apiKey: "",
+        baseUrl: "",
+        model: "personal",
+        requestModel: { model: "personal", complete },
+        maxRetries: 2,
+        retryBaseMs: 0,
+      });
+      const error = await client.translate(["原文"], "en").catch((value) => value);
+      expect(error).toBeInstanceOf(TranslatorClientError);
+      expect(error).toMatchObject({ code: "translator_invalid_response", retryable: false });
+      expect(error.message).not.toContain("PRIVATE_TRUNCATED_REASONING");
+      expect(complete).toHaveBeenCalledOnce();
+    },
+  );
   it.each([502, 503, "transport"] as const)(
     "retries a transient request-model failure (%s) within maxRetries",
     async (status) => {

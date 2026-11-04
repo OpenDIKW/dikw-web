@@ -320,13 +320,17 @@ export class TranslatorClient {
             this.signal,
           );
           const choice = response.choices?.[0];
-          if (
-            !choice ||
-            typeof choice.message?.content !== "string" ||
-            choice.message.tool_calls?.length
-          )
-            throw new ModelResolutionError(502, "Translator returned an invalid response.");
-          result = { text: choice.message.content, truncated: choice.finish_reason === "length" };
+          if (choice?.finish_reason === "length") {
+            result = { text: "", truncated: true };
+          } else {
+            if (
+              !choice ||
+              typeof choice.message?.content !== "string" ||
+              choice.message.tool_calls?.length
+            )
+              throw new ModelResolutionError(502, "Translator returned an invalid response.");
+            result = { text: choice.message.content, truncated: false };
+          }
         } else {
           const stream = this.client!.messages.stream(
             params,
