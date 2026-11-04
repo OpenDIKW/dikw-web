@@ -24,6 +24,8 @@ import { initAgentTelemetry } from "../agent/telemetry.js";
 import { type JobOutcome, recordJobEnd, recordJobStart } from "../shared/metrics.js";
 import { createLogger } from "../shared/logger.js";
 
+import { ModelResolutionError, type RequestModelFor } from "../runtime/requestModel.js";
+
 const log = createLogger("web");
 
 const gzipAsync = promisify(gzip);
@@ -54,6 +56,7 @@ class RequestTooLargeError extends Error {
 }
 
 export interface WebHandlerOptions {
+  modelFor?: RequestModelFor;
   cwd?: string;
   config?: WebConfig;
   /** Override for tests. Defaults to the global fetch. */
@@ -70,7 +73,7 @@ export interface WebHandlerOptions {
 
 export async function createDefaultWebHandler(
   cwd = process.cwd(),
-  options: Pick<WebHandlerOptions, "subjectFor"> & {
+  options: Pick<WebHandlerOptions, "subjectFor" | "modelFor"> & {
     env?: Record<string, string | undefined>;
     appId?: string;
   } = {},
@@ -137,10 +140,10 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
 
       if (family === "translate") {
         if (req.method === "GET" && parts[1] === "health") {
-          return json(res, { enabled: Boolean(config.translatorApiKey) });
+          return json(res, { enabled: !!options.modelFor || Boolean(config.translatorApiKey) });
         }
         if (req.method === "POST" && parts[1] === "submit") {
-          if (!config.translatorApiKey) {
+          if (!options.modelFor && !config.translatorApiKey) {
             return errorJson(
               res,
               503,
@@ -148,7 +151,15 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
               "DIKW_AGENT_API_KEY is not configured on this sidecar",
             );
           }
-          return handleTranslateSubmit(req, res, config, jobStore, options.anthropic, subject);
+          return await handleTranslateSubmit(
+            req,
+            res,
+            config,
+            jobStore,
+            options.anthropic,
+            subject,
+            options.modelFor,
+          );
         }
       }
 
@@ -178,6 +189,8 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
       }
       return notFound(res);
     } catch (err) {
+      if (err instanceof ModelResolutionError)
+        return errorJson(res, err.status, "model_unavailable", err.message);
       if (next) {
         next(err);
         return;
@@ -344,6 +357,7 @@ async function handleTranslateSubmit(
   jobStore: JobStore,
   anthropic: AnthropicLike | undefined,
   owner?: string,
+  modelFor?: RequestModelFor,
 ): Promise<void> {
   let raw: Uint8Array;
   try {
@@ -392,31 +406,59 @@ async function handleTranslateSubmit(
   // no longer bounds the request's time-to-first-byte. Return 202; the browser
   // polls GET /web/translate/jobs/<id> and fetches the JSON result on completion.
   const controller = new AbortController();
-  let job: Job;
+  // Before acceptance there is no job id with which the caller can cancel.
+  // A disconnected submit must therefore stop catalog resolution and must not
+  // create detached work afterward. Once accepted, normal response completion
+  // must leave the job alive for polling / explicit cancellation.
+  const abortSubmission = () =>
+    controller.abort(new DOMException("Translation submission disconnected", "AbortError"));
+  const responseClosed = () => {
+    if (!res.writableEnded) abortSubmission();
+  };
+  req.once("aborted", abortSubmission);
+  res.once("close", responseClosed);
   try {
-    job = jobStore.create(controller, "translate", owner);
-  } catch (err) {
-    if (err instanceof JobLimitError) {
-      return errorJson(res, 503, "too_many_jobs", err.message);
+    if (req.aborted || res.destroyed || res.writableEnded) {
+      abortSubmission();
+      return;
     }
+    const requestModel = await modelFor?.(req, "translation", controller.signal);
+    // A custom resolver may ignore AbortSignal; never trust it to enforce the
+    // admission boundary. No await occurs between this check and job creation.
+    if (controller.signal.aborted || req.aborted || res.destroyed || res.writableEnded) return;
+    let job: Job;
+    try {
+      job = jobStore.create(controller, "translate", owner);
+    } catch (err) {
+      if (err instanceof JobLimitError) {
+        return errorJson(res, 503, "too_many_jobs", err.message);
+      }
+      throw err;
+    }
+    const client = new TranslatorClient({
+      requestModel,
+      apiKey: requestModel ? "" : config.translatorApiKey!,
+      baseUrl: config.translatorBaseUrl ?? DEFAULT_TRANSLATOR_BASE_URL,
+      model: config.translatorModel ?? DEFAULT_TRANSLATOR_MODEL,
+      maxTokens: config.translatorMaxTokens,
+      signal: controller.signal,
+      client: anthropic,
+    });
+    jobStore.track(
+      runTranslation(jobStore, job.id, {
+        client,
+        blocks: blocks as string[],
+        targetLang: lang,
+      }),
+    );
+    return json(res, { jobId: job.id, status: "pending" }, 202);
+  } catch (err) {
+    if (controller.signal.aborted || req.aborted || res.destroyed) return;
     throw err;
+  } finally {
+    req.removeListener("aborted", abortSubmission);
+    res.removeListener("close", responseClosed);
   }
-  const client = new TranslatorClient({
-    apiKey: config.translatorApiKey!,
-    baseUrl: config.translatorBaseUrl ?? DEFAULT_TRANSLATOR_BASE_URL,
-    model: config.translatorModel ?? DEFAULT_TRANSLATOR_MODEL,
-    maxTokens: config.translatorMaxTokens,
-    signal: controller.signal,
-    client: anthropic,
-  });
-  jobStore.track(
-    runTranslation(jobStore, job.id, {
-      client,
-      blocks: blocks as string[],
-      targetLang: lang,
-    }),
-  );
-  return json(res, { jobId: job.id, status: "pending" }, 202);
 }
 
 /** Translate job result: block-aligned JSON `{ blocks: [{ i, tr }] }`. Mirrors

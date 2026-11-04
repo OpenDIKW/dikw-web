@@ -72,8 +72,21 @@ retain extraction provenance and document runtime behavior.
 
 ## Verify before publishing
 
+Candidate cohort `0.1.9-rc.1` adds optional request-scoped model resolution with
+live identity checks before Agent, compaction and translation calls. Client hooks
+support safe application headers and explicit fetch transports throughout Core
+and Agent operations. Existing applications without a resolver retain the default
+transport. Translation cancellation during model selection no longer starts an
+orphan job; safe model-selection failures retain actionable status/error codes.
+Pending model resolution observes runtime shutdown, reasoning-only Agent replies
+fail explicitly, and transient translation transport failures retain bounded retries.
+No Agent HTTP/NDJSON or stored-session format migration is required. Install all
+three exact candidate versions together and validate independent applications and
+production images before preparing a new stable cohort. Candidate publication and
+registry-byte acceptance are separate steps; local packing alone proves neither.
+
 ```sh
-npm run version:shared -- 0.1.7
+npm run version:shared -- 0.1.9-rc.1
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle

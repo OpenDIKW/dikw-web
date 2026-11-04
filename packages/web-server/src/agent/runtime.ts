@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { RequestModel } from "../runtime/requestModel.js";
 import { validateAndNormalizeHttpUrl } from "./tools.js";
 import type {
   AgentSessionScope,
@@ -9,6 +10,7 @@ import type {
 
 export interface RunAgentMessageOptions {
   sessionId: string;
+  requestModel?: RequestModel;
   scope?: AgentSessionScope;
   /** ADK user id the session is stored under; defaults to the auth-off `"demo"`. */
   userId?: string;

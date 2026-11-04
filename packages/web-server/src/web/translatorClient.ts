@@ -17,6 +17,11 @@
 // injectable `client` seam so tests never hit the network.
 
 import Anthropic from "@anthropic-ai/sdk";
+import {
+  ModelResolutionError,
+  safeModelError,
+  type RequestModel,
+} from "../runtime/requestModel.js";
 import { createLogger } from "../shared/logger.js";
 import { scrub } from "./scrub.js";
 
@@ -24,6 +29,9 @@ const log = createLogger("translate");
 
 export type TranslatorErrorCode =
   | "translator_auth"
+  | "translator_forbidden"
+  | "translator_settings_changed"
+  | "translator_unavailable"
   | "translator_rate_limit"
   | "translator_timeout"
   | "translator_api"
@@ -135,6 +143,7 @@ const BLOCK_SEP_RE = /\s*<{3,}\s*DIKW_BLOCK_BREAK\s*>{3,}\s*/;
 
 export interface TranslatorClientOptions {
   apiKey: string;
+  requestModel?: RequestModel;
   baseUrl: string;
   model: string;
   /** Job-scoped abort signal; a cancel breaks the in-flight LLM call promptly. */
@@ -149,7 +158,8 @@ export interface TranslatorClientOptions {
 }
 
 export class TranslatorClient {
-  private readonly client: AnthropicLike;
+  private readonly client?: AnthropicLike;
+  private readonly requestModel?: RequestModel;
   private readonly model: string;
   private readonly signal?: AbortSignal;
   private readonly maxTokens: number;
@@ -158,7 +168,8 @@ export class TranslatorClient {
   private readonly retryBaseMs: number;
 
   constructor(opts: TranslatorClientOptions) {
-    this.model = opts.model;
+    this.model = opts.requestModel?.model ?? opts.model;
+    this.requestModel = opts.requestModel;
     this.signal = opts.signal;
     this.maxTokens = opts.maxTokens ?? DEFAULT_MAX_TOKENS;
     this.apiKey = opts.apiKey;
@@ -169,21 +180,22 @@ export class TranslatorClient {
     // the SDK's 10-minute default. `maxRetries: 0` disables the SDK's own retry
     // so backoff is single-sourced in callWithRetry (which also covers
     // mid-stream failures the SDK would not retry).
-    this.client =
-      opts.client ??
-      (new Anthropic({
-        baseURL: opts.baseUrl,
-        apiKey: opts.apiKey,
-        // The app's endpoint-gated undici instrumentation owns outbound tracing.
-        openTelemetry: false,
-        defaultHeaders: {
-          "X-Api-Key": opts.apiKey,
-          Authorization: null,
-          "anthropic-version": "2023-06-01",
-        },
-        timeout: translationTimeoutMs(this.maxTokens),
-        maxRetries: 0,
-      }) as unknown as AnthropicLike);
+    this.client = opts.requestModel
+      ? undefined
+      : (opts.client ??
+        (new Anthropic({
+          baseURL: opts.baseUrl,
+          apiKey: opts.apiKey,
+          // The app's endpoint-gated undici instrumentation owns outbound tracing.
+          openTelemetry: false,
+          defaultHeaders: {
+            "X-Api-Key": opts.apiKey,
+            Authorization: null,
+            "anthropic-version": "2023-06-01",
+          },
+          timeout: translationTimeoutMs(this.maxTokens),
+          maxRetries: 0,
+        }) as unknown as AnthropicLike));
   }
 
   /** Translate `blocks` (each a markdown source block) into `targetLang`.
@@ -292,15 +304,48 @@ export class TranslatorClient {
       if (this.signal?.aborted) {
         throw new TranslatorClientError("translator_api", "translation aborted", false);
       }
-      let result: AnthropicCreateResult;
+      let result: { text: string; truncated: boolean };
       try {
-        const stream = this.client.messages.stream(
-          params,
-          this.signal ? { signal: this.signal } : undefined,
-        );
-        result = await stream.finalMessage();
+        if (this.requestModel) {
+          const response = await this.requestModel.complete(
+            {
+              model: this.requestModel.model,
+              stream: false,
+              max_tokens: this.maxTokens,
+              messages: [
+                { role: "system", content: params.system ?? "" },
+                { role: "user", content: blocks.join(BLOCK_SEP_JOIN) },
+              ],
+            },
+            this.signal,
+          );
+          const choice = response.choices?.[0];
+          if (choice?.finish_reason === "length") {
+            result = { text: "", truncated: true };
+          } else {
+            if (
+              !choice ||
+              typeof choice.message?.content !== "string" ||
+              choice.message.tool_calls?.length
+            )
+              throw new ModelResolutionError(502, "Translator returned an invalid response.");
+            result = { text: choice.message.content, truncated: false };
+          }
+        } else {
+          const stream = this.client!.messages.stream(
+            params,
+            this.signal ? { signal: this.signal } : undefined,
+          );
+          const response = await stream.finalMessage();
+          result = {
+            text: extractText(response),
+            truncated: response.stop_reason === "max_tokens",
+          };
+        }
       } catch (err) {
-        const classified = classifyError(err, this.apiKey);
+        const classified = this.requestModel
+          ? classifyRequestModelError(err)
+          : classifyError(err, this.apiKey);
         if (!classified.retryable || attempt >= this.maxRetries || this.signal?.aborted) {
           throw classified;
         }
@@ -309,13 +354,13 @@ export class TranslatorClient {
       }
       // A truncated reply is deterministic at the configured cap — retrying would
       // truncate again, so fail immediately rather than burn attempts.
-      if (result.stop_reason === "max_tokens") {
+      if (result.truncated) {
         throw new TranslatorClientError(
           "translator_invalid_response",
           "translation output was truncated (document too large for the configured max_tokens)",
         );
       }
-      const parts = splitTranslations(extractText(result));
+      const parts = splitTranslations(result.text);
       if (parts.length > 0) return parts;
       // Empty reply — nothing usable. Usually transient; re-ask while attempts
       // remain, then surface the error.
@@ -328,6 +373,23 @@ export class TranslatorClient {
       await sleep(backoffDelayMs(attempt + 1, this.retryBaseMs), this.signal);
     }
   }
+}
+
+function classifyRequestModelError(error: unknown): TranslatorClientError {
+  const safe = safeModelError(error);
+  const codes: Partial<Record<number, TranslatorErrorCode>> = {
+    401: "translator_auth",
+    403: "translator_forbidden",
+    409: "translator_settings_changed",
+    404: "translator_unavailable",
+    422: "translator_unavailable",
+    429: "translator_rate_limit",
+  };
+  return new TranslatorClientError(
+    codes[safe.status] ?? "translator_api",
+    safe.message,
+    safe.retryable !== false && (safe.status === 502 || safe.status === 503),
+  );
 }
 
 function buildSystemPrompt(langName: string): string {

@@ -33,6 +33,10 @@ describe("createRequestRouter", () => {
         return { sub: "u-1", role: "viewer" } satisfies Principal;
       },
       principalOf: () => undefined,
+      identityOf: () => undefined,
+      async modelIdentityFor() {
+        throw new Error("no model identity in router fixture");
+      },
     };
     return { gate, seen };
   }

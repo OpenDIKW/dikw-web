@@ -7,6 +7,15 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.11] - 2026-11-04
+
+- Prepare shared cohort `0.1.9-rc.1` with an optional authenticated, request-scoped OpenAI-compatible model resolver. Revalidate the original login and refreshed identity before every Agent, compaction and translation completion; preserve existing defaults for applications without the hook.
+- Keep each turn's model and budgets consistent across tool continuation and compaction. Replay hidden reasoning without exposing it in browser text or persisted visible history; retain usage estimation when the provider omits token counts.
+- Add safe application-header and explicit fetch hooks to Core and Agent clients, including session operations, aborts, uploads and streaming calls. Authentication and connection override headers remain excluded from the hook.
+- Cancel translation submission during model selection before creating a background job, while preserving normal 202 job handoff. Return safe, actionable model-selection statuses and error codes without raw upstream errors or credentials.
+- Abort pending model resolution during runtime shutdown, reject reasoning-only responses without visible answers or tool calls, and retain bounded translation retries for transient model transport failures.
+- Preserve existing Agent HTTP/NDJSON contracts and SQLite session formats. Candidate registry publication and independent application/image acceptance remain required before stable release.
+
 ## [0.12.10] - 2026-11-02
 
 - Add optional live Casdoor authorization to the standalone workbench, using the existing shared `0.1.8` session hook. Enforce current roles, disabled/deleted status, forced password changes and changes since the original sign-in on every protected request.

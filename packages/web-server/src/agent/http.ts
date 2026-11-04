@@ -17,9 +17,12 @@ import { defaultServerUrl } from "@opendikw/web-client/connection";
 import type { AgentRunner } from "./runtime.js";
 import type { AgentMaintenanceAction, AgentStreamEvent } from "@opendikw/web-client/types";
 
+import { safeModelError, type RequestModelFor } from "../runtime/requestModel.js";
+
 const log = createLogger("agent");
 
 export interface AgentHandlerOptions {
+  modelFor?: RequestModelFor;
   cwd?: string;
   store?: AdkSessionStore;
   runner?: AgentRunner;
@@ -50,7 +53,12 @@ export interface AgentHandlerOptions {
 
 type DefaultAgentHandlerOptions = Pick<
   AgentHandlerOptions,
-  "sessionsDir" | "devProxyTarget" | "subjectFor" | "legacySessionsOwner" | "serverCore"
+  | "sessionsDir"
+  | "devProxyTarget"
+  | "subjectFor"
+  | "legacySessionsOwner"
+  | "serverCore"
+  | "modelFor"
 > & {
   env?: Record<string, string | undefined>;
   appId?: ApplicationId;
@@ -69,7 +77,11 @@ export async function createDefaultAgentHandler(
   cwd = process.cwd(),
   options: DefaultAgentHandlerOptions = {},
 ) {
-  const config = await loadAgentConfig({ cwd, env: options.env });
+  const config = await loadAgentConfig({
+    cwd,
+    env: options.env,
+    requestScopedModel: !!options.modelFor,
+  });
   const dir = resolveSessionsDir(cwd, options.sessionsDir);
   await mkdir(dir, { recursive: true }); // sqlite3 creates the file, not the dir
   // POSIX slashes — Windows backslashes break the sqlite:// URI parse.
@@ -266,14 +278,17 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
           if (!res.destroyed && !res.writableEnded) res.write(`${JSON.stringify(event)}\n`);
         };
         try {
+          const signal = AbortSignal.any([controller.signal, shutdown.signal]);
+          const requestModel = await options.modelFor?.(req, "agent", signal);
           await runner.runMessage({
+            ...(requestModel ? { requestModel } : {}),
             sessionId,
             userId: owner,
             ...(scope ? { scope } : {}),
             message: body.message.trim(),
             coreUrl: connection.coreUrl,
             token: connection.token,
-            signal: AbortSignal.any([controller.signal, shutdown.signal]),
+            signal,
             onEvent: writeEvent,
           });
         } catch (error) {
@@ -281,7 +296,11 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
             type: "error",
             sessionId,
             code: "agent_error",
-            message: error instanceof Error ? error.message : String(error),
+            message: options.modelFor
+              ? safeModelError(error).message
+              : error instanceof Error
+                ? error.message
+                : String(error),
           });
         } finally {
           if (timedOut)

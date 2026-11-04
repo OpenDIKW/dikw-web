@@ -170,3 +170,40 @@ it("creates a page-scoped session without changing legacy unscoped requests", as
   await client.createSession();
   expect(fetcher.mock.calls[1][1]?.body).toBeUndefined();
 });
+
+it("resolves request headers for each turn without changing the NDJSON contract", async () => {
+  let model = "profile-a";
+  const fetcher = vi.fn(async () => new Response('{"type":"agent_end","sessionId":"s1"}\n'));
+  vi.stubGlobal("fetch", fetcher);
+  const client = new AgentClient({
+    requestHeaders: () => ({
+      "X-DIKW-Model": model,
+      Accept: "invalid",
+      accept: "also-invalid",
+      "content-type": "invalid",
+      Authorization: "forbidden-secret",
+      COOKIE: "forbidden-session",
+      "X-DIKW-Core-URL": "https://other.example",
+      "x-dikw-core-token": "forbidden-core-token",
+      "Proxy-Authorization": "forbidden-proxy",
+      Origin: "https://other.example",
+    }),
+  });
+  for await (const event of client.sendMessage("s1", "one")) expect(event.type).toBe("agent_end");
+  model = "profile-b";
+  for await (const event of client.sendMessage("s1", "two")) expect(event.type).toBe("agent_end");
+  expect(
+    fetcher.mock.calls.map((call) => (call as unknown as [string, RequestInit])[1].headers),
+  ).toEqual([
+    {
+      "X-DIKW-Model": "profile-a",
+      Accept: "application/x-ndjson",
+      "Content-Type": "application/json",
+    },
+    {
+      "X-DIKW-Model": "profile-b",
+      Accept: "application/x-ndjson",
+      "Content-Type": "application/json",
+    },
+  ]);
+});

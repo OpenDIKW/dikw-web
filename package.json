@@ -1,6 +1,6 @@
 {
   "name": "dikw-web",
-  "version": "0.12.10",
+  "version": "0.12.11",
   "private": true,
   "type": "module",
   "engines": {
@@ -42,6 +42,9 @@
     "@google/genai": "^2.24.0",
     "@mikro-orm/core": "^7.2.5",
     "@mikro-orm/sqlite": "^7.2.5",
+    "@opendikw/web-client": "0.1.9-rc.1",
+    "@opendikw/web-server": "0.1.9-rc.1",
+    "@opendikw/web-ui": "0.1.9-rc.1",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.223.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.222.0",
@@ -66,10 +69,7 @@
     "pixi.js": "^8.22.0",
     "react": "^19.2.6",
     "react-dom": "^19.3.0",
-    "undici": "^8.12.3",
-    "@opendikw/web-client": "0.1.8",
-    "@opendikw/web-ui": "0.1.8",
-    "@opendikw/web-server": "0.1.8"
+    "undici": "^8.12.3"
   },
   "overrides": {
     "adm-zip": "^0.6.1",

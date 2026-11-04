@@ -1,3 +1,4 @@
+import { applicationHeaders } from "../applicationHeaders.js";
 import { decodeNdjsonStream } from "./ndjson.js";
 import { prepareImport, protectReferencedAssets, type AssetProtection } from "./import-safety.js";
 import type { ManifestJson } from "../import/import-bundle.js";
@@ -25,6 +26,10 @@ export interface DikwClientConfig {
    *  to the empty string in same-origin proxy mode; pass an explicit value
    *  (e.g. the user-visible server URL) to distinguish proxy targets. */
   coreId?: string;
+  /** Nonsecret first-party headers, resolved for every request. */
+  requestHeaders?: () => Record<string, string>;
+  /** Explicit application transport; never changes global fetch. */
+  fetch?: typeof fetch;
 }
 
 export interface JsonRequestOptions {
@@ -58,7 +63,7 @@ export class DikwClient {
   private readonly token: string;
   private readonly _coreId: string;
 
-  constructor(config: DikwClientConfig = {}) {
+  constructor(private readonly config: DikwClientConfig = {}) {
     this.baseUrl = normalizeBaseUrl(config.baseUrl ?? "");
     this.token = config.token ?? "";
     // Default to the normalized baseUrl, but allow callers to override —
@@ -295,12 +300,13 @@ export class DikwClient {
   async postMultipart<T>(path: string, form: FormData, signal?: AbortSignal): Promise<T> {
     // FormData sets its own Content-Type with boundary — never inject one.
     const headers: Record<string, string> = {
+      ...this.applicationHeaders(),
       Accept: "application/json",
     };
     if (this.token) {
       headers.Authorization = `Bearer ${this.token}`;
     }
-    const response = await fetch(buildRequestUrl(this.baseUrl, path), {
+    const response = await (this.config.fetch ?? fetch)(buildRequestUrl(this.baseUrl, path), {
       method: "POST",
       headers,
       body: form,
@@ -316,12 +322,15 @@ export class DikwClient {
   }
 
   async requestJson<T>(path: string, options: JsonRequestOptions = {}): Promise<T> {
-    const response = await fetch(buildRequestUrl(this.baseUrl, path, options.params), {
-      method: options.method ?? "GET",
-      headers: this.headers(options.body !== undefined),
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: options.signal,
-    });
+    const response = await (this.config.fetch ?? fetch)(
+      buildRequestUrl(this.baseUrl, path, options.params),
+      {
+        method: options.method ?? "GET",
+        headers: this.headers(options.body !== undefined),
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: options.signal,
+      },
+    );
 
     if (!response.ok) {
       throw await errorFromResponse(response);
@@ -393,12 +402,15 @@ export class DikwClient {
   }
 
   async *streamNdjson<T>(path: string, options: JsonRequestOptions = {}): AsyncGenerator<T> {
-    const response = await fetch(buildRequestUrl(this.baseUrl, path, options.params), {
-      method: options.method ?? "GET",
-      headers: this.headers(options.body !== undefined),
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      signal: options.signal,
-    });
+    const response = await (this.config.fetch ?? fetch)(
+      buildRequestUrl(this.baseUrl, path, options.params),
+      {
+        method: options.method ?? "GET",
+        headers: this.headers(options.body !== undefined),
+        body: options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: options.signal,
+      },
+    );
 
     if (!response.ok) {
       throw await errorFromResponse(response);
@@ -427,8 +439,19 @@ export class DikwClient {
     }
   }
 
+  private applicationHeaders(): Record<string, string> {
+    if (
+      typeof window !== "undefined" &&
+      this.baseUrl &&
+      new URL(this.baseUrl, window.location.href).origin !== window.location.origin
+    )
+      return {};
+    return applicationHeaders(this.config.requestHeaders?.());
+  }
+
   private headers(hasJsonBody: boolean): HeadersInit {
     const headers: Record<string, string> = {
+      ...this.applicationHeaders(),
       Accept: "application/json, application/x-ndjson",
     };
     if (hasJsonBody) {

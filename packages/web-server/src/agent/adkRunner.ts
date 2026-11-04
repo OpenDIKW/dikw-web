@@ -13,6 +13,7 @@ import type { AgentConfig } from "./config.js";
 import { createDikwTools } from "./adkTools.js";
 import { buildContextCompactor } from "./contextCompactor.js";
 import { MiniMaxLlm } from "./minimaxLlm.js";
+import { OpenAILlm } from "./openaiLlm.js";
 import { DEFAULT_USER_ID, type AdkSessionStore } from "./adkSessionStore.js";
 import { proposalFromTool, sourcesFromTool, systemPrompt } from "./runtime.js";
 import type { AgentRunner, RunAgentMessageOptions } from "./runtime.js";
@@ -166,6 +167,7 @@ export class AdkAgentRunner implements AgentRunner {
 
   async runMessage({
     sessionId,
+    requestModel,
     scope,
     userId = DEFAULT_USER_ID,
     message,
@@ -197,14 +199,21 @@ export class AdkAgentRunner implements AgentRunner {
       // summarizer (it is stateless apart from its HTTP client). The turn signal
       // is applied at the model level so the summarizer call — which ADK invokes
       // without a per-call signal — still honors a user Stop.
-      const model = new MiniMaxLlm({
-        model: this.config.model,
-        apiKey: this.config.apiKey,
-        baseUrl: this.config.baseUrl,
-        abortSignal: signal,
-        maxCalls: 8,
-        maxOutputTokens: 8192,
-      });
+      const model = requestModel
+        ? new OpenAILlm({
+            transport: requestModel,
+            abortSignal: signal,
+            maxCalls: 8,
+            maxOutputTokens: 8192,
+          })
+        : new MiniMaxLlm({
+            model: this.config.model,
+            apiKey: this.config.apiKey,
+            baseUrl: this.config.baseUrl,
+            abortSignal: signal,
+            maxCalls: 8,
+            maxOutputTokens: 8192,
+          });
       const compactor = buildContextCompactor(model, this.config.compaction);
 
       const agent = new LlmAgent({
