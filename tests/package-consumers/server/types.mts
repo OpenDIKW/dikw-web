@@ -8,6 +8,7 @@ import { registerOutboundInstrumentation } from "@opendikw/web-server/instrument
 const options: WebRuntimeOptions = {
   appId: "dikw-mbweb",
   profile: "mbweb",
+  publicBasePath: "/knowledge-base",
   cwd: process.cwd(),
   env: {},
 };

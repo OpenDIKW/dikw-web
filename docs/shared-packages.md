@@ -85,8 +85,18 @@ three exact candidate versions together and validate independent applications an
 production images before preparing a new stable cohort. Candidate publication and
 registry-byte acceptance are separate steps; local packing alone proves neither.
 
+Candidate cohort `0.1.9-rc.2` additionally exposes
+`createWebRuntime({ publicBasePath: "/knowledge-base" })` for applications
+served behind a path-prefix proxy. The option describes the external OIDC
+authorization, callback and post-logout URLs. The configured public URL remains
+the trusted origin, and runtime handlers still receive paths with the mount
+prefix removed. The application owns path stripping, Cookie Path and
+Location/authentication HTML rewriting; this option is not a routing adapter.
+No private package modules are required. Root-path applications retain their
+existing behavior. Upgrade all three exact candidate dependencies together.
+
 ```sh
-npm run version:shared -- 0.1.9-rc.1
+npm run version:shared -- 0.1.9-rc.2
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
