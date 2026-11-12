@@ -30,6 +30,11 @@ export interface WebRuntimeOptions {
   cwd?: string;
   staticDir?: string;
   env?: Record<string, string | undefined>;
+  /** Trusted external OIDC URL prefix (e.g. /knowledge-base); empty or / means root.
+   * The application still mounts the handler at root-relative paths and owns
+   * Cookie Path, Location, HTML/CSP and returnTo handling for its outer mount.
+   * DIKW_WEB_PUBLIC_URL remains an origin; forwarded headers are not trusted. */
+  publicBasePath?: string;
   /** Optional application-specific, live status check; server-only credentials. */
   validateSession?: SessionValidator;
   /** Trusted server-only resolver. Requires OIDC plus live session validation.
@@ -65,6 +70,13 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
     options.appId !== (options.profile === "mbweb" ? "dikw-mbweb" : "dikw-web")
   ) {
     throw new Error("appId and profile must identify the same application");
+  }
+  const publicBasePath = options.publicBasePath === "/" ? "" : (options.publicBasePath ?? "");
+  if (
+    typeof publicBasePath !== "string" ||
+    (publicBasePath !== "" && !/^\/[a-z0-9]+(?:[-/][a-z0-9]+)*$/.test(publicBasePath))
+  ) {
+    throw new Error("publicBasePath must be a canonical absolute path without a trailing slash");
   }
   const cwd = resolve(options.cwd ?? process.cwd());
   const env = { ...(await readEnvFile(join(cwd, ".env.local"))), ...(options.env ?? process.env) };
@@ -104,10 +116,23 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
         secret: authConfig.sessionSecret,
       });
       proxy = createCoreProxy({ coreUrl: authConfig.coreUrl, token: authConfig.serverToken });
+      const oidc = createOidcClient(
+        { ...authConfig, publicUrl: authConfig.publicUrl + publicBasePath },
+        { signal: shutdown.signal },
+      );
       auth = {
         gate: createAuthGate({
           config: authConfig,
-          oidc: createOidcClient(authConfig, { signal: shutdown.signal }),
+          oidc: publicBasePath
+            ? {
+                ...oidc,
+                completeLogin(callbackUrl, transaction) {
+                  const publicCallback = new URL(callbackUrl);
+                  publicCallback.pathname = publicBasePath + publicCallback.pathname;
+                  return oidc.completeLogin(publicCallback, transaction);
+                },
+              }
+            : oidc,
           sessions,
           validateSession: options.validateSession,
           ...(options.profile === "mbweb"

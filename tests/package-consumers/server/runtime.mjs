@@ -19,6 +19,7 @@ await writeFile(join(cwd, "dist/index.html"), "<!doctype html><title>Packed runt
 const options = {
   appId: "dikw-web",
   profile: "workbench",
+  publicBasePath: "/knowledge-base",
   cwd,
   env: {
     DIKW_AGENT_API_KEY: "fixture-only",

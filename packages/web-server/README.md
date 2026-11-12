@@ -58,6 +58,31 @@ client configuration. Workbench retains `dikw_session`/`dikw_login`; MB uses
 stores are separate. The #204 user job isolation and #205 sliding renewal,
 role sync and absolute session cap remain shared behavior.
 
+### External OIDC base path
+
+For a same-origin application mounted below a path, pass the trusted server-only
+`publicBasePath` option, for example
+`createWebRuntime({ publicBasePath: "/knowledge-base", ... })`. It prefixes only
+the OIDC authorization `redirect_uri`, the callback URL used for the token grant,
+and the RP-initiated logout `post_logout_redirect_uri`. Keep
+`DIKW_WEB_PUBLIC_URL` as the bare public origin; unsafe requests still require
+that exact Origin. The runtime does not read a base path from forwarded headers.
+
+Omitting the option, `""`, and `"/"` preserve root behavior. Other values must be
+canonical absolute paths made of lowercase letters, digits, hyphens and slash
+separated segments, without a trailing slash. Nested paths are supported; query,
+hash, percent encoding, dot segments, repeated separators and backslashes are not.
+
+This option is not a router mount. The application must validate its external
+mount and remove the prefix before calling `handler`, `withModelIdentity`, or
+`resolveModelFor`. Those methods continue to accept root-relative internal
+paths such as `/web/auth/me`, `/agent/sessions`, and `/v1/retrieve`, so an
+application can compose its own business routes around the runtime. The outer
+application adapter remains responsible for its cookie Path, same-origin
+Location headers, login return destinations, auth-page HTML links/scripts and
+matching CSP hashes, as well as the frontend's built asset/API paths. None of
+these responses are rewritten by `publicBasePath`.
+
 Existing `DIKW_WEB_*`, `DIKW_AGENT_*`, `DIKW_CORE_URL` and `DIKW_SERVER_TOKEN`
 variables are loaded from the application's `.env.local`, overridden by `env`.
 Production MB requires OIDC and a stable, non-secret `DIKW_WEB_CORE_ID`.
