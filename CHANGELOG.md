@@ -7,6 +7,11 @@ Version numbers are standard three-digit SemVer (`MAJOR.MINOR.PATCH`); `package.
 is the single source of truth. See `[0.0.2]` below for why the four-digit `VERSION`
 file format introduced in `[0.0.1.0]` was dropped.
 
+## [0.12.13] - 2026-11-21
+
+- Fix the filename-normalization regular expression flagged by CodeQL alert #10. Unicode filename normalization and archive length limits keep their existing behavior.
+- Prepare shared npm cohort `0.1.9-rc.3` so independent applications can pick up the filename fix.
+
 ## [0.12.12] - 2026-11-12
 
 - Prepare shared cohort `0.1.9-rc.2` with a documented `publicBasePath` runtime option for external OIDC authorization, callback and post-logout URLs behind a path-prefix proxy.
