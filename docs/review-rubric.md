@@ -20,16 +20,19 @@ Each item is pass/fail against the **diff under review**.
 - [ ] **Goal-driven / TDD.** Behavior changes land test-first (see `docs/tdd.md`).
   Coverage thresholds in `vite.config.ts` (60/45/55/60) are **not lowered** to
   pass — tests are added/repaired instead. This is now machine-enforced by the
-  `gate-integrity` CI job (`npm run check:gate`): lowering a threshold, raising a
-  bundle budget, raising e2e retries, or deleting/disabling a test fails the PR
-  unless a maintainer attaches the `gate-change` label. The reviewer's job here is
-  to judge whether a labelled `gate-change` is actually justified.
+  `gate-integrity` CI job (`npm run check:gate`, executed from the PR base branch
+  so a PR cannot weaken its own gate): lowering a threshold, shrinking
+  `coverage.include`, growing/widening `coverage.exclude`, dropping a step from
+  `scripts.verify`, raising a bundle budget, raising e2e retries, deleting/disabling
+  a test, or editing gate/CI/rubric machinery fails the PR unless a maintainer
+  attaches the `gate-change` label. The reviewer's job here is to judge whether a
+  labelled `gate-change` is actually justified.
 
 ## Repo-specific traps (these don't trip generic reviewers)
 
 - [ ] **`server/**` relative imports carry a `.js` extension** (except `*.test.ts`).
-  `moduleResolution: Bundler` won't flag a missing one; typecheck/build pass; only
-  review catches it. [[project_server_js_import_extension]]
+  Now mechanically enforced by `npm run lint` (`dikw/server-relative-js-extension`
+  in `eslint.config.js`); verify no `eslint-disable` bypasses it.
 - [ ] **No UI framework.** No Tailwind/Radix/shadcn/etc.; styling stays in the
   `src/styles.css` token system + shared component classes. (The `cssGzipKB`
   bundle budget is a backstop for this.)

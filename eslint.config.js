@@ -21,6 +21,69 @@ const noUnusedVars = [
   { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" },
 ];
 
+// Deterministic replacement for the prose review rule: `server/**` runtime modules
+// run under Node ESM (and are bundled/typed with `moduleResolution: Bundler`), so
+// missing `.js` extensions on relative imports silently pass tsc/esbuild and only
+// break under direct Node ESM loading.
+const ALLOWED_RELATIVE_EXT_RE = /\.(?:js|mjs|cjs|json)$/;
+const dikwPlugin = {
+  rules: {
+    "server-relative-js-extension": {
+      meta: {
+        type: "problem",
+        docs: {
+          description: "Require explicit .js extensions on relative imports in server/** modules",
+        },
+        schema: [],
+      },
+      create(context) {
+        function checkSource(sourceNode) {
+          if (!sourceNode) return;
+          let specifier = null;
+          if (sourceNode.type === "Literal" && typeof sourceNode.value === "string") {
+            specifier = sourceNode.value;
+          } else if (
+            sourceNode.type === "TemplateLiteral" &&
+            sourceNode.expressions.length === 0 &&
+            typeof sourceNode.quasis[0]?.value?.cooked === "string"
+          ) {
+            specifier = sourceNode.quasis[0].value.cooked;
+          }
+          if (specifier === null) return;
+          if (
+            specifier !== "." &&
+            specifier !== ".." &&
+            !specifier.startsWith("./") &&
+            !specifier.startsWith("../")
+          ) {
+            return;
+          }
+          if (!ALLOWED_RELATIVE_EXT_RE.test(specifier)) {
+            context.report({
+              node: sourceNode,
+              message: `Relative import "${specifier}" in server/** must include an explicit .js extension.`,
+            });
+          }
+        }
+        return {
+          ImportDeclaration(node) {
+            checkSource(node.source);
+          },
+          ExportNamedDeclaration(node) {
+            checkSource(node.source);
+          },
+          ExportAllDeclaration(node) {
+            checkSource(node.source);
+          },
+          ImportExpression(node) {
+            checkSource(node.source);
+          },
+        };
+      },
+    },
+  },
+};
+
 export default tseslint.config(
   {
     ignores: [
@@ -82,6 +145,13 @@ export default tseslint.config(
       "*.config.ts",
     ],
     languageOptions: { globals: { ...globals.node } },
+  },
+  // Server runtime modules must include explicit `.js` extensions on relative imports.
+  {
+    files: ["server/**/*.ts"],
+    ignores: ["server/**/*.test.ts"],
+    plugins: { dikw: dikwPlugin },
+    rules: { "dikw/server-relative-js-extension": "error" },
   },
   // Tests run under Node + jsdom/Playwright: mock generators legitimately never
   // yield, and console output is a normal debugging aid.

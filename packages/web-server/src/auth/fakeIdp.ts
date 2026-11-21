@@ -16,6 +16,8 @@ export interface FakeIdpOptions {
   refreshTokens?: boolean;
   rotateRefreshTokens?: boolean;
   revocation?: boolean;
+  /** Optional browser-driven /authorize handler for Playwright E2E flows. */
+  onAuthorize?: (url: URL) => Record<string, unknown>;
 }
 
 interface PendingCode {
@@ -96,6 +98,18 @@ export async function startFakeIdp(options: FakeIdpOptions): Promise<FakeIdp> {
     }
     if (url.pathname === "/jwks") {
       return send(200, { keys: [jwk] });
+    }
+    if (url.pathname === "/authorize" && req.method === "GET" && options.onAuthorize) {
+      const redirectUri = url.searchParams.get("redirect_uri");
+      if (!redirectUri) return send(400, { error: "invalid_request" });
+      const { code, state } = approveRequest(url.toString(), options.onAuthorize(url));
+      const target = new URL(redirectUri);
+      target.searchParams.set("code", code);
+      target.searchParams.set("state", state);
+      res.statusCode = 302;
+      res.setHeader("Location", target.toString());
+      res.end();
+      return;
     }
     if (url.pathname === "/userinfo") {
       const claims = accessTokens.get((req.headers.authorization ?? "").replace(/^Bearer /i, ""));
@@ -204,6 +218,26 @@ export async function startFakeIdp(options: FakeIdpOptions): Promise<FakeIdp> {
     return `${input}.${sign("RSA-SHA256", Buffer.from(input), key).toString("base64url")}`;
   }
 
+  function approveRequest(
+    authorizeUrl: string,
+    claims: Record<string, unknown> = {},
+    { forge = false }: { forge?: boolean } = {},
+  ): { code: string; state: string } {
+    const params = new URL(authorizeUrl).searchParams;
+    if (params.get("code_challenge_method") !== "S256") {
+      throw new Error("fake IdP: PKCE S256 required");
+    }
+    const code = randomBytes(16).toString("hex");
+    codes.set(code, {
+      nonce: params.get("nonce") ?? "",
+      codeChallenge: params.get("code_challenge") ?? "",
+      redirectUri: params.get("redirect_uri") ?? "",
+      claims,
+      forge,
+    });
+    return { code, state: params.get("state") ?? "" };
+  }
+
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("fake IdP did not bind");
@@ -220,21 +254,7 @@ export async function startFakeIdp(options: FakeIdpOptions): Promise<FakeIdp> {
     get refreshRequests() {
       return refreshRequests;
     },
-    approve(authorizeUrl, claims = {}, { forge = false } = {}) {
-      const params = new URL(authorizeUrl).searchParams;
-      if (params.get("code_challenge_method") !== "S256") {
-        throw new Error("fake IdP: PKCE S256 required");
-      }
-      const code = randomBytes(16).toString("hex");
-      codes.set(code, {
-        nonce: params.get("nonce") ?? "",
-        codeChallenge: params.get("code_challenge") ?? "",
-        redirectUri: params.get("redirect_uri") ?? "",
-        claims,
-        forge,
-      });
-      return { code, state: params.get("state") ?? "" };
-    },
+    approve: approveRequest,
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   };
 }

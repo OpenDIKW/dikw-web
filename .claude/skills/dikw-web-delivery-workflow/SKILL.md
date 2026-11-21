@@ -53,8 +53,8 @@ There are two layers of verification: **self-verify while you build** (steps 2â€
    | **L** | `packages/web-server/src/auth/**`, `requestRouter.ts`, the frozen `/agent/*` contract, Markdown sanitizing in `packages/web-ui/src/reader/**`, the publish flow (`scripts/*publish*`, `publish-packages.yml`), or the gate machinery (`scripts/check-gate-integrity.mjs`, `.github/workflows/**`, `.claude/agents/fixer.md`) | tier M + a fresh-context subagent review |
 
    - **Codex:** run `codex review --base main` in the background. The `/codex:review` slash command is user-only, so call the CLI. Fix, then run it again. Stop after 3 rounds or when a round has no new actionable finding.
-   - **`/code-review`:** run it once after the codex rounds. Point it at **`docs/review-rubric.md`** so the project rules get scored, not only generic correctness.
-   - **Fresh-context review (tier L):** spawn a subagent with only the diff and `docs/review-rubric.md`. It did not write the code; do not give it your reasoning.
+   - **`/code-review`:** run it once after the codex rounds. Point it at **`origin/main:docs/review-rubric.md`** (the base branch rubric, never only the PR's edits) so the project rules get scored, not only generic correctness.
+   - **Fresh-context review (tier L):** spawn a subagent with only the diff and `origin/main:docs/review-rubric.md`. It did not write the code; do not give it your reasoning.
    - **Triage every finding the same way.** Ask each reviewer to report merge-blocking problems first, each with the file and line, why it is wrong, and how to show that it fails. Read the cited code before you fix. Fix every actionable finding, blocking or not. Reject a nitpick or a false positive with a one-line reason.
    - This local review is the real gate. If you merge with `--auto`, CodeRabbit is often outrun and never reviews.
 
@@ -87,7 +87,7 @@ Stop only when one of these occurs. For everything else, continue.
 
 ## Repo gotchas this loop must honor
 
-- New `server/**` runtime modules: relative imports carry a `.js` extension (`*.test.ts` excepted). Typecheck and build do not catch a missing one; only review does.
+- New `server/**` runtime modules: relative imports carry a `.js` extension (`*.test.ts` excepted), mechanically enforced by `npm run lint` (`dikw/server-relative-js-extension`).
 - Multi-line git or gh bodies: use a `<<'EOF'` heredoc or `--body-file`, not PowerShell `@'...'@`.
 - Do not pipe a pass/fail command into `tail`. The exit code becomes tail's (always 0) and hides e2e failures.
 - Dependabot rebases: comment `@dependabot rebase`. Never use the update-branch API.

@@ -69,6 +69,10 @@ export default defineConfig(({ mode }) => {
           "packages/web-client/src/**/*.{ts,tsx}",
           "packages/web-ui/src/**/*.{ts,tsx}",
           "packages/web-server/src/runtime/**/*.ts",
+          "packages/web-server/src/auth/**/*.ts",
+          "packages/web-server/src/agent/**/*.ts",
+          "packages/web-server/src/web/**/*.ts",
+          "server/**/*.ts",
         ],
         exclude: [
           "**/*.test.{ts,tsx}",

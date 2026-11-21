@@ -20,7 +20,8 @@
 // runs when invoked as a CLI.
 
 import { execFileSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { posix } from "node:path";
 
 // --- pure parsers ---------------------------------------------------------------
@@ -64,14 +65,61 @@ export function parseCoverageThresholds(src) {
   return Object.values(out).every((v) => v !== null) ? out : null;
 }
 
-/** Number of entries in the **coverage** `exclude: [...]` array (not `test.exclude`). */
-export function parseCoverageExcludeCount(src) {
-  const cov = extractBlock(src, "coverage:");
+function parseCoverageStringArray(src, field) {
+  // directConfigProperties is quote-aware: it strips `//` and `/* ... */` comments
+  // without corrupting `/**/` glob sequences inside quoted strings.
+  const cov = directConfigProperties(extractBlock(src, "coverage:"));
   if (!cov) return null;
-  const m = cov.match(/exclude:\s*\[([\s\S]*?)\]/);
+  const m = cov.match(new RegExp(`\\b${field}:\\s*\\[([\\s\\S]*?)\\]`));
   if (!m) return null;
   const entries = m[1].match(/['"`][^'"`]*['"`]/g);
-  return entries ? entries.length : 0;
+  return entries ? entries.map((entry) => entry.slice(1, -1)) : [];
+}
+
+/** Patterns in the **coverage** `include: [...]` array (not `test.include`). */
+export function parseCoverageInclude(src) {
+  return parseCoverageStringArray(src, "include");
+}
+
+/** Patterns in the **coverage** `exclude: [...]` array (not `test.exclude`). */
+export function parseCoverageExclude(src) {
+  return parseCoverageStringArray(src, "exclude");
+}
+
+/** Number of entries in the **coverage** `exclude: [...]` array (not `test.exclude`). */
+export function parseCoverageExcludeCount(src) {
+  const entries = parseCoverageExclude(src);
+  return entries === null ? null : entries.length;
+}
+
+/** Ordered steps of `package.json` `scripts.verify` split on `&&`. */
+export function parseVerifySteps(src) {
+  if (!src) return null;
+  try {
+    const parsed = JSON.parse(src);
+    const verify = parsed?.scripts?.verify;
+    if (typeof verify !== "string" || !verify.trim()) return null;
+    return verify
+      .split("&&")
+      .map((step) => step.trim().replace(/\s+/g, " "))
+      .filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+
+/** Parse `package.json` `scripts` map as string→string, or null. */
+export function parsePackageScripts(src) {
+  if (!src) return null;
+  try {
+    const parsed = JSON.parse(src);
+    if (!parsed?.scripts || typeof parsed.scripts !== "object" || Array.isArray(parsed.scripts)) {
+      return null;
+    }
+    return parsed.scripts;
+  } catch {
+    return null;
+  }
 }
 
 /** @returns {{entryJsGzipKB:number,totalJsGzipKB:number,cssGzipKB:number}|null} */
@@ -118,7 +166,14 @@ export function countAssertions(src) {
   return (stripComments(src).match(/\bexpect\s*\(/g) || []).length;
 }
 
-const MACHINERY_PATHS = new Set(["scripts/check-gate-integrity.mjs", ".claude/agents/fixer.md"]);
+const MACHINERY_PATHS = new Set([
+  "scripts/check-gate-integrity.mjs",
+  ".claude/agents/fixer.md",
+  "tests/e2e/harness.ts",
+  "eslint.config.js",
+  "docs/review-rubric.md",
+  ".github/CODEOWNERS",
+]);
 
 /**
  * Is `path` part of the gate's own enforcement machinery (any edit needs the label)?
@@ -170,14 +225,87 @@ export function evaluateGate(input) {
       }
     }
   }
-  const baseExcl = parseCoverageExcludeCount(input.coverage?.base);
-  const headExcl = parseCoverageExcludeCount(input.coverage?.head);
-  if (baseExcl !== null && headExcl !== null && headExcl > baseExcl) {
-    violations.push({
-      code: "coverage-exclude-grown",
-      file: "vite.config.ts",
-      detail: `coverage exclude entries: ${baseExcl} → ${headExcl}`,
-    });
+  const baseIncl = parseCoverageInclude(input.coverage?.base);
+  const headIncl = parseCoverageInclude(input.coverage?.head);
+  if (baseIncl && baseIncl.length > 0) {
+    if (!headIncl) {
+      violations.push({
+        code: "coverage-include-shrunk",
+        file: "vite.config.ts",
+        detail: "coverage include array removed or no longer parseable",
+      });
+    } else {
+      const headSet = new Set(headIncl);
+      const removed = baseIncl.filter((entry) => !headSet.has(entry));
+      if (removed.length > 0) {
+        violations.push({
+          code: "coverage-include-shrunk",
+          file: "vite.config.ts",
+          detail: `removed coverage include entries: ${removed.join(", ")}`,
+        });
+      }
+    }
+  }
+  const baseExcl = parseCoverageExclude(input.coverage?.base);
+  const headExcl = parseCoverageExclude(input.coverage?.head);
+  if (baseExcl !== null && headExcl !== null) {
+    const baseSet = new Set(baseExcl);
+    const added = headExcl.filter((entry) => !baseSet.has(entry));
+    if (headExcl.length > baseExcl.length || added.length > 0) {
+      violations.push({
+        code: "coverage-exclude-grown",
+        file: "vite.config.ts",
+        detail:
+          added.length > 0
+            ? `added or widened coverage exclude entries: ${added.join(", ")}`
+            : `coverage exclude entries: ${baseExcl.length} → ${headExcl.length}`,
+      });
+    }
+  }
+
+  // (a2) package.json `scripts.verify` must keep all existing steps in leading order
+  // (preventing `exit 0 && ...` short-circuit prefixes), and every sibling gate
+  // script it delegates to (plus check:bundle / check:gate) must not be altered.
+  const baseVerify = parseVerifySteps(input.pkg?.base);
+  const headVerify = parseVerifySteps(input.pkg?.head);
+  if (baseVerify && baseVerify.length > 0) {
+    if (!headVerify) {
+      violations.push({
+        code: "verify-script-weakened",
+        file: "package.json",
+        detail: "scripts.verify removed or no longer parseable",
+      });
+    } else {
+      const prefixMatches =
+        headVerify.length >= baseVerify.length &&
+        baseVerify.every((step, i) => headVerify[i] === step);
+      if (!prefixMatches) {
+        violations.push({
+          code: "verify-script-weakened",
+          file: "package.json",
+          detail: "scripts.verify modified, reordered, prefixed, or dropped existing steps",
+        });
+      }
+      const baseScripts = parsePackageScripts(input.pkg?.base);
+      const headScripts = parsePackageScripts(input.pkg?.head);
+      if (baseScripts && headScripts) {
+        const guardedNames = new Set(["check:bundle", "check:gate"]);
+        for (const step of baseVerify) {
+          const m = step.match(/^npm\s+run\s+([^\s]+)$/);
+          if (m) guardedNames.add(m[1]);
+        }
+        const changed = [...guardedNames].filter(
+          (name) => name in baseScripts && headScripts[name] !== baseScripts[name],
+        );
+        if (changed.length > 0) {
+          violations.push({
+            code: "verify-script-weakened",
+            file: "package.json",
+            detail: `gate sub-scripts modified: ${changed.join(", ")}`,
+          });
+        }
+      }
+    }
   }
 
   // (b) bundle budgets must not rise.
@@ -644,9 +772,12 @@ function main() {
     if (!source || !path) throw new Error("Incomplete Git name-status record");
     changes.push({ status, source, path, renamed });
   }
-  const keys = ["vite.config.ts", "playwright.config.ts", "scripts/check-bundle.mjs"].flatMap(
-    (path) => [mergeBase + ":" + path, "HEAD:" + path],
-  );
+  const keys = [
+    "vite.config.ts",
+    "playwright.config.ts",
+    "scripts/check-bundle.mjs",
+    "package.json",
+  ].flatMap((path) => [mergeBase + ":" + path, "HEAD:" + path]);
   for (const { status, source, path, renamed } of changes) {
     if (
       (renamed && TEST_FILE_RE.test(source)) ||
@@ -693,6 +824,7 @@ function main() {
 
   const result = evaluateGate({
     coverage: pair("vite.config.ts"),
+    pkg: pair("package.json"),
     bundle: pair("scripts/check-bundle.mjs"),
     retries: pair("playwright.config.ts"),
     modifiedTests,
@@ -725,5 +857,15 @@ function main() {
   process.exit(1);
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
-if (invokedDirectly) main();
+function isInvokedDirectly() {
+  if (!process.argv[1]) return false;
+  try {
+    return (
+      pathToFileURL(realpathSync(process.argv[1])).href ===
+      pathToFileURL(realpathSync(fileURLToPath(import.meta.url))).href
+    );
+  } catch {
+    return false;
+  }
+}
+if (isInvokedDirectly()) main();
