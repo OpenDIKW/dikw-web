@@ -95,8 +95,12 @@ Location/authentication HTML rewriting; this option is not a routing adapter.
 No private package modules are required. Root-path applications retain their
 existing behavior. Upgrade all three exact candidate dependencies together.
 
+Candidate cohort `0.1.9-rc.3` includes the filename-normalization fix for
+CodeQL alert #10. Unicode filenames and archive length limits retain their
+existing behavior. Upgrade all three exact candidate dependencies together.
+
 ```sh
-npm run version:shared -- 0.1.9-rc.2
+npm run version:shared -- 0.1.9-rc.3
 npm install --package-lock-only --ignore-scripts
 npm run verify
 npm run check:bundle
