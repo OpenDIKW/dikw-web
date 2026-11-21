@@ -366,6 +366,12 @@ server {
 
 ## 升级与回滚
 
+Run **Publish dikw-web image** from `main` with a
+published release tag such as `dikw-web-v0.12.13`. The workflow checks the tagged
+commit's main CI run, builds and scans a `linux/amd64` image, and pushes
+`ghcr.io/opendikw/dikw-web:0.12.13`. The run summary records the digest for
+deployment. A newly created GHCR package starts with private visibility.
+
 ```bash
 # 升级
 docker pull <registry>/dikw-web:<new-tag>
