@@ -41,7 +41,7 @@
     "@google/adk": "^2.4.0",
     "@google/genai": "^2.24.0",
     "@mikro-orm/core": "7.2.10",
-    "@mikro-orm/sqlite": "7.2.8",
+    "@mikro-orm/sqlite": "7.2.10",
     "@opendikw/web-client": "0.1.9-rc.3",
     "@opendikw/web-server": "0.1.9-rc.3",
     "@opendikw/web-ui": "0.1.9-rc.3",
