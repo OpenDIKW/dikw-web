@@ -1,0 +1,109 @@
+name: Publish dikw-web image
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Published and verified GitHub Release tag (dikw-web-vX.Y.Z)
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: publish-dikw-web-image
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'OpenDIKW/dikw-web' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: read
+      contents: read
+      packages: write
+    env:
+      IMAGE_NAME: ghcr.io/opendikw/dikw-web
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify and check out the selected release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$RELEASE_TAG" =~ ^dikw-web-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "Expected a dikw-web-vX.Y.Z release tag" >&2
+            exit 1
+          fi
+          version="${BASH_REMATCH[1]}"
+          published=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease \
+            --jq '(.isDraft or .isPrerelease) | not')
+          if [[ "$published" != true ]]; then
+            echo "The selected tag must have a published stable GitHub Release" >&2
+            exit 1
+          fi
+          revision=$(git rev-parse --verify "refs/tags/${RELEASE_TAG}^{commit}")
+          if ! git merge-base --is-ancestor "$revision" "$GITHUB_SHA"; then
+            echo "The selected release commit must be in main history" >&2
+            exit 1
+          fi
+          if [[ "$(git show "$revision:package.json" | jq -er '.version')" != "$version" ]]; then
+            echo "The selected tag must match the application version" >&2
+            exit 1
+          fi
+
+          passed=$(gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+            -f branch=main -f event=push -f head_sha="$revision" -f status=success \
+            -F per_page=1 --jq '.total_count')
+          if [[ "$passed" -lt 1 ]]; then
+            echo "No successful main CI run for $revision" >&2
+            exit 1
+          fi
+
+          git checkout --detach "$revision"
+          echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
+          echo "RELEASE_REVISION=$revision" >> "$GITHUB_ENV"
+
+      - name: Build the release image
+        run: |
+          docker build --platform linux/amd64 \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.version=$RELEASE_VERSION" \
+            --label "org.opencontainers.image.revision=$RELEASE_REVISION" \
+            --tag "$IMAGE_NAME:$RELEASE_VERSION" .
+
+      - name: Scan the image before publishing
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ env.IMAGE_NAME }}:${{ env.RELEASE_VERSION }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+          version: v0.70.0
+
+      - name: Push to GHCR and record the digest
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          registry_config=$(mktemp -d "$RUNNER_TEMP/dikw-ghcr.XXXXXX")
+          trap 'docker --config "$registry_config" logout ghcr.io >/dev/null' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker --config "$registry_config" login ghcr.io \
+            --username "$GITHUB_ACTOR" --password-stdin
+          image_ref="$IMAGE_NAME:$RELEASE_VERSION"
+          docker --config "$registry_config" push "$image_ref"
+          digest=$(docker --config "$registry_config" buildx imagetools inspect \
+            --format '{{.Manifest.Digest}}' "$image_ref")
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf 'Published `%s` (`linux/amd64`) from `%s`.\n\n`%s@%s`\n' \
+            "$image_ref" "$RELEASE_REVISION" "$IMAGE_NAME" "$digest" >> "$GITHUB_STEP_SUMMARY"
