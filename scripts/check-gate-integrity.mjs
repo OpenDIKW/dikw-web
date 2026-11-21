@@ -66,7 +66,9 @@ export function parseCoverageThresholds(src) {
 }
 
 function parseCoverageStringArray(src, field) {
-  const cov = extractBlock(src, "coverage:");
+  // directConfigProperties is quote-aware: it strips `//` and `/* ... */` comments
+  // without corrupting `/**/` glob sequences inside quoted strings.
+  const cov = directConfigProperties(extractBlock(src, "coverage:"));
   if (!cov) return null;
   const m = cov.match(new RegExp(`\\b${field}:\\s*\\[([\\s\\S]*?)\\]`));
   if (!m) return null;
@@ -101,6 +103,20 @@ export function parseVerifySteps(src) {
       .split("&&")
       .map((step) => step.trim().replace(/\s+/g, " "))
       .filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+
+/** Parse `package.json` `scripts` map as string→string, or null. */
+export function parsePackageScripts(src) {
+  if (!src) return null;
+  try {
+    const parsed = JSON.parse(src);
+    if (!parsed?.scripts || typeof parsed.scripts !== "object" || Array.isArray(parsed.scripts)) {
+      return null;
+    }
+    return parsed.scripts;
   } catch {
     return null;
   }
@@ -247,7 +263,9 @@ export function evaluateGate(input) {
     }
   }
 
-  // (a2) package.json `scripts.verify` must not drop any gate step.
+  // (a2) package.json `scripts.verify` must keep all existing steps in leading order
+  // (preventing `exit 0 && ...` short-circuit prefixes), and every sibling gate
+  // script it delegates to (plus check:bundle / check:gate) must not be altered.
   const baseVerify = parseVerifySteps(input.pkg?.base);
   const headVerify = parseVerifySteps(input.pkg?.head);
   if (baseVerify && baseVerify.length > 0) {
@@ -258,14 +276,34 @@ export function evaluateGate(input) {
         detail: "scripts.verify removed or no longer parseable",
       });
     } else {
-      const headSteps = new Set(headVerify);
-      const dropped = baseVerify.filter((step) => !headSteps.has(step));
-      if (dropped.length > 0) {
+      const prefixMatches =
+        headVerify.length >= baseVerify.length &&
+        baseVerify.every((step, i) => headVerify[i] === step);
+      if (!prefixMatches) {
         violations.push({
           code: "verify-script-weakened",
           file: "package.json",
-          detail: `dropped verify steps: ${dropped.join(", ")}`,
+          detail: "scripts.verify modified, reordered, prefixed, or dropped existing steps",
         });
+      }
+      const baseScripts = parsePackageScripts(input.pkg?.base);
+      const headScripts = parsePackageScripts(input.pkg?.head);
+      if (baseScripts && headScripts) {
+        const guardedNames = new Set(["check:bundle", "check:gate"]);
+        for (const step of baseVerify) {
+          const m = step.match(/^npm\s+run\s+([^\s]+)$/);
+          if (m) guardedNames.add(m[1]);
+        }
+        const changed = [...guardedNames].filter(
+          (name) => name in baseScripts && headScripts[name] !== baseScripts[name],
+        );
+        if (changed.length > 0) {
+          violations.push({
+            code: "verify-script-weakened",
+            file: "package.json",
+            detail: `gate sub-scripts modified: ${changed.join(", ")}`,
+          });
+        }
       }
     }
   }
@@ -819,8 +857,15 @@ function main() {
   process.exit(1);
 }
 
-const invokedDirectly =
-  Boolean(process.argv[1]) &&
-  pathToFileURL(realpathSync(process.argv[1])).href ===
-    pathToFileURL(realpathSync(fileURLToPath(import.meta.url))).href;
-if (invokedDirectly) main();
+function isInvokedDirectly() {
+  if (!process.argv[1]) return false;
+  try {
+    return (
+      pathToFileURL(realpathSync(process.argv[1])).href ===
+      pathToFileURL(realpathSync(fileURLToPath(import.meta.url))).href
+    );
+  } catch {
+    return false;
+  }
+}
+if (isInvokedDirectly()) main();

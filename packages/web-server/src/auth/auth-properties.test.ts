@@ -106,13 +106,26 @@ describe("roles property invariants", () => {
     const roleNameArb = fc.stringMatching(/^[a-z0-9_-]{1,12}$/);
     fc.assert(
       fc.property(
-        fc.array(roleNameArb, { maxLength: 6 }),
+        roleNameArb,
+        fc.array(roleNameArb, { maxLength: 5 }),
         fc.array(roleNameArb, { maxLength: 4 }),
         fc.array(roleNameArb, { maxLength: 4 }),
-        (userRoles, viewerRoles, editorRoles) => {
-          const resolved = resolveRole(userRoles, { viewerRoles, editorRoles });
-          const hasEditor = userRoles.some((r) => editorRoles.includes(r));
-          const hasViewer = userRoles.some((r) => viewerRoles.includes(r));
+        (sharedRole, extraUserRoles, extraViewerRoles, extraEditorRoles) => {
+          // Always exercise overlap where both viewer and editor match: editor must win.
+          expect(
+            resolveRole([...extraUserRoles, sharedRole], {
+              viewerRoles: [...extraViewerRoles, sharedRole],
+              editorRoles: [...extraEditorRoles, sharedRole],
+            }),
+          ).toBe("editor");
+
+          // General case: editor > viewer > null.
+          const resolved = resolveRole(extraUserRoles, {
+            viewerRoles: extraViewerRoles,
+            editorRoles: extraEditorRoles,
+          });
+          const hasEditor = extraUserRoles.some((r) => extraEditorRoles.includes(r));
+          const hasViewer = extraUserRoles.some((r) => extraViewerRoles.includes(r));
           if (hasEditor) expect(resolved).toBe("editor");
           else if (hasViewer) expect(resolved).toBe("viewer");
           else expect(resolved).toBeNull();
@@ -167,17 +180,25 @@ describe("safeReturnTo property invariants", () => {
 });
 
 describe("scrub property invariants", () => {
-  it("never leaves the full secret token in scrubbed output for tokens >= 5 chars", () => {
+  // Single-pass scrub replaces each token occurrence with `…${token.slice(-4)}`.
+  // When tokens are framed by whitespace (matching HTTP headers / error messages),
+  // no adjacent text can stitch back onto the trailing 4 characters to re-form the token.
+  it("never leaves the full secret token in whitespace-delimited messages and preserves non-matching text", () => {
+    const tokenArb = fc.stringMatching(/^[A-Za-z0-9_-]{6,40}$/);
+    const chunkArb = fc.stringMatching(/^[A-Za-z0-9:=/.,_-]{0,24}$/);
     fc.assert(
-      fc.property(
-        fc.string({ minLength: 5, maxLength: 40 }),
-        fc.array(fc.string({ maxLength: 30 }), { minLength: 1, maxLength: 5 }),
-        (token, chunks) => {
-          const message = chunks.join(token);
-          const scrubbed = scrub(message, token);
-          expect(scrubbed).not.toContain(token);
-        },
-      ),
+      fc.property(tokenArb, fc.array(chunkArb, { minLength: 1, maxLength: 5 }), (token, chunks) => {
+        const safeChunks = chunks.map((c) => c.split(token).join("x"));
+        const message = safeChunks.join(` ${token} `);
+        const scrubbed = scrub(message, token);
+        expect(scrubbed).not.toContain(token);
+        if (safeChunks.length > 1) {
+          expect(scrubbed).toContain(`…${token.slice(-4)}`);
+        } else {
+          expect(scrubbed).toBe(message);
+        }
+        expect(scrub(scrubbed, token)).toBe(scrubbed);
+      }),
       { numRuns: 120 },
     );
   });

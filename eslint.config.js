@@ -38,15 +38,24 @@ const dikwPlugin = {
       },
       create(context) {
         function checkSource(sourceNode) {
-          if (
-            !sourceNode ||
-            sourceNode.type !== "Literal" ||
-            typeof sourceNode.value !== "string"
+          if (!sourceNode) return;
+          let specifier = null;
+          if (sourceNode.type === "Literal" && typeof sourceNode.value === "string") {
+            specifier = sourceNode.value;
+          } else if (
+            sourceNode.type === "TemplateLiteral" &&
+            sourceNode.expressions.length === 0 &&
+            typeof sourceNode.quasis[0]?.value?.cooked === "string"
           ) {
-            return;
+            specifier = sourceNode.quasis[0].value.cooked;
           }
-          const specifier = sourceNode.value;
-          if (!specifier.startsWith("./") && !specifier.startsWith("../")) {
+          if (specifier === null) return;
+          if (
+            specifier !== "." &&
+            specifier !== ".." &&
+            !specifier.startsWith("./") &&
+            !specifier.startsWith("../")
+          ) {
             return;
           }
           if (!ALLOWED_RELATIVE_EXT_RE.test(specifier)) {

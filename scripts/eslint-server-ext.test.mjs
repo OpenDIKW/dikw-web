@@ -10,14 +10,17 @@ describe("dikw/server-relative-js-extension lint rule", () => {
       'import { a } from "./workbenchHandler";',
       'export { b } from "../auth/casdoor";',
       'export * from "./helpers";',
+      'export * from ".";',
+      'import c from "..";',
       'export const load = () => import("./lazy");',
-      "export const ok = a + b;",
+      "export const loadTpl = () => import(`./lazyTpl`);",
+      "export const ok = a + b + Number(Boolean(c));",
     ].join("\n");
     const [result] = await eslint.lintText(code, { filePath: "server/agent/example.ts" });
     const ruleHits = result.messages.filter(
       (m) => m.ruleId === "dikw/server-relative-js-extension",
     );
-    expect(ruleHits).toHaveLength(4);
+    expect(ruleHits).toHaveLength(7);
   });
 
   it("accepts explicit .js extensions, bare package imports, and *.test.ts files", async () => {
@@ -25,6 +28,7 @@ describe("dikw/server-relative-js-extension lint rule", () => {
       'import { createServer } from "node:http";',
       'import { createWorkbenchHandler } from "./workbenchHandler.js";',
       'export { casdoorEnvironment } from "../auth/casdoor.js";',
+      "export const loadTpl = () => import(`./lazyTpl.js`);",
       "export const refs = [createServer, createWorkbenchHandler];",
     ].join("\n");
     const [runtimeResult] = await eslint.lintText(runtimeCode, {

@@ -242,6 +242,27 @@ describe("evaluateGate", () => {
     expect(result.violations.map((v) => v.code)).toContain("coverage-exclude-grown");
   });
 
+  it("ignores commented-out entries in coverage include/exclude", () => {
+    const commentedOutInclude = COVERAGE_SRC.replace(
+      `"src/**/*.{ts,tsx}"`,
+      `// "src/**/*.{ts,tsx}"`,
+    );
+    const includeResult = evaluateGate({
+      ...clean,
+      coverage: { base: COVERAGE_SRC, head: commentedOutInclude },
+    });
+    expect(includeResult.ok).toBe(false);
+    expect(includeResult.violations.map((v) => v.code)).toContain("coverage-include-shrunk");
+
+    const commentedExclude = COVERAGE_SRC.replace(
+      `"src/vite-env.d.ts",`,
+      `"src/vite-env.d.ts",\n          // "src/not-an-exclude.ts"`,
+    );
+    expect(
+      evaluateGate({ ...clean, coverage: { base: COVERAGE_SRC, head: commentedExclude } }).ok,
+    ).toBe(true);
+  });
+
   it("flags shrinking coverage include and allows expanding it", () => {
     const expanded = COVERAGE_SRC.replace(
       `include: ["src/**/*.{ts,tsx}"],`,
@@ -255,22 +276,35 @@ describe("evaluateGate", () => {
     expect(shrunk.violations.map((v) => v.code)).toContain("coverage-include-shrunk");
   });
 
-  it("flags dropping a step from package.json scripts.verify and allows adding steps", () => {
-    const basePkg = JSON.stringify({
-      scripts: { verify: "npm run lint && npm run typecheck && npm run test:e2e" },
-    });
+  it("flags dropping, prefixing, or neutering package.json verify scripts and allows appending steps", () => {
+    const baseScripts = {
+      lint: "eslint . --max-warnings 0",
+      typecheck: "tsc --noEmit",
+      "test:e2e": "playwright test",
+      verify: "npm run lint && npm run typecheck && npm run test:e2e",
+    };
+    const basePkg = JSON.stringify({ scripts: baseScripts });
     const addedPkg = JSON.stringify({
       scripts: {
-        verify: "npm run lint && npm run typecheck && npm run test:e2e && npm run verify:packages",
+        ...baseScripts,
+        verify: `${baseScripts.verify} && npm run verify:packages`,
       },
     });
     const droppedPkg = JSON.stringify({
-      scripts: { verify: "npm run lint && npm run typecheck" },
+      scripts: { ...baseScripts, verify: "npm run lint && npm run typecheck" },
+    });
+    const prefixedPkg = JSON.stringify({
+      scripts: { ...baseScripts, verify: `exit 0 && ${baseScripts.verify}` },
+    });
+    const neuteredSubscriptPkg = JSON.stringify({
+      scripts: { ...baseScripts, "test:e2e": "true" },
     });
     expect(evaluateGate({ ...clean, pkg: { base: basePkg, head: addedPkg } }).ok).toBe(true);
-    const weakened = evaluateGate({ ...clean, pkg: { base: basePkg, head: droppedPkg } });
-    expect(weakened.ok).toBe(false);
-    expect(weakened.violations.map((v) => v.code)).toContain("verify-script-weakened");
+    for (const badPkg of [droppedPkg, prefixedPkg, neuteredSubscriptPkg]) {
+      const weakened = evaluateGate({ ...clean, pkg: { base: basePkg, head: badPkg } });
+      expect(weakened.ok).toBe(false);
+      expect(weakened.violations.map((v) => v.code)).toContain("verify-script-weakened");
+    }
   });
 
   it("flags a raised bundle budget", () => {

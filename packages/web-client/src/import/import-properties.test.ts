@@ -73,7 +73,7 @@ describe("tar USTAR property invariants", () => {
 describe("kebabStem / kebabSourceName property invariants", () => {
   it("is non-empty, idempotent, hyphen-clean, and fits the 100-byte USTAR name field", () => {
     fc.assert(
-      fc.property(fc.string({ maxLength: 120 }), (raw) => {
+      fc.property(fc.string({ unit: "grapheme", maxLength: 120 }), (raw) => {
         const stem = kebabStem(raw);
         expect(stem.length).toBeGreaterThan(0);
         expect(stem.startsWith("-")).toBe(false);

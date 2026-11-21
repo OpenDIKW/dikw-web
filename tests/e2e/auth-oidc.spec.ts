@@ -1,4 +1,5 @@
-import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { existsSync, mkdtempSync, readdirSync, rmSync, statSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -34,11 +35,62 @@ interface OidcE2eHarness {
   close(): Promise<void>;
 }
 
-async function startOidcHarness(): Promise<OidcE2eHarness> {
-  const staticDir = resolve("dist");
-  if (!existsSync(join(staticDir, "index.html"))) {
-    throw new Error("dist/index.html missing — run `npm run build` before auth-oidc.spec.ts");
+function latestMtimeMs(dir: string): number {
+  let max = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      max = Math.max(max, latestMtimeMs(full));
+    } else if (entry.isFile()) {
+      max = Math.max(max, statSync(full).mtimeMs);
+    }
   }
+  return max;
+}
+
+/**
+ * Reuse `dist/` when it already exists and is newer than frontend sources (e.g.
+ * right after `npm run build` in `npm run verify`); otherwise build a fresh bundle
+ * into a temporary directory so standalone `npm run test:e2e` works on a clean
+ * checkout and never silently tests a stale `dist/`.
+ */
+function resolveFreshStaticDir(): { staticDir: string; cleanup?: () => void } {
+  const distDir = resolve("dist");
+  const distIndex = join(distDir, "index.html");
+  if (existsSync(distIndex)) {
+    const builtAt = statSync(distIndex).mtimeMs;
+    const latestSrc = Math.max(
+      latestMtimeMs(resolve("src")),
+      latestMtimeMs(resolve("packages/web-client/src")),
+      latestMtimeMs(resolve("packages/web-ui/src")),
+      statSync(resolve("index.html")).mtimeMs,
+      statSync(resolve("package.json")).mtimeMs,
+    );
+    if (builtAt >= latestSrc) {
+      return { staticDir: distDir };
+    }
+  }
+  const tempDist = mkdtempSync(join(tmpdir(), "dikw-e2e-oidc-dist-"));
+  execFileSync(
+    process.execPath,
+    [
+      resolve("node_modules/vite/bin/vite.js"),
+      "build",
+      "--outDir",
+      tempDist,
+      "--logLevel",
+      "error",
+    ],
+    { stdio: "inherit" },
+  );
+  return {
+    staticDir: tempDist,
+    cleanup: () => rmSync(tempDist, { recursive: true, force: true }),
+  };
+}
+
+async function startOidcHarness(): Promise<OidcE2eHarness> {
+  const { staticDir, cleanup: cleanupStaticDir } = resolveFreshStaticDir();
 
   const sessionsDir = mkdtempSync(join(tmpdir(), "dikw-e2e-oidc-"));
   const coreRequests: OidcE2eHarness["coreRequests"] = [];
@@ -96,6 +148,8 @@ async function startOidcHarness(): Promise<OidcE2eHarness> {
   runtimeRef.current = await createWebRuntime({
     appId: "dikw-web",
     profile: "workbench",
+    // Isolate from any developer `.env.local` in the repository root.
+    cwd: sessionsDir,
     staticDir,
     env: {
       DIKW_WEB_AUTH_MODE: "oidc",
@@ -128,6 +182,7 @@ async function startOidcHarness(): Promise<OidcE2eHarness> {
       await idp.close();
       await new Promise<void>((r) => coreServer.close(() => r()));
       rmSync(sessionsDir, { recursive: true, force: true });
+      cleanupStaticDir?.();
     },
   };
 }
@@ -197,14 +252,12 @@ test.describe("OIDC BFF auth mode", () => {
     }, SERVER_CORE_TOKEN);
     expect(leaked).toBe(false);
 
-    // Cross-origin unsafe POST is blocked by the CSRF Origin check.
-    const csrfStatus = await page.evaluate(async (baseUrl) => {
-      // Same-origin fetch cannot spoof Origin, so verify via API endpoint behavior separately;
-      // here we confirm a real same-origin GET /web/auth/me returns the active principal.
+    // Same-origin GET /web/auth/me returns the active principal.
+    const meStatus = await page.evaluate(async (baseUrl) => {
       const res = await fetch(`${baseUrl}/web/auth/me`);
       return res.status;
     }, harness.baseUrl);
-    expect(csrfStatus).toBe(200);
+    expect(meStatus).toBe(200);
 
     // Cross-origin CSRF check against the real BFF HTTP server with the active cookie.
     const cookies = await page.context().cookies(harness.baseUrl);
