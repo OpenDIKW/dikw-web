@@ -52,7 +52,7 @@
     "@opentelemetry/sdk-trace-node": "2.8.0",
     "@opentelemetry/semantic-conventions": "1.43.0",
     "openid-client": "6.8.8",
-    "undici": "8.12.3",
+    "undici": "8.12.4",
     "@opendikw/web-client": "0.1.9-rc.3"
   },
   "peerDependencies": {
