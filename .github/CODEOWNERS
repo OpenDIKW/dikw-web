@@ -1,0 +1,23 @@
+# Human owner approval boundaries for security-critical code, verification gates,
+# and release machinery.
+
+# Authentication, authorization, session storage, and HTML sanitization
+/packages/web-server/src/auth/ @helebest @HHStudioAI
+/packages/web-server/src/agent/requestRouter.ts @helebest @HHStudioAI
+/server/auth/ @helebest @HHStudioAI
+/packages/web-ui/src/reader/ @helebest @HHStudioAI
+
+# Verification gates, CI workflows, lint rules, and review rubrics
+/.github/ @helebest @HHStudioAI
+/scripts/check-gate-integrity.mjs @helebest @HHStudioAI
+/scripts/check-bundle.mjs @helebest @HHStudioAI
+/tests/e2e/harness.ts @helebest @HHStudioAI
+/vite.config.ts @helebest @HHStudioAI
+/playwright.config.ts @helebest @HHStudioAI
+/eslint.config.js @helebest @HHStudioAI
+/docs/review-rubric.md @helebest @HHStudioAI
+/.claude/agents/fixer.md @helebest @HHStudioAI
+
+# Release & shared package publish scripts
+/scripts/*publish* @helebest @HHStudioAI
+/scripts/set-shared-version.mjs @helebest @HHStudioAI

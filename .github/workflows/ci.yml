@@ -167,13 +167,17 @@ jobs:
 
   gate-integrity:
     # Reward-hacking gate: fails a PR that weakens the verification ITSELF — lowers a
-    # coverage threshold (vite.config.ts), raises a bundle budget (check-bundle.mjs),
+    # coverage threshold or shrinks coverage.include (vite.config.ts), drops a step
+    # from scripts.verify (package.json), raises a bundle budget (check-bundle.mjs),
     # raises e2e retries (playwright.config.ts), deletes/disables a test or strips its
     # assertions, or edits the gate/CI machinery (this script, .github/workflows/**,
-    # fixer.md's forbidden list). A maintainer can allow a deliberate change with the
-    # visible, auditable `gate-change` PR label. PR-scoped on purpose: it is a required
-    # status check, so nothing merges to main without it, and the label context only
-    # exists on a PR. Pure Node script (no deps) — no `npm ci` needed.
+    # .github/CODEOWNERS, tests/e2e/harness.ts, eslint.config.js, docs/review-rubric.md,
+    # fixer.md). Always runs the gate script extracted from the PR BASE commit so a PR
+    # cannot edit check-gate-integrity.mjs to bypass its own self-guard. A maintainer
+    # can allow a deliberate change with the visible, auditable `gate-change` PR label.
+    # PR-scoped on purpose: it is a required status check, so nothing merges to main
+    # without it, and the label context only exists on a PR. Pure Node script (no deps)
+    # — no `npm ci` needed.
     name: Gate integrity (no reward-hacking)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -188,11 +192,15 @@ jobs:
         with:
           node-version: "24"
 
-      - name: Check gate integrity
+      - name: Check gate integrity (from base branch)
         env:
           GATE_BASE_REF: ${{ github.event.pull_request.base.sha }}
           GATE_HAS_OVERRIDE: ${{ contains(github.event.pull_request.labels.*.name, 'gate-change') }}
-        run: node scripts/check-gate-integrity.mjs
+        run: |
+          base_script="$(mktemp "${RUNNER_TEMP:-/tmp}/check-gate-integrity.XXXXXX.mjs")"
+          trap 'rm -f "$base_script"' EXIT
+          git show "${GATE_BASE_REF}:scripts/check-gate-integrity.mjs" > "$base_script"
+          node "$base_script"
 
   release:
     name: Release tag (dikw-web-v*)

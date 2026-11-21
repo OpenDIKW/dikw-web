@@ -203,7 +203,7 @@ Locale and theme regressions should be caught at the browser boundary:
 - `npm run lint`: ESLint flat config, `--max-warnings 0`; part of `verify`.
 - `npm run format:check` / `npm run format`: Prettier across code (markdown excluded); part of `verify`.
 - `npm run smoke:core`: contract smoke against a LIVE `dikw-core` (not in CI; needs a reachable core).
-- `npm run verify`: lint, format check, typecheck, coverage, build, and E2E gate.
+- `npm run verify`: lint, format check, typecheck, coverage, build, E2E, and shared-package consumer gate.
 - `npm run check:bundle`: gzip bundle budget against `dist/` (runs in CI after the verify gate).
 
 ## Test Boundaries

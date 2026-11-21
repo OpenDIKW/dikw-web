@@ -6,9 +6,12 @@ import {
   isMachineryPath,
   parseGitBatchSources,
   parseBundleBudgets,
+  parseCoverageExclude,
   parseCoverageExcludeCount,
+  parseCoverageInclude,
   parseCoverageThresholds,
   parsePlaywrightCiRetries,
+  parseVerifySteps,
 } from "./check-gate-integrity.mjs";
 
 // Mirrors the real vite.config.ts layout: a top-level `test.exclude` (3 entries)
@@ -127,11 +130,29 @@ describe("parsers", () => {
   it("classifies gate machinery paths", () => {
     expect(isMachineryPath("scripts/check-gate-integrity.mjs")).toBe(true);
     expect(isMachineryPath(".github/workflows/ci.yml")).toBe(true);
+    expect(isMachineryPath(".github/CODEOWNERS")).toBe(true);
     expect(isMachineryPath(".claude/agents/fixer.md")).toBe(true);
+    expect(isMachineryPath("tests/e2e/harness.ts")).toBe(true);
+    expect(isMachineryPath("eslint.config.js")).toBe(true);
+    expect(isMachineryPath("docs/review-rubric.md")).toBe(true);
     // check-bundle.mjs is a CHECKED file (guarded directionally), not machinery —
     // so lowering a budget there does not require the gate-change label.
     expect(isMachineryPath("scripts/check-bundle.mjs")).toBe(false);
     expect(isMachineryPath("src/App.tsx")).toBe(false);
+  });
+
+  it("parses coverage include/exclude lists and package verify steps", () => {
+    expect(parseCoverageInclude(VITE_CONFIG_SRC)).toEqual(["src/**/*.{ts,tsx}"]);
+    expect(parseCoverageExclude(VITE_CONFIG_SRC)).toEqual([
+      "src/**/*.test.{ts,tsx}",
+      "src/test/**",
+      "src/main.tsx",
+      "src/types.ts",
+      "src/vite-env.d.ts",
+    ]);
+    expect(
+      parseVerifySteps(JSON.stringify({ scripts: { verify: "npm run lint && npm run test:e2e" } })),
+    ).toEqual(["npm run lint", "npm run test:e2e"]);
   });
 });
 
@@ -212,6 +233,44 @@ describe("evaluateGate", () => {
     const result = evaluateGate({ ...clean, coverage: { base: COVERAGE_SRC, head: grown } });
     expect(result.ok).toBe(false);
     expect(result.violations.map((v) => v.code)).toContain("coverage-exclude-grown");
+  });
+
+  it("flags widening an existing coverage exclude glob without changing array length", () => {
+    const widened = COVERAGE_SRC.replace(`"src/types.ts",`, `"src/**",`);
+    const result = evaluateGate({ ...clean, coverage: { base: COVERAGE_SRC, head: widened } });
+    expect(result.ok).toBe(false);
+    expect(result.violations.map((v) => v.code)).toContain("coverage-exclude-grown");
+  });
+
+  it("flags shrinking coverage include and allows expanding it", () => {
+    const expanded = COVERAGE_SRC.replace(
+      `include: ["src/**/*.{ts,tsx}"],`,
+      `include: ["src/**/*.{ts,tsx}", "server/**/*.ts"],`,
+    );
+    expect(evaluateGate({ ...clean, coverage: { base: COVERAGE_SRC, head: expanded } }).ok).toBe(
+      true,
+    );
+    const shrunk = evaluateGate({ ...clean, coverage: { base: expanded, head: COVERAGE_SRC } });
+    expect(shrunk.ok).toBe(false);
+    expect(shrunk.violations.map((v) => v.code)).toContain("coverage-include-shrunk");
+  });
+
+  it("flags dropping a step from package.json scripts.verify and allows adding steps", () => {
+    const basePkg = JSON.stringify({
+      scripts: { verify: "npm run lint && npm run typecheck && npm run test:e2e" },
+    });
+    const addedPkg = JSON.stringify({
+      scripts: {
+        verify: "npm run lint && npm run typecheck && npm run test:e2e && npm run verify:packages",
+      },
+    });
+    const droppedPkg = JSON.stringify({
+      scripts: { verify: "npm run lint && npm run typecheck" },
+    });
+    expect(evaluateGate({ ...clean, pkg: { base: basePkg, head: addedPkg } }).ok).toBe(true);
+    const weakened = evaluateGate({ ...clean, pkg: { base: basePkg, head: droppedPkg } });
+    expect(weakened.ok).toBe(false);
+    expect(weakened.violations.map((v) => v.code)).toContain("verify-script-weakened");
   });
 
   it("flags a raised bundle budget", () => {
@@ -716,4 +775,49 @@ describe("Git batch source protocol", () => {
       expect(() => parseGitBatchSources(Buffer.from(buffers[mode]), ["HEAD:test.ts"])).toThrow();
     },
   );
+});
+
+it("catches self-disabling PR edits when executed from the base commit copy", () => {
+  const taskTemp = realpathSync.native(tmpdir());
+  const checkout = mkdtempSync(join(taskTemp, "dikw-gate-base-exec-"));
+  const env = fixtureGitEnv();
+  const git = (...args) =>
+    execFileSync("git", args, {
+      cwd: checkout,
+      env,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  try {
+    git("init", "--quiet");
+    mkdirSync(join(checkout, "scripts"), { recursive: true });
+    writeFileSync(
+      join(checkout, "scripts/check-gate-integrity.mjs"),
+      readFileSync(resolve("scripts/check-gate-integrity.mjs"), "utf8"),
+    );
+    git("add", ".");
+    git("commit", "--quiet", "-m", "Baseline gate script");
+    const base = git("rev-parse", "HEAD").trim();
+
+    // A hostile PR tries to neuter check-gate-integrity.mjs to exit 0 unconditionally.
+    writeFileSync(join(checkout, "scripts/check-gate-integrity.mjs"), "process.exit(0);\n");
+    git("add", ".");
+    git("commit", "--quiet", "-m", "Attempt to disable gate");
+
+    // Extracting and executing the base commit's copy (matching CI) still catches it.
+    const baseCopy = join(checkout, ".tmp-base-gate.mjs");
+    writeFileSync(baseCopy, git("show", `${base}:scripts/check-gate-integrity.mjs`));
+    const result = spawnSync(process.execPath, [baseCopy], {
+      cwd: checkout,
+      encoding: "utf8",
+      env: { ...env, GATE_BASE_REF: base, GATE_HAS_OVERRIDE: "false" },
+    });
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("gate-machinery-modified");
+    expect(result.stderr).toContain("scripts/check-gate-integrity.mjs");
+  } finally {
+    const owned = realpathSync.native(checkout);
+    if (owned.startsWith(taskTemp) && owned.includes("dikw-gate-base-exec-"))
+      rmSync(owned, { recursive: true, force: true });
+  }
 });
