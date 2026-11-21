@@ -21,7 +21,7 @@ export function kebabStem(name: string, maxStem = MAX_STEM): string {
     // (``\p{M}`` — kept so a base+mark sequence with no precomposed form isn't
     // fractured by a hyphen) are kept verbatim.
     .replace(/[^\p{L}\p{N}\p{M}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-|-$/g, "");
   // Cap by code point (``Array.from`` never splits a surrogate pair), then
   // re-trim any trailing hyphen the cut exposed.
   let capped = "";
@@ -33,7 +33,7 @@ export function kebabStem(name: string, maxStem = MAX_STEM): string {
     capped += point;
     bytes += size;
   }
-  capped = capped.replace(/-+$/g, "");
+  if (capped.endsWith("-")) capped = capped.slice(0, -1);
   return capped || "untitled";
 }
 

@@ -25,6 +25,10 @@ describe("kebabSourceName (ADR 0004 fixtures)", () => {
     expect(kebabSourceName("Machine Learning‐Powered .pdf")).toBe("machine-learning-powered.md");
   });
 
+  it("trims collapsed separators from both ends of the basename", () => {
+    expect(kebabSourceName("Archive/_-AI ‐ 中文-_ .PDF")).toBe("ai-中文.md");
+  });
+
   it("truncates a long name so the whole filename stays under 32 code points", () => {
     const out = kebabSourceName("Hybrid deep modeling of a CHO-K1 fed-batch process.pdf");
     expect(out).toBe("hybrid-deep-modeling-of-a-ch.md");
