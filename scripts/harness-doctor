@@ -1,0 +1,450 @@
+#!/usr/bin/env node
+// Project-local agent adapters. Only Node built-ins are needed, even on a fresh clone.
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, extname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { isDeepStrictEqual } from "node:util";
+
+const command = "node scripts/harness-doctor";
+const clients = ["claude", "codex", "antigravity"];
+const trees = [
+  ".claude/skills",
+  ".claude/rules",
+  ".claude/agents",
+  ".agents/skills",
+  ".agents/rules",
+  ".agents/agents",
+  ".codex/rules",
+  ".codex/agents",
+];
+const quote = JSON.stringify;
+const jsonFile = (value) => JSON.stringify(value, null, 2) + "\n";
+
+function safePath(root, key) {
+  let current = root;
+  for (const part of key.split("/")) {
+    if (part === ".." || part === "." || !part || /[\\:]/.test(part)) {
+      throw new Error("invalid repository path: " + key);
+    }
+    current = join(current, part);
+    if (lstatSync(current, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      throw new Error("linked harness path: " + key);
+    }
+  }
+  return current;
+}
+
+function* files(root, directory) {
+  const base = safePath(root, directory);
+  if (!existsSync(base)) return;
+  for (const name of readdirSync(base).sort()) {
+    const key = directory + "/" + name;
+    const path = safePath(root, key);
+    if (lstatSync(path).isDirectory()) yield* files(root, key);
+    else yield key;
+  }
+}
+
+function expand(pattern) {
+  const group = /\{([^{}]+)\}/.exec(pattern);
+  if (group) {
+    return group[1]
+      .split(",")
+      .flatMap((opt) =>
+        expand(pattern.slice(0, group.index) + opt + pattern.slice(group.index + group[0].length)),
+      );
+  }
+  if (
+    !pattern ||
+    /[{},:\\[\]]/.test(pattern) ||
+    pattern.split("/").some((s) => !s || s === "." || s === "..")
+  ) {
+    throw new Error("unsupported rule pattern: " + pattern);
+  }
+  return [pattern];
+}
+
+function matches(path, pattern) {
+  const wildcards = { "**/": "(?:[^/]+/)*", "**": ".*", "*": "[^/]*", "?": "[^/]" };
+  const regex = pattern
+    .split(/(\*\*\/|\*\*|\*|\?)/)
+    .map((s) =>
+      Object.hasOwn(wildcards, s) ? wildcards[s] : s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+    )
+    .join("");
+  return new RegExp("^" + regex + "$", "u").test(path);
+}
+
+function hookFiles(spec) {
+  const entry = spec.sessionStart;
+  if (entry.name !== "harness-doctor" || entry.command !== command) {
+    throw new Error("invalid sessionStart declaration in harness/manifest.json");
+  }
+  const makeHook = (client) => ({
+    type: "command",
+    command: 'git -c "alias.dikw-doctor=!' + command + " session-start " + client + '" dikw-doctor',
+    ...(client === "claude" && { statusMessage: "Checking repository harness" }),
+  });
+  const event = (client) => ({
+    hooks: { SessionStart: [{ matcher: "startup|fork", hooks: [makeHook(client)] }] },
+  });
+  return new Map([
+    [".claude/settings.json", jsonFile(event("claude"))],
+    [".codex/hooks.json", jsonFile(event("codex"))],
+    [".agents/hooks.json", jsonFile({ [entry.name]: { SessionStart: [makeHook("antigravity")] } })],
+  ]);
+}
+
+function expected(root, spec) {
+  const outputs = hookFiles(spec);
+  const read = (key) => readFileSync(safePath(root, key), "utf8").replaceAll("\r\n", "\n");
+  for (const folder of ["skills", "rules", "agents"]) {
+    const names = (folder === "agents" ? [...spec.agents] : Object.keys(spec[folder])).sort();
+    if (!names.length || names.some((n) => !/^[a-z0-9][a-z0-9-]*$/.test(n))) {
+      throw new Error("invalid " + folder + " catalog");
+    }
+    const entries = readdirSync(safePath(root, "harness/" + folder)).sort();
+    const registry = names.map((n) => (folder === "skills" ? n : n + ".md"));
+    if (folder === "agents") registry.push(...names.map((n) => n + ".json"));
+    registry.sort();
+    if (quote(registry) !== quote(entries)) {
+      throw new Error(
+        "harness/" +
+          folder +
+          " differs from manifest: " +
+          [
+            ...entries.filter((e) => !registry.includes(e)),
+            ...registry.filter((e) => !entries.includes(e)),
+          ].join(", "),
+      );
+    }
+  }
+  for (const [name, description] of Object.entries(spec.skills)) {
+    const prefix = "harness/skills/" + name;
+    const body = read(prefix + "/SKILL.md");
+    if (!description || !body.trim()) throw new Error("empty skill: " + name);
+    for (const key of files(root, prefix)) {
+      const rel = key.slice(prefix.length + 1);
+      const data =
+        rel === "SKILL.md"
+          ? `---\nname: ${name}\ndescription: ${quote(description)}\n---\n\n${body}`
+          : readFileSync(safePath(root, key));
+      for (const base of [".agents", ".claude"]) outputs.set(`${base}/skills/${name}/${rel}`, data);
+    }
+  }
+  for (const [name, patterns] of Object.entries(spec.rules)) {
+    if (!Array.isArray(patterns) || !patterns.length)
+      throw new Error("missing rule scope: " + name);
+    const body = read("harness/rules/" + name + ".md");
+    if (!body.trim()) throw new Error("empty rule: " + name);
+    // Antigravity compares selectors against absolute file paths.
+    const globs = patterns
+      .flatMap(expand)
+      .map((glob) => (glob.startsWith("**/") ? glob : "**/" + glob));
+    outputs.set(
+      `.claude/rules/${name}.md`,
+      "---\npaths:\n" + patterns.map((p) => "  - " + quote(p) + "\n").join("") + "---\n\n" + body,
+    );
+    outputs.set(
+      `.agents/rules/${name}.md`,
+      `---\ntrigger: glob\nglobs: ${quote(globs.join(","))}\n---\n\n${body}`,
+    );
+    outputs.set(`.codex/rules/areas/${name}.md`, body);
+  }
+  for (const name of spec.agents) {
+    const role = JSON.parse(read("harness/agents/" + name + ".json"));
+    const body = read("harness/agents/" + name + ".md");
+    if (!body.trim() || typeof role.description !== "string" || !role.description.trim()) {
+      throw new Error("empty role instructions or description: " + name);
+    }
+    const header = `---\nname: ${name}\ndescription: ${quote(role.description)}\n`;
+    const model = role.claudeModel ? "model: " + role.claudeModel + "\n" : "";
+    outputs.set(
+      `.claude/agents/${name}.md`,
+      header + "tools: " + role.claudeTools.join(", ") + "\n" + model + "---\n\n" + body,
+    );
+    outputs.set(
+      `.agents/agents/${name}.md`,
+      header +
+        "tools: " +
+        quote(role.antigravityTools) +
+        "\nmainAgent: false\nsubagent: true\n---\n\n" +
+        body,
+    );
+    outputs.set(
+      `.codex/agents/${name}.toml`,
+      `name = ${quote(name)}\ndescription = ${quote(role.description)}\ndeveloper_instructions = ${quote(body)}\n`,
+    );
+  }
+  for (const source of files(root, "harness/policies")) {
+    const name = source.slice("harness/policies/".length);
+    if (!/^[a-z0-9-]+\.rules$/.test(name)) throw new Error("invalid policy filename: " + source);
+    outputs.set(".codex/rules/" + name, read(source));
+  }
+  if (!outputs.get(".codex/rules/default.rules")?.trim()) {
+    throw new Error("missing or empty harness/policies/default.rules");
+  }
+  return outputs;
+}
+
+function comparable(key, value) {
+  const bytes = Buffer.from(value);
+  if ([".md", ".json", ".toml", ".rules"].includes(extname(key))) {
+    return Buffer.from(bytes.toString("utf8").replaceAll("\r\n", "\n"));
+  }
+  return bytes;
+}
+
+function writeAtomic(path, content, mode) {
+  mkdirSync(dirname(path), { recursive: true });
+  const temp = path + "." + randomUUID() + ".tmp";
+  try {
+    writeFileSync(temp, content, { flag: "wx" });
+    if (mode !== undefined && process.platform !== "win32") chmodSync(temp, mode);
+    renameSync(temp, path);
+  } finally {
+    rmSync(temp, { force: true });
+  }
+}
+
+function difference(actual, wanted) {
+  let offset = 0;
+  while (offset < actual.length && offset < wanted.length && actual[offset] === wanted[offset]) {
+    offset++;
+  }
+  const line = wanted.subarray(0, offset).toString("utf8").split("\n").length;
+  const byte = (data) => data.subarray(offset, offset + 1).toString("hex") || "EOF";
+  return `line ${line}, byte ${offset}: expected ${byte(wanted)}, found ${byte(actual)}`;
+}
+
+function windowsExecIndex(root) {
+  if (process.platform !== "win32") return;
+  const records = execFileSync(
+    "git",
+    ["ls-files", "--stage", "-z", "--", "harness/skills", ".claude/skills", ".agents/skills"],
+    { cwd: root, encoding: "utf8" },
+  );
+  return new Set(
+    records
+      .split("\0")
+      .filter((r) => r.startsWith("100755 "))
+      .map((r) => r.slice(r.indexOf("\t") + 1)),
+  );
+}
+
+function skillMode(root, key, index) {
+  if (index) return index.has(key) ? 0o755 : 0o644;
+  const stat = lstatSync(join(root, key), { throwIfNoEntry: false });
+  return (stat?.mode ?? 0) & 0o777;
+}
+
+function guardHookShape(value, registered, location) {
+  if (Array.isArray(registered) && Array.isArray(value)) {
+    if (value.length > registered.length)
+      throw new Error(`unexpected hook in ${location}; register it before sync`);
+    value.forEach((item, i) => guardHookShape(item, registered[i], location + "/" + i));
+  } else if (
+    registered &&
+    value &&
+    typeof registered === "object" &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    !Array.isArray(registered)
+  ) {
+    if (
+      typeof value.command === "string" &&
+      typeof registered.command === "string" &&
+      value.command !== registered.command
+    ) {
+      const alias = /^git -c "alias\.[a-z0-9-]+=/.exec(registered.command)?.[0];
+      const labelled = registered.statusMessage && value.statusMessage === registered.statusMessage;
+      if (!labelled && !(alias && value.command.startsWith(alias))) {
+        throw new Error(
+          `unregistered command in ${location}; register it or move it aside before sync`,
+        );
+      }
+    }
+    for (const [key, item] of Object.entries(value)) {
+      if (!Object.hasOwn(registered, key))
+        throw new Error(`unexpected hook field ${location}/${key}; review it before sync`);
+      guardHookShape(item, registered[key], location + "/" + key);
+    }
+  } else if (
+    typeof value !== typeof registered ||
+    value === null ||
+    Array.isArray(value) !== Array.isArray(registered)
+  ) {
+    throw new Error(`invalid hook field ${location}; repair it before sync`);
+  }
+}
+
+function hookSettings(name, existing, wanted) {
+  let config;
+  try {
+    config = JSON.parse(existing.toString("utf8").replace(/^\uFEFF/, ""));
+  } catch {
+    throw new Error(`invalid ${name}; repair its JSON or move it aside before sync`);
+  }
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    throw new Error(`invalid ${name}; restore its JSON object before sync`);
+  }
+  const expectedConfig = JSON.parse(wanted);
+  if (name !== ".claude/settings.json") {
+    guardHookShape(config, expectedConfig, name);
+    return wanted;
+  }
+  const expectedHooks = expectedConfig.hooks;
+  if (isDeepStrictEqual(config.hooks, expectedHooks)) return existing;
+  if (Object.hasOwn(config, "hooks")) guardHookShape(config.hooks, expectedHooks, name + "/hooks");
+  return jsonFile({ ...config, hooks: expectedHooks });
+}
+
+function inspect(root, spec, sync) {
+  const outputs = expected(root, spec);
+  const problems = [];
+  const index = windowsExecIndex(root);
+  const guide = safePath(root, "AGENTS.md");
+  if (!existsSync(guide)) problems.push("missing AGENTS.md");
+  else {
+    const text = readFileSync(guide, "utf8");
+    const lines = text.replace(/\r?\n$/, "").split(/\r?\n/);
+    if (lines.length > 200) problems.push("AGENTS.md exceeds 200 lines");
+    if (!text.includes(command + " check") || !text.includes("sync")) {
+      problems.push("AGENTS.md must document harness-doctor check and sync");
+    }
+  }
+  for (const old of [
+    "CLAUDE.md",
+    "GEMINI.md",
+    ...[".agents", ".agent", "_agents", "_agent"].flatMap((dir) => [
+      dir + "/AGENTS.md",
+      dir + "/GEMINI.md",
+    ]),
+    ".claude/CLAUDE.md",
+    ".claude/AGENTS.md",
+    "AGENTS.override.md",
+  ]) {
+    if (existsSync(join(root, old))) problems.push("competing project instructions: " + old);
+  }
+  if (
+    existsSync(join(root, "CLAUDE.local.md")) &&
+    execFileSync("git", ["ls-files", "--", "CLAUDE.local.md"], { cwd: root }).length
+  ) {
+    problems.push("competing project instructions: CLAUDE.local.md (tracked personal file)");
+  }
+  for (const directory of trees) {
+    for (const key of files(root, directory)) {
+      if (!outputs.has(key))
+        problems.push("unexpected " + key + " (review and move or remove explicitly)");
+    }
+  }
+  for (const [key, generated] of outputs) {
+    const path = safePath(root, key);
+    const current = existsSync(path) ? readFileSync(path) : undefined;
+    let content = generated;
+    if (
+      [".claude/settings.json", ".codex/hooks.json", ".agents/hooks.json"].includes(key) &&
+      current
+    ) {
+      try {
+        content = hookSettings(key, current, generated);
+      } catch (error) {
+        problems.push(error.message);
+        continue;
+      }
+    }
+    const actual = current && comparable(key, current);
+    const wanted = comparable(key, content);
+    const skill = /^\.(?:agents|claude)\/skills\/(.+)$/.exec(key);
+    const mode = skill ? skillMode(root, "harness/skills/" + skill[1], index) : undefined;
+    const modeChanged = mode !== undefined && ((mode ^ skillMode(root, key, index)) & 0o100) !== 0;
+    const sameContent = actual?.equals(wanted);
+    if (sameContent && !modeChanged) continue;
+    if (sync) {
+      if (!sameContent || !index) writeAtomic(path, content, mode);
+    } else if (!actual) problems.push("missing " + key);
+    else if (!sameContent) problems.push(`changed ${key} (${difference(actual, wanted)})`);
+    if (modeChanged && (!sync || index)) {
+      const flag = mode & 0o100 ? "+x" : "-x";
+      problems.push(`executable mode ${key}: git add --chmod=${flag} -- ${quote(key)}`);
+    }
+  }
+  return problems;
+}
+
+function main(args) {
+  const [action = "check", ...params] = args;
+  const client = action === "session-start" ? params[0] : undefined;
+  if (
+    (["check", "sync"].includes(action) && params.length) ||
+    (action === "rules" && !params.length) ||
+    (action === "session-start" && (params.length !== 1 || !clients.includes(client))) ||
+    !["check", "sync", "rules", "session-start"].includes(action)
+  ) {
+    console.error(
+      "usage: harness-doctor [check | sync | rules <path>... | session-start <client>]",
+    );
+    return 2;
+  }
+  let problems;
+  try {
+    const root = realpathSync.native(
+      execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim(),
+    );
+    const spec = JSON.parse(readFileSync(safePath(root, "harness/manifest.json"), "utf8"));
+    if (action === "rules") {
+      const cwd = realpathSync.native(process.cwd());
+      const paths = params.map((p) => {
+        const local = relative(root, resolve(cwd, p.replaceAll("\\", "/")));
+        if (local === ".." || local.startsWith(".." + sep) || isAbsolute(local)) {
+          throw new Error("path outside worktree: " + p);
+        }
+        return local.split(sep).join("/");
+      });
+      for (const name of Object.keys(spec.rules).sort()) {
+        if (spec.rules[name].flatMap(expand).some((glob) => paths.some((p) => matches(p, glob)))) {
+          console.log(".codex/rules/areas/" + name + ".md");
+        }
+      }
+      return 0;
+    }
+    problems = inspect(root, spec, action === "sync");
+  } catch (error) {
+    problems = [error.message];
+  }
+  let message = problems.length
+    ? "harness-doctor: FAIL\n" +
+      problems.join("\n") +
+      "\nReconcile sources in harness/, then run " +
+      command +
+      " sync and check."
+    : "harness-doctor: OK";
+  if (client) {
+    if (client === "claude") {
+      message +=
+        "\nIf this worktree's AGENTS.md is missing from your project instructions, read it before working.";
+    }
+    const response =
+      client === "antigravity"
+        ? { injectSteps: [{ systemMessage: { systemMessage: message } }] }
+        : { hookSpecificOutput: { hookEventName: "SessionStart", additionalContext: message } };
+    console.log(quote(response));
+    return 0;
+  }
+  console.log(message);
+  return problems.length ? 1 : 0;
+}
+
+process.exitCode = main(process.argv.slice(2));

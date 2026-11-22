@@ -1,11 +1,11 @@
 ---
 name: dikw-web-delivery-workflow
-description: The end-to-end dikw-web delivery loop, from request to merged PR. Use for any behavior change in this repo (feature, fix, refactor that changes behavior). Runs clarify → TDD → simplify → deterministic verify → browser verify → tiered review → doc sync → final gate + PR → watch CI and merge, and stops only on its block signals. Skip only for trivial edits (typo, comment, one-line refactor).
+description: "The end-to-end dikw-web delivery loop, from request to merged PR. Use for any behavior change in this repo (feature, fix, refactor that changes behavior). Runs clarify → TDD → simplify → deterministic verify → browser verify → tiered review → doc sync → final gate + PR → watch CI and merge, and stops only on its block signals. Skip only for trivial edits (typo, comment, one-line refactor)."
 ---
 
 # dikw-web delivery workflow
 
-This skill is the only definition of the dikw-web delivery loop. CLAUDE.md points here.
+This skill is the only definition of the dikw-web delivery loop. AGENTS.md points here.
 It composes existing skills and commands; it adds no new tooling.
 
 **Finish line.** The loop is done when all of these are true:
@@ -25,7 +25,7 @@ There are two layers of verification: **self-verify while you build** (steps 2�
 
 1. **Clarify.**
    - Restate the request. State your assumptions.
-   - Ask only when a decision blocks you and the code and docs cannot answer it. Then ask one question with the AskUserQuestion tool, with your recommended answer first.
+   - Ask only when a decision blocks you and the code and docs cannot answer it. Then ask one question using the client's question interface or a direct question, with your recommended answer first.
    - For non-trivial scope, write a plan before you write code.
    - Write the plan in the user's language (Chinese or English). Keep code, identifiers, paths, and commands in English.
    - Pick the review tier now (see step 6).
@@ -33,7 +33,7 @@ There are two layers of verification: **self-verify while you build** (steps 2�
 2. **TDD.** Write a failing behavior test first, then the smallest change to green, then refactor.
    Test at the public boundary (rendered UI, `DikwClient`, browser flows), not private wiring. See `docs/tdd.md`.
 
-3. **Simplify.** For a code change, run `/simplify` on the diff (reuse, simplification, altitude). It checks quality only; it does not hunt bugs.
+3. **Simplify.** For a code change, inspect the diff for unnecessary complexity (use `/simplify` when available) (reuse, simplification, altitude). It checks quality only; it does not hunt bugs.
 
 4. **Verify behavior deterministically.**
    - Run `npm.cmd run lint` and `npm.cmd run typecheck`, then the smallest useful `npx vitest run <file>` while you iterate.
@@ -44,21 +44,21 @@ There are two layers of verification: **self-verify while you build** (steps 2�
    It exercises the changed routes in a real browser, checks for a clean console on real data, and runs the `docs/ui-checklist.md` rubric in light and dark.
    A green e2e run does not replace seeing the change render.
 
-6. **Independent review — tiered by risk.** Find the highest tier that any file in the diff hits. When in doubt, go one tier up.
+6. **Independent review — tiered by risk.** Find the highest tier that any file in the diff hits. When in doubt, go one tier up. If a follow-up commit changes a reviewed diff, have an independent reviewer check the additional changes through the final head SHA before merge.
 
    | tier | the diff touches | review |
    |---|---|---|
-   | **S** | only docs outside `src/` and `packages/*/src/` (`*.md`, `docs/**`) that are not instruction files; or a version / CHANGELOG-only release bump | `/code-review` once |
-   | **M** | anything else: code, tests, scripts, dependencies, and the instruction files (`CLAUDE.md`, `.claude/skills/**`, `.claude/rules/**`), because they change agent behavior | codex (≤ 3 rounds) + `/code-review` |
-   | **L** | `packages/web-server/src/auth/**`, `requestRouter.ts`, the frozen `/agent/*` contract, Markdown sanitizing in `packages/web-ui/src/reader/**`, the publish flow (`scripts/*publish*`, `publish-packages.yml`), or the gate machinery (`scripts/check-gate-integrity.mjs`, `.github/workflows/**`, `.claude/agents/fixer.md`) | tier M + a fresh-context subagent review |
+   | **S** | only docs outside `src/` and `packages/*/src/` (`*.md`, `docs/**`) that are not instruction files; or a version / CHANGELOG-only release bump | independent code review once |
+   | **M** | anything else: code, tests, scripts, dependencies, and the instruction files (`AGENTS.md`, `harness/**`, `scripts/harness-doctor` and the three client adapters), because they change agent behavior | codex (≤ 3 rounds) + independent code review |
+   | **L** | `packages/web-server/src/auth/**`, `requestRouter.ts`, the frozen `/agent/*` contract, Markdown sanitizing in `packages/web-ui/src/reader/**`, the publish flow (`scripts/*publish*`, `publish-packages.yml`), or any gate-machinery path covered by `isMachineryPath` in `scripts/check-gate-integrity.mjs`, including the harness generator and fixer definitions | tier M + a fresh-context subagent review |
 
-   - **Codex:** run `codex review --base main` in the background. The `/codex:review` slash command is user-only, so call the CLI. Fix, then run it again. Stop after 3 rounds or when a round has no new actionable finding.
-   - **`/code-review`:** run it once after the codex rounds. Point it at **`origin/main:docs/review-rubric.md`** (the base branch rubric, never only the PR's edits) so the project rules get scored, not only generic correctness.
-   - **Fresh-context review (tier L):** spawn a subagent with only the diff and `origin/main:docs/review-rubric.md`. It did not write the code; do not give it your reasoning.
+   - **Codex:** run `codex review --base main` in the background. Fix, then run it again. Stop after 3 rounds or when a round has no new actionable finding.
+   - **Independent code review:** use the client's review feature or a fresh `reviewer` once after the Codex rounds. In Codex, start the review parent with `codex -s read-only` because its subagents inherit its permissions. Point it at **`origin/main:docs/review-rubric.md`** (the base branch rubric, never only the PR's edits) so the project rules get scored, not only generic correctness.
+   - **Fresh-context review (tier L):** spawn the `reviewer` with only the diff and `origin/main:docs/review-rubric.md`. It did not write the code; do not give it your reasoning.
    - **Triage every finding the same way.** Ask each reviewer to report merge-blocking problems first, each with the file and line, why it is wrong, and how to show that it fails. Read the cited code before you fix. Fix every actionable finding, blocking or not. Reject a nitpick or a false positive with a one-line reason.
    - This local review is the real gate. If you merge with `--auto`, CodeRabbit is often outrun and never reviews.
 
-7. **Sync docs.** Check `CLAUDE.md`, `.claude/rules/**`, `README.md`, and the relevant `docs/*.md` against the diff.
+7. **Sync docs.** Check `AGENTS.md`, `harness/rules/**`, `README.md`, and the relevant `docs/*.md` against the diff.
    Update every contract, behavior, command, or doc index that drifted, in the **same** change. Markdown on disk is English-only in this repo.
 
 8. **Final gate + PR.**
@@ -70,7 +70,7 @@ There are two layers of verification: **self-verify while you build** (steps 2�
 
 9. **Watch CI + PR comments; resolve, then merge.** Run the **`dikw-web-watch-ci`** skill.
    It watches checks (`gh pr checks <N> --watch`, `gh run view <run-id> --log-failed`) and the review prose (the `reviews`, `pulls/<N>/comments`, and `issues/<N>/comments` APIs), sends real failures to the `fixer` agent, reruns an infrastructure failure at most once (a failed test is a real failure), logs each transition to `.loop-log.jsonl`, and merges explicitly (never `--auto`).
-   End with the Report section from CLAUDE.md.
+   End with the decisions, changes and findings required by AGENTS.md.
 
 ## Block signals — stop and ask
 

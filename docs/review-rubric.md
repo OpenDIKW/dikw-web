@@ -8,7 +8,7 @@ against the same bar the maintainer would. Point the reviewer at this file.
 
 Each item is pass/fail against the **diff under review**.
 
-## Working rules (from CLAUDE.md)
+## Working rules (from AGENTS.md)
 
 - [ ] **Simplicity first.** Minimum code that solves the problem. No speculative
   abstractions, no single-use indirection, no unrequested configurability/flags,
@@ -57,7 +57,7 @@ Each item is pass/fail against the **diff under review**.
 
 - [ ] If the change touches consumed `/v1` shape, `docs/core-contract.md` and
   `scripts/smoke-core.mjs` are updated in lockstep; e2e fixtures/`mockApi.ts` match.
-- [ ] Docs that drifted (`CLAUDE.md`, `README.md`, `docs/*.md`) are updated in the
+- [ ] Docs that drifted (`AGENTS.md`, `README.md`, `docs/*.md`) are updated in the
   **same** change, not deferred.
 - [ ] Patch intake: external patches are adapted to the current architecture, not
   blindly applied (many predate current decisions).

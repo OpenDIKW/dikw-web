@@ -348,7 +348,7 @@ export async function buildImportBundle(
   // Core's CLI importer rejects these outright; the web flow is more permissive
   // (the user may have selected a broad folder and we shouldn't force them to
   // unselect every loose image), so we surface them in ``skipped`` and leave
-  // them out of the bundle — see CLAUDE.md / plan for the divergence rationale.
+  // them out of the bundle — see the orphan-assets rationale in docs/core-contract.md.
   for (const [projRel, file] of scan.byProjectRel) {
     const ext = lowerExt(projRel);
     if (!ASSET_EXTENSIONS.has(ext)) continue;

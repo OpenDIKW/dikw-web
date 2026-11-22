@@ -4,5 +4,6 @@
   "semi": true,
   "singleQuote": false,
   "trailingComma": "all",
-  "proseWrap": "preserve"
+  "proseWrap": "preserve",
+  "overrides": [{ "files": "scripts/harness-doctor", "options": { "parser": "babel" } }]
 }

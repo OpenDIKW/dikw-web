@@ -1,0 +1,6 @@
+{
+  "description": "Invoke when the same check keeps failing after ~2 fix attempts (the loop protocol's \"same error twice in a row\"). Diagnoses the root cause in a fresh context before touching code, and is forbidden from weakening tests to go green. Give it the failing command and file(s).",
+  "claudeTools": ["Read", "Edit", "Grep", "Glob", "Bash"],
+  "claudeModel": "opus",
+  "antigravityTools": ["read_file", "edit_file", "write_file", "run_command", "manage_task"]
+}

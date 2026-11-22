@@ -1,6 +1,7 @@
 ---
 paths:
   - "tests/**"
+  - "scripts/live-core/**"
   - "src/test/**"
   - "playwright.config.ts"
   - "docs/tdd.md"

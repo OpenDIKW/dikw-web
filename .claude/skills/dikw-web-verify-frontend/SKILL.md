@@ -1,6 +1,6 @@
 ---
 name: dikw-web-verify-frontend
-description: Verify dikw-web UI changes end-to-end in a real browser before responding. Use whenever a page, component, route, typography, CSS, or design-token change is made (anything under src/pages, src/components, src/styles.css, or packages/web-ui). Two-pass loop — behavior, then the UI rubric — in light and dark mode, plus a measured a11y and perf pass when the DevTools MCP server is available.
+description: "Verify dikw-web UI changes end-to-end in a real browser before responding. Use whenever a page, component, route, typography, CSS, or design-token change is made (anything under src/pages, src/components, src/styles.css, or packages/web-ui). Two-pass loop — behavior, then the UI rubric — in light and dark mode, plus a measured a11y and perf pass when the DevTools MCP server is available."
 ---
 
 # Verify frontend (dikw-web)
@@ -35,16 +35,16 @@ Route ↔ page (`src/App.tsx`):
 1. **Reuse the dev server.** It is fixed at `http://127.0.0.1:4321` with `--strictPort`.
    If it runs, use it. If not, run `npm.cmd run dev`. Do not start a second one; strictPort makes it fail.
    Configure a real core URL in Settings. Without one, pages show connection notices. That is fine for chrome checks, not for data rendering.
-2. **For each changed route, use the Chrome MCP tools** (`navigate`, `read_page`, `find`, `computer`, `browser_batch`).
+2. **For each changed route, use the client's real-browser tools** (Chrome MCP, Antigravity's browser, or a headed Playwright run). Navigate, inspect the rendered page and interact with its controls.
    Exercise the route's key interaction and confirm that it renders. See the per-route cues below.
-3. **Console gate.** `read_console_messages` with pattern `error` must be empty.
+3. **Console gate.** Inspect browser console errors and uncaught exceptions. With Playwright, attach both `console` and `pageerror` listeners before navigation.
    Resource-load 404s and `AbortError` are expected noise (the same allowlist as `tests/e2e/harness.ts`).
    A `console.error` from app code or an uncaught exception is a fail. Fix it.
 
 ### Gotchas (each one can waste an hour)
 
 - **`#graph` — do NOT use Chrome MCP for the Pixi canvas.** A background MCP tab stops `requestAnimationFrame`, so the canvas never builds and looks blank when it is fine.
-  Check graph rendering with `npx playwright test graph.spec.ts --headed` instead.
+  Open the graph in a foreground browser connected to a real core and inspect its rendered nodes and edges. Run `npx playwright test graph.spec.ts --headed` separately for the mocked assertions.
 - **Anything behind `requestIdleCallback`** (for example ImportPage's IndexedDB cache sweep) does not fire promptly in an MCP or DevTools tab. It only hits the timeout fallback.
   Wait past the timeout (about 11 s for a 10 s fallback) before you decide that it did not run.
 - **Local proxy:** the shell has `HTTP_PROXY=127.0.0.1:1235`. A `curl` against the local dev server needs `--noproxy "*"`, or it can report a false 502.

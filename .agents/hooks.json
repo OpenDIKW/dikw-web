@@ -1,0 +1,10 @@
+{
+  "harness-doctor": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "git -c \"alias.dikw-doctor=!node scripts/harness-doctor session-start antigravity\" dikw-doctor"
+      }
+    ]
+  }
+}

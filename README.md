@@ -62,7 +62,7 @@ npm run dev
 
 > **Shell convention:** the examples in this README use plain `npm`, which works on
 > **macOS / Linux**. On **Windows PowerShell**, call `npm.cmd` instead (e.g.
-> `npm.cmd run dev`) — `CLAUDE.md` standardizes on the `.cmd` form for that shell.
+> `npm.cmd run dev`) — `AGENTS.md` standardizes on the `.cmd` form for that shell.
 
 When the visible Server URL is the default, browser `/v1` calls go through
 the Vite proxy to avoid CORS; any other URL is requested directly.
@@ -149,7 +149,7 @@ The `/web/*` family is **job + poll**: `convert` / `translate` `submit`
 returns a job id immediately, then the browser polls `…/jobs/<id>` and
 fetches `…/jobs/<id>/result` (with `…/cancel` to abort); `…/health`
 endpoints drive Import's format degradation and gate the Base reader's
-AI 翻译 entry. See `.claude/rules/web-jobs.md` for the full wire shapes.
+AI 翻译 entry. See `harness/rules/web-jobs.md` for the full wire shapes.
 
 Two source trees share a single sidecar process (mounted into the Vite
 dev server as middleware, and into `dist-server/standalone.mjs` for prod):
@@ -343,12 +343,8 @@ Jaeger + Prometheus + Loki + Grafana) — and the full env reference are in
 
 - [`docs/shared-packages.md`](docs/shared-packages.md) — public exports, verified artifacts, candidate/stable releases and npm trusted publishing.
 
-- `CLAUDE.md` — operational guide for Claude Code sessions (commands,
-  architecture summary, hard rules, working rules, autonomy, finish line,
-  report format, testing, patch intake).
-- `.claude/rules/*.md` — path-scoped area rules (sidecar, jobs, auth, routes,
-  import, reader, …) that Claude Code loads when it works on matching files.
-- `.claude/skills/*` — the delivery loop and its verification skills.
+- `AGENTS.md` — contributor instructions and the new-session compatibility check.
+- `harness/` — canonical delivery skills, path-scoped rules, agent roles and hooks for Claude Code, Codex and Antigravity.
 - `docs/deployment.md` — production deploy (Docker, env vars, networking,
   the opt-in OIDC auth mode + reverse-proxy recipe).
 - `docs/core-contract.md` — the `dikw-core` HTTP subset this app

@@ -4,7 +4,7 @@ A pass/fail rubric for the qualitative UI rules that automated gates can't fully
 assert. The `dikw-web-verify-frontend` skill runs this against every changed
 route in **both light and dark mode** before reporting a UI change done. Each
 item gives a concrete criterion and how to check it. Source of truth for the
-underlying rules: `docs/ui-system.md`, `CLAUDE.md` (UI rules), `docs/graph-view.md`.
+underlying rules: `docs/ui-system.md`, `DESIGN.md`, `docs/graph-view.md`.
 
 Many of these are already locked by an e2e spec (noted as "e2e: …"); for those,
 the browser pass is a sanity check, and the spec is the durable gate. Items with

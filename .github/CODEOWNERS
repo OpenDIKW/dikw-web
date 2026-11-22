@@ -17,6 +17,11 @@
 /eslint.config.js @helebest @HHStudioAI
 /docs/review-rubric.md @helebest @HHStudioAI
 /.claude/agents/fixer.md @helebest @HHStudioAI
+/harness/agents/fixer.md @helebest @HHStudioAI
+/harness/agents/fixer.json @helebest @HHStudioAI
+/scripts/harness-doctor @helebest @HHStudioAI
+/.agents/agents/fixer.md @helebest @HHStudioAI
+/.codex/agents/fixer.toml @helebest @HHStudioAI
 
 # Release & shared package publish scripts
 /scripts/*publish* @helebest @HHStudioAI

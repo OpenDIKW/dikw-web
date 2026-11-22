@@ -3,7 +3,7 @@
 //
 // dikw-web's verification (coverage thresholds, bundle budgets, e2e retries) lives
 // in editable source files, and the "don't weaken the tests" rule is otherwise just
-// prose in CLAUDE.md / fixer.md / review-rubric.md — the weakest possible defense.
+// prose in AGENTS.md / fixer.md / review-rubric.md — the weakest possible defense.
 // This gate turns that prose into an exit code: it diffs the branch against its merge
 // base and FAILS if the verification itself was weakened, unless a human has attached
 // a visible, auditable `gate-change` label to the PR.
@@ -169,6 +169,11 @@ export function countAssertions(src) {
 const MACHINERY_PATHS = new Set([
   "scripts/check-gate-integrity.mjs",
   ".claude/agents/fixer.md",
+  "harness/agents/fixer.md",
+  "harness/agents/fixer.json",
+  "scripts/harness-doctor",
+  ".agents/agents/fixer.md",
+  ".codex/agents/fixer.toml",
   "tests/e2e/harness.ts",
   "eslint.config.js",
   "docs/review-rubric.md",

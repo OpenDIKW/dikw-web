@@ -132,6 +132,11 @@ describe("parsers", () => {
     expect(isMachineryPath(".github/workflows/ci.yml")).toBe(true);
     expect(isMachineryPath(".github/CODEOWNERS")).toBe(true);
     expect(isMachineryPath(".claude/agents/fixer.md")).toBe(true);
+    expect(isMachineryPath("harness/agents/fixer.md")).toBe(true);
+    expect(isMachineryPath("harness/agents/fixer.json")).toBe(true);
+    expect(isMachineryPath("scripts/harness-doctor")).toBe(true);
+    expect(isMachineryPath(".agents/agents/fixer.md")).toBe(true);
+    expect(isMachineryPath(".codex/agents/fixer.toml")).toBe(true);
     expect(isMachineryPath("tests/e2e/harness.ts")).toBe(true);
     expect(isMachineryPath("eslint.config.js")).toBe(true);
     expect(isMachineryPath("docs/review-rubric.md")).toBe(true);
