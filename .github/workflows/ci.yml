@@ -40,6 +40,9 @@ jobs:
       - name: Check agent harness
         run: node scripts/harness-doctor check
 
+      - name: Test issue triage
+        run: python3 -B .github/scripts/issue_labels_test.py
+
       - name: Install npm dependencies
         run: npm ci
 
