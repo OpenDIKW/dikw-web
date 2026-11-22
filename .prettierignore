@@ -14,7 +14,7 @@ package-lock.json
 # + inline demo JS), not app code; prettier reflow would only obscure the diff.
 mockups
 
-# Markdown is human-maintained prose (CLAUDE.md, docs, CHANGELOG, ADRs, skills).
+# Markdown is human-maintained prose (AGENTS.md, docs, CHANGELOG, ADRs, skills).
 # Prettier's markdown pass is pure cosmetic churn (e.g. rewriting *italic* to
 # _italic_) with no correctness value, so this gate stays scoped to code.
 *.md

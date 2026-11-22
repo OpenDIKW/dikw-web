@@ -1,6 +1,6 @@
 ---
 name: dikw-web-smoke-core
-description: Smoke-test dikw-web's consumed /v1 contract against a LIVE dikw-core. Use when a real core is reachable and you need to confirm the contract hasn't drifted — before a demo, after a dikw-core version bump, or whenever a change touches the shape of core data the app reads. Fills the gap that the e2e suite (which mocks /v1 entirely) cannot cover.
+description: "Smoke-test dikw-web's consumed /v1 contract against a LIVE dikw-core. Use when a real core is reachable and you need to confirm the contract hasn't drifted — before a demo, after a dikw-core version bump, or whenever a change touches the shape of core data the app reads. Fills the gap that the e2e suite (which mocks /v1 entirely) cannot cover."
 ---
 
 # Smoke-test the live core contract (dikw-web)

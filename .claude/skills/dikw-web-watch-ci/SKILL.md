@@ -1,6 +1,6 @@
 ---
 name: dikw-web-watch-ci
-description: Watch a dikw-web PR's CI to green and merge it — the executable form of delivery-loop step 9. Use after gh pr create to monitor checks + review prose, route real failures to a fresh-context fixer, rerun an infrastructure failure at most once, and squash-merge only once CI is green AND the independent review has actually landed. Bounded by a max-rounds fuse and a same-failure circuit breaker.
+description: "Watch a dikw-web PR's CI to green and merge it — the executable form of delivery-loop step 9. Use after gh pr create to monitor checks + review prose, route real failures to a fresh-context fixer, rerun an infrastructure failure at most once, and squash-merge only once CI is green AND the independent review has actually landed. Bounded by a max-rounds fuse and a same-failure circuit breaker."
 ---
 
 # Watch CI + resolve + merge (dikw-web)
@@ -29,7 +29,7 @@ Input: the PR number `<N>` from `gh pr create`. Read everything else from `gh`.
    - **Only infrastructure jobs failed, first time on this PR:** rerun just those jobs with `gh run rerun <run-id> --job <job-id>` (`gh run view <run-id> --json jobs` lists the ids). Do not use `--failed`: it also reruns failed test jobs. Log `flake_rerun`, go back to step 1. **Once only.**
    - **A test job failed too:** do not rerun. It is a real failure.
    - **Anything else:** a real failure. Continue to step 4.
-4. **Fix in a fresh context.** Give the failing command and the `--log-failed` output to the **`fixer`** agent (`.claude/agents/fixer.md`).
+4. **Fix in a fresh context.** Give the failing command and the `--log-failed` output to the **`fixer`** agent (`harness/agents/fixer.md`).
    It did not write the code, and it may not weaken tests (the `gate-integrity` job also blocks that). Log `fixer` with the one-line root cause it reports.
 5. **Push and re-evaluate.** Commit the fix and push. CodeRabbit and CI re-evaluate the new SHA.
    Increment the round counter. If it exceeds **MAX_ROUNDS**, or the breaker tripped, stop and hand back. Otherwise go to step 1.

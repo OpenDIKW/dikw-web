@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|fork",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git -c \"alias.dikw-doctor=!node scripts/harness-doctor session-start claude\" dikw-doctor",
+            "statusMessage": "Checking repository harness"
+          }
+        ]
+      }
+    ]
+  }
+}
