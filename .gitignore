@@ -15,6 +15,7 @@ vite*.log
 .env.core
 .agent-sessions/
 .claude/*
+/CLAUDE.local.md
 # Track shared project skills + agents + path-scoped rules, but keep local settings/locks out.
 !.claude/skills/
 !.claude/agents/

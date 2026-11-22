@@ -1,6 +1,7 @@
 ---
 paths:
   - "packages/web-server/src/auth/**"
+  - "packages/web-server/src/{web,agent}/http.ts"
   - "packages/web-server/src/agent/requestRouter.ts"
   - "packages/web-ui/src/auth/**"
   - "packages/web-client/src/types/auth.ts"

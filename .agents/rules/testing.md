@@ -1,6 +1,6 @@
 ---
 trigger: glob
-globs: "**/tests/**,**/src/test/**,**/playwright.config.ts,**/docs/tdd.md,**/docs/ui-checklist.md"
+globs: "**/tests/**,**/scripts/live-core/**,**/src/test/**,**/playwright.config.ts,**/docs/tdd.md,**/docs/ui-checklist.md"
 ---
 
 # Testing approach

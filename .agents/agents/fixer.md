@@ -1,7 +1,7 @@
 ---
 name: fixer
 description: "Invoke when the same check keeps failing after ~2 fix attempts (the loop protocol's \"same error twice in a row\"). Diagnoses the root cause in a fresh context before touching code, and is forbidden from weakening tests to go green. Give it the failing command and file(s)."
-tools: ["read_file","edit_file","run_command","manage_task"]
+tools: ["read_file","edit_file","write_file","run_command","manage_task"]
 mainAgent: false
 subagent: true
 ---

@@ -32,14 +32,14 @@ Route ↔ page (`src/App.tsx`):
    Configure a real core URL in Settings. Without one, pages show connection notices. That is fine for chrome checks, not for data rendering.
 2. **For each changed route, use the client's real-browser tools** (Chrome MCP, Antigravity's browser, or a headed Playwright run). Navigate, inspect the rendered page and interact with its controls.
    Exercise the route's key interaction and confirm that it renders. See the per-route cues below.
-3. **Console gate.** Inspect browser console errors with the client's console reader or a Playwright console listener.
+3. **Console gate.** Inspect browser console errors and uncaught exceptions. With Playwright, attach both `console` and `pageerror` listeners before navigation.
    Resource-load 404s and `AbortError` are expected noise (the same allowlist as `tests/e2e/harness.ts`).
    A `console.error` from app code or an uncaught exception is a fail. Fix it.
 
 ### Gotchas (each one can waste an hour)
 
 - **`#graph` — do NOT use Chrome MCP for the Pixi canvas.** A background MCP tab stops `requestAnimationFrame`, so the canvas never builds and looks blank when it is fine.
-  Check graph rendering with `npx playwright test graph.spec.ts --headed` instead.
+  Open the graph in a foreground browser connected to a real core and inspect its rendered nodes and edges. Run `npx playwright test graph.spec.ts --headed` separately for the mocked assertions.
 - **Anything behind `requestIdleCallback`** (for example ImportPage's IndexedDB cache sweep) does not fire promptly in an MCP or DevTools tab. It only hits the timeout fallback.
   Wait past the timeout (about 11 s for a 10 s fallback) before you decide that it did not run.
 - **Local proxy:** the shell has `HTTP_PROXY=127.0.0.1:1235`. A `curl` against the local dev server needs `--noproxy "*"`, or it can report a false 502.

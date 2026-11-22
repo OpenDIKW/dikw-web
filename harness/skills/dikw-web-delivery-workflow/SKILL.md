@@ -39,7 +39,7 @@ There are two layers of verification: **self-verify while you build** (steps 2�
    It exercises the changed routes in a real browser, checks for a clean console on real data, and runs the `docs/ui-checklist.md` rubric in light and dark.
    A green e2e run does not replace seeing the change render.
 
-6. **Independent review — tiered by risk.** Find the highest tier that any file in the diff hits. When in doubt, go one tier up.
+6. **Independent review — tiered by risk.** Find the highest tier that any file in the diff hits. When in doubt, go one tier up. If a follow-up commit changes a reviewed diff, have an independent reviewer check the additional changes through the final head SHA before merge.
 
    | tier | the diff touches | review |
    |---|---|---|

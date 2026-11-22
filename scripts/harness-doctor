@@ -68,7 +68,7 @@ function expand(pattern) {
   }
   if (
     !pattern ||
-    /[{},\\:\[\]]/.test(pattern) ||
+    /[{},:\\[\]]/.test(pattern) ||
     pattern.split("/").some((s) => !s || s === "." || s === "..")
   ) {
     throw new Error("unsupported rule pattern: " + pattern);
@@ -250,32 +250,64 @@ function skillMode(root, key, index) {
   return (stat?.mode ?? 0) & 0o777;
 }
 
-function claudeSettings(existing, wanted) {
+function guardHookShape(value, registered, location) {
+  if (Array.isArray(registered) && Array.isArray(value)) {
+    if (value.length > registered.length)
+      throw new Error(`unexpected hook in ${location}; register it before sync`);
+    value.forEach((item, i) => guardHookShape(item, registered[i], location + "/" + i));
+  } else if (
+    registered &&
+    value &&
+    typeof registered === "object" &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    !Array.isArray(registered)
+  ) {
+    if (
+      typeof value.command === "string" &&
+      typeof registered.command === "string" &&
+      value.command !== registered.command
+    ) {
+      const alias = /^git -c "alias\.[a-z0-9-]+=/.exec(registered.command)?.[0];
+      const labelled = registered.statusMessage && value.statusMessage === registered.statusMessage;
+      if (!labelled && !(alias && value.command.startsWith(alias))) {
+        throw new Error(
+          `unregistered command in ${location}; register it or move it aside before sync`,
+        );
+      }
+    }
+    for (const [key, item] of Object.entries(value)) {
+      if (!Object.hasOwn(registered, key))
+        throw new Error(`unexpected hook field ${location}/${key}; review it before sync`);
+      guardHookShape(item, registered[key], location + "/" + key);
+    }
+  } else if (
+    typeof value !== typeof registered ||
+    value === null ||
+    Array.isArray(value) !== Array.isArray(registered)
+  ) {
+    throw new Error(`invalid hook field ${location}; repair it before sync`);
+  }
+}
+
+function hookSettings(name, existing, wanted) {
   let config;
   try {
     config = JSON.parse(existing.toString("utf8").replace(/^\uFEFF/, ""));
   } catch {
-    throw new Error("invalid .claude/settings.json; repair its JSON before sync");
+    throw new Error(`invalid ${name}; repair its JSON or move it aside before sync`);
   }
   if (!config || typeof config !== "object" || Array.isArray(config)) {
-    throw new Error("invalid .claude/settings.json; restore its JSON object before sync");
+    throw new Error(`invalid ${name}; restore its JSON object before sync`);
   }
-  const expectedHooks = JSON.parse(wanted).hooks;
+  const expectedConfig = JSON.parse(wanted);
+  if (name !== ".claude/settings.json") {
+    guardHookShape(config, expectedConfig, name);
+    return wanted;
+  }
+  const expectedHooks = expectedConfig.hooks;
   if (isDeepStrictEqual(config.hooks, expectedHooks)) return existing;
-  for (const [event, groups] of Object.entries(config.hooks ?? {})) {
-    const handlers = Array.isArray(groups) ? groups.flatMap((g) => g?.hooks ?? []) : [];
-    const registered = (expectedHooks[event] ?? []).flatMap((g) => g.hooks);
-    const owns = (h) =>
-      registered.some(
-        (r) =>
-          h?.command === r.command || (r.statusMessage && h?.statusMessage === r.statusMessage),
-      );
-    if (handlers.some((h) => !owns(h))) {
-      throw new Error(
-        `unexpected ${event} hook in .claude/settings.json; move local hooks to .claude/settings.local.json or register them in harness/ before sync`,
-      );
-    }
-  }
+  if (Object.hasOwn(config, "hooks")) guardHookShape(config.hooks, expectedHooks, name + "/hooks");
   return jsonFile({ ...config, hooks: expectedHooks });
 }
 
@@ -295,12 +327,22 @@ function inspect(root, spec, sync) {
   }
   for (const old of [
     "CLAUDE.md",
-    "CLAUDE.local.md",
+    "GEMINI.md",
+    ...[".agents", ".agent", "_agents", "_agent"].flatMap((dir) => [
+      dir + "/AGENTS.md",
+      dir + "/GEMINI.md",
+    ]),
     ".claude/CLAUDE.md",
     ".claude/AGENTS.md",
     "AGENTS.override.md",
   ]) {
     if (existsSync(join(root, old))) problems.push("competing project instructions: " + old);
+  }
+  if (
+    existsSync(join(root, "CLAUDE.local.md")) &&
+    execFileSync("git", ["ls-files", "--", "CLAUDE.local.md"], { cwd: root }).length
+  ) {
+    problems.push("competing project instructions: CLAUDE.local.md (tracked personal file)");
   }
   for (const directory of trees) {
     for (const key of files(root, directory)) {
@@ -312,9 +354,12 @@ function inspect(root, spec, sync) {
     const path = safePath(root, key);
     const current = existsSync(path) ? readFileSync(path) : undefined;
     let content = generated;
-    if (key === ".claude/settings.json" && current) {
+    if (
+      [".claude/settings.json", ".codex/hooks.json", ".agents/hooks.json"].includes(key) &&
+      current
+    ) {
       try {
-        content = claudeSettings(current, generated);
+        content = hookSettings(key, current, generated);
       } catch (error) {
         problems.push(error.message);
         continue;

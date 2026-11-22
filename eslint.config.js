@@ -105,7 +105,7 @@ export default tseslint.config(
   },
   // Plain JS (build/verify scripts): the TS rule isn't active here.
   {
-    files: ["**/*.{js,mjs,cjs}"],
+    files: ["**/*.{js,mjs,cjs}", "scripts/harness-doctor"],
     rules: { "no-unused-vars": noUnusedVars },
   },
   // Browser app: React hook correctness + no raw console in the shipped bundle.
@@ -140,6 +140,7 @@ export default tseslint.config(
       "server/**/*.ts",
       "packages/web-server/src/**/*.ts",
       "scripts/**/*.{mjs,js,mts}",
+      "scripts/harness-doctor",
       "tests/package-consumers/**/*.{mjs,mts,ts,tsx}",
       "*.{js,cjs,mjs}",
       "*.config.ts",

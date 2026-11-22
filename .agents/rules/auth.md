@@ -1,6 +1,6 @@
 ---
 trigger: glob
-globs: "**/packages/web-server/src/auth/**,**/packages/web-server/src/agent/requestRouter.ts,**/packages/web-ui/src/auth/**,**/packages/web-client/src/types/auth.ts,**/src/Root.tsx,**/docs/adr/0006-oidc-auth-bff.md,**/docs/deployment.md"
+globs: "**/packages/web-server/src/auth/**,**/packages/web-server/src/web/http.ts,**/packages/web-server/src/agent/http.ts,**/packages/web-server/src/agent/requestRouter.ts,**/packages/web-ui/src/auth/**,**/packages/web-client/src/types/auth.ts,**/src/Root.tsx,**/docs/adr/0006-oidc-auth-bff.md,**/docs/deployment.md"
 ---
 
 # Auth mode (opt-in OIDC BFF, issue #200)

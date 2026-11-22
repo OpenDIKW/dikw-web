@@ -24,10 +24,10 @@ Input: the PR number `<N>` from `gh pr create`. Read everything else from `gh`.
    - **Only infrastructure jobs failed, first time on this PR:** rerun just those jobs with `gh run rerun <run-id> --job <job-id>` (`gh run view <run-id> --json jobs` lists the ids). Do not use `--failed`: it also reruns failed test jobs. Log `flake_rerun`, go back to step 1. **Once only.**
    - **A test job failed too:** do not rerun. It is a real failure.
    - **Anything else:** a real failure. Continue to step 4.
-4. **Fix in a fresh context.** Give the failing command and the `--log-failed` output to the **`fixer`** agent (`harness/agents/fixer.md`).
+4. **Check the brakes before dispatch.** For every real failure, including test failures, stop if the same job failed twice with the same cause or if three fix rounds have already been pushed. Return the failing command and evidence to the maintainer. Otherwise give the command and `--log-failed` output to the **`fixer`** agent (`harness/agents/fixer.md`).
    It did not write the code, and it may not weaken tests (the `gate-integrity` job also blocks that). Log `fixer` with the one-line root cause it reports.
 5. **Push and re-evaluate.** Commit the fix and push. CodeRabbit and CI re-evaluate the new SHA.
-   Increment the round counter. If it exceeds **MAX_ROUNDS**, or the breaker tripped, stop and hand back. Otherwise go to step 1.
+   Count this completed fix round, then return to step 1 to check the new head. The third push still gets checked.
 6. **Read the review prose before you merge — always.** `gh pr checks` shows pass/fail, not prose, and `gh pr merge --auto` would outrun it. Read:
    - `gh api --paginate repos/{owner}/{repo}/pulls/<N>/reviews` (review bodies, for example the Codex review)
    - `gh api --paginate repos/{owner}/{repo}/pulls/<N>/comments` (inline threads)
@@ -38,7 +38,7 @@ Input: the PR number `<N>` from `gh pr create`. Read everything else from `gh`.
    Resolve **each** actionable finding: fix and push (back to step 1), refute it with evidence in a reply, or defer it with a reason in the PR body.
    A `gate-change` finding needs a maintainer's judgment and label. Do not route around it.
    If a reviewer set `CHANGES_REQUESTED` or raised a design-level concern, stop and hand back to the human. It is a block signal.
-7. **Merge explicitly.** Merge only when CI is fully green **and** the review has landed and is resolved: `gh pr merge <N> --squash --delete-branch`. Do **not** use `--auto`; it merges before the review posts. Log `merged`.
+7. **Merge explicitly.** Confirm the independent reviewer has seen any follow-up diff through the current head SHA. Once CI is green and all actionable reviews are resolved, run `gh pr merge <N> --squash --delete-branch` and log `merged`.
    - **Worktree quirk:** from a git worktree, `gh pr merge` can print `fatal: 'main' is already used by worktree …` and still merge remotely. Check with `gh pr view <N> --json state,mergeCommit`. If the error skipped `--delete-branch`, run `git push origin --delete <branch>`.
 
 ## Observability
