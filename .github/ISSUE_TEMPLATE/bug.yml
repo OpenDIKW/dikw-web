@@ -1,0 +1,39 @@
+# Adapted OpenSDLC managed-agent-platform triage fields (Apache-2.0) for OpenDIKW.
+name: Report a bug
+description: Report unexpected behavior in the DIKW workbench.
+type: Bug
+body:
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: Choose p0 for critical, urgent work, p1 for important work, or p2 for work that can wait.
+      options:
+        - p0
+        - p1
+        - p2
+    validations:
+      required: true
+  - type: dropdown
+    id: difficulty
+    attributes:
+      label: Difficulty
+      description: Choose easy if AI can proceed directly, medium if AI must write a plan first, or hard if a person must make a decision.
+      options:
+        - easy
+        - medium
+        - hard
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: What happened?
+      description: Include steps to reproduce, expected and actual behavior, and the affected workbench route.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the browser and the dikw-web and dikw-core versions if known.

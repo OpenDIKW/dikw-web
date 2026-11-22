@@ -339,6 +339,19 @@ plus optional browser RUM). A self-contained demo stack —
 Jaeger + Prometheus + Loki + Grafana) — and the full env reference are in
 [`docs/observability.md`](docs/observability.md).
 
+## Filing issues
+
+File a **Bug** for unexpected behavior, a **Feature** for a new capability or improvement, or a **Task** for maintenance or verification. Select one label from each row.
+
+| Field | Choices |
+| --- | --- |
+| Priority | `p0` urgent and critical · `p1` important in the near term · `p2` can wait |
+| Difficulty | `easy` an agent can proceed directly · `medium` an agent should write a plan first · `hard` a person needs to make a decision |
+
+For CLI or API submissions, each missing field defaults independently to `Feature`, `p1`, or `hard`. To revise a choice, set the native type or add the new label. The workflow keeps the latest maintainer choice and removes extra labels from that issue.
+
+The workflow checks open issues and issues created since activation. To enable it in a new repository, create the six labels above and set the Actions repository variable `ISSUE_TRIAGE_ROLLOUT` once to the UTC activation time in ISO 8601 format. Run **Issue triage** manually for the first sweep. It also runs on issue events and daily at 03:17 UTC. The workflow, form fields, reconciler and tests are adapted from [managed-agent-platform](https://github.com/OpenSDLC-Dev/managed-agent-platform/tree/4ef2259fa3a93c30b03125e315e2ff9c4b55ddf2/.github) under the [Apache License 2.0](.github/scripts/LICENSE).
+
 ## Where canonical docs live
 
 - [`docs/shared-packages.md`](docs/shared-packages.md) — public exports, verified artifacts, candidate/stable releases and npm trusted publishing.
