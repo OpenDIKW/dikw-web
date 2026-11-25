@@ -397,6 +397,21 @@ it("applies the MB guard before Vite's Core proxy and sidecars", async () => {
   expect(forwarded).toBe(1);
 });
 
+it.each(["0.0.0.0", true] as const)(
+  "refuses to start Vite dev sidecars on non-loopback server.host=%s",
+  async (host) => {
+    const cwd = await workspace();
+    await expect(
+      createViteServer({
+        configFile: false,
+        root: cwd,
+        plugins: createApplicationPlugins({ profile: "workbench" }),
+        server: { host, port: 0 },
+      }),
+    ).rejects.toThrow(/non-loopback Vite dev server host/i);
+  },
+);
+
 it.each([
   { appId: "dikw-web", profile: "mbweb" },
   { appId: "dikw-mbweb", profile: "workbench" },

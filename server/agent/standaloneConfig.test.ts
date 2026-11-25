@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { resolveStandaloneConfig } from "./standaloneConfig";
 
@@ -7,7 +8,7 @@ describe("resolveStandaloneConfig", () => {
     const config = resolveStandaloneConfig({}, "/app");
     expect(config.host).toBe("127.0.0.1");
     expect(config.port).toBe(4321);
-    expect(config.staticDir).toBe("/app/dist");
+    expect(config.staticDir).toBe(resolve("/app", "dist"));
   });
 
   it.each([
@@ -44,7 +45,7 @@ describe("resolveStandaloneConfig", () => {
       },
       "/app",
     );
-    expect(config).toEqual({ host: "0.0.0.0", port: 8080, staticDir: "/app/dist" });
+    expect(config).toEqual({ host: "0.0.0.0", port: 8080, staticDir: resolve("/app", "dist") });
   });
 
   it("rejects an invalid DIKW_WEB_PORT", () => {

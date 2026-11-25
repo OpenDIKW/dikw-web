@@ -184,7 +184,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 登录会话存在 `DIKW_AGENT_SESSIONS_DIR` 下的 `auth.sqlite`（与 `agent.sqlite` 同一个 volume，重启 / 升级不掉登录）。文件里只有会话 id 的 SHA-256 和 AES-256-GCM 加密后的记录，泄露也拿不到可用 Cookie 或身份信息。日志和 OTel span 里不会出现任何 token。
 
-鉴权模式只在生产服务端（`npm start` / Docker 镜像）生效；`npm run dev` 永远不鉴权。
+鉴权模式只在生产服务端（`npm start` / Docker 镜像）生效；`npm run dev` 永远不鉴权，且 Vite 开发侧 sidecar 同样对非 loopback 的 `server.host`（如 `--host` / `--host 0.0.0.0`）执行 fail-closed 拒绝，仅允许本机 loopback 监听。
 
 ### 在 IdP 上注册应用
 

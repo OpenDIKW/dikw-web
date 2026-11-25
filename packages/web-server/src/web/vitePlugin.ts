@@ -1,4 +1,5 @@
 import type { Plugin } from "vite";
+import { assertLoopbackDevHost } from "../auth/config.js";
 import { createDefaultWebHandler } from "./http.js";
 import { withServerSpan } from "../shared/withServerSpan.js";
 import { applicationContext } from "../shared/logger.js";
@@ -14,8 +15,12 @@ export function webApiPlugin(options: { appId?: ApplicationId } = {}): Plugin {
     name: "dikw-web-api",
     configResolved(config) {
       cwd = config.root;
+      if (config.command === "serve") {
+        assertLoopbackDevHost(config.server?.host);
+      }
     },
     configureServer(server) {
+      assertLoopbackDevHost(server.config?.server?.host);
       server.middlewares.use("/web", async (req, res, next) => {
         try {
           handlerPromise ??= createDefaultWebHandler(cwd, options);

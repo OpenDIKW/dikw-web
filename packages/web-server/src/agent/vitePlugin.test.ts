@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
 import { defaultServerUrl } from "@opendikw/web-client/connection";
-import { resolveDevProxyTarget } from "./vitePlugin";
+import { agentSidecarPlugin, resolveDevProxyTarget } from "./vitePlugin";
+import { webApiPlugin } from "../web/vitePlugin";
 
 describe("resolveDevProxyTarget", () => {
   it("returns a trimmed absolute http(s) URL", () => {
@@ -77,4 +78,32 @@ describe("resolveDevProxyTarget", () => {
       vi.resetModules();
     }
   });
+
+  it.each([true, "0.0.0.0", "::", "192.168.1.5"] as const)(
+    "fails closed in both agentSidecarPlugin and webApiPlugin when Vite dev host is non-loopback (%s)",
+    (host) => {
+      for (const plugin of [agentSidecarPlugin(), webApiPlugin()]) {
+        const configResolved = plugin.configResolved as (config: {
+          root: string;
+          command: "serve" | "build";
+          server: { host?: string | boolean };
+          env?: Record<string, string | undefined>;
+        }) => void;
+        expect(() =>
+          configResolved({ root: process.cwd(), command: "serve", server: { host }, env: {} }),
+        ).toThrow(/non-loopback Vite dev server host/i);
+        // Production/library builds do not start a dev listener, so command: "build" is allowed.
+        expect(() =>
+          configResolved({ root: process.cwd(), command: "build", server: { host }, env: {} }),
+        ).not.toThrow();
+        const configureServer = plugin.configureServer as unknown as (server: {
+          config: { server: { host?: string | boolean } };
+          middlewares: { use: () => void };
+        }) => void;
+        expect(() =>
+          configureServer({ config: { server: { host } }, middlewares: { use() {} } }),
+        ).toThrow(/non-loopback Vite dev server host/i);
+      }
+    },
+  );
 });

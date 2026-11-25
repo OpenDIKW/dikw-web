@@ -3,7 +3,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LISTEN_HOST, isLoopbackHost, loadAuthConfig } from "./config";
+import {
+  assertLoopbackDevHost,
+  DEFAULT_LISTEN_HOST,
+  isLoopbackHost,
+  loadAuthConfig,
+} from "./config";
 
 const SECRET = "s".repeat(32);
 
@@ -260,5 +265,14 @@ describe("listen host loopback policy", () => {
     "kb.example.com",
   ])("rejects non-loopback host %s", (host) => {
     expect(isLoopbackHost(host)).toBe(false);
+  });
+
+  it("enforces loopback-only Vite dev hosts", () => {
+    for (const allowed of [undefined, false, "127.0.0.1", "::1", "[::1]", "localhost"]) {
+      expect(() => assertLoopbackDevHost(allowed)).not.toThrow();
+    }
+    for (const blocked of [true, "0.0.0.0", "::", "[::]", "192.168.1.5", "dev.example.com"]) {
+      expect(() => assertLoopbackDevHost(blocked)).toThrow(/non-loopback Vite dev server host/i);
+    }
   });
 });

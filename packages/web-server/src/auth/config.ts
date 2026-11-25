@@ -72,6 +72,19 @@ export function isLoopbackHost(host: string): boolean {
   return parts[0] === 127 && parts.every((part) => part >= 0 && part <= 255);
 }
 
+/**
+ * Vite dev middleware never mounts the OIDC BFF gate. Fail closed whenever
+ * `server.host` resolves to a non-loopback address (`true` / `0.0.0.0` / LAN IP).
+ */
+export function assertLoopbackDevHost(host: string | boolean | undefined): void {
+  if (host === undefined || host === false) return;
+  if (host === true || !isLoopbackHost(host)) {
+    throw new Error(
+      "non-loopback Vite dev server host is forbidden without OIDC; bind Vite dev to a loopback host (e.g. 127.0.0.1) or use the standalone server with DIKW_WEB_AUTH_MODE=oidc",
+    );
+  }
+}
+
 export async function loadAuthConfig(
   options: LoadAuthConfigOptions = {},
 ): Promise<AuthConfig | null> {

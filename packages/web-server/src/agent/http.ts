@@ -490,8 +490,11 @@ async function runMaintenanceProposal(
   if (connection.token) {
     headers.Authorization = `Bearer ${connection.token}`;
   }
-  const targetUrl = new URL(endpoint, `${connection.coreUrl}/`).toString();
-  const response = await fetch(targetUrl, {
+  const targetUrl = new URL(connection.coreUrl);
+  targetUrl.pathname = `${targetUrl.pathname.replace(/\/+$/, "")}${endpoint}`;
+  targetUrl.search = "";
+  targetUrl.hash = "";
+  const response = await fetch(targetUrl.toString(), {
     method: "POST",
     headers,
     body: JSON.stringify(params),

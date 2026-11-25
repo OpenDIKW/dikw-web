@@ -752,6 +752,64 @@ describe("agent HTTP sidecar", () => {
       expect((init.headers as Record<string, string>).Authorization).toBe("Bearer server-token");
     });
 
+    it("preserves a configured path prefix on serverCore.coreUrl when confirming a maintenance proposal", async () => {
+      const { sessionService, store } = makeStore();
+      const { runner } = recordingRunner();
+      const prefixedCore = {
+        coreUrl: "https://core.example.com/core",
+        token: "server-token",
+      };
+      const baseUrl = await listen(
+        createAgentHandler({ store, runner, subjectFor, serverCore: prefixedCore }),
+      );
+      const created = (await (
+        await fetch(`${baseUrl}/sessions`, as("alice", { method: "POST" }))
+      ).json()) as { id: string };
+      const session = (await sessionService.getSession({
+        appName: APP_NAME,
+        userId: "oidc:alice",
+        sessionId: created.id,
+      })) as Session;
+      await sessionService.appendEvent({
+        session,
+        event: createEvent({
+          author: "dikw_agent",
+          content: {
+            role: "user",
+            parts: [
+              {
+                functionResponse: {
+                  id: "pr-prefixed",
+                  name: "propose_maintenance_action",
+                  response: { proposal: { action: "synth", description: "d", params: {} } },
+                },
+              },
+            ],
+          },
+        }),
+      });
+      const coreFetch = vi.fn(async (_url: string, _init: RequestInit) =>
+        Response.json({ task_id: "t-prefixed" }),
+      );
+      vi.stubGlobal("fetch", coreFetch);
+      try {
+        await nodeFetch(`${baseUrl}/sessions/${created.id}/proposals/pr-prefixed/confirm`, {
+          method: "POST",
+          body: JSON.stringify({}),
+          headers: { "x-test-user": "alice" },
+        });
+      } finally {
+        vi.unstubAllGlobals();
+      }
+      expect(coreFetch).toHaveBeenCalledTimes(1);
+      const [calledUrl, calledInit] = coreFetch.mock.calls[0];
+      expect(calledUrl).toBe("https://core.example.com/core/v1/synth");
+      expect(calledInit.redirect).toBe("error");
+      expect((calledInit.headers as Record<string, string>).Authorization).toBe(
+        "Bearer server-token",
+      );
+    });
+
     it("lets the configured legacy owner see and continue the pre-auth sessions", async () => {
       const { store } = makeStore();
       const legacy = await store.createSession();
