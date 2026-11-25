@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from "vitest";
-import { WebToolClient } from "./tools";
+import { CoreToolClient, WebToolClient } from "./tools";
 
 // Brave is retained as dead code (WebToolClient.search). Not exposed via the agent
 // tool list anymore — Tavily owns the "web_search" tool now. Tests exercise the
@@ -161,14 +161,21 @@ describe("WebToolClient.fetchPage (Jina web_fetch)", () => {
 
   it.each([
     ["http://localhost/admin"],
+    ["http://localhost./admin"],
     ["http://127.0.0.1:8765/v1/health"],
     ["http://169.254.169.254/latest/meta-data/"],
+    ["http://metadata.google.internal/computeMetadata/v1/"],
+    ["http://host.docker.internal:8765/v1/health"],
+    ["http://redis:6379/"],
     ["http://10.0.0.1/internal"],
     ["http://192.168.1.1/router"],
     ["http://172.16.0.5/jenkins"],
     ["http://[::1]/internal"],
     ["http://[::ffff:127.0.0.1]/loop"],
     ["http://[::ffff:7f00:1]/loop"],
+    ["http://[::127.0.0.1]/loop"],
+    ["http://[64:ff9b::127.0.0.1]/loop"],
+    ["http://[ff02::1]/multicast"],
     ["http://example.local/printer"],
     ["javascript:alert(1)"],
     ["data:text/html,<script>alert(1)</script>"],
@@ -328,5 +335,30 @@ describe("WebToolClient.tavilySearch (web_search)", () => {
     } catch (error) {
       expect((error as Error).message).not.toContain("tvly-secret-leak");
     }
+  });
+});
+
+describe("CoreToolClient redirect hardening", () => {
+  it("disables HTTP redirects on both getJson and retrieve", async () => {
+    const inits: Array<RequestInit | undefined> = [];
+    const fetchImpl = vi.fn(async (input: string | URL, init?: RequestInit) => {
+      inits.push(init);
+      if (String(input).endsWith("/v1/retrieve")) {
+        return new Response(
+          `${JSON.stringify({ type: "final", status: "succeeded", result: { chunks: [], page_refs: [] } })}\n`,
+          { status: 200 },
+        );
+      }
+      return Response.json({ status: "ok" });
+    });
+    const client = new CoreToolClient({
+      coreUrl: "https://core.example.com",
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    });
+    await client.getJson("/v1/healthz");
+    await client.retrieve("DIKW", 3);
+    expect(inits).toHaveLength(2);
+    expect(inits[0]?.redirect).toBe("error");
+    expect(inits[1]?.redirect).toBe("error");
   });
 });

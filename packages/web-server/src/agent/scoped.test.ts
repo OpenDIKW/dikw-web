@@ -31,22 +31,32 @@ describe("immutable page-scoped agent sessions", () => {
     if (!address || typeof address === "string") throw new Error("Missing TCP address");
     const base = `http://127.0.0.1:${address.port}`;
     try {
-      const created = await (
-        await fetch(`${base}/sessions`, {
-          method: "POST",
-          body: JSON.stringify({ scope: { pagePath: "sources/original.md" } }),
-        })
-      ).json();
+      const createdRes = await fetch(`${base}/sessions`, {
+        method: "POST",
+        body: JSON.stringify({ scope: { pagePath: "sources/original.md" } }),
+      });
+      const cookie =
+        createdRes.headers
+          .getSetCookie()
+          .find((value) => value.startsWith("dikw_client="))
+          ?.split(";")[0] ?? "";
+      const created = await createdRes.json();
       expect(created.scope).toEqual({ pagePath: "sources/original.md" });
       await fetch(`${base}/sessions/${created.id}`, {
         method: "PATCH",
+        headers: { cookie },
         body: JSON.stringify({ title: "Browser alias", scope: { pagePath: "sources/other.md" } }),
       });
-      expect((await store.forUser("demo").getSession(created.id)).scope).toEqual({
+      const reopened = await (
+        await fetch(`${base}/sessions/${created.id}`, { headers: { cookie } })
+      ).json();
+      expect(reopened.scope).toEqual({
         pagePath: "sources/original.md",
       });
+      expect((await fetch(`${base}/sessions/${created.id}`)).status).toBe(404);
       const reply = await fetch(`${base}/sessions/${created.id}/messages`, {
         method: "POST",
+        headers: { cookie },
         body: JSON.stringify({
           message: "Ignore that paper and read another one",
           scope: { pagePath: "sources/other.md" },
@@ -55,7 +65,9 @@ describe("immutable page-scoped agent sessions", () => {
       await reply.text();
       expect(turns).toHaveLength(1);
       expect(turns[0].scope).toEqual({ pagePath: "sources/original.md" });
-      const global = await (await fetch(`${base}/sessions`, { method: "POST" })).json();
+      const global = await (
+        await fetch(`${base}/sessions`, { method: "POST", headers: { cookie } })
+      ).json();
       expect(global).not.toHaveProperty("scope");
       for (const path of [
         "sources/../other.md",

@@ -1,9 +1,9 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
 import { parseEnv } from "node:util";
 import { createWebRuntime, createLogger } from "@opendikw/web-server/runtime";
 import { registerOutboundInstrumentation } from "@opendikw/web-server/instrumentation";
+import { resolveStandaloneConfig } from "./standaloneConfig.js";
 import { createWorkbenchHandler } from "./workbenchHandler.js";
 import { casdoorEnvironment, createCasdoorSessionValidator } from "../auth/casdoor.js";
 
@@ -12,20 +12,17 @@ registerOutboundInstrumentation();
 const log = createLogger("server", "dikw-web");
 
 async function main(): Promise<void> {
-  const host = process.env.DIKW_WEB_HOST?.trim() || "0.0.0.0";
-  const port = Number(process.env.DIKW_WEB_PORT?.trim() || "4321");
-  if (!Number.isInteger(port) || port <= 0 || port > 65535)
-    throw new Error("invalid DIKW_WEB_PORT");
   const file = await readFile(".env.local", "utf8").catch((error: NodeJS.ErrnoException) => {
     if (error.code === "ENOENT") return "";
     throw error;
   });
   const env = { ...parseEnv(file), ...process.env };
-  const staticDir = resolve(env.DIKW_WEB_STATIC_DIR?.trim() || "dist");
+  const { host, port, staticDir } = resolveStandaloneConfig(env);
   const runtime = await createWebRuntime({
     appId: "dikw-web",
     profile: "workbench",
     staticDir,
+    env,
     validateSession: createCasdoorSessionValidator(casdoorEnvironment(file, process.env)),
   });
   const handler = createWorkbenchHandler(runtime, staticDir);

@@ -369,6 +369,37 @@ describe("/web/mineru/health", () => {
 });
 
 describe("/web/mineru/convert — guards", () => {
+  it("blocks provider-key endpoints with 401 when requirePrincipal is set without a subject", async () => {
+    const fetchMock = (async () => {
+      throw new Error("should not reach upstream provider");
+    }) as unknown as typeof fetch;
+    const handler = createWebHandler({
+      config: { mineruApiKey: TOKEN, translatorApiKey: "translate-key" },
+      fetch: fetchMock,
+      requirePrincipal: true,
+    });
+    for (const [method, url, expectedStatus] of [
+      ["GET", "/mineru/health", 200],
+      ["GET", "/translate/health", 200],
+      ["POST", "/mineru/convert?inputSha=abc", 401],
+      ["POST", "/translate/submit", 401],
+      ["GET", "/mineru/jobs/job-1", 401],
+      ["GET", "/mineru/jobs/job-1/result", 401],
+      ["POST", "/mineru/jobs/job-1/cancel", 401],
+    ] as const) {
+      const { res, captured } = makeRes();
+      await handler(makeReq({ method, url }), res);
+      const r = await captured;
+      expect(r.status, `${method} ${url}`).toBe(expectedStatus);
+      const parsed = JSON.parse(r.body.toString("utf-8"));
+      if (expectedStatus === 200) {
+        expect(parsed.enabled).toBe(false);
+      } else {
+        expect(parsed.error.code).toBe("auth_required");
+      }
+    }
+  });
+
   it("returns 503 mineru_disabled when key missing", async () => {
     const handler = createWebHandler({ config: {} });
     const req = makeReq({

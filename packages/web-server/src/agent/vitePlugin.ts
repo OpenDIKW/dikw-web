@@ -1,4 +1,6 @@
 import type { Plugin } from "vite";
+import { defaultServerUrl } from "@opendikw/web-client/connection";
+import { assertLoopbackDevHost } from "../auth/config.js";
 import { createDefaultAgentHandler } from "./http.js";
 import { withServerSpan } from "../shared/withServerSpan.js";
 import { createLogger } from "../shared/logger.js";
@@ -46,9 +48,17 @@ export function agentSidecarPlugin(
     name: "dikw-agent-sidecar",
     configResolved(config) {
       cwd = config.root;
-      devProxyTarget = resolveDevProxyTarget(config.env?.VITE_DIKW_PROXY_TARGET);
+      if (config.command === "serve") {
+        assertLoopbackDevHost(config.server?.host);
+      }
+      // Mirror vite.config.ts's `/v1` proxy default (`VITE_DIKW_PROXY_TARGET || defaultServerUrl`)
+      // so plain `npm run dev` keeps reaching the local default dikw-core while arbitrary
+      // caller-supplied private/loopback URLs stay rejected. Standalone never injects this.
+      devProxyTarget =
+        resolveDevProxyTarget(config.env?.VITE_DIKW_PROXY_TARGET) ?? defaultServerUrl;
     },
     configureServer(server) {
+      assertLoopbackDevHost(server.config?.server?.host);
       server.middlewares.use("/agent", async (req, res, next) => {
         try {
           handlerPromise ??= createDefaultAgentHandler(cwd, { devProxyTarget, ...options });

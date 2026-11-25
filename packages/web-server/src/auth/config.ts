@@ -57,6 +57,34 @@ const REQUIRED = [
 const DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60;
 const MIN_SESSION_SECRET_LENGTH = 32;
 
+export const DEFAULT_LISTEN_HOST = "127.0.0.1";
+
+/** True only for explicit loopback bind addresses (127.0.0.0/8, ::1, localhost). */
+export function isLoopbackHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase();
+  if (!normalized) return false;
+  const unbracketed =
+    normalized.startsWith("[") && normalized.endsWith("]") ? normalized.slice(1, -1) : normalized;
+  if (unbracketed === "localhost" || unbracketed === "::1") return true;
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(unbracketed);
+  if (!ipv4) return false;
+  const parts = ipv4.slice(1).map(Number);
+  return parts[0] === 127 && parts.every((part) => part >= 0 && part <= 255);
+}
+
+/**
+ * Vite dev middleware never mounts the OIDC BFF gate. Fail closed whenever
+ * `server.host` resolves to a non-loopback address (`true` / `0.0.0.0` / LAN IP).
+ */
+export function assertLoopbackDevHost(host: string | boolean | undefined): void {
+  if (host === undefined || host === false) return;
+  if (host === true || !isLoopbackHost(host)) {
+    throw new Error(
+      "non-loopback Vite dev server host is forbidden without OIDC; bind Vite dev to a loopback host (e.g. 127.0.0.1) or use the standalone server with DIKW_WEB_AUTH_MODE=oidc",
+    );
+  }
+}
+
 export async function loadAuthConfig(
   options: LoadAuthConfigOptions = {},
 ): Promise<AuthConfig | null> {

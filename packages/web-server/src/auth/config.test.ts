@@ -3,7 +3,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadAuthConfig } from "./config";
+import {
+  assertLoopbackDevHost,
+  DEFAULT_LISTEN_HOST,
+  isLoopbackHost,
+  loadAuthConfig,
+} from "./config";
 
 const SECRET = "s".repeat(32);
 
@@ -227,5 +232,47 @@ describe("loadAuthConfig", () => {
       const config = await loadAuthConfig({ cwd, env: { DIKW_WEB_OIDC_CLIENT_ID: "from-env" } });
       expect(config).toMatchObject({ clientId: "from-env", scopes: "openid file" });
     });
+  });
+});
+
+describe("listen host loopback policy", () => {
+  it("defaults DIKW_WEB_HOST to 127.0.0.1", () => {
+    expect(DEFAULT_LISTEN_HOST).toBe("127.0.0.1");
+  });
+
+  it.each([
+    "127.0.0.1",
+    "127.0.1.1",
+    "127.255.255.254",
+    "::1",
+    "[::1]",
+    "localhost",
+    " LOCALHOST ",
+  ])("accepts loopback host %s", (host) => {
+    expect(isLoopbackHost(host)).toBe(true);
+  });
+
+  it.each([
+    "",
+    "   ",
+    "0.0.0.0",
+    "::",
+    "[::]",
+    "10.0.0.1",
+    "192.168.1.10",
+    "127.0.0.256",
+    "::ffff:127.0.0.1",
+    "kb.example.com",
+  ])("rejects non-loopback host %s", (host) => {
+    expect(isLoopbackHost(host)).toBe(false);
+  });
+
+  it("enforces loopback-only Vite dev hosts", () => {
+    for (const allowed of [undefined, false, "127.0.0.1", "::1", "[::1]", "localhost"]) {
+      expect(() => assertLoopbackDevHost(allowed)).not.toThrow();
+    }
+    for (const blocked of [true, "0.0.0.0", "::", "[::]", "192.168.1.5", "dev.example.com"]) {
+      expect(() => assertLoopbackDevHost(blocked)).toThrow(/non-loopback Vite dev server host/i);
+    }
   });
 });

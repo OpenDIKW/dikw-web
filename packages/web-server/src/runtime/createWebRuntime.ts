@@ -4,7 +4,7 @@ import { join, resolve } from "node:path";
 import { createDefaultAgentHandler, resolveSessionsDir } from "../agent/http.js";
 import { createRequestRouter, type RequestRouterOptions } from "../agent/requestRouter.js";
 import { createDefaultWebHandler } from "../web/http.js";
-import { loadAuthConfig } from "../auth/config.js";
+import { isLoopbackHost, loadAuthConfig } from "../auth/config.js";
 import {
   ModelResolutionError,
   safeModelError,
@@ -80,13 +80,22 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
   }
   const cwd = resolve(options.cwd ?? process.cwd());
   const env = { ...(await readEnvFile(join(cwd, ".env.local"))), ...(options.env ?? process.env) };
+  const isProduction = env.NODE_ENV?.trim().toLowerCase() === "production";
   const coreId = env.DIKW_WEB_CORE_ID?.trim();
-  if (options.profile === "mbweb" && env.NODE_ENV === "production" && !coreId) {
+  if (options.profile === "mbweb" && isProduction && !coreId) {
     throw new Error("production MB requires DIKW_WEB_CORE_ID");
   }
   const authConfig = await loadAuthConfig({ cwd, env });
-  if (options.profile === "mbweb" && env.NODE_ENV === "production" && !authConfig) {
-    throw new Error("production MB requires DIKW_WEB_AUTH_MODE=oidc");
+  if (isProduction && !authConfig) {
+    throw new Error(
+      options.profile === "mbweb"
+        ? "production MB requires DIKW_WEB_AUTH_MODE=oidc"
+        : "production workbench requires DIKW_WEB_AUTH_MODE=oidc",
+    );
+  }
+  const bindHost = env.DIKW_WEB_HOST?.trim();
+  if (bindHost && !isLoopbackHost(bindHost) && !authConfig) {
+    throw new Error("non-loopback DIKW_WEB_HOST requires DIKW_WEB_AUTH_MODE=oidc");
   }
   if (options.profile === "mbweb" && authConfig && !coreId) {
     throw new Error("authenticated MB requires DIKW_WEB_CORE_ID");
@@ -193,13 +202,30 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
           }
         }
       : undefined;
+    const unauthenticated = !authConfig;
+    const agentEnv = unauthenticated
+      ? {
+          ...env,
+          DIKW_AGENT_BRAVE_API_KEY: "",
+          DIKW_AGENT_JINA_API_KEY: "",
+          DIKW_AGENT_TAVILY_API_KEY: "",
+        }
+      : env;
+    const webEnv = unauthenticated
+      ? {
+          ...env,
+          DIKW_WEB_MINERU_API_KEY: "",
+          DIKW_AGENT_API_KEY: "",
+        }
+      : env;
     agent = await createDefaultAgentHandler(cwd, {
-      env,
+      env: agentEnv,
       sessionsDir,
       appId: options.appId,
       profile: options.profile,
       subjectFor,
       modelFor,
+      requirePrincipal: unauthenticated,
       ...(authConfig
         ? {
             legacySessionsOwner: authConfig.legacySessionsOwner,
@@ -207,7 +233,13 @@ async function assembleWebRuntime(options: WebRuntimeOptions): Promise<WebRuntim
           }
         : {}),
     });
-    web = await createDefaultWebHandler(cwd, { env, appId: options.appId, subjectFor, modelFor });
+    web = await createDefaultWebHandler(cwd, {
+      env: webEnv,
+      appId: options.appId,
+      subjectFor,
+      modelFor,
+      requirePrincipal: unauthenticated,
+    });
     const staticHandler = createStaticHandler(staticDir);
     const route = createRequestRouter({
       profile: options.profile,

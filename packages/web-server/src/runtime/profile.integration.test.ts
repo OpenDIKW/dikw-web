@@ -341,7 +341,7 @@ it("closes an admitted Agent request that has not finished sending its body", as
       admit();
     }),
   );
-  const partial = request(`${url}/agent/sessions/waiting/messages`, {
+  const partial = request(`${url}/agent/sessions`, {
     method: "POST",
     headers: { "content-type": "application/json" },
   });
@@ -396,6 +396,21 @@ it("applies the MB guard before Vite's Core proxy and sidecars", async () => {
     expect((await fetch(`${url}${path}`)).status).toBe(403);
   expect(forwarded).toBe(1);
 });
+
+it.each(["0.0.0.0", true] as const)(
+  "refuses to start Vite dev sidecars on non-loopback server.host=%s",
+  async (host) => {
+    const cwd = await workspace();
+    await expect(
+      createViteServer({
+        configFile: false,
+        root: cwd,
+        plugins: createApplicationPlugins({ profile: "workbench" }),
+        server: { host, port: 0 },
+      }),
+    ).rejects.toThrow(/non-loopback Vite dev server host/i);
+  },
+);
 
 it.each([
   { appId: "dikw-web", profile: "mbweb" },

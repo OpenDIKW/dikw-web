@@ -12,9 +12,9 @@
 # its N-API prebuilts inside the npm package (no download, no compile, no build
 # toolchain), and a single libc across builder + runtime guarantees the native
 # .node loads.
-# LLM credentials and optional web-tool keys are injected via environment
-# variables. Connects to an external dikw-core whose URL is supplied per request
-# by the browser (Settings page).
+# LLM credentials, OIDC settings and optional web-tool keys are injected via
+# environment variables. Production requires DIKW_WEB_AUTH_MODE=oidc and proxies
+# /v1/* to the server-configured DIKW_CORE_URL.
 
 # --- Builder: full install + build (dist/ + dist-server/standalone.mjs) -------
 FROM node:24-slim AS builder
@@ -66,7 +66,7 @@ RUN apt-get update \
 # npm/npx does, and keeps future npm-bundled-dep CVEs out of the image entirely.
 RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 ENV NODE_ENV=production \
-    DIKW_WEB_HOST=0.0.0.0 \
+    DIKW_WEB_HOST=127.0.0.1 \
     DIKW_WEB_PORT=4321 \
     DIKW_WEB_STATIC_DIR=/app/dist \
     DIKW_AGENT_SESSIONS_DIR=/data/agent-sessions

@@ -67,13 +67,27 @@ describe("agent HTTP sidecar", () => {
     sessionService: DatabaseSessionService,
     sessionId: string,
     event: ReturnType<typeof createEvent>,
+    userId = USER_ID,
   ) {
     const session = (await sessionService.getSession({
       appName: APP_NAME,
-      userId: USER_ID,
+      userId,
       sessionId,
     })) as Session;
     await sessionService.appendEvent({ session, event });
+  }
+
+  function clientCookieOf(response: Response): string {
+    return (
+      response.headers
+        .getSetCookie()
+        .find((value) => value.startsWith("dikw_client="))
+        ?.split(";")[0] ?? ""
+    );
+  }
+
+  function anonUserId(cookie: string): string {
+    return `anon:${cookie.slice("dikw_client=".length)}`;
   }
 
   async function listen(handler: ReturnType<typeof createAgentHandler>): Promise<string> {
@@ -96,7 +110,7 @@ describe("agent HTTP sidecar", () => {
     const { sessionService, store } = makeStore();
     const runInputs: Array<{ coreUrl?: string; token?: string }> = [];
     const runner: AgentRunner = {
-      async runMessage({ sessionId, coreUrl, token, onEvent }) {
+      async runMessage({ sessionId, userId, coreUrl, token, onEvent }) {
         runInputs.push({ coreUrl, token });
 
         // Persist the turn as ADK events so the reopen projection sees it.
@@ -107,6 +121,7 @@ describe("agent HTTP sidecar", () => {
             author: "user",
             content: { role: "user", parts: [{ text: "What is DIKW?" }] },
           }),
+          userId,
         );
         await appendEvent(
           sessionService,
@@ -135,6 +150,7 @@ describe("agent HTTP sidecar", () => {
               ],
             },
           }),
+          userId,
         );
         await appendEvent(
           sessionService,
@@ -143,8 +159,9 @@ describe("agent HTTP sidecar", () => {
             author: "dikw_agent",
             content: { role: "model", parts: [{ text: "Layered answer." }] },
           }),
+          userId,
         );
-        await store.finalizeTurn(sessionId);
+        await store.forUser(userId ?? USER_ID).finalizeTurn(sessionId);
 
         // Emit the frozen NDJSON wire sequence.
         await onEvent({
@@ -169,15 +186,15 @@ describe("agent HTTP sidecar", () => {
     };
     const baseUrl = await listen(createAgentHandler({ store, runner }));
 
-    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
-      id: string;
-    };
+    const createdRes = await fetch(`${baseUrl}/sessions`, { method: "POST" });
+    const cookie = clientCookieOf(createdRes);
+    const created = (await createdRes.json()) as { id: string };
     const stream = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", cookie },
       body: JSON.stringify({
         message: "What is DIKW?",
-        coreUrl: "http://127.0.0.1:8765",
+        coreUrl: "https://core.example.com",
         token: "core-token",
       }),
     });
@@ -192,9 +209,11 @@ describe("agent HTTP sidecar", () => {
       "source",
       "agent_end",
     ]);
-    expect(runInputs).toEqual([{ coreUrl: "http://127.0.0.1:8765", token: "core-token" }]);
+    expect(runInputs).toEqual([{ coreUrl: "https://core.example.com", token: "core-token" }]);
 
-    const reopened = (await (await fetch(`${baseUrl}/sessions/${created.id}`)).json()) as {
+    const reopened = (await (
+      await fetch(`${baseUrl}/sessions/${created.id}`, { headers: { cookie } })
+    ).json()) as {
       messages: Array<{ role: string; content: string }>;
       sources: Array<{ path: string }>;
       toolEvents: Array<{ id: string }>;
@@ -203,14 +222,16 @@ describe("agent HTTP sidecar", () => {
     expect(reopened.toolEvents[0]).toMatchObject({ id: "tool-1" });
     expect(reopened.sources[0].path).toBe("knowledge/architecture.md");
 
-    const summaries = (await (await fetch(`${baseUrl}/sessions`)).json()) as Array<{
+    const summaries = (await (
+      await fetch(`${baseUrl}/sessions`, { headers: { cookie } })
+    ).json()) as Array<{
       id: string;
       messageCount: number;
     }>;
     expect(summaries).toEqual([expect.objectContaining({ id: created.id, messageCount: 2 })]);
 
-    await fetch(`${baseUrl}/sessions/${created.id}`, { method: "DELETE" });
-    expect(await (await fetch(`${baseUrl}/sessions`)).json()).toEqual([]);
+    await fetch(`${baseUrl}/sessions/${created.id}`, { method: "DELETE", headers: { cookie } });
+    expect(await (await fetch(`${baseUrl}/sessions`, { headers: { cookie } })).json()).toEqual([]);
   });
 
   it("routes a default-URL message through the injected dev proxy target so the sidecar reaches the live core", async () => {
@@ -226,14 +247,14 @@ describe("agent HTTP sidecar", () => {
       createAgentHandler({ store, runner, devProxyTarget: "http://127.0.0.1:57609" }),
     );
 
-    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
-      id: string;
-    };
+    const createdRes = await fetch(`${baseUrl}/sessions`, { method: "POST" });
+    const cookie = clientCookieOf(createdRes);
+    const created = (await createdRes.json()) as { id: string };
     // The browser sends the DEFAULT core URL (its /v1 reads ride the same-origin
     // Vite proxy); the sidecar must mirror that proxy and reach the live core.
     const stream = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", cookie },
       body: JSON.stringify({ message: "hi", coreUrl: "http://127.0.0.1:8765", token: "t" }),
     });
     await stream.text(); // drain so runMessage has run
@@ -250,9 +271,9 @@ describe("agent HTTP sidecar", () => {
     };
     const baseUrl = await listen(createAgentHandler({ store, runner }));
 
-    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
-      id: string;
-    };
+    const createdRes = await fetch(`${baseUrl}/sessions`, { method: "POST" });
+    const cookie = clientCookieOf(createdRes);
+    const created = (await createdRes.json()) as { id: string };
     // Seed a pending proposal with a known id.
     await appendEvent(
       sessionService,
@@ -272,18 +293,22 @@ describe("agent HTTP sidecar", () => {
           ],
         },
       }),
+      anonUserId(cookie),
     );
 
     // runMaintenanceProposal uses global fetch to hit core; stub it. We then talk to
     // the sidecar over a raw node http client so the stub does not intercept that call.
-    const coreFetch = vi.fn(async () => Response.json({ task_id: "t-1" }));
+    const coreFetch = vi.fn(async (_url: string, _init: RequestInit) =>
+      Response.json({ task_id: "t-1" }),
+    );
     vi.stubGlobal("fetch", coreFetch);
 
     let confirmed: { proposals: Array<{ id: string; status: string; taskId?: string }> };
     try {
       const res = await nodeFetch(`${baseUrl}/sessions/${created.id}/proposals/pr-1/confirm`, {
         method: "POST",
-        body: JSON.stringify({ coreUrl: "http://127.0.0.1:8765", token: "core-token" }),
+        headers: { cookie },
+        body: JSON.stringify({ coreUrl: "https://core.example.com", token: "core-token" }),
       });
       confirmed = JSON.parse(res) as {
         proposals: Array<{ id: string; status: string; taskId?: string }>;
@@ -293,8 +318,9 @@ describe("agent HTTP sidecar", () => {
     }
 
     expect(coreFetch).toHaveBeenCalledTimes(1);
-    const calledUrl = (coreFetch.mock.calls[0] as unknown[])[0] as string;
-    expect(calledUrl).toBe("http://127.0.0.1:8765/v1/ingest");
+    const [calledUrl, calledInit] = coreFetch.mock.calls[0];
+    expect(calledUrl).toBe("https://core.example.com/v1/ingest");
+    expect(calledInit.redirect).toBe("error");
     const proposal = confirmed.proposals.find((p) => p.id === "pr-1");
     expect(proposal).toMatchObject({ status: "succeeded", taskId: "t-1" });
   });
@@ -308,12 +334,12 @@ describe("agent HTTP sidecar", () => {
     };
     const baseUrl = await listen(createAgentHandler({ store, runner }));
 
-    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
-      id: string;
-    };
+    const createdRes = await fetch(`${baseUrl}/sessions`, { method: "POST" });
+    const cookie = clientCookieOf(createdRes);
+    const created = (await createdRes.json()) as { id: string };
     const response = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", cookie },
       body: JSON.stringify({ message: "What is DIKW?" }),
     });
 
@@ -332,11 +358,11 @@ describe("agent HTTP sidecar", () => {
     };
     const spanStore = new SpanStore();
 
-    const created = await (async () => {
+    const { session: created, cookie } = await (async () => {
       const baseUrl = await listen(createAgentHandler({ store, runner, spanStore }));
-      const session = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
-        id: string;
-      };
+      const createdRes = await fetch(`${baseUrl}/sessions`, { method: "POST" });
+      const clientCookie = clientCookieOf(createdRes);
+      const session = (await createdRes.json()) as { id: string };
       spanStore.record({
         traceId: "t1",
         spanId: "sp1",
@@ -351,7 +377,11 @@ describe("agent HTTP sidecar", () => {
         tokensInput: 42,
         tokensOutput: 7,
       });
-      const traces = (await (await fetch(`${baseUrl}/sessions/${session.id}/traces`)).json()) as {
+      const traces = (await (
+        await fetch(`${baseUrl}/sessions/${session.id}/traces`, {
+          headers: { cookie: clientCookie },
+        })
+      ).json()) as {
         sessionId: string;
         invocations: Array<{
           invocationId: string;
@@ -362,12 +392,14 @@ describe("agent HTTP sidecar", () => {
       expect(traces.invocations).toHaveLength(1);
       expect(traces.invocations[0].invocationId).toBe("inv-1");
       expect(traces.invocations[0].spans[0]).toMatchObject({ name: "call_llm", tokensInput: 42 });
-      return session;
+      return { session, cookie: clientCookie };
     })();
 
     // Without a span store, the route returns an empty view (never 404).
     const baseUrl2 = await listen(createAgentHandler({ store, runner }));
-    const empty = (await (await fetch(`${baseUrl2}/sessions/${created.id}/traces`)).json()) as {
+    const empty = (await (
+      await fetch(`${baseUrl2}/sessions/${created.id}/traces`, { headers: { cookie } })
+    ).json()) as {
       sessionId: string;
       invocations: unknown[];
     };
@@ -383,25 +415,25 @@ describe("agent HTTP sidecar", () => {
     };
     const baseUrl = await listen(createAgentHandler({ store, runner }));
 
-    const created = (await (await fetch(`${baseUrl}/sessions`, { method: "POST" })).json()) as {
-      id: string;
-    };
+    const createdRes = await fetch(`${baseUrl}/sessions`, { method: "POST" });
+    const cookie = clientCookieOf(createdRes);
+    const created = (await createdRes.json()) as { id: string };
     const renamedResponse = await fetch(`${baseUrl}/sessions/${created.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", cookie },
       body: JSON.stringify({ title: "Project Review" }),
     });
     const renamed = (await renamedResponse.json()) as { title: string };
 
     expect(renamedResponse.status).toBe(200);
     expect(renamed.title).toBe("Project Review");
-    await expect((await fetch(`${baseUrl}/sessions`)).json()).resolves.toEqual([
-      expect.objectContaining({ id: created.id, title: "Project Review" }),
-    ]);
+    await expect(
+      (await fetch(`${baseUrl}/sessions`, { headers: { cookie } })).json(),
+    ).resolves.toEqual([expect.objectContaining({ id: created.id, title: "Project Review" })]);
 
     const invalidResponse = await fetch(`${baseUrl}/sessions/${created.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", cookie },
       body: JSON.stringify({ title: "   " }),
     });
     expect(invalidResponse.status).toBe(400);
@@ -422,6 +454,174 @@ describe("agent HTTP sidecar", () => {
     expect(response.status).toBe(404);
     await expect(response.json()).resolves.toEqual({
       error: { code: "not_found", message: "session not found" },
+    });
+  });
+
+  describe("auth-off hardening", () => {
+    it.each([
+      ["http://127.0.0.1:8765"],
+      ["http://localhost:8765"],
+      ["http://localhost.:8765"],
+      ["http://169.254.169.254/latest/meta-data"],
+      ["http://metadata.google.internal"],
+      ["http://host.docker.internal:8765"],
+      ["http://redis:6379"],
+      ["http://10.0.0.1:8765"],
+      ["http://172.16.0.5:8765"],
+      ["http://192.168.1.10:8765"],
+      ["http://[::1]:8765"],
+      ["http://[::ffff:127.0.0.1]:8765"],
+      ["http://[::127.0.0.1]:8765"],
+      ["http://[64:ff9b::127.0.0.1]:8765"],
+      ["http://[ff02::1]:8765"],
+      ["http://core.local:8765"],
+      ["https://user:pass@core.example.com"],
+      ["https://core.example.com/other?x="],
+      ["file:///etc/passwd"],
+    ])(
+      "rejects private, loopback, or unsafe caller coreUrl %s on messages and proposal confirm",
+      async (badCoreUrl) => {
+        const { store } = makeStore();
+        const runMessage = vi.fn();
+        const baseUrl = await listen(createAgentHandler({ store, runner: { runMessage } }));
+        const createdRes = await fetch(`${baseUrl}/sessions`, { method: "POST" });
+        const cookie = clientCookieOf(createdRes);
+        const created = (await createdRes.json()) as { id: string };
+
+        const msgRes = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", cookie },
+          body: JSON.stringify({ message: "hi", coreUrl: badCoreUrl }),
+        });
+        expect(msgRes.status).toBe(400);
+        expect(await msgRes.json()).toMatchObject({ error: { code: "invalid_request" } });
+
+        const confirmRes = await fetch(`${baseUrl}/sessions/${created.id}/proposals/p-1/confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", cookie },
+          body: JSON.stringify({ coreUrl: badCoreUrl }),
+        });
+        expect(confirmRes.status).toBe(400);
+        expect(await confirmRes.json()).toMatchObject({ error: { code: "invalid_request" } });
+        expect(runMessage).not.toHaveBeenCalled();
+      },
+    );
+
+    it("still rejects non-default private/loopback coreUrl even when devProxyTarget is set", async () => {
+      const { store } = makeStore();
+      const runMessage = vi.fn();
+      const baseUrl = await listen(
+        createAgentHandler({
+          store,
+          runner: { runMessage },
+          devProxyTarget: "http://127.0.0.1:57609",
+        }),
+      );
+      const createdRes = await fetch(`${baseUrl}/sessions`, { method: "POST" });
+      const cookie = clientCookieOf(createdRes);
+      const created = (await createdRes.json()) as { id: string };
+
+      for (const badCoreUrl of ["http://127.0.0.1:6379", "http://169.254.169.254"]) {
+        const res = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", cookie },
+          body: JSON.stringify({ message: "hi", coreUrl: badCoreUrl }),
+        });
+        expect(res.status, badCoreUrl).toBe(400);
+      }
+      expect(runMessage).not.toHaveBeenCalled();
+    });
+
+    it("does not share sessions across unauthenticated clients or expose legacy demo sessions", async () => {
+      const { store } = makeStore();
+      const legacy = await store.createSession();
+      const runner: AgentRunner = {
+        async runMessage() {
+          throw new Error("runner should not be called");
+        },
+      };
+      const baseUrl = await listen(createAgentHandler({ store, runner }));
+
+      const clientARes = await fetch(`${baseUrl}/sessions`, { method: "POST" });
+      const cookieA = clientCookieOf(clientARes);
+      expect(cookieA).toMatch(/^dikw_client=[a-f0-9]{32}$/);
+      const setCookieHeader = clientARes.headers.getSetCookie().join(";");
+      expect(setCookieHeader).toContain("HttpOnly");
+      expect(setCookieHeader).toContain("Path=/agent");
+      const sessionA = (await clientARes.json()) as { id: string };
+
+      // Cookie-less GET /sessions returns [] without minting a cookie (prevents
+      // concurrent first-load GET/POST races from clobbering the new client cookie).
+      const initialList = await fetch(`${baseUrl}/sessions`);
+      expect(initialList.status).toBe(200);
+      expect(await initialList.json()).toEqual([]);
+      expect(initialList.headers.getSetCookie()).toEqual([]);
+
+      // Cookie-less 404 does not mint a cookie either.
+      const missingRes = await fetch(`${baseUrl}/sessions/${sessionA.id}`);
+      expect(missingRes.status).toBe(404);
+      expect(missingRes.headers.getSetCookie()).toEqual([]);
+
+      // Client A sees only its own session, never the legacy demo session.
+      const listA = (await (
+        await fetch(`${baseUrl}/sessions`, { headers: { cookie: cookieA } })
+      ).json()) as Array<{ id: string }>;
+      expect(listA.map((s) => s.id)).toEqual([sessionA.id]);
+      expect(
+        (await fetch(`${baseUrl}/sessions/${legacy.id}`, { headers: { cookie: cookieA } })).status,
+      ).toBe(404);
+
+      // Another client (no cookie, different cookie, or forged `demo` cookie) sees neither.
+      for (const headers of [
+        {},
+        { cookie: "dikw_client=demo" },
+        { cookie: `dikw_client=${"b".repeat(32)}` },
+      ] as Array<Record<string, string>>) {
+        expect(await (await fetch(`${baseUrl}/sessions`, { headers })).json()).toEqual([]);
+        expect((await fetch(`${baseUrl}/sessions/${sessionA.id}`, { headers })).status).toBe(404);
+        expect(
+          (await fetch(`${baseUrl}/sessions/${sessionA.id}`, { method: "DELETE", headers })).status,
+        ).toBe(404);
+        expect((await fetch(`${baseUrl}/sessions/${legacy.id}`, { headers })).status).toBe(404);
+      }
+    });
+
+    it("blocks agent runs and proposal confirms with 401 when requirePrincipal is enabled without a subject", async () => {
+      const { store } = makeStore();
+      const runMessage = vi.fn();
+      const baseUrl = await listen(
+        createAgentHandler({ store, runner: { runMessage }, requirePrincipal: true }),
+      );
+      const createdRes = await fetch(`${baseUrl}/sessions`, { method: "POST" });
+      const cookie = clientCookieOf(createdRes);
+      const created = (await createdRes.json()) as { id: string };
+
+      const msgRes = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", cookie },
+        body: JSON.stringify({ message: "hi", coreUrl: "https://core.example.com" }),
+      });
+      expect(msgRes.status).toBe(401);
+      expect(await msgRes.json()).toMatchObject({ error: { code: "auth_required" } });
+
+      const confirmRes = await fetch(`${baseUrl}/sessions/${created.id}/proposals/p-1/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", cookie },
+        body: JSON.stringify({ coreUrl: "https://core.example.com" }),
+      });
+      expect(confirmRes.status).toBe(401);
+      expect(await confirmRes.json()).toMatchObject({ error: { code: "auth_required" } });
+
+      // Auth check runs before body parsing and without minting cookies on 401.
+      const malformedRes = await fetch(`${baseUrl}/sessions/${created.id}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{not-json",
+      });
+      expect(malformedRes.status).toBe(401);
+      expect(await malformedRes.json()).toMatchObject({ error: { code: "auth_required" } });
+      expect(malformedRes.headers.getSetCookie()).toEqual([]);
+      expect(runMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -550,6 +750,64 @@ describe("agent HTTP sidecar", () => {
       const [url, init] = coreFetch.mock.calls[0];
       expect(url).toBe("http://core.internal:8765/v1/synth");
       expect((init.headers as Record<string, string>).Authorization).toBe("Bearer server-token");
+    });
+
+    it("preserves a configured path prefix on serverCore.coreUrl when confirming a maintenance proposal", async () => {
+      const { sessionService, store } = makeStore();
+      const { runner } = recordingRunner();
+      const prefixedCore = {
+        coreUrl: "https://core.example.com/core",
+        token: "server-token",
+      };
+      const baseUrl = await listen(
+        createAgentHandler({ store, runner, subjectFor, serverCore: prefixedCore }),
+      );
+      const created = (await (
+        await fetch(`${baseUrl}/sessions`, as("alice", { method: "POST" }))
+      ).json()) as { id: string };
+      const session = (await sessionService.getSession({
+        appName: APP_NAME,
+        userId: "oidc:alice",
+        sessionId: created.id,
+      })) as Session;
+      await sessionService.appendEvent({
+        session,
+        event: createEvent({
+          author: "dikw_agent",
+          content: {
+            role: "user",
+            parts: [
+              {
+                functionResponse: {
+                  id: "pr-prefixed",
+                  name: "propose_maintenance_action",
+                  response: { proposal: { action: "synth", description: "d", params: {} } },
+                },
+              },
+            ],
+          },
+        }),
+      });
+      const coreFetch = vi.fn(async (_url: string, _init: RequestInit) =>
+        Response.json({ task_id: "t-prefixed" }),
+      );
+      vi.stubGlobal("fetch", coreFetch);
+      try {
+        await nodeFetch(`${baseUrl}/sessions/${created.id}/proposals/pr-prefixed/confirm`, {
+          method: "POST",
+          body: JSON.stringify({}),
+          headers: { "x-test-user": "alice" },
+        });
+      } finally {
+        vi.unstubAllGlobals();
+      }
+      expect(coreFetch).toHaveBeenCalledTimes(1);
+      const [calledUrl, calledInit] = coreFetch.mock.calls[0];
+      expect(calledUrl).toBe("https://core.example.com/core/v1/synth");
+      expect(calledInit.redirect).toBe("error");
+      expect((calledInit.headers as Record<string, string>).Authorization).toBe(
+        "Bearer server-token",
+      );
     });
 
     it("lets the configured legacy owner see and continue the pre-auth sessions", async () => {
