@@ -341,7 +341,7 @@ it("closes an admitted Agent request that has not finished sending its body", as
       admit();
     }),
   );
-  const partial = request(`${url}/agent/sessions/waiting/messages`, {
+  const partial = request(`${url}/agent/sessions`, {
     method: "POST",
     headers: { "content-type": "application/json" },
   });

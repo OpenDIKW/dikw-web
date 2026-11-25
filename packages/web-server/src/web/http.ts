@@ -69,11 +69,13 @@ export interface WebHandlerOptions {
   anthropic?: AnthropicLike;
   /** Auth mode: the OIDC subject admitted by the gate. Unset keeps jobs shared. */
   subjectFor?: (req: IncomingMessage) => string;
+  /** When true, keep server-held provider keys unused unless a principal is authenticated. */
+  requirePrincipal?: boolean;
 }
 
 export async function createDefaultWebHandler(
   cwd = process.cwd(),
-  options: Pick<WebHandlerOptions, "subjectFor" | "modelFor"> & {
+  options: Pick<WebHandlerOptions, "subjectFor" | "modelFor" | "requirePrincipal"> & {
     env?: Record<string, string | undefined>;
     appId?: string;
   } = {},
@@ -117,15 +119,25 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
         return notFound(res);
       }
       const subject = options.subjectFor?.(req);
+      const principalMissing = options.requirePrincipal === true && subject === undefined;
 
       if (family === "mineru") {
         if (req.method === "GET" && parts[1] === "health") {
+          const enabled = !principalMissing && Boolean(config.mineruApiKey);
           return json(res, {
-            enabled: Boolean(config.mineruApiKey),
-            hasKey: Boolean(config.mineruApiKey),
+            enabled,
+            hasKey: enabled,
           });
         }
         if (req.method === "POST" && parts[1] === "convert") {
+          if (principalMissing) {
+            return errorJson(
+              res,
+              401,
+              "auth_required",
+              "authentication is required for document conversion",
+            );
+          }
           if (!config.mineruApiKey) {
             return errorJson(
               res,
@@ -140,9 +152,19 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
 
       if (family === "translate") {
         if (req.method === "GET" && parts[1] === "health") {
-          return json(res, { enabled: !!options.modelFor || Boolean(config.translatorApiKey) });
+          return json(res, {
+            enabled: !principalMissing && (!!options.modelFor || Boolean(config.translatorApiKey)),
+          });
         }
         if (req.method === "POST" && parts[1] === "submit") {
+          if (principalMissing) {
+            return errorJson(
+              res,
+              401,
+              "auth_required",
+              "authentication is required for translation",
+            );
+          }
           if (!options.modelFor && !config.translatorApiKey) {
             return errorJson(
               res,
@@ -168,6 +190,14 @@ export function createWebHandler(options: WebHandlerOptions = {}): WebHandler {
       // queryable regardless. `result` is dispatched per family (translate →
       // JSON, mineru → tar.gz); status / cancel are content-type agnostic.
       if (parts[1] === "jobs" && parts[2]) {
+        if (principalMissing) {
+          return errorJson(
+            res,
+            401,
+            "auth_required",
+            "authentication is required to access background jobs",
+          );
+        }
         const jobId = parts[2];
         // One store holds both families and users. Foreign jobs are indistinguishable
         // from unknown ids, before status, result or cancellation can be reached.

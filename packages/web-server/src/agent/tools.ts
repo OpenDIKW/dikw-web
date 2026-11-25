@@ -55,8 +55,14 @@ export function validateAndNormalizeHttpUrl(raw: unknown): string {
 
 function isPrivateOrLoopbackHost(hostname: string): boolean {
   if (!hostname) return true;
-  const lower = hostname.toLowerCase();
-  if (lower === "localhost" || lower.endsWith(".localhost") || lower.endsWith(".local")) {
+  const lower = hostname.toLowerCase().replace(/\.+$/, "");
+  if (!lower) return true;
+  if (
+    lower === "localhost" ||
+    lower.endsWith(".localhost") ||
+    lower.endsWith(".local") ||
+    lower.endsWith(".internal")
+  ) {
     return true;
   }
   const ipv6 = lower.startsWith("[") && lower.endsWith("]") ? lower.slice(1, -1) : lower;
@@ -65,9 +71,16 @@ function isPrivateOrLoopbackHost(hostname: string): boolean {
     const head = ipv6.replace(/^\[|\]$/g, "");
     if (/^fe[89ab]/.test(head)) return true;
     if (/^f[cd]/.test(head)) return true;
-    // IPv4-mapped IPv6 (`::ffff:127.0.0.1` or `::ffff:7f00:1`) bypasses dotted-IPv4 checks
-    // and gives no legitimate public-host use case — refuse the whole form.
+    if (/^ff/.test(head)) return true;
+    // NAT64 well-known / local-use prefixes (64:ff9b::/96, 64:ff9b:1::/48)
+    if (head.startsWith("64:ff9b:")) return true;
+    // IPv4-mapped (`::ffff:...`) and deprecated IPv4-compatible (`::7f00:1` / `::127.0.0.1`)
+    // IPv6 forms bypass dotted-IPv4 checks and have no legitimate public-host use case.
     if (head.startsWith("::ffff:") || head.includes(":ffff:")) return true;
+    if (/^::[0-9a-f]{1,4}:[0-9a-f]{1,4}$/.test(head) || /^::(?:\d+\.){3}\d+$/.test(head)) {
+      return true;
+    }
+    return false;
   }
   const ipv4 = lower.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (ipv4) {
@@ -85,7 +98,10 @@ function isPrivateOrLoopbackHost(hostname: string): boolean {
     if (a === 172 && b >= 16 && b <= 31) return true;
     if (a === 100 && b >= 64 && b <= 127) return true;
     if (a >= 224) return true;
+    return false;
   }
+  // Single-label hostnames (e.g. `redis`, `dikw-core`, `casdoor`) target internal networks.
+  if (!lower.includes(".")) return true;
   return false;
 }
 
@@ -105,6 +121,7 @@ export class CoreToolClient {
   async getJson(path: string, params?: Record<string, unknown>): Promise<unknown> {
     const response = await this.fetchImpl(this.url(path, params), {
       headers: this.headers(false),
+      redirect: "error",
       signal: this.signal,
     });
     return readJsonResponse(response);
@@ -115,6 +132,7 @@ export class CoreToolClient {
       method: "POST",
       headers: this.headers(true),
       body: JSON.stringify({ q, limit }),
+      redirect: "error",
       signal: this.signal,
     });
     if (!response.ok) {

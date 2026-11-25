@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { randomBytes } from "node:crypto";
 import { mkdir } from "node:fs/promises";
 import { isAbsolute, join } from "node:path";
 import { DatabaseSessionService } from "@google/adk";
@@ -12,6 +13,7 @@ import { AdkAgentRunner } from "./adkRunner.js";
 import { InvalidSessionScopeError, parseSessionScope } from "./scope.js";
 import { SpanStore } from "./spanStore.js";
 import { initAgentTelemetry } from "./telemetry.js";
+import { validateAndNormalizeHttpUrl } from "./tools.js";
 import { createLogger } from "../shared/logger.js";
 import { defaultServerUrl } from "@opendikw/web-client/connection";
 import type { AgentRunner } from "./runtime.js";
@@ -49,6 +51,12 @@ export interface AgentHandlerOptions {
    * at an arbitrary URL.
    */
   serverCore?: CoreConnection;
+  /**
+   * When true, refuse agent turns and proposal confirmations unless a verified
+   * principal (`subjectFor`) is present — keeping server-held provider keys
+   * unused when unauthenticated.
+   */
+  requirePrincipal?: boolean;
 }
 
 type DefaultAgentHandlerOptions = Pick<
@@ -59,6 +67,7 @@ type DefaultAgentHandlerOptions = Pick<
   | "legacySessionsOwner"
   | "serverCore"
   | "modelFor"
+  | "requirePrincipal"
 > & {
   env?: Record<string, string | undefined>;
   appId?: ApplicationId;
@@ -143,6 +152,7 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
     serverCore,
     subjectFor,
     legacySessionsOwner,
+    requirePrincipal = false,
   } = options;
   if (!baseStore || !runner) {
     throw new Error(
@@ -172,16 +182,59 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
       // Every route below goes through the caller's own store, so another
       // user's session id is simply "not found". Signed-in users live under
       // `oidc:<sub>`, so no IdP subject can ever be the pre-auth `demo` owner;
-      // only the configured legacy owner is handed those sessions.
+      // only the configured legacy owner is handed those sessions. When auth
+      // is off, scope each client to its own opaque HttpOnly cookie (`anon:<id>`)
+      // minted only on `POST /sessions` — avoiding first-load GET/POST races and
+      // never sharing the global `demo` namespace across clients.
       const subject = subjectFor?.(req);
-      const quotaOwner = subject === undefined ? DEFAULT_USER_ID : `oidc:${subject}`;
-      const store =
-        subject === undefined
-          ? baseStore.forUser(DEFAULT_USER_ID)
-          : baseStore.forUser(
-              `oidc:${subject}`,
-              subject === legacySessionsOwner ? DEFAULT_USER_ID : undefined,
-            );
+      const anonClientId = subject === undefined ? readAnonClientId(req) : undefined;
+      const isCreateSession = req.method === "POST" && parts.length === 1;
+      if (subject === undefined && !anonClientId) {
+        if (req.method === "GET" && parts.length === 1) {
+          return json(res, []);
+        }
+        if (
+          requirePrincipal &&
+          req.method === "POST" &&
+          ((parts.length === 3 && parts[2] === "messages") ||
+            (parts.length === 5 && parts[2] === "proposals" && parts[4] === "confirm"))
+        ) {
+          return errorJson(
+            res,
+            401,
+            "auth_required",
+            parts[2] === "messages"
+              ? "authentication is required to run agent turns"
+              : "authentication is required to confirm maintenance proposals",
+          );
+        }
+        if (!isCreateSession) {
+          if (parts.length >= 2 && parts[1]) {
+            return errorJson(res, 404, "not_found", "session not found");
+          }
+          return notFound(res);
+        }
+      }
+      let quotaOwner: string;
+      let store: AdkSessionStore;
+      if (subject === undefined) {
+        let clientId = anonClientId;
+        if (!clientId) {
+          clientId = randomBytes(16).toString("hex");
+          appendSetCookie(
+            res,
+            `${ANON_CLIENT_COOKIE}=${clientId}; Path=/agent; HttpOnly; SameSite=Lax; Max-Age=2592000`,
+          );
+        }
+        quotaOwner = `anon:${clientId}`;
+        store = baseStore.forUser(quotaOwner);
+      } else {
+        quotaOwner = `oidc:${subject}`;
+        store = baseStore.forUser(
+          quotaOwner,
+          subject === legacySessionsOwner ? DEFAULT_USER_ID : undefined,
+        );
+      }
       if (req.method === "GET" && parts.length === 1) {
         return json(res, await store.listSessions());
       }
@@ -227,6 +280,14 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
         return noContent(res);
       }
       if (req.method === "POST" && parts.length === 3 && parts[2] === "messages") {
+        if (requirePrincipal && subject === undefined) {
+          return errorJson(
+            res,
+            401,
+            "auth_required",
+            "authentication is required to run agent turns",
+          );
+        }
         const body = await readJsonBody(req);
         if (
           !isRecord(body) ||
@@ -328,6 +389,14 @@ export function createAgentHandler(options: AgentHandlerOptions = {}) {
           return json(res, await store.updateProposalStatus(sessionId, proposalId, "rejected"));
         }
         if (parts[4] === "confirm") {
+          if (requirePrincipal && subject === undefined) {
+            return errorJson(
+              res,
+              401,
+              "auth_required",
+              "authentication is required to confirm maintenance proposals",
+            );
+          }
           const body = await readJsonBody(req);
           const connection = serverCore ?? readCoreConnection(body, devProxyTarget);
           if ("error" in connection) {
@@ -421,16 +490,46 @@ async function runMaintenanceProposal(
   if (connection.token) {
     headers.Authorization = `Bearer ${connection.token}`;
   }
-  const response = await fetch(`${connection.coreUrl}${endpoint}`, {
+  const targetUrl = new URL(endpoint, `${connection.coreUrl}/`).toString();
+  const response = await fetch(targetUrl, {
     method: "POST",
     headers,
     body: JSON.stringify(params),
+    redirect: "error",
     signal,
   });
   if (!response.ok) {
     throw new Error(await response.text());
   }
   return (await response.json()) as { task_id?: string };
+}
+
+const ANON_CLIENT_COOKIE = "dikw_client";
+const ANON_CLIENT_ID_RE = /^[a-f0-9]{32}$/;
+
+function readAnonClientId(req: IncomingMessage): string | undefined {
+  const header = req.headers.cookie;
+  if (!header) return undefined;
+  for (const part of header.split(";")) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    if (part.slice(0, eq).trim() === ANON_CLIENT_COOKIE) {
+      const value = part.slice(eq + 1).trim();
+      if (ANON_CLIENT_ID_RE.test(value)) return value;
+    }
+  }
+  return undefined;
+}
+
+function appendSetCookie(res: ServerResponse, cookie: string): void {
+  const existing = typeof res.getHeader === "function" ? res.getHeader("Set-Cookie") : undefined;
+  if (!existing) {
+    res.setHeader("Set-Cookie", cookie);
+  } else if (Array.isArray(existing)) {
+    res.setHeader("Set-Cookie", [...existing, cookie]);
+  } else {
+    res.setHeader("Set-Cookie", [String(existing), cookie]);
+  }
 }
 
 function readCoreConnection(
@@ -440,17 +539,43 @@ function readCoreConnection(
   if (!isRecord(body) || typeof body.coreUrl !== "string" || !body.coreUrl.trim()) {
     return { error: "coreUrl is required" };
   }
+  const raw = body.coreUrl.trim();
+  const target = devProxyTarget?.trim();
+  if (target) {
+    let normalizedRaw: string | undefined;
+    try {
+      normalizedRaw = new URL(raw).toString().replace(/\/$/, "");
+    } catch {
+      normalizedRaw = undefined;
+    }
+    if (normalizedRaw === defaultServerUrl) {
+      try {
+        const parsedTarget = new URL(target);
+        if (parsedTarget.protocol === "http:" || parsedTarget.protocol === "https:") {
+          return {
+            coreUrl: applyDevProxyTarget(normalizedRaw, target),
+            ...(typeof body.token === "string" && body.token ? { token: body.token } : {}),
+          };
+        }
+      } catch {
+        // Malformed devProxyTarget falls through to strict URL validation.
+      }
+    }
+  }
   try {
-    const url = new URL(body.coreUrl.trim());
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return { error: "coreUrl must be an absolute http(s) URL" };
+    const safeUrl = validateAndNormalizeHttpUrl(raw);
+    const parsed = new URL(safeUrl);
+    if (parsed.pathname !== "/" || parsed.search || parsed.hash) {
+      return { error: "coreUrl must be an origin without a path, query, or fragment" };
     }
     return {
-      coreUrl: applyDevProxyTarget(url.toString().replace(/\/$/, ""), devProxyTarget),
+      coreUrl: parsed.origin,
       ...(typeof body.token === "string" && body.token ? { token: body.token } : {}),
     };
-  } catch {
-    return { error: "coreUrl must be an absolute http(s) URL" };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "coreUrl must be an absolute http(s) URL",
+    };
   }
 }
 

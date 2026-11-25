@@ -39,12 +39,20 @@ try {
   assert.match(await (await fetch(base)).text(), /Packed runtime/);
   const response = await fetch(`${base}/agent/sessions`, { method: "POST" });
   assert.equal(response.status, 201);
+  const clientCookie =
+    response.headers
+      .getSetCookie()
+      .find((value) => value.startsWith("dikw_client="))
+      ?.split(";")[0] ?? "";
+  assert.match(clientCookie, /^dikw_client=[a-f0-9]{32}$/);
   const session = await response.json();
   await runtime.close();
   await runtime.close();
   runtime = await createWebRuntime(options);
   assert.ok(
-    (await (await fetch(`${base}/agent/sessions`)).json()).some((item) => item.id === session.id),
+    (
+      await (await fetch(`${base}/agent/sessions`, { headers: { cookie: clientCookie } })).json()
+    ).some((item) => item.id === session.id),
   );
 } finally {
   await runtime.close();

@@ -57,6 +57,21 @@ const REQUIRED = [
 const DEFAULT_SESSION_TTL_SECONDS = 8 * 60 * 60;
 const MIN_SESSION_SECRET_LENGTH = 32;
 
+export const DEFAULT_LISTEN_HOST = "127.0.0.1";
+
+/** True only for explicit loopback bind addresses (127.0.0.0/8, ::1, localhost). */
+export function isLoopbackHost(host: string): boolean {
+  const normalized = host.trim().toLowerCase();
+  if (!normalized) return false;
+  const unbracketed =
+    normalized.startsWith("[") && normalized.endsWith("]") ? normalized.slice(1, -1) : normalized;
+  if (unbracketed === "localhost" || unbracketed === "::1") return true;
+  const ipv4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(unbracketed);
+  if (!ipv4) return false;
+  const parts = ipv4.slice(1).map(Number);
+  return parts[0] === 127 && parts.every((part) => part >= 0 && part <= 255);
+}
+
 export async function loadAuthConfig(
   options: LoadAuthConfigOptions = {},
 ): Promise<AuthConfig | null> {

@@ -95,13 +95,21 @@ async function main() {
   // 1) Create a session.
   const created = await fetch(`${base}/agent/sessions`, { method: "POST" });
   if (!created.ok) throw new Error(`create session -> HTTP ${created.status}`);
+  const clientCookie =
+    created.headers
+      .getSetCookie()
+      .find((value) => value.startsWith("dikw_client="))
+      ?.split(";")[0] ?? "";
   const sessionId = (await created.json()).id;
   console.log(`[agent] session ${sessionId}`);
 
   // 2) Send one message; drain the NDJSON stream.
   const res = await fetch(`${base}/agent/sessions/${encodeURIComponent(sessionId)}/messages`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(clientCookie ? { cookie: clientCookie } : {}),
+    },
     body: JSON.stringify({ message: PROMPT, coreUrl: DEFAULT_CORE_URL, token: state.token }),
   });
   if (!res.ok || !res.body) throw new Error(`messages -> HTTP ${res.status}`);
@@ -173,7 +181,9 @@ async function main() {
 
   // BONUS: the in-memory trace waterfall. Assert the endpoint's shape; report
   // span count when present, but don't require it (empty under `vite dev`).
-  const tracesRes = await fetch(`${base}/agent/sessions/${encodeURIComponent(sessionId)}/traces`);
+  const tracesRes = await fetch(`${base}/agent/sessions/${encodeURIComponent(sessionId)}/traces`, {
+    headers: clientCookie ? { cookie: clientCookie } : {},
+  });
   if (!tracesRes.ok) throw new Error(`traces -> HTTP ${tracesRes.status}`);
   const traces = await tracesRes.json();
   if (!Array.isArray(traces.invocations)) {
